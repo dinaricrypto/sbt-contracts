@@ -1,0 +1,14 @@
+a: Trad Exchange
+d: Wallets
+
+Brokerage: {
+  b: Trad Brokerage
+  c: Onchain Brokerage
+}
+
+d -> Brokerage.c: Orders
+Brokerage.c -> Brokerage.b: Orders
+Brokerage.b -> a: Orders
+a -> Brokerage.b: Confirmations
+Brokerage.b -> Brokerage.c: Confirmations
+Brokerage.c -> d: Mint/Burn
