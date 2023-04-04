@@ -1,0 +1,29 @@
+direction: right
+
+Brokerage: {
+  AAPL
+  dAAPL
+  SPX
+  dSPX
+  USD
+  dUSD
+}
+Staking: {
+  dAAPL
+  dSPX
+  dUSD
+}
+Staker
+Trader
+
+Brokerage.AAPL <-> Brokerage.dAAPL
+Brokerage.SPX <-> Brokerage.dSPX
+Brokerage.USD <-> Brokerage.dUSD
+
+Brokerage -> Staking: Fees
+
+Staker -> Staking: Stake dSPX
+Staking -> Staker: Earn dSPX
+
+Trader <-> Brokerage: dUSD
+Trader <-> Brokerage: dSPX
