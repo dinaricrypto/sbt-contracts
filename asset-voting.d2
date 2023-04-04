@@ -1,13 +1,16 @@
 direction: right
 
-ve-Staking: {
+veD Timelock
+Voting: {
   shape: sql_table
 
   AAPL: 900k
   MSFT: 200k
   AMZN: 100k
 }
-User
+Holder
 
-User -> ve-Staking: D
-ve-Staking -> User: veD
+Holder -> veD Timelock: lock D
+veD Timelock -> Holder: receive veD
+Holder -> Voting: vote veD
+veD Timelock -> Holder: earn rewards
