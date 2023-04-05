@@ -1,5 +1,3 @@
-direction: right
-
 Brokerage: {
   AAPL
   dAAPL
@@ -15,12 +13,17 @@ Staking: {
 }
 Staker
 Trader
+Distributor
+Distributor.shape: diamond
+Treasury
 
 Brokerage.AAPL <-> Brokerage.dAAPL
 Brokerage.SPX <-> Brokerage.dSPX
 Brokerage.USD <-> Brokerage.dUSD
 
-Brokerage -> Staking: Fees
+Brokerage -> Distributor: Fees
+Distributor -> Staking: Fees
+Distributor -> Treasury: Fees
 
 Staker -> Staking: Stake dSPX
 Staking -> Staker: Earn dSPX
