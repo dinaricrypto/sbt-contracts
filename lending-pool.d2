@@ -1,0 +1,23 @@
+direction: right
+
+Lending Pool: {
+  dAAPL
+  dSPX
+  dUSD
+}
+Insurance Fund
+Lender
+Borrower
+Treasury
+Distributor
+Distributor.shape: diamond
+
+Lending Pool -> Insurance Fund: Liquidations
+Lender -> Lending Pool: Deposit dUSD
+Lending Pool -> Lender: Earn dUSD
+Borrower -> Lending Pool: Deposit dSPX
+Borrower -> Lending Pool: Pay dUSD
+Lending Pool -> Borrower: Borrow dUSD
+Lending Pool -> Distributor: Revenue
+Distributor -> Treasury: Revenue
+Distributor -> Insurance Fund: Revenue
