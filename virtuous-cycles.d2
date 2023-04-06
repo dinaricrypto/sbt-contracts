@@ -1,0 +1,22 @@
+V1: {
+  Trade Volume
+  Staking Yield
+  Yield Seeking
+}
+V2: {
+  Trade Volume
+  Staking Yield
+  Staking Volume
+  Better Trade Execution
+}
+
+V1.Trade Volume -> V1.Staking Yield
+V1.Staking Yield -> V1.Yield Seeking
+V1.Yield Seeking -> V1.Trade Volume
+
+V2.Trade Volume -> V2.Staking Yield
+V2.Staking Yield -> V2.Staking Volume
+V2.Staking Volume -> V2.Better Trade Execution
+V2.Better Trade Execution -> V2.Trade Volume
+
+V1 -> V2: Release Dinari DEX
