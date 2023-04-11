@@ -1,0 +1,8 @@
+{
+  "name": "@dinari/brokerage-contracts",
+  "packageManager": "yarn@3.2.0",
+  "scripts": {
+    "install:d2": "curl -fsSL https://d2lang.com/install.sh | sh -s --",
+    "build:d2": "find . -type f  -name '*.d2' -exec d2 '{}' \\;"
+  }
+}

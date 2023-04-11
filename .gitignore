@@ -1,0 +1,46 @@
+.DS_Store
+
+# node
+node_modules/
+
+# hardhat
+/artifacts
+/cache
+/coverage
+coverage.json
+src/types
+src/validations.json
+
+# foundry
+/forge-cache
+/out
+lcov*.info
+
+# slither
+/crytic_export
+
+# deployments
+deployments/
+.contracts*
+contracts*.json
+manifest.json
+
+# env
+.env
+.env-*
+
+# logs
+*.log
+trace.json
+
+# python
+__pycache__/
+
+# IDE
+.idea
+
+# yarn v2
+.yarn/
+
+# dist
+dist/
