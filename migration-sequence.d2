@@ -1,0 +1,15 @@
+Share Migration: {
+  shape: sequence_diagram
+  user: User Client App
+  api: Dinari Brokerage Service
+  contracts: Brokerage Smart Contracts
+  old-brokerage: User Brokerage
+  bank: Depository/Bank
+  user -> api: Migration Request
+  api -> old-brokerage: Migration Request
+  old-brokerage -> api: Migration Fulfillment
+  api -> bank: Deposit Shares
+  bank -> api: Deposit Receipt
+  api -> contracts: Mint Certificates
+  api -> user: Notify User
+}
