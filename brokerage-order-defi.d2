@@ -1,0 +1,23 @@
+Brokerage Order (DeFi): {
+  shape: sequence_diagram
+
+  user: User Client App
+  api: Dinari Brokerage Service
+  contracts: Brokerage Smart Contracts
+  clearing: Clearning House
+
+  api -> contracts: Listen* {
+    style.stroke-dash: 5
+  }
+  user -> contracts: Order w/ Payment Escrow
+  contracts -> api: Order Details*
+  api -> clearing: Order
+  clearing -> api: Order Fulfillment
+  api -> contracts: Mint/Burn Certificates
+  contracts -> api: Payment Token Settlement
+  api -> user: Notify User
+}
+
+note: |md
+  *See Chainlink Functions
+|
