@@ -1,3 +1,7 @@
+ignore:
+  - "scripts"
+  - "test"
+
 coverage:
   status:
     project:
