@@ -3,18 +3,12 @@
 # node
 node_modules/
 
-# hardhat
-/artifacts
-/cache
-/coverage
-coverage.json
-src/types
-src/validations.json
-
 # foundry
-/forge-cache
-/out
+cache/
+out/
 lcov*.info
+flattened.txt
+broadcast
 
 # slither
 /crytic_export
