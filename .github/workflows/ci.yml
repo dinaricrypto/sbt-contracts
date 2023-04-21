@@ -6,6 +6,25 @@ env:
   FOUNDRY_PROFILE: ci
 
 jobs:
+  lint:
+    strategy:
+      fail-fast: true
+
+    name: Linting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Yarn Install
+        run: yarn install
+
+      - name: Lint
+        run: |
+          yarn lint
+          yarn prettier:check
+
   check:
     strategy:
       fail-fast: true

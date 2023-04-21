@@ -6,11 +6,17 @@
     "build:d2": "find . -type f  -name '*.d2' -exec d2 '{}' \\;",
     "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
     "lint": "yarn solhint 'src/**/*.sol'",
-    "pretty": "yarn prettier --write --loglevel error ."
+    "pretty": "yarn prettier --write --loglevel error .",
+    "prettier:check": "yarn prettier . --check"
   },
   "devDependencies": {
+    "pre-commit": "^1.2.2",
     "prettier": "^2.8.7",
     "prettier-plugin-solidity": "^1.1.3",
     "solhint": "^3.4.1"
-  }
+  },
+  "pre-commit": [
+    "pretty",
+    "lint"
+  ]
 }
