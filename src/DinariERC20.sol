@@ -13,15 +13,19 @@ contract DinariERC20 is ERC20, OwnableRoles {
     string internal _name;
     string internal _symbol;
 
+    /// @dev URI to information
+    string public disclosures;
     ITransferRestrictor public transferRestrictor;
 
     constructor(
         string memory name_,
         string memory symbol_,
+        string memory disclosures_,
         ITransferRestrictor transferRestrictor_
     ) {
         _name = name_;
         _symbol = symbol_;
+        disclosures = disclosures_;
         transferRestrictor = transferRestrictor_;
     }
 
