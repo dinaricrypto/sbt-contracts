@@ -8,13 +8,16 @@ import "./IKycManager.sol";
 /// @notice ERC20 with minter and blacklist.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/DinariERC20.sol)
 contract DinariERC20 is ERC20, OwnableRoles {
-
     string internal _name;
     string internal _symbol;
 
     IKycManager internal _kycManager;
 
-    constructor(string memory name_, string memory symbol_, IKycManager kycManager_) {
+    constructor(
+        string memory name_,
+        string memory symbol_,
+        IKycManager kycManager_
+    ) {
         _name = name_;
         _symbol = symbol_;
         _kycManager = kycManager_;
@@ -36,11 +39,18 @@ contract DinariERC20 is ERC20, OwnableRoles {
         _mint(to, value);
     }
 
-    function burn(address from, uint256 value) public virtual onlyRoles(_ROLE_1) {
+    function burn(
+        address from,
+        uint256 value
+    ) public virtual onlyRoles(_ROLE_1) {
         _burn(from, value);
     }
 
-    function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
+    function _beforeTokenTransfer(
+        address from,
+        address to,
+        uint256
+    ) internal virtual override {
         /* _mint() or _burn() will set one of to address(0)
          *  no need to limit for these scenarios
          */

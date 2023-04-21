@@ -4,7 +4,7 @@ pragma solidity ^0.8.16;
 import "solady/auth/Ownable.sol";
 import "./IKycManager.sol";
 
-/// @notice 
+/// @notice
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 /// @author Modified from OpenEden (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 contract KycManager is IKycManager, Ownable {
