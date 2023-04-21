@@ -27,7 +27,6 @@ contract TransferRestrictor is ITransferRestrictor, Ownable {
     //////////////////////////////////////////////////////////////*/
 
     function grantKyc(address account, KycType kycType) external onlyOwner {
-
         User storage user = userList[account];
         user.kycType = kycType;
         emit GrantKyc(account, kycType);
@@ -61,13 +60,16 @@ contract TransferRestrictor is ITransferRestrictor, Ownable {
         user = userList[account];
     }
 
-    function requireNotRestricted(address from, address to) external view virtual {
-
+    function requireNotRestricted(
+        address from,
+        address to
+    ) external view virtual {
         if (userList[from].isBanned) revert AccountBanned(from);
         if (userList[to].isBanned) revert AccountBanned(to);
 
         // Reg S - cannot transfer to domestic account
-        if (userList[to].kycType == KycType.DOMESTIC) revert AccountRestricted(to);
+        if (userList[to].kycType == KycType.DOMESTIC)
+            revert AccountRestricted(to);
     }
 
     function isBanned(address account) external view returns (bool) {
