@@ -12,40 +12,41 @@ import "./ITransferRestrictor.sol";
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 /// @author Modified from OpenEden (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 contract TransferRestrictor is ITransferRestrictor, Ownable {
-    error AccountBanned(address account);
-    error AccountRestricted(address account);
+    error AccountBanned();
+    error AccountRestricted();
 
-    event GrantKyc(address account, KycType kycType);
-    event RevokeKyc(address account, KycType kycType);
-    event Banned(address account);
-    event UnBanned(address account);
+    event KycSet(address indexed account, KycType kycType);
+    event KycReset(address indexed account);
+    event Banned(address indexed account);
+    event UnBanned(address indexed account);
 
     mapping(address => User) userList;
+
+    constructor() {
+        _initializeOwner(msg.sender);
+    }
 
     /*//////////////////////////////////////////////////////////////
                     OPERATIONS CALLED BY OWNER
     //////////////////////////////////////////////////////////////*/
 
-    function grantKyc(address account, KycType kycType) external onlyOwner {
-        User storage user = userList[account];
-        user.kycType = kycType;
-        emit GrantKyc(account, kycType);
+    function setKyc(address account, KycType kycType) external onlyOwner {
+        userList[account].kycType = kycType;
+        emit KycSet(account, kycType);
     }
 
-    function revokeKyc(address account) external onlyOwner {
-        User storage user = userList[account];
-        emit RevokeKyc(account, user.kycType);
-
-        delete user.kycType;
+    function resetKyc(address account) external onlyOwner {
+        delete userList[account].kycType;
+        emit KycReset(account);
     }
 
-    function banned(address account) external onlyOwner {
+    function ban(address account) external onlyOwner {
         User storage user = userList[account];
         user.isBanned = true;
         emit Banned(account);
     }
 
-    function unBanned(address account) external onlyOwner {
+    function unBan(address account) external onlyOwner {
         User storage user = userList[account];
         user.isBanned = false;
         emit UnBanned(account);
@@ -64,12 +65,12 @@ contract TransferRestrictor is ITransferRestrictor, Ownable {
         address from,
         address to
     ) external view virtual {
-        if (userList[from].isBanned) revert AccountBanned(from);
-        if (userList[to].isBanned) revert AccountBanned(to);
+        if (userList[from].isBanned) revert AccountBanned();
+        if (userList[to].isBanned) revert AccountBanned();
 
         // Reg S - cannot transfer to domestic account
         if (userList[to].kycType == KycType.DOMESTIC)
-            revert AccountRestricted(to);
+            revert AccountRestricted();
     }
 
     function isBanned(address account) external view returns (bool) {
@@ -78,13 +79,5 @@ contract TransferRestrictor is ITransferRestrictor, Ownable {
 
     function isKyc(address account) external view returns (bool) {
         return KycType.NONE != userList[account].kycType;
-    }
-
-    function isDomesticKyc(address account) external view returns (bool) {
-        return KycType.DOMESTIC == userList[account].kycType;
-    }
-
-    function isInternationalKyc(address account) external view returns (bool) {
-        return KycType.INTERNATIONAL == userList[account].kycType;
     }
 }

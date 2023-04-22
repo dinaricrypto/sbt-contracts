@@ -21,8 +21,4 @@ interface ITransferRestrictor {
     function isBanned(address account) external view returns (bool);
 
     function isKyc(address account) external view returns (bool);
-
-    function isDomesticKyc(address account) external view returns (bool);
-
-    function isInternationalKyc(address account) external view returns (bool);
 }

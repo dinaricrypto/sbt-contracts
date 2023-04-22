@@ -8,7 +8,7 @@ import "./ITransferRestrictor.sol";
 /// @notice ERC20 with minter and blacklist.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/DinariERC20.sol)
 contract DinariERC20 is ERC20, OwnableRoles {
-    event TransferRestrictorSet(ITransferRestrictor transferRestrictor);
+    event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     string internal _name;
     string internal _symbol;
@@ -23,6 +23,8 @@ contract DinariERC20 is ERC20, OwnableRoles {
         string memory disclosures_,
         ITransferRestrictor transferRestrictor_
     ) {
+        _initializeOwner(msg.sender);
+
         _name = name_;
         _symbol = symbol_;
         disclosures = disclosures_;

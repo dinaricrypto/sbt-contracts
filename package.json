@@ -7,7 +7,10 @@
     "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
     "lint": "yarn solhint 'src/**/*.sol'",
     "pretty": "yarn prettier --write --loglevel error .",
-    "prettier:check": "yarn prettier . --check"
+    "prettier:check": "yarn prettier . --check",
+    "build": "forge build",
+    "test": "forge test -vvv",
+    "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info"
   },
   "devDependencies": {
     "pre-commit": "^1.2.2",
