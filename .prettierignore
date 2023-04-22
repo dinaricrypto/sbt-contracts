@@ -1,0 +1,15 @@
+# node
+node_modules
+yarn.lock
+
+# foundry
+lib
+out
+cache
+lcov*.info
+
+# logs
+*.log
+
+# package
+dist

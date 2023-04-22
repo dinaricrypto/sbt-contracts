@@ -9,6 +9,7 @@ out/
 lcov*.info
 flattened.txt
 broadcast
+coverage/
 
 # slither
 /crytic_export
