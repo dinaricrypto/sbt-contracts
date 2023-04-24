@@ -43,9 +43,7 @@ contract BridgedERC20 is ERC20, OwnableRoles {
         return _ROLE_1;
     }
 
-    function setTransferRestrictor(
-        ITransferRestrictor restrictor
-    ) external onlyOwner {
+    function setTransferRestrictor(ITransferRestrictor restrictor) external onlyOwner {
         transferRestrictor = restrictor;
         emit TransferRestrictorSet(restrictor);
     }
@@ -58,19 +56,11 @@ contract BridgedERC20 is ERC20, OwnableRoles {
         _burn(msg.sender, value);
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256
-    ) internal virtual override {
+    function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
         /* _mint() or _burn() will set one of to address(0)
          *  no need to limit for these scenarios
          */
-        if (
-            from == address(0) ||
-            to == address(0) ||
-            address(transferRestrictor) == address(0)
-        ) {
+        if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
             return;
         }
 

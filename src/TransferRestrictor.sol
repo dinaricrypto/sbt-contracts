@@ -55,16 +55,11 @@ contract TransferRestrictor is ITransferRestrictor, Ownable {
     /*//////////////////////////////////////////////////////////////
                             USED BY INTERFACE
     //////////////////////////////////////////////////////////////*/
-    function getUserInfo(
-        address account
-    ) external view returns (User memory user) {
+    function getUserInfo(address account) external view returns (User memory user) {
         user = userList[account];
     }
 
-    function requireNotRestricted(
-        address from,
-        address to
-    ) external view virtual {
+    function requireNotRestricted(address from, address to) external view virtual {
         if (userList[from].isBanned) revert AccountBanned();
         if (userList[to].isBanned) revert AccountBanned();
 

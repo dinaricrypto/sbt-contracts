@@ -27,8 +27,7 @@ contract Bridge is Ownable, EIP712 {
 
     event PriceOracleSet(address indexed oracle, bool state);
 
-    bytes32 public constant MARKETQUOTE_TYPE_HASH =
-        keccak256("MarketQuote(uint32 blockNumber, uint224 value)");
+    bytes32 public constant MARKETQUOTE_TYPE_HASH = keccak256("MarketQuote(uint32 blockNumber, uint224 value)");
 
     IBridgedERC20 public token;
 
@@ -51,11 +50,7 @@ contract Bridge is Ownable, EIP712 {
     // - check how quotes currently work in bridges etc.
     // max slippage
     // amount
-    constructor(
-        IBridgedERC20 token_,
-        uint32 quoteDuration_,
-        uint256 defaultMaxSlippage_
-    ) {
+    constructor(IBridgedERC20 token_, uint32 quoteDuration_, uint256 defaultMaxSlippage_) {
         token = token_;
         quoteDuration = quoteDuration_;
         defaultMaxSlippage = defaultMaxSlippage_;
@@ -66,17 +61,8 @@ contract Bridge is Ownable, EIP712 {
         return _orders;
     }
 
-    function hashMarketQuote(
-        MarketQuote memory quote
-    ) public pure returns (bytes32) {
-        return
-            keccak256(
-                abi.encode(
-                    MARKETQUOTE_TYPE_HASH,
-                    quote.blockNumber,
-                    quote.value
-                )
-            );
+    function hashMarketQuote(MarketQuote memory quote) public pure returns (bytes32) {
+        return keccak256(abi.encode(MARKETQUOTE_TYPE_HASH, quote.blockNumber, quote.value));
     }
 
     function setPriceOracle(address oracle, bool state) external onlyOwner {
@@ -90,10 +76,7 @@ contract Bridge is Ownable, EIP712 {
         bytes calldata signedQuote
     ) external {
         // TODO: should we allow beneficiary != msg.sender?
-        address oracleAddress = ECDSA.recoverCalldata(
-            _hashTypedData(hashMarketQuote(quote)),
-            signedQuote
-        );
+        address oracleAddress = ECDSA.recoverCalldata(_hashTypedData(hashMarketQuote(quote)), signedQuote);
         if (!priceOracle[oracleAddress]) revert WrongPriceOracle();
     }
 
@@ -102,10 +85,7 @@ contract Bridge is Ownable, EIP712 {
         MarketQuote calldata quote,
         bytes calldata signedQuote
     ) external {
-        address oracleAddress = ECDSA.recoverCalldata(
-            _hashTypedData(hashMarketQuote(quote)),
-            signedQuote
-        );
+        address oracleAddress = ECDSA.recoverCalldata(_hashTypedData(hashMarketQuote(quote)), signedQuote);
         if (!priceOracle[oracleAddress]) revert WrongPriceOracle();
     }
 
