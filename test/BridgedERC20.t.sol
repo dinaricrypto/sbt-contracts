@@ -3,18 +3,18 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "solady/auth/Ownable.sol";
-import "../src/DinariERC20.sol";
+import "../src/BridgedERC20.sol";
 import "../src/TransferRestrictor.sol";
 
-contract DinariERC20Test is Test {
+contract BridgedERC20Test is Test {
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     TransferRestrictor public restrictor;
-    DinariERC20 public token;
+    BridgedERC20 public token;
 
     function setUp() public {
         restrictor = new TransferRestrictor();
-        token = new DinariERC20(
+        token = new BridgedERC20(
             "Dinari Token",
             "dTKN",
             "example.com",
@@ -51,8 +51,10 @@ contract DinariERC20Test is Test {
     function testBurn() public {
         token.grantRoles(address(this), token.minterRole());
         token.mint(address(1), 1e18);
+        token.grantRoles(address(1), token.minterRole());
 
-        token.burn(address(1), 0.9e18);
+        vm.prank(address(1));
+        token.burn(0.9e18);
         assertEq(token.totalSupply(), 0.1e18);
         assertEq(token.balanceOf(address(1)), 0.1e18);
     }
@@ -60,10 +62,10 @@ contract DinariERC20Test is Test {
     function testBurnUnauthorizedReverts() public {
         token.grantRoles(address(this), token.minterRole());
         token.mint(address(1), 1e18);
-        token.revokeRoles(address(this), token.minterRole());
 
         vm.expectRevert(Ownable.Unauthorized.selector);
-        token.burn(address(1), 0.9e18);
+        vm.prank(address(1));
+        token.burn(0.9e18);
     }
 
     function testTransfer() public {

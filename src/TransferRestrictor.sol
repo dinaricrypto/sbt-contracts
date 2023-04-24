@@ -69,8 +69,9 @@ contract TransferRestrictor is ITransferRestrictor, Ownable {
         if (userList[to].isBanned) revert AccountBanned();
 
         // Reg S - cannot transfer to domestic account
-        if (userList[to].kycType == KycType.DOMESTIC)
+        if (userList[to].kycType == KycType.DOMESTIC) {
             revert AccountRestricted();
+        }
     }
 
     function isBanned(address account) external view returns (bool) {

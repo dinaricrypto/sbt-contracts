@@ -6,8 +6,8 @@ import "solady/auth/OwnableRoles.sol";
 import "./ITransferRestrictor.sol";
 
 /// @notice ERC20 with minter and blacklist.
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/DinariERC20.sol)
-contract DinariERC20 is ERC20, OwnableRoles {
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
+contract BridgedERC20 is ERC20, OwnableRoles {
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     string internal _name;
@@ -54,11 +54,8 @@ contract DinariERC20 is ERC20, OwnableRoles {
         _mint(to, value);
     }
 
-    function burn(
-        address from,
-        uint256 value
-    ) public virtual onlyRoles(_ROLE_1) {
-        _burn(from, value);
+    function burn(uint256 value) public virtual onlyRoles(_ROLE_1) {
+        _burn(msg.sender, value);
     }
 
     function _beforeTokenTransfer(
