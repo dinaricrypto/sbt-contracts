@@ -46,8 +46,9 @@ contract Bridge is OwnableRoles, EIP712 {
     error OrderNotFound();
     error SlippageLimitExceeded();
 
-    event PaymentTokenSet(address indexed token, bool enabled);
-    event PriceOracleSet(address indexed oracle, bool enabled);
+    event QuoteDurationSet(uint32 duration);
+    event PaymentTokenEnabled(address indexed token, bool enabled);
+    event PriceOracleEnabled(address indexed oracle, bool enabled);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
     event RedemptionSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
 
@@ -60,16 +61,18 @@ contract Bridge is OwnableRoles, EIP712 {
     uint32 public quoteDuration;
 
     /// @dev accepted payment tokens for this issuer
-    mapping(address => bool) public paymentToken;
+    mapping(address => bool) public paymentTokenEnabled;
 
     /// @dev trusted oracles for this issuer
-    mapping(address => bool) public priceOracle;
+    mapping(address => bool) public priceOracleEnabled;
 
     /// @dev unfulfilled orders
     mapping(bytes32 => bool) private _purchases;
     mapping(bytes32 => bool) private _redemptions;
 
     constructor(uint32 quoteDuration_) {
+        _initializeOwner(msg.sender);
+
         quoteDuration = quoteDuration_;
     }
 
@@ -105,21 +108,26 @@ contract Bridge is OwnableRoles, EIP712 {
         );
     }
 
-    function setPaymentToken(address token, bool enabled) external onlyOwner {
-        paymentToken[token] = enabled;
-        emit PaymentTokenSet(token, enabled);
+    function setQuoteDuration(uint32 duration) external onlyOwner {
+        quoteDuration = duration;
+        emit QuoteDurationSet(duration);
     }
 
-    function setPriceOracle(address oracle, bool enabled) external onlyOwner {
-        priceOracle[oracle] = enabled;
-        emit PriceOracleSet(oracle, enabled);
+    function setPaymentTokenEnabled(address token, bool enabled) external onlyOwner {
+        paymentTokenEnabled[token] = enabled;
+        emit PaymentTokenEnabled(token, enabled);
+    }
+
+    function setPriceOracleEnabled(address oracle, bool enabled) external onlyOwner {
+        priceOracleEnabled[oracle] = enabled;
+        emit PriceOracleEnabled(oracle, enabled);
     }
 
     function submitPurchase(OrderInfo calldata order, bytes calldata signedQuote) external {
         if (order.user != msg.sender) revert NoProxyOrders();
-        if (!paymentToken[order.quote.paymentToken]) revert UnsupportedPaymentToken();
+        if (!paymentTokenEnabled[order.quote.paymentToken]) revert UnsupportedPaymentToken();
         address oracleAddress = ECDSA.recoverCalldata(_hashTypedData(hashQuote(order.quote)), signedQuote);
-        if (!priceOracle[oracleAddress]) revert WrongPriceOracle();
+        if (!priceOracleEnabled[oracleAddress]) revert WrongPriceOracle();
 
         // Emit the data, store the hash
         bytes32 orderId = hashOrderInfo(order);
@@ -133,9 +141,9 @@ contract Bridge is OwnableRoles, EIP712 {
 
     function submitRedemption(OrderInfo calldata order, bytes calldata signedQuote) external {
         if (order.user != msg.sender) revert NoProxyOrders();
-        if (!paymentToken[order.quote.paymentToken]) revert UnsupportedPaymentToken();
+        if (!paymentTokenEnabled[order.quote.paymentToken]) revert UnsupportedPaymentToken();
         address oracleAddress = ECDSA.recoverCalldata(_hashTypedData(hashQuote(order.quote)), signedQuote);
-        if (!priceOracle[oracleAddress]) revert WrongPriceOracle();
+        if (!priceOracleEnabled[oracleAddress]) revert WrongPriceOracle();
 
         // Emit the data, store the hash
         bytes32 orderId = hashOrderInfo(order);
