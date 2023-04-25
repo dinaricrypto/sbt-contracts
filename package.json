@@ -13,8 +13,7 @@
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info"
   },
   "devDependencies": {
-    "pre-commit": "^1.2.2",
-    "solhint": "^3.4.1"
+    "pre-commit": "^1.2.2"
   },
   "pre-commit": [
     "pretty"
