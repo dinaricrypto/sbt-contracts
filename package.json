@@ -5,9 +5,7 @@
     "install:d2": "curl -fsSL https://d2lang.com/install.sh | sh -s --",
     "build:d2": "find . -type f  -name '*.d2' -exec d2 '{}' \\;",
     "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
-    "lint": "yarn solhint 'src/**/*.sol'",
     "pretty": "forge fmt",
-    "prettier:check": "forge fmt --check",
     "build": "forge build",
     "test": "forge test -vvv",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info"
