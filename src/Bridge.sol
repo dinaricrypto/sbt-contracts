@@ -14,8 +14,12 @@ contract Bridge is OwnableRoles, EIP712 {
     // forwarder/gsn support?
     // TODO: upgradeable, pausable
     // TODO: fees
+    // TODO: liquidity pools for cross-chain swaps
     // How do bridges maintain quotes and slippage checks?
-    // Is "emit the data, store the hash" useful anywhere - see synapse
+    // TODO: is there a more secure way than holding all escrow here?
+    // TODO: support multiple identical orders from the same account
+    // TODO: add proof of fulfillment?
+    // TODO: should we allow beneficiary != submit msg.sender?
 
     // 1. Order submitted and payment escrowed
     // 2. Order fulfilled and escrow claimed
@@ -62,19 +66,9 @@ contract Bridge is OwnableRoles, EIP712 {
     mapping(address => bool) public priceOracle;
 
     /// @dev unfulfilled orders
-    // TODO: make collection efficient
-    // TODO: need beneficiary account and price info
-    // TODO: generalize order queuing across order types? support limit in future?
-    // TODO: consider time received?
-    // TODO: add proof of fulfillment?
     mapping(bytes32 => bool) private _purchases;
     mapping(bytes32 => bool) private _redemptions;
 
-    // per block quote (price, time)
-    // - can this be a pass-through calldata quote signed by our oracle? then we can serve from out API and save gas
-    // - check how quotes currently work in bridges etc.
-    // max slippage
-    // amount
     constructor(uint32 quoteDuration_) {
         quoteDuration = quoteDuration_;
     }
@@ -122,42 +116,39 @@ contract Bridge is OwnableRoles, EIP712 {
     }
 
     function submitPurchase(OrderInfo calldata order, bytes calldata signedQuote) external {
-        if (order.user != msg.sender) revert NoProxyOrders(); // TODO: should we allow beneficiary != msg.sender?
+        if (order.user != msg.sender) revert NoProxyOrders();
         if (!paymentToken[order.quote.paymentToken]) revert UnsupportedPaymentToken();
         address oracleAddress = ECDSA.recoverCalldata(_hashTypedData(hashQuote(order.quote)), signedQuote);
         if (!priceOracle[oracleAddress]) revert WrongPriceOracle();
 
-        // TODO: support multiple identical orders from the same account
+        // Emit the data, store the hash
         bytes32 orderId = hashOrderInfo(order);
         _purchases[orderId] = true;
         emit PurchaseSubmitted(orderId, order.user, order);
 
         // Move payment tokens
-        // TODO: is there a more secure way than holding all this here?
         uint256 paymentAmount = order.amount * order.quote.price;
         SafeTransferLib.safeTransferFrom(order.quote.paymentToken, msg.sender, address(this), paymentAmount);
     }
 
     function submitRedemption(OrderInfo calldata order, bytes calldata signedQuote) external {
-        if (order.user != msg.sender) revert NoProxyOrders(); // TODO: should we allow beneficiary != msg.sender?
+        if (order.user != msg.sender) revert NoProxyOrders();
         if (!paymentToken[order.quote.paymentToken]) revert UnsupportedPaymentToken();
         address oracleAddress = ECDSA.recoverCalldata(_hashTypedData(hashQuote(order.quote)), signedQuote);
         if (!priceOracle[oracleAddress]) revert WrongPriceOracle();
 
-        // TODO: support multiple identical orders from the same account
+        // Emit the data, store the hash
         bytes32 orderId = hashOrderInfo(order);
         _redemptions[orderId] = true;
         emit RedemptionSubmitted(orderId, order.user, order);
 
         // Move asset tokens
-        // TODO: is there a more secure way than holding all this here?
         SafeTransferLib.safeTransferFrom(order.quote.assetToken, msg.sender, address(this), order.amount);
     }
 
     function fulfillPurchase(OrderInfo calldata order, uint256 purchasedAmount) external onlyRoles(_ROLE_1) {
         bytes32 orderId = hashOrderInfo(order);
         if (!_purchases[orderId]) revert OrderNotFound();
-        // TODO: How does uniswap handle this?
         if (purchasedAmount > order.amount * (1 ether + order.maxSlippage) / 1 ether) revert SlippageLimitExceeded();
 
         delete _purchases[orderId];
@@ -172,7 +163,6 @@ contract Bridge is OwnableRoles, EIP712 {
     function fulfillRedemption(OrderInfo calldata order, uint256 proceeds) external onlyRoles(_ROLE_1) {
         bytes32 orderId = hashOrderInfo(order);
         if (!_redemptions[orderId]) revert OrderNotFound();
-        // TODO: How does uniswap handle this?
         uint256 quoteValue = order.amount * order.quote.price;
         if (proceeds < quoteValue * (1 ether - order.maxSlippage) / 1 ether) revert SlippageLimitExceeded();
 
