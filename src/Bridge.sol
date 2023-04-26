@@ -2,78 +2,63 @@
 pragma solidity ^0.8.13;
 
 import "solady/auth/OwnableRoles.sol";
-import "solady/utils/ECDSA.sol";
-import "solady/utils/EIP712.sol";
 import "solady/utils/SafeTransferLib.sol";
 import "./IMintBurn.sol";
 
 /// @notice Bridge interface managing swaps for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/Bridge.sol)
-contract Bridge is OwnableRoles, EIP712 {
+contract Bridge is OwnableRoles {
     // This contract handles the submission and fulfillment of orders
-    // forwarder/gsn support?
+    // submit by sig - forwarder/gsn support?
     // TODO: upgradeable, pausable
     // TODO: fees
     // TODO: liquidity pools for cross-chain swaps
     // How do bridges maintain quotes and slippage checks?
     // TODO: is there a more secure way than holding all escrow here?
     // TODO: support multiple identical orders from the same account
+    // TODO: prevent double spend orders - check for collisions
     // TODO: add proof of fulfillment?
     // TODO: should we allow beneficiary != submit msg.sender?
 
     // 1. Order submitted and payment escrowed
     // 2. Order fulfilled and escrow claimed
     // 2a. If order failed, escrow released
+    // Orders are eligible for cancelation if fulfillment within maxSlippage cannot be achieved before expiration
 
-    struct Quote {
-        address assetToken;
-        address paymentToken;
-        uint32 blockNumber; // change to time if needed
-        uint224 price;
-    }
-
+    // TODO: tighter packing
     struct OrderInfo {
         address user;
-        Quote quote;
-        // TODO: tighter packing
+        address assetToken;
+        address paymentToken;
         uint256 amount;
+        uint224 price;
+        uint32 expirationBlock;
         uint256 maxSlippage;
     }
 
     error UnsupportedPaymentToken();
-    error WrongPriceOracle();
     error NoProxyOrders();
     error OrderNotFound();
     error SlippageLimitExceeded();
 
-    event QuoteDurationSet(uint32 duration);
     event PaymentTokenEnabled(address indexed token, bool enabled);
-    event PriceOracleEnabled(address indexed oracle, bool enabled);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
     event RedemptionSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
+    event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
+    event RedemptionFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
 
-    // keccak256(Quote(...))
-    bytes32 public constant QUOTE_TYPE_HASH = 0xc5ddd247b301bf2eeb74a33f6e27e98a8f79747c3449d0bb82beb501b34d3b43;
     // keccak256(OrderInfo(...))
     bytes32 public constant ORDER_TYPE_HASH = 0x81b90cb8115e6356acd6aef528d0f8c249d695ea3aba8e195aad63736f1cff9d;
 
-    /// @dev How long a quote is valid in blocks
-    uint32 public quoteDuration;
-
     /// @dev accepted payment tokens for this issuer
     mapping(address => bool) public paymentTokenEnabled;
-
-    /// @dev trusted oracles for this issuer
-    mapping(address => bool) public priceOracleEnabled;
 
     /// @dev unfulfilled orders
     mapping(bytes32 => bool) private _purchases;
     mapping(bytes32 => bool) private _redemptions;
 
-    constructor(uint32 quoteDuration_) {
+    constructor() {
         _initializeOwner(msg.sender);
-
-        quoteDuration = quoteDuration_;
     }
 
     function operatorRole() external pure returns (uint256) {
@@ -88,29 +73,19 @@ contract Bridge is OwnableRoles, EIP712 {
         return _redemptions[orderId];
     }
 
-    function hashQuote(Quote memory quote) public pure returns (bytes32) {
-        return
-            keccak256(abi.encode(ORDER_TYPE_HASH, quote.assetToken, quote.paymentToken, quote.blockNumber, quote.price));
-    }
-
     function hashOrderInfo(OrderInfo memory orderInfo) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                QUOTE_TYPE_HASH,
+                ORDER_TYPE_HASH,
                 orderInfo.user,
-                orderInfo.quote.assetToken,
-                orderInfo.quote.paymentToken,
-                orderInfo.quote.blockNumber,
-                orderInfo.quote.price,
+                orderInfo.assetToken,
+                orderInfo.paymentToken,
                 orderInfo.amount,
+                orderInfo.price,
+                orderInfo.expirationBlock,
                 orderInfo.maxSlippage
             )
         );
-    }
-
-    function setQuoteDuration(uint32 duration) external onlyOwner {
-        quoteDuration = duration;
-        emit QuoteDurationSet(duration);
     }
 
     function setPaymentTokenEnabled(address token, bool enabled) external onlyOwner {
@@ -118,16 +93,9 @@ contract Bridge is OwnableRoles, EIP712 {
         emit PaymentTokenEnabled(token, enabled);
     }
 
-    function setPriceOracleEnabled(address oracle, bool enabled) external onlyOwner {
-        priceOracleEnabled[oracle] = enabled;
-        emit PriceOracleEnabled(oracle, enabled);
-    }
-
-    function submitPurchase(OrderInfo calldata order, bytes calldata signedQuote) external {
+    function submitPurchase(OrderInfo calldata order) external {
         if (order.user != msg.sender) revert NoProxyOrders();
-        if (!paymentTokenEnabled[order.quote.paymentToken]) revert UnsupportedPaymentToken();
-        address oracleAddress = ECDSA.recoverCalldata(_hashTypedData(hashQuote(order.quote)), signedQuote);
-        if (!priceOracleEnabled[oracleAddress]) revert WrongPriceOracle();
+        if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
 
         // Emit the data, store the hash
         bytes32 orderId = hashOrderInfo(order);
@@ -135,15 +103,13 @@ contract Bridge is OwnableRoles, EIP712 {
         emit PurchaseSubmitted(orderId, order.user, order);
 
         // Move payment tokens
-        uint256 paymentAmount = order.amount * order.quote.price;
-        SafeTransferLib.safeTransferFrom(order.quote.paymentToken, msg.sender, address(this), paymentAmount);
+        uint256 paymentAmount = order.amount * order.price;
+        SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentAmount);
     }
 
-    function submitRedemption(OrderInfo calldata order, bytes calldata signedQuote) external {
+    function submitRedemption(OrderInfo calldata order) external {
         if (order.user != msg.sender) revert NoProxyOrders();
-        if (!paymentTokenEnabled[order.quote.paymentToken]) revert UnsupportedPaymentToken();
-        address oracleAddress = ECDSA.recoverCalldata(_hashTypedData(hashQuote(order.quote)), signedQuote);
-        if (!priceOracleEnabled[oracleAddress]) revert WrongPriceOracle();
+        if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
 
         // Emit the data, store the hash
         bytes32 orderId = hashOrderInfo(order);
@@ -151,7 +117,7 @@ contract Bridge is OwnableRoles, EIP712 {
         emit RedemptionSubmitted(orderId, order.user, order);
 
         // Move asset tokens
-        SafeTransferLib.safeTransferFrom(order.quote.assetToken, msg.sender, address(this), order.amount);
+        SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.amount);
     }
 
     function fulfillPurchase(OrderInfo calldata order, uint256 purchasedAmount) external onlyRoles(_ROLE_1) {
@@ -162,33 +128,23 @@ contract Bridge is OwnableRoles, EIP712 {
         delete _purchases[orderId];
 
         // Mint
-        IMintBurn(order.quote.assetToken).mint(order.user, purchasedAmount);
+        IMintBurn(order.assetToken).mint(order.user, purchasedAmount);
         // Claim payment
-        uint256 paymentAmount = order.amount * order.quote.price;
-        SafeTransferLib.safeTransfer(order.quote.paymentToken, msg.sender, paymentAmount);
+        uint256 paymentAmount = order.amount * order.price;
+        SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, paymentAmount);
     }
 
     function fulfillRedemption(OrderInfo calldata order, uint256 proceeds) external onlyRoles(_ROLE_1) {
         bytes32 orderId = hashOrderInfo(order);
         if (!_redemptions[orderId]) revert OrderNotFound();
-        uint256 quoteValue = order.amount * order.quote.price;
+        uint256 quoteValue = order.amount * order.price;
         if (proceeds < quoteValue * (1 ether - order.maxSlippage) / 1 ether) revert SlippageLimitExceeded();
 
         delete _redemptions[orderId];
 
         // Forward payment
-        SafeTransferLib.safeTransferFrom(order.quote.paymentToken, msg.sender, order.user, proceeds);
+        SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.user, proceeds);
         // Burn
-        IMintBurn(order.quote.assetToken).burn(order.amount);
-    }
-
-    function _domainNameAndVersion()
-        internal
-        pure
-        virtual
-        override
-        returns (string memory name, string memory version)
-    {
-        return ("Bridge", "1");
+        IMintBurn(order.assetToken).burn(order.amount);
     }
 }
