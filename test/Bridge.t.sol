@@ -20,7 +20,6 @@ contract BridgeTest is Test {
 
     address constant user = address(1);
     address constant bridgeOperator = address(3);
-    uint256 constant alot = 340282366920938463463374607431768211455; // sqrt(type(uint256).max)
 
     function setUp() public {
         token = new MockBridgedERC20();
@@ -45,10 +44,7 @@ contract BridgeTest is Test {
         assertEq(bridge.paymentTokenEnabled(account), enabled);
     }
 
-    function testSubmitPurchase(uint256 amount, uint224 price) public {
-        vm.assume(amount < alot);
-        vm.assume(price < alot);
-
+    function testSubmitPurchase(uint128 amount, uint128 price) public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
             user: user,
             assetToken: address(token),
@@ -58,7 +54,7 @@ contract BridgeTest is Test {
         });
         bytes32 orderId = bridge.hashOrderInfo(order);
 
-        uint256 paymentAmount = amount * price;
+        uint256 paymentAmount = uint256(amount) * price;
         paymentToken.mint(user, paymentAmount);
 
         vm.prank(user);
@@ -106,10 +102,7 @@ contract BridgeTest is Test {
         bridge.submitPurchase(order);
     }
 
-    function testSubmitRedemption(uint256 amount, uint224 price) public {
-        vm.assume(amount < alot);
-        vm.assume(price < alot);
-
+    function testSubmitRedemption(uint128 amount, uint128 price) public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
             user: user,
             assetToken: address(token),
@@ -166,12 +159,9 @@ contract BridgeTest is Test {
         bridge.submitRedemption(order);
     }
 
-    function testFulfillPurchase(uint256 amount, uint224 price, uint256 finalAmount) public {
-        vm.assume(amount < alot);
-        vm.assume(price < alot);
+    function testFulfillPurchase(uint128 amount, uint128 price, uint128 finalAmount) public {
         vm.assume(amount > 0);
         vm.assume(price > 0);
-        vm.assume(finalAmount < alot);
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
             user: user,
@@ -182,7 +172,7 @@ contract BridgeTest is Test {
         });
         bytes32 orderId = bridge.hashOrderInfo(order);
 
-        uint256 paymentAmount = amount * price;
+        uint256 paymentAmount = uint256(amount) * price;
         paymentToken.mint(user, paymentAmount);
 
         vm.prank(user);
@@ -211,12 +201,9 @@ contract BridgeTest is Test {
         bridge.fulfillPurchase(order, 100);
     }
 
-    function testFulfillRedemption(uint256 amount, uint224 price, uint256 proceeds) public {
-        vm.assume(amount < alot);
-        vm.assume(price < alot);
+    function testFulfillRedemption(uint128 amount, uint128 price, uint128 proceeds) public {
         vm.assume(amount > 0);
         vm.assume(price > 0);
-        vm.assume(proceeds < alot);
         vm.assume(proceeds > 0);
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({

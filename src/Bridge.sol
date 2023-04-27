@@ -13,26 +13,22 @@ contract Bridge is OwnableRoles {
     // TODO: upgradeable, pausable
     // TODO: fees
     // TODO: liquidity pools for cross-chain swaps
-    // How do bridges maintain quotes and slippage checks?
     // TODO: is there a more secure way than holding all escrow here?
-    // TODO: support multiple identical orders from the same account
-    // TODO: prevent double spend orders - check for collisions
+    // TODO: support multiple identical orders from the same account, prevent double spend orders - check for collisions
     // TODO: add proof of fulfillment?
     // TODO: should we allow beneficiary != submit msg.sender?
-    // TODO:
 
     // 1. Order submitted and payment escrowed
     // 2. Order fulfilled and escrow claimed
     // 2a. If order failed, escrow released
     // Orders are eligible for cancelation if fulfillment within maxSlippage cannot be achieved before expiration
 
-    // TODO: tighter packing
     struct OrderInfo {
         address user;
         address assetToken;
         address paymentToken;
-        uint256 amount;
-        uint224 price;
+        uint128 amount;
+        uint128 price;
     }
 
     error ZeroValue();
@@ -46,8 +42,8 @@ contract Bridge is OwnableRoles {
     event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
     event RedemptionFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
 
-    // keccak256(OrderInfo(...))
-    bytes32 public constant ORDER_TYPE_HASH = 0x81b90cb8115e6356acd6aef528d0f8c249d695ea3aba8e195aad63736f1cff9d;
+    // keccak256(OrderInfo(address user,address assetToken,address paymentToken,uint128 amount,uint128 price))
+    bytes32 public constant ORDERINFO_TYPE_HASH = 0x2596959a062a89c4860f6e081086d24582adcdaf7d5988da87cbb652a577d20f;
 
     /// @dev accepted payment tokens for this issuer
     mapping(address => bool) public paymentTokenEnabled;
@@ -75,7 +71,7 @@ contract Bridge is OwnableRoles {
     function hashOrderInfo(OrderInfo memory orderInfo) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                ORDER_TYPE_HASH,
+                ORDERINFO_TYPE_HASH,
                 orderInfo.user,
                 orderInfo.assetToken,
                 orderInfo.paymentToken,
@@ -101,7 +97,7 @@ contract Bridge is OwnableRoles {
         emit PurchaseSubmitted(orderId, order.user, order);
 
         // Move payment tokens
-        uint256 paymentAmount = order.amount * order.price;
+        uint256 paymentAmount = uint256(order.amount) * order.price;
         SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentAmount);
     }
 
@@ -129,7 +125,7 @@ contract Bridge is OwnableRoles {
         // Mint
         IMintBurn(order.assetToken).mint(order.user, purchasedAmount);
         // Claim payment
-        uint256 paymentAmount = order.amount * order.price;
+        uint256 paymentAmount = uint256(order.amount) * order.price;
         SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, paymentAmount);
     }
 
