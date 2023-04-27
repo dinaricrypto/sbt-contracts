@@ -33,16 +33,12 @@ contract Bridge is OwnableRoles {
         address paymentToken;
         uint256 amount;
         uint224 price;
-        uint32 expirationBlock;
-        uint64 maxSlippage;
     }
 
     error ZeroValue();
-    error SlippageLimitTooLarge();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
     error OrderNotFound();
-    error SlippageLimitExceeded();
 
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
@@ -84,9 +80,7 @@ contract Bridge is OwnableRoles {
                 orderInfo.assetToken,
                 orderInfo.paymentToken,
                 orderInfo.amount,
-                orderInfo.price,
-                orderInfo.expirationBlock,
-                orderInfo.maxSlippage
+                orderInfo.price
             )
         );
     }
@@ -99,7 +93,6 @@ contract Bridge is OwnableRoles {
     function submitPurchase(OrderInfo calldata order) external {
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
-        if (order.maxSlippage > 1 ether) revert SlippageLimitTooLarge();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
 
         // Emit the data, store the hash
@@ -115,7 +108,6 @@ contract Bridge is OwnableRoles {
     function submitRedemption(OrderInfo calldata order) external {
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
-        if (order.maxSlippage > 1 ether) revert SlippageLimitTooLarge();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
 
         // Emit the data, store the hash
@@ -130,7 +122,6 @@ contract Bridge is OwnableRoles {
     function fulfillPurchase(OrderInfo calldata order, uint256 purchasedAmount) external onlyRoles(_ROLE_1) {
         bytes32 orderId = hashOrderInfo(order);
         if (!_purchases[orderId]) revert OrderNotFound();
-        if (purchasedAmount > order.amount * (1 ether + order.maxSlippage) / 1 ether) revert SlippageLimitExceeded();
 
         delete _purchases[orderId];
         emit PurchaseFulfilled(orderId, order.user, purchasedAmount);
@@ -145,9 +136,6 @@ contract Bridge is OwnableRoles {
     function fulfillRedemption(OrderInfo calldata order, uint256 proceeds) external onlyRoles(_ROLE_1) {
         bytes32 orderId = hashOrderInfo(order);
         if (!_redemptions[orderId]) revert OrderNotFound();
-        if (proceeds / order.amount < order.price * (1 ether - order.maxSlippage) / 1 ether) {
-            revert SlippageLimitExceeded();
-        }
 
         delete _redemptions[orderId];
         emit RedemptionFulfilled(orderId, order.user, proceeds);

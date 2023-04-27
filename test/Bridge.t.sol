@@ -45,7 +45,7 @@ contract BridgeTest is Test {
         assertEq(bridge.paymentTokenEnabled(account), enabled);
     }
 
-    function testSubmitPurchase(uint256 amount, uint224 price, uint32 expirationBlock, uint64 maxSlippage) public {
+    function testSubmitPurchase(uint256 amount, uint224 price) public {
         vm.assume(amount < alot);
         vm.assume(price < alot);
 
@@ -54,9 +54,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             amount: amount,
-            price: price,
-            expirationBlock: expirationBlock,
-            maxSlippage: maxSlippage
+            price: price
         });
         bytes32 orderId = bridge.hashOrderInfo(order);
 
@@ -68,10 +66,6 @@ contract BridgeTest is Test {
 
         if (amount == 0 || price == 0) {
             vm.expectRevert(Bridge.ZeroValue.selector);
-            vm.prank(user);
-            bridge.submitPurchase(order);
-        } else if (maxSlippage > 1 ether) {
-            vm.expectRevert(Bridge.SlippageLimitTooLarge.selector);
             vm.prank(user);
             bridge.submitPurchase(order);
         } else {
@@ -89,9 +83,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             amount: 100,
-            price: 100,
-            expirationBlock: uint32(block.number),
-            maxSlippage: 0
+            price: 100
         });
 
         vm.expectRevert(Bridge.NoProxyOrders.selector);
@@ -106,9 +98,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: tryPaymentToken,
             amount: 100,
-            price: 100,
-            expirationBlock: uint32(block.number),
-            maxSlippage: 0
+            price: 100
         });
 
         vm.expectRevert(Bridge.UnsupportedPaymentToken.selector);
@@ -116,7 +106,7 @@ contract BridgeTest is Test {
         bridge.submitPurchase(order);
     }
 
-    function testSubmitRedemption(uint256 amount, uint224 price, uint32 expirationBlock, uint64 maxSlippage) public {
+    function testSubmitRedemption(uint256 amount, uint224 price) public {
         vm.assume(amount < alot);
         vm.assume(price < alot);
 
@@ -125,9 +115,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             amount: amount,
-            price: price,
-            expirationBlock: expirationBlock,
-            maxSlippage: maxSlippage
+            price: price
         });
         bytes32 orderId = bridge.hashOrderInfo(order);
 
@@ -138,10 +126,6 @@ contract BridgeTest is Test {
 
         if (amount == 0 || price == 0) {
             vm.expectRevert(Bridge.ZeroValue.selector);
-            vm.prank(user);
-            bridge.submitRedemption(order);
-        } else if (maxSlippage > 1 ether) {
-            vm.expectRevert(Bridge.SlippageLimitTooLarge.selector);
             vm.prank(user);
             bridge.submitRedemption(order);
         } else {
@@ -159,9 +143,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             amount: 100,
-            price: 100,
-            expirationBlock: uint32(block.number),
-            maxSlippage: 0
+            price: 100
         });
 
         vm.expectRevert(Bridge.NoProxyOrders.selector);
@@ -176,9 +158,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: tryPaymentToken,
             amount: 100,
-            price: 100,
-            expirationBlock: uint32(block.number),
-            maxSlippage: 0
+            price: 100
         });
 
         vm.expectRevert(Bridge.UnsupportedPaymentToken.selector);
@@ -186,18 +166,11 @@ contract BridgeTest is Test {
         bridge.submitRedemption(order);
     }
 
-    function testFulfillPurchase(
-        uint256 amount,
-        uint224 price,
-        uint32 expirationBlock,
-        uint64 maxSlippage,
-        uint256 finalAmount
-    ) public {
+    function testFulfillPurchase(uint256 amount, uint224 price, uint256 finalAmount) public {
         vm.assume(amount < alot);
         vm.assume(price < alot);
         vm.assume(amount > 0);
         vm.assume(price > 0);
-        vm.assume(maxSlippage < 1 ether);
         vm.assume(finalAmount < alot);
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
@@ -205,9 +178,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             amount: amount,
-            price: price,
-            expirationBlock: expirationBlock,
-            maxSlippage: maxSlippage
+            price: price
         });
         bytes32 orderId = bridge.hashOrderInfo(order);
 
@@ -220,16 +191,10 @@ contract BridgeTest is Test {
         vm.prank(user);
         bridge.submitPurchase(order);
 
-        if (finalAmount > amount * (1 ether + maxSlippage) / 1 ether) {
-            vm.expectRevert(Bridge.SlippageLimitExceeded.selector);
-            vm.prank(bridgeOperator);
-            bridge.fulfillPurchase(order, finalAmount);
-        } else {
-            vm.expectEmit(true, true, true, true);
-            emit PurchaseFulfilled(orderId, user, finalAmount);
-            vm.prank(bridgeOperator);
-            bridge.fulfillPurchase(order, finalAmount);
-        }
+        vm.expectEmit(true, true, true, true);
+        emit PurchaseFulfilled(orderId, user, finalAmount);
+        vm.prank(bridgeOperator);
+        bridge.fulfillPurchase(order, finalAmount);
     }
 
     function testFulfillPurchaseNoOrderReverts() public {
@@ -238,9 +203,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             amount: 100,
-            price: 100,
-            expirationBlock: uint32(block.number),
-            maxSlippage: 0
+            price: 100
         });
 
         vm.expectRevert(Bridge.OrderNotFound.selector);
@@ -248,18 +211,11 @@ contract BridgeTest is Test {
         bridge.fulfillPurchase(order, 100);
     }
 
-    function testFulfillRedemption(
-        uint256 amount,
-        uint224 price,
-        uint32 expirationBlock,
-        uint64 maxSlippage,
-        uint256 proceeds
-    ) public {
+    function testFulfillRedemption(uint256 amount, uint224 price, uint256 proceeds) public {
         vm.assume(amount < alot);
         vm.assume(price < alot);
         vm.assume(amount > 0);
         vm.assume(price > 0);
-        vm.assume(maxSlippage < 1 ether);
         vm.assume(proceeds < alot);
         vm.assume(proceeds > 0);
 
@@ -268,9 +224,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             amount: amount,
-            price: price,
-            expirationBlock: expirationBlock,
-            maxSlippage: maxSlippage
+            price: price
         });
         bytes32 orderId = bridge.hashOrderInfo(order);
 
@@ -286,16 +240,10 @@ contract BridgeTest is Test {
         vm.prank(bridgeOperator);
         paymentToken.increaseAllowance(address(bridge), proceeds);
 
-        if (proceeds / amount < price * (1 ether - maxSlippage) / 1 ether) {
-            vm.expectRevert(Bridge.SlippageLimitExceeded.selector);
-            vm.prank(bridgeOperator);
-            bridge.fulfillRedemption(order, proceeds);
-        } else {
-            vm.expectEmit(true, true, true, true);
-            emit RedemptionFulfilled(orderId, user, proceeds);
-            vm.prank(bridgeOperator);
-            bridge.fulfillRedemption(order, proceeds);
-        }
+        vm.expectEmit(true, true, true, true);
+        emit RedemptionFulfilled(orderId, user, proceeds);
+        vm.prank(bridgeOperator);
+        bridge.fulfillRedemption(order, proceeds);
     }
 
     function testFulfillRedemptionNoOrderReverts() public {
@@ -304,9 +252,7 @@ contract BridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             amount: 100,
-            price: 100,
-            expirationBlock: uint32(block.number),
-            maxSlippage: 0
+            price: 100
         });
 
         vm.expectRevert(Bridge.OrderNotFound.selector);
