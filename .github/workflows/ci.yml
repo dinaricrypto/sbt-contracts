@@ -10,20 +10,21 @@ jobs:
     strategy:
       fail-fast: true
 
-    name: Linting
+    name: Pretty Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
 
-      - name: Yarn Install
-        run: yarn install
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
 
-      - name: Lint
+      - name: Fmt
         run: |
-          yarn lint
-          yarn prettier:check
+          forge fmt --check
 
   check:
     strategy:

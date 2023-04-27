@@ -6,8 +6,8 @@ import "solady/auth/OwnableRoles.sol";
 import "./ITransferRestrictor.sol";
 
 /// @notice ERC20 with minter and blacklist.
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/DinariERC20.sol)
-contract DinariERC20 is ERC20, OwnableRoles {
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
+contract BridgedERC20 is ERC20, OwnableRoles {
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     string internal _name;
@@ -43,9 +43,7 @@ contract DinariERC20 is ERC20, OwnableRoles {
         return _ROLE_1;
     }
 
-    function setTransferRestrictor(
-        ITransferRestrictor restrictor
-    ) external onlyOwner {
+    function setTransferRestrictor(ITransferRestrictor restrictor) external onlyOwner {
         transferRestrictor = restrictor;
         emit TransferRestrictorSet(restrictor);
     }
@@ -54,26 +52,15 @@ contract DinariERC20 is ERC20, OwnableRoles {
         _mint(to, value);
     }
 
-    function burn(
-        address from,
-        uint256 value
-    ) public virtual onlyRoles(_ROLE_1) {
-        _burn(from, value);
+    function burn(uint256 value) public virtual onlyRoles(_ROLE_1) {
+        _burn(msg.sender, value);
     }
 
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256
-    ) internal virtual override {
+    function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
         /* _mint() or _burn() will set one of to address(0)
          *  no need to limit for these scenarios
          */
-        if (
-            from == address(0) ||
-            to == address(0) ||
-            address(transferRestrictor) == address(0)
-        ) {
+        if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
             return;
         }
 

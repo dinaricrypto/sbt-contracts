@@ -18,9 +18,7 @@ contract TransferRestrictorTest is Test {
 
     function testSetResetKyc(address account, uint8 kycInt) public {
         vm.assume(kycInt < 3);
-        ITransferRestrictor.KycType kycType = ITransferRestrictor.KycType(
-            kycInt
-        );
+        ITransferRestrictor.KycType kycType = ITransferRestrictor.KycType(kycInt);
 
         vm.expectEmit(true, true, true, true);
         emit KycSet(account, kycType);
@@ -33,10 +31,7 @@ contract TransferRestrictorTest is Test {
         vm.expectEmit(true, true, true, true);
         emit KycReset(account);
         restrictor.resetKyc(account);
-        assertEq(
-            uint8(restrictor.getUserInfo(account).kycType),
-            uint8(ITransferRestrictor.KycType.NONE)
-        );
+        assertEq(uint8(restrictor.getUserInfo(account).kycType), uint8(ITransferRestrictor.KycType.NONE));
     }
 
     function testBanUnban(address account) public {
