@@ -34,6 +34,10 @@ contract BridgeTest is Test {
         bridge.grantRoles(bridgeOperator, bridge.operatorRole());
     }
 
+    function testInvariants() public {
+        assertEq(bridge.operatorRole(), uint256(1 << 1));
+    }
+
     function testSetPaymentTokenEnabled(address account, bool enabled) public {
         vm.expectEmit(true, true, true, true);
         emit PaymentTokenEnabled(account, enabled);
@@ -115,8 +119,6 @@ contract BridgeTest is Test {
     function testSubmitRedemption(uint256 amount, uint224 price, uint32 expirationBlock, uint64 maxSlippage) public {
         vm.assume(amount < alot);
         vm.assume(price < alot);
-        vm.assume(amount > 0);
-        vm.assume(price > 0);
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
             user: user,
@@ -230,6 +232,22 @@ contract BridgeTest is Test {
         }
     }
 
+    function testFulfillPurchaseNoOrderReverts() public {
+        Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            user: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            amount: 100,
+            price: 100,
+            expirationBlock: uint32(block.number),
+            maxSlippage: 0
+        });
+
+        vm.expectRevert(Bridge.OrderNotFound.selector);
+        vm.prank(bridgeOperator);
+        bridge.fulfillPurchase(order, 100);
+    }
+
     function testFulfillRedemption(
         uint256 amount,
         uint224 price,
@@ -278,5 +296,21 @@ contract BridgeTest is Test {
             vm.prank(bridgeOperator);
             bridge.fulfillRedemption(order, proceeds);
         }
+    }
+
+    function testFulfillRedemptionNoOrderReverts() public {
+        Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            user: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            amount: 100,
+            price: 100,
+            expirationBlock: uint32(block.number),
+            maxSlippage: 0
+        });
+
+        vm.expectRevert(Bridge.OrderNotFound.selector);
+        vm.prank(bridgeOperator);
+        bridge.fulfillRedemption(order, 100);
     }
 }
