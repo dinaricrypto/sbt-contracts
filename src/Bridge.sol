@@ -19,6 +19,7 @@ contract Bridge is OwnableRoles {
     // TODO: prevent double spend orders - check for collisions
     // TODO: add proof of fulfillment?
     // TODO: should we allow beneficiary != submit msg.sender?
+    // TODO:
 
     // 1. Order submitted and payment escrowed
     // 2. Order fulfilled and escrow claimed
@@ -33,9 +34,11 @@ contract Bridge is OwnableRoles {
         uint256 amount;
         uint224 price;
         uint32 expirationBlock;
-        uint256 maxSlippage;
+        uint64 maxSlippage;
     }
 
+    error ZeroValue();
+    error SlippageLimitTooLarge();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
     error OrderNotFound();
@@ -95,6 +98,8 @@ contract Bridge is OwnableRoles {
 
     function submitPurchase(OrderInfo calldata order) external {
         if (order.user != msg.sender) revert NoProxyOrders();
+        if (order.amount == 0 || order.price == 0) revert ZeroValue();
+        if (order.maxSlippage > 1 ether) revert SlippageLimitTooLarge();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
 
         // Emit the data, store the hash
@@ -109,6 +114,8 @@ contract Bridge is OwnableRoles {
 
     function submitRedemption(OrderInfo calldata order) external {
         if (order.user != msg.sender) revert NoProxyOrders();
+        if (order.amount == 0 || order.price == 0) revert ZeroValue();
+        if (order.maxSlippage > 1 ether) revert SlippageLimitTooLarge();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
 
         // Emit the data, store the hash
@@ -126,6 +133,7 @@ contract Bridge is OwnableRoles {
         if (purchasedAmount > order.amount * (1 ether + order.maxSlippage) / 1 ether) revert SlippageLimitExceeded();
 
         delete _purchases[orderId];
+        emit PurchaseFulfilled(orderId, order.user, purchasedAmount);
 
         // Mint
         IMintBurn(order.assetToken).mint(order.user, purchasedAmount);
@@ -137,10 +145,12 @@ contract Bridge is OwnableRoles {
     function fulfillRedemption(OrderInfo calldata order, uint256 proceeds) external onlyRoles(_ROLE_1) {
         bytes32 orderId = hashOrderInfo(order);
         if (!_redemptions[orderId]) revert OrderNotFound();
-        uint256 quoteValue = order.amount * order.price;
-        if (proceeds < quoteValue * (1 ether - order.maxSlippage) / 1 ether) revert SlippageLimitExceeded();
+        if (proceeds / order.amount < order.price * (1 ether - order.maxSlippage) / 1 ether) {
+            revert SlippageLimitExceeded();
+        }
 
         delete _redemptions[orderId];
+        emit RedemptionFulfilled(orderId, order.user, proceeds);
 
         // Forward payment
         SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.user, proceeds);
