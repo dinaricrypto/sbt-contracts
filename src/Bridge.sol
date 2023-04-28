@@ -37,9 +37,9 @@ contract Bridge is OwnableRoles {
 
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
-    event RedemptionSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
+    event SaleSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
     event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
-    event RedemptionFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
+    event SaleFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
 
     // keccak256(OrderInfo(bytes32 salt,address user,address assetToken,address paymentToken,uint128 amount,uint128 price))
     bytes32 public constant ORDERINFO_TYPE_HASH = 0x48b55fd842c35498e68cc0663faa85682a260093cebf3a270227d3cad69d1a69;
@@ -49,7 +49,7 @@ contract Bridge is OwnableRoles {
 
     /// @dev unfulfilled orders
     mapping(bytes32 => bool) private _purchases;
-    mapping(bytes32 => bool) private _redemptions;
+    mapping(bytes32 => bool) private _sales;
 
     constructor() {
         _initializeOwner(msg.sender);
@@ -63,8 +63,8 @@ contract Bridge is OwnableRoles {
         return _purchases[orderId];
     }
 
-    function isRedemptionActive(bytes32 orderId) external view returns (bool) {
-        return _redemptions[orderId];
+    function isSaleActive(bytes32 orderId) external view returns (bool) {
+        return _sales[orderId];
     }
 
     function hashOrderInfo(OrderInfo memory orderInfo) public pure returns (bytes32) {
@@ -102,16 +102,16 @@ contract Bridge is OwnableRoles {
         SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentAmount);
     }
 
-    function submitRedemption(OrderInfo calldata order) external {
+    function submitSale(OrderInfo calldata order) external {
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
         bytes32 orderId = hashOrderInfo(order);
-        if (_redemptions[orderId]) revert DuplicateOrder();
+        if (_sales[orderId]) revert DuplicateOrder();
 
         // Emit the data, store the hash
-        _redemptions[orderId] = true;
-        emit RedemptionSubmitted(orderId, order.user, order);
+        _sales[orderId] = true;
+        emit SaleSubmitted(orderId, order.user, order);
 
         // Move asset tokens
         SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.amount);
@@ -131,12 +131,12 @@ contract Bridge is OwnableRoles {
         SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, paymentAmount);
     }
 
-    function fulfillRedemption(OrderInfo calldata order, uint256 proceeds) external onlyRoles(_ROLE_1) {
+    function fulfillSale(OrderInfo calldata order, uint256 proceeds) external onlyRoles(_ROLE_1) {
         bytes32 orderId = hashOrderInfo(order);
-        if (!_redemptions[orderId]) revert OrderNotFound();
+        if (!_sales[orderId]) revert OrderNotFound();
 
-        delete _redemptions[orderId];
-        emit RedemptionFulfilled(orderId, order.user, proceeds);
+        delete _sales[orderId];
+        emit SaleFulfilled(orderId, order.user, proceeds);
 
         // Forward payment
         SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.user, proceeds);

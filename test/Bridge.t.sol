@@ -10,9 +10,9 @@ import "../src/Bridge.sol";
 contract BridgeTest is Test {
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
-    event RedemptionSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
+    event SaleSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
     event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
-    event RedemptionFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
+    event SaleFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
 
     BridgedERC20 token;
     Bridge bridge;
@@ -128,7 +128,7 @@ contract BridgeTest is Test {
         bridge.submitPurchase(order);
     }
 
-    function testSubmitRedemption(uint128 amount, uint128 price) public {
+    function testSubmitSale(uint128 amount, uint128 price) public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
             salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
@@ -147,17 +147,17 @@ contract BridgeTest is Test {
         if (amount == 0 || price == 0) {
             vm.expectRevert(Bridge.ZeroValue.selector);
             vm.prank(user);
-            bridge.submitRedemption(order);
+            bridge.submitSale(order);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit RedemptionSubmitted(orderId, user, order);
+            emit SaleSubmitted(orderId, user, order);
             vm.prank(user);
-            bridge.submitRedemption(order);
-            assertTrue(bridge.isRedemptionActive(orderId));
+            bridge.submitSale(order);
+            assertTrue(bridge.isSaleActive(orderId));
         }
     }
 
-    function testSubmitRedemptionProxyOrderReverts() public {
+    function testSubmitSaleProxyOrderReverts() public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
             salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
@@ -168,10 +168,10 @@ contract BridgeTest is Test {
         });
 
         vm.expectRevert(Bridge.NoProxyOrders.selector);
-        bridge.submitRedemption(order);
+        bridge.submitSale(order);
     }
 
-    function testSubmitRedemptionUnsupportedPaymentReverts(address tryPaymentToken) public {
+    function testSubmitSaleUnsupportedPaymentReverts(address tryPaymentToken) public {
         vm.assume(!bridge.paymentTokenEnabled(tryPaymentToken));
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
@@ -185,10 +185,10 @@ contract BridgeTest is Test {
 
         vm.expectRevert(Bridge.UnsupportedPaymentToken.selector);
         vm.prank(user);
-        bridge.submitRedemption(order);
+        bridge.submitSale(order);
     }
 
-    function testSubmitRedemptionCollisionReverts() public {
+    function testSubmitSaleCollisionReverts() public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
             salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
@@ -204,11 +204,11 @@ contract BridgeTest is Test {
         token.increaseAllowance(address(bridge), 100);
 
         vm.prank(user);
-        bridge.submitRedemption(order);
+        bridge.submitSale(order);
 
         vm.expectRevert(Bridge.DuplicateOrder.selector);
         vm.prank(user);
-        bridge.submitRedemption(order);
+        bridge.submitSale(order);
     }
 
     function testFulfillPurchase(uint128 amount, uint128 price, uint128 finalAmount) public {
@@ -255,7 +255,7 @@ contract BridgeTest is Test {
         bridge.fulfillPurchase(order, 100);
     }
 
-    function testFulfillRedemption(uint128 amount, uint128 price, uint128 proceeds) public {
+    function testFulfillSale(uint128 amount, uint128 price, uint128 proceeds) public {
         vm.assume(amount > 0);
         vm.assume(price > 0);
         vm.assume(proceeds > 0);
@@ -276,19 +276,19 @@ contract BridgeTest is Test {
         token.increaseAllowance(address(bridge), amount);
 
         vm.prank(user);
-        bridge.submitRedemption(order);
+        bridge.submitSale(order);
 
         paymentToken.mint(bridgeOperator, proceeds);
         vm.prank(bridgeOperator);
         paymentToken.increaseAllowance(address(bridge), proceeds);
 
         vm.expectEmit(true, true, true, true);
-        emit RedemptionFulfilled(orderId, user, proceeds);
+        emit SaleFulfilled(orderId, user, proceeds);
         vm.prank(bridgeOperator);
-        bridge.fulfillRedemption(order, proceeds);
+        bridge.fulfillSale(order, proceeds);
     }
 
-    function testFulfillRedemptionNoOrderReverts() public {
+    function testFulfillSaleNoOrderReverts() public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
             salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
@@ -300,6 +300,6 @@ contract BridgeTest is Test {
 
         vm.expectRevert(Bridge.OrderNotFound.selector);
         vm.prank(bridgeOperator);
-        bridge.fulfillRedemption(order, 100);
+        bridge.fulfillSale(order, 100);
     }
 }

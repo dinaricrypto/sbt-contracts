@@ -8,6 +8,9 @@ import "./ITransferRestrictor.sol";
 /// @notice ERC20 with minter and blacklist.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
 contract BridgedERC20 is ERC20, OwnableRoles {
+    event NameSet(string name);
+    event SymbolSet(string symbol);
+    event DisclosuresSet(string disclosures);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     string internal _name;
@@ -41,6 +44,21 @@ contract BridgedERC20 is ERC20, OwnableRoles {
 
     function minterRole() external pure returns (uint256) {
         return _ROLE_1;
+    }
+
+    function setName(string calldata name_) external {
+        _name = name_;
+        emit NameSet(name_);
+    }
+
+    function setSymbol(string calldata symbol_) external {
+        _symbol = symbol_;
+        emit SymbolSet(symbol_);
+    }
+
+    function setDisclosures(string calldata disclosures_) external {
+        disclosures = disclosures_;
+        emit DisclosuresSet(disclosures_);
     }
 
     function setTransferRestrictor(ITransferRestrictor restrictor) external onlyOwner {
