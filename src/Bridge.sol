@@ -3,14 +3,15 @@ pragma solidity ^0.8.13;
 
 import "solady/auth/OwnableRoles.sol";
 import "solady/utils/SafeTransferLib.sol";
+import "openzeppelin/proxy/utils/Initializable.sol";
+import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "./IMintBurn.sol";
 
 /// @notice Bridge interface managing swaps for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/Bridge.sol)
-contract Bridge is OwnableRoles {
+contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     // This contract handles the submission and fulfillment of orders
     // TODO: submit by sig - forwarder/gsn support?
-    // TODO: upgradeable, pausable
     // TODO: fees
     // TODO: liquidity pools for cross-chain swaps
     // TODO: add proof of fulfillment?
@@ -55,13 +56,15 @@ contract Bridge is OwnableRoles {
 
     bool public ordersPaused;
 
-    constructor() {
-        _initializeOwner(msg.sender);
+    function initialize(address owner) external initializer {
+        _initializeOwner(owner);
     }
 
     function operatorRole() external pure returns (uint256) {
         return _ROLE_1;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     function isPurchaseActive(bytes32 orderId) external view returns (bool) {
         return _purchases[orderId];
