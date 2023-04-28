@@ -3,14 +3,15 @@ pragma solidity ^0.8.13;
 
 import "solady/auth/OwnableRoles.sol";
 import "solady/utils/SafeTransferLib.sol";
+import "openzeppelin/proxy/utils/Initializable.sol";
+import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "./IMintBurn.sol";
 
 /// @notice Bridge interface managing swaps for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/Bridge.sol)
-contract Bridge is OwnableRoles {
+contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     // This contract handles the submission and fulfillment of orders
     // TODO: submit by sig - forwarder/gsn support?
-    // TODO: upgradeable, pausable
     // TODO: fees
     // TODO: liquidity pools for cross-chain swaps
     // TODO: add proof of fulfillment?
@@ -34,8 +35,10 @@ contract Bridge is OwnableRoles {
     error NoProxyOrders();
     error OrderNotFound();
     error DuplicateOrder();
+    error Paused();
 
     event PaymentTokenEnabled(address indexed token, bool enabled);
+    event OrdersPaused(bool paused);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
     event SaleSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
     event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
@@ -51,13 +54,17 @@ contract Bridge is OwnableRoles {
     mapping(bytes32 => bool) private _purchases;
     mapping(bytes32 => bool) private _sales;
 
-    constructor() {
-        _initializeOwner(msg.sender);
+    bool public ordersPaused;
+
+    function initialize(address owner) external initializer {
+        _initializeOwner(owner);
     }
 
     function operatorRole() external pure returns (uint256) {
         return _ROLE_1;
     }
+
+    function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     function isPurchaseActive(bytes32 orderId) external view returns (bool) {
         return _purchases[orderId];
@@ -86,7 +93,13 @@ contract Bridge is OwnableRoles {
         emit PaymentTokenEnabled(token, enabled);
     }
 
+    function setOrdersPaused(bool pause) external {
+        ordersPaused = pause;
+        emit OrdersPaused(pause);
+    }
+
     function submitPurchase(OrderInfo calldata order) external {
+        if (ordersPaused) revert Paused();
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
@@ -103,6 +116,7 @@ contract Bridge is OwnableRoles {
     }
 
     function submitSale(OrderInfo calldata order) external {
+        if (ordersPaused) revert Paused();
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();

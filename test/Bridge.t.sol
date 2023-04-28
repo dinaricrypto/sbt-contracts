@@ -2,13 +2,15 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
+import "solady/auth/Ownable.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
+import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "../src/Bridge.sol";
 
 contract BridgeTest is Test {
     event PaymentTokenEnabled(address indexed token, bool enabled);
+    event OrdersPaused(bool paused);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
     event SaleSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
     event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
@@ -23,8 +25,10 @@ contract BridgeTest is Test {
 
     function setUp() public {
         token = new MockBridgedERC20();
-        bridge = new Bridge();
         paymentToken = new MockERC20("Money", "$", 18);
+        Bridge bridgeImpl = new Bridge();
+        bridge =
+            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this))))));
 
         token.grantRoles(address(this), token.minterRole());
         token.grantRoles(address(bridge), token.minterRole());
@@ -37,11 +41,29 @@ contract BridgeTest is Test {
         assertEq(bridge.operatorRole(), uint256(1 << 1));
     }
 
+    function testInitialize(address owner) public {
+        Bridge bridgeImpl = new Bridge();
+        Bridge newBridge =
+            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (owner)))));
+        assertEq(newBridge.owner(), owner);
+
+        Bridge newImpl = new Bridge();
+        vm.expectRevert(Ownable.Unauthorized.selector);
+        newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(Bridge.initialize, (owner)));
+    }
+
     function testSetPaymentTokenEnabled(address account, bool enabled) public {
         vm.expectEmit(true, true, true, true);
         emit PaymentTokenEnabled(account, enabled);
         bridge.setPaymentTokenEnabled(account, enabled);
         assertEq(bridge.paymentTokenEnabled(account), enabled);
+    }
+
+    function testSetOrdersPaused(bool pause) public {
+        vm.expectEmit(true, true, true, true);
+        emit OrdersPaused(pause);
+        bridge.setOrdersPaused(pause);
+        assertEq(bridge.ordersPaused(), pause);
     }
 
     function testSubmitPurchase(uint128 amount, uint128 price) public {
@@ -72,6 +94,23 @@ contract BridgeTest is Test {
             bridge.submitPurchase(order);
             assertTrue(bridge.isPurchaseActive(orderId));
         }
+    }
+
+    function testSubmitPurchasePausedReverts() public {
+        Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+            user: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            amount: 100,
+            price: 100
+        });
+
+        bridge.setOrdersPaused(true);
+
+        vm.expectRevert(Bridge.Paused.selector);
+        vm.prank(user);
+        bridge.submitPurchase(order);
     }
 
     function testSubmitPurchaseProxyOrderReverts() public {
@@ -155,6 +194,23 @@ contract BridgeTest is Test {
             bridge.submitSale(order);
             assertTrue(bridge.isSaleActive(orderId));
         }
+    }
+
+    function testSubmitSalePausedReverts() public {
+        Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+            user: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            amount: 100,
+            price: 100
+        });
+
+        bridge.setOrdersPaused(true);
+
+        vm.expectRevert(Bridge.Paused.selector);
+        vm.prank(user);
+        bridge.submitSale(order);
     }
 
     function testSubmitSaleProxyOrderReverts() public {
