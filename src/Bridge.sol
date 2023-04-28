@@ -34,8 +34,10 @@ contract Bridge is OwnableRoles {
     error NoProxyOrders();
     error OrderNotFound();
     error DuplicateOrder();
+    error Paused();
 
     event PaymentTokenEnabled(address indexed token, bool enabled);
+    event OrdersPaused(bool paused);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
     event SaleSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
     event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
@@ -50,6 +52,8 @@ contract Bridge is OwnableRoles {
     /// @dev unfulfilled orders
     mapping(bytes32 => bool) private _purchases;
     mapping(bytes32 => bool) private _sales;
+
+    bool public ordersPaused;
 
     constructor() {
         _initializeOwner(msg.sender);
@@ -86,7 +90,13 @@ contract Bridge is OwnableRoles {
         emit PaymentTokenEnabled(token, enabled);
     }
 
+    function setOrdersPaused(bool pause) external {
+        ordersPaused = pause;
+        emit OrdersPaused(pause);
+    }
+
     function submitPurchase(OrderInfo calldata order) external {
+        if (ordersPaused) revert Paused();
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
@@ -103,6 +113,7 @@ contract Bridge is OwnableRoles {
     }
 
     function submitSale(OrderInfo calldata order) external {
+        if (ordersPaused) revert Paused();
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
