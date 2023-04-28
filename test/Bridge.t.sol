@@ -10,6 +10,7 @@ import "../src/Bridge.sol";
 
 contract BridgeTest is Test {
     event TreasurySet(address indexed treasury);
+    event FeesSet(Bridge.Fees fees);
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
@@ -29,8 +30,9 @@ contract BridgeTest is Test {
         token = new MockBridgedERC20();
         paymentToken = new MockERC20("Money", "$", 18);
         Bridge bridgeImpl = new Bridge();
-        bridge =
-            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this), treasury)))));
+        bridge = Bridge(
+            address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this), treasury))))
+        );
 
         token.grantRoles(address(this), token.minterRole());
         token.grantRoles(address(bridge), token.minterRole());
@@ -59,6 +61,15 @@ contract BridgeTest is Test {
         emit TreasurySet(account);
         bridge.setTreasury(account);
         assertEq(bridge.treasury(), account);
+    }
+
+    function testSetFees(Bridge.Fees calldata fees) public {
+        vm.expectEmit(true, true, true, true);
+        emit FeesSet(fees);
+        bridge.setFees(fees);
+        (uint128 purchaseFee, uint128 saleFee) = bridge.fees();
+        assertEq(purchaseFee, fees.purchaseFee);
+        assertEq(saleFee, fees.saleFee);
     }
 
     function testSetPaymentTokenEnabled(address account, bool enabled) public {

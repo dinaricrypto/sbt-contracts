@@ -30,6 +30,11 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
         uint128 price;
     }
 
+    struct Fees {
+        uint128 purchaseFee;
+        uint128 saleFee;
+    }
+
     error ZeroValue();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
@@ -38,6 +43,7 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     error Paused();
 
     event TreasurySet(address indexed treasury);
+    event FeesSet(Fees fees);
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
@@ -49,6 +55,8 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     bytes32 public constant ORDERINFO_TYPE_HASH = 0x48b55fd842c35498e68cc0663faa85682a260093cebf3a270227d3cad69d1a69;
 
     address public treasury;
+
+    Fees public fees;
 
     /// @dev accepted payment tokens for this issuer
     mapping(address => bool) public paymentTokenEnabled;
@@ -96,6 +104,11 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     function setTreasury(address account) external onlyOwner {
         treasury = account;
         emit TreasurySet(account);
+    }
+
+    function setFees(Fees calldata fees_) external onlyOwner {
+        fees = fees_;
+        emit FeesSet(fees_);
     }
 
     function setPaymentTokenEnabled(address token, bool enabled) external onlyOwner {
