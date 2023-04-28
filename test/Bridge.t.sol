@@ -9,6 +9,7 @@ import "./utils/mocks/MockBridgedERC20.sol";
 import "../src/Bridge.sol";
 
 contract BridgeTest is Test {
+    event TreasurySet(address indexed treasury);
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
@@ -50,6 +51,13 @@ contract BridgeTest is Test {
         Bridge newImpl = new Bridge();
         vm.expectRevert(Ownable.Unauthorized.selector);
         newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(Bridge.initialize, (owner)));
+    }
+
+    function testSetTreasury(address treasury) public {
+        vm.expectEmit(true, true, true, true);
+        emit TreasurySet(treasury);
+        bridge.setTreasury(treasury);
+        assertEq(bridge.treasury(), treasury);
     }
 
     function testSetPaymentTokenEnabled(address account, bool enabled) public {
