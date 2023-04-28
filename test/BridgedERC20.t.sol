@@ -7,6 +7,9 @@ import "../src/BridgedERC20.sol";
 import "../src/TransferRestrictor.sol";
 
 contract BridgedERC20Test is Test {
+    event NameSet(string name);
+    event SymbolSet(string symbol);
+    event DisclosuresSet(string disclosures);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     TransferRestrictor public restrictor;
@@ -23,10 +26,28 @@ contract BridgedERC20Test is Test {
     }
 
     function testInvariants() public {
-        assertEq(token.name(), "Dinari Token");
-        assertEq(token.symbol(), "dTKN");
-        assertEq(token.disclosures(), "example.com");
         assertEq(token.minterRole(), uint256(1 << 1));
+    }
+
+    function testSetName(string calldata name) public {
+        vm.expectEmit(true, true, true, true);
+        emit NameSet(name);
+        token.setName(name);
+        assertEq(token.name(), name);
+    }
+
+    function testSetSymbol(string calldata symbol) public {
+        vm.expectEmit(true, true, true, true);
+        emit SymbolSet(symbol);
+        token.setSymbol(symbol);
+        assertEq(token.symbol(), symbol);
+    }
+
+    function testSetDisclosures(string calldata disclosures) public {
+        vm.expectEmit(true, true, true, true);
+        emit DisclosuresSet(disclosures);
+        token.setDisclosures(disclosures);
+        assertEq(token.disclosures(), disclosures);
     }
 
     function testSetRestrictor(address account) public {
