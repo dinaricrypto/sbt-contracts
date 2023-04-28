@@ -9,21 +9,19 @@ import "./IMintBurn.sol";
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/Bridge.sol)
 contract Bridge is OwnableRoles {
     // This contract handles the submission and fulfillment of orders
-    // submit by sig - forwarder/gsn support?
+    // TODO: submit by sig - forwarder/gsn support?
     // TODO: upgradeable, pausable
     // TODO: fees
     // TODO: liquidity pools for cross-chain swaps
-    // TODO: is there a more secure way than holding all escrow here?
-    // TODO: support multiple identical orders from the same account, prevent double spend orders - check for collisions
     // TODO: add proof of fulfillment?
     // TODO: should we allow beneficiary != submit msg.sender?
+    // TODO: cancel orders
 
-    // 1. Order submitted and payment escrowed
-    // 2. Order fulfilled and escrow claimed
-    // 2a. If order failed, escrow released
-    // Orders are eligible for cancelation if fulfillment within maxSlippage cannot be achieved before expiration
+    // 1. Order submitted and payment/asset escrowed
+    // 2. Order fulfilled, escrow claimed, assets minted/burned
 
     struct OrderInfo {
+        bytes32 salt;
         address user;
         address assetToken;
         address paymentToken;
@@ -35,6 +33,7 @@ contract Bridge is OwnableRoles {
     error UnsupportedPaymentToken();
     error NoProxyOrders();
     error OrderNotFound();
+    error DuplicateOrder();
 
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
@@ -42,8 +41,8 @@ contract Bridge is OwnableRoles {
     event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
     event RedemptionFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
 
-    // keccak256(OrderInfo(address user,address assetToken,address paymentToken,uint128 amount,uint128 price))
-    bytes32 public constant ORDERINFO_TYPE_HASH = 0x2596959a062a89c4860f6e081086d24582adcdaf7d5988da87cbb652a577d20f;
+    // keccak256(OrderInfo(bytes32 salt,address user,address assetToken,address paymentToken,uint128 amount,uint128 price))
+    bytes32 public constant ORDERINFO_TYPE_HASH = 0x48b55fd842c35498e68cc0663faa85682a260093cebf3a270227d3cad69d1a69;
 
     /// @dev accepted payment tokens for this issuer
     mapping(address => bool) public paymentTokenEnabled;
@@ -72,6 +71,7 @@ contract Bridge is OwnableRoles {
         return keccak256(
             abi.encode(
                 ORDERINFO_TYPE_HASH,
+                orderInfo.salt,
                 orderInfo.user,
                 orderInfo.assetToken,
                 orderInfo.paymentToken,
@@ -90,9 +90,10 @@ contract Bridge is OwnableRoles {
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
+        bytes32 orderId = hashOrderInfo(order);
+        if (_purchases[orderId]) revert DuplicateOrder();
 
         // Emit the data, store the hash
-        bytes32 orderId = hashOrderInfo(order);
         _purchases[orderId] = true;
         emit PurchaseSubmitted(orderId, order.user, order);
 
@@ -105,9 +106,10 @@ contract Bridge is OwnableRoles {
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0 || order.price == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
+        bytes32 orderId = hashOrderInfo(order);
+        if (_redemptions[orderId]) revert DuplicateOrder();
 
         // Emit the data, store the hash
-        bytes32 orderId = hashOrderInfo(order);
         _redemptions[orderId] = true;
         emit RedemptionSubmitted(orderId, order.user, order);
 

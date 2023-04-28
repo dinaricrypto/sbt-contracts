@@ -46,6 +46,7 @@ contract BridgeTest is Test {
 
     function testSubmitPurchase(uint128 amount, uint128 price) public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -75,6 +76,7 @@ contract BridgeTest is Test {
 
     function testSubmitPurchaseProxyOrderReverts() public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -90,6 +92,7 @@ contract BridgeTest is Test {
         vm.assume(!bridge.paymentTokenEnabled(tryPaymentToken));
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: tryPaymentToken,
@@ -102,8 +105,32 @@ contract BridgeTest is Test {
         bridge.submitPurchase(order);
     }
 
+    function testSubmitPurchaseCollisionReverts() public {
+        Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+            user: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            amount: 100,
+            price: 100
+        });
+
+        paymentToken.mint(user, 10000);
+
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(bridge), 10000);
+
+        vm.prank(user);
+        bridge.submitPurchase(order);
+
+        vm.expectRevert(Bridge.DuplicateOrder.selector);
+        vm.prank(user);
+        bridge.submitPurchase(order);
+    }
+
     function testSubmitRedemption(uint128 amount, uint128 price) public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -132,6 +159,7 @@ contract BridgeTest is Test {
 
     function testSubmitRedemptionProxyOrderReverts() public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -147,6 +175,7 @@ contract BridgeTest is Test {
         vm.assume(!bridge.paymentTokenEnabled(tryPaymentToken));
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: tryPaymentToken,
@@ -159,11 +188,35 @@ contract BridgeTest is Test {
         bridge.submitRedemption(order);
     }
 
+    function testSubmitRedemptionCollisionReverts() public {
+        Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+            user: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            amount: 100,
+            price: 100
+        });
+
+        token.mint(user, 100);
+
+        vm.prank(user);
+        token.increaseAllowance(address(bridge), 100);
+
+        vm.prank(user);
+        bridge.submitRedemption(order);
+
+        vm.expectRevert(Bridge.DuplicateOrder.selector);
+        vm.prank(user);
+        bridge.submitRedemption(order);
+    }
+
     function testFulfillPurchase(uint128 amount, uint128 price, uint128 finalAmount) public {
         vm.assume(amount > 0);
         vm.assume(price > 0);
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -189,6 +242,7 @@ contract BridgeTest is Test {
 
     function testFulfillPurchaseNoOrderReverts() public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -207,6 +261,7 @@ contract BridgeTest is Test {
         vm.assume(proceeds > 0);
 
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -235,6 +290,7 @@ contract BridgeTest is Test {
 
     function testFulfillRedemptionNoOrderReverts() public {
         Bridge.OrderInfo memory order = Bridge.OrderInfo({
+            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
