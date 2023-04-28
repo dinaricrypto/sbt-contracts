@@ -23,13 +23,14 @@ contract BridgeTest is Test {
 
     address constant user = address(1);
     address constant bridgeOperator = address(3);
+    address constant treasury = address(4);
 
     function setUp() public {
         token = new MockBridgedERC20();
         paymentToken = new MockERC20("Money", "$", 18);
         Bridge bridgeImpl = new Bridge();
         bridge =
-            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this))))));
+            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this), treasury)))));
 
         token.grantRoles(address(this), token.minterRole());
         token.grantRoles(address(bridge), token.minterRole());
@@ -45,19 +46,19 @@ contract BridgeTest is Test {
     function testInitialize(address owner) public {
         Bridge bridgeImpl = new Bridge();
         Bridge newBridge =
-            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (owner)))));
+            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (owner, treasury)))));
         assertEq(newBridge.owner(), owner);
 
         Bridge newImpl = new Bridge();
         vm.expectRevert(Ownable.Unauthorized.selector);
-        newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(Bridge.initialize, (owner)));
+        newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(Bridge.initialize, (owner, treasury)));
     }
 
-    function testSetTreasury(address treasury) public {
+    function testSetTreasury(address account) public {
         vm.expectEmit(true, true, true, true);
-        emit TreasurySet(treasury);
-        bridge.setTreasury(treasury);
-        assertEq(bridge.treasury(), treasury);
+        emit TreasurySet(account);
+        bridge.setTreasury(account);
+        assertEq(bridge.treasury(), account);
     }
 
     function testSetPaymentTokenEnabled(address account, bool enabled) public {

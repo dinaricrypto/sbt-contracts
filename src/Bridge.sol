@@ -59,8 +59,10 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
 
     bool public ordersPaused;
 
-    function initialize(address owner) external initializer {
+    function initialize(address owner, address treasury_) external initializer {
         _initializeOwner(owner);
+
+        treasury = treasury_;
     }
 
     function operatorRole() external pure returns (uint256) {
