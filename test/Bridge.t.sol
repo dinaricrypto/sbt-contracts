@@ -9,12 +9,12 @@ import "./utils/mocks/MockBridgedERC20.sol";
 import "../src/Bridge.sol";
 
 contract BridgeTest is Test {
+    event TreasurySet(address indexed treasury);
+    event FeesSet(Bridge.Fees fees);
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
-    event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
-    event SaleSubmitted(bytes32 indexed orderId, address indexed user, Bridge.OrderInfo orderInfo);
-    event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
-    event SaleFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
+    event SwapSubmitted(bytes32 indexed swapId, address indexed user, Bridge.Swap swap, uint256 orderAmount);
+    event SwapFulfilled(bytes32 indexed swapId, address indexed user, uint256 amount);
 
     BridgedERC20 token;
     Bridge bridge;
@@ -22,13 +22,15 @@ contract BridgeTest is Test {
 
     address constant user = address(1);
     address constant bridgeOperator = address(3);
+    address constant treasury = address(4);
 
     function setUp() public {
         token = new MockBridgedERC20();
         paymentToken = new MockERC20("Money", "$", 18);
         Bridge bridgeImpl = new Bridge();
-        bridge =
-            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this))))));
+        bridge = Bridge(
+            address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this), treasury))))
+        );
 
         token.grantRoles(address(this), token.minterRole());
         token.grantRoles(address(bridge), token.minterRole());
@@ -44,12 +46,33 @@ contract BridgeTest is Test {
     function testInitialize(address owner) public {
         Bridge bridgeImpl = new Bridge();
         Bridge newBridge =
-            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (owner)))));
+            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (owner, treasury)))));
         assertEq(newBridge.owner(), owner);
 
         Bridge newImpl = new Bridge();
         vm.expectRevert(Ownable.Unauthorized.selector);
-        newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(Bridge.initialize, (owner)));
+        newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(Bridge.initialize, (owner, treasury)));
+    }
+
+    function testSetTreasury(address account) public {
+        vm.expectEmit(true, true, true, true);
+        emit TreasurySet(account);
+        bridge.setTreasury(account);
+        assertEq(bridge.treasury(), account);
+    }
+
+    function testSetFees(Bridge.Fees calldata fees) public {
+        if (fees.purchaseFee > 1 ether || fees.saleFee > 1 ether) {
+            vm.expectRevert(Bridge.FeeTooLarge.selector);
+            bridge.setFees(fees);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit FeesSet(fees);
+            bridge.setFees(fees);
+            (uint128 purchaseFee, uint128 saleFee) = bridge.fees();
+            assertEq(purchaseFee, fees.purchaseFee);
+            assertEq(saleFee, fees.saleFee);
+        }
     }
 
     function testSetPaymentTokenEnabled(address account, bool enabled) public {
@@ -66,92 +89,98 @@ contract BridgeTest is Test {
         assertEq(bridge.ordersPaused(), pause);
     }
 
-    function testSubmitPurchase(uint128 amount, uint128 price) public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+    function testSubmitSwap(bool sell, uint256 amount, uint64 fee) public {
+        vm.assume(fee < 1 ether);
+
+        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        Bridge.Swap memory swap = Bridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            amount: amount,
-            price: price
+            sell: sell,
+            amount: amount
         });
-        bytes32 orderId = bridge.hashOrderInfo(order);
+        bytes32 swapId = bridge.hashSwapTicket(swap, salt);
 
-        uint256 paymentAmount = uint256(amount) * price;
-        paymentToken.mint(user, paymentAmount);
+        paymentToken.mint(user, amount);
+        token.mint(user, amount);
 
         vm.prank(user);
-        paymentToken.increaseAllowance(address(bridge), paymentAmount);
+        paymentToken.increaseAllowance(address(bridge), amount);
+        vm.prank(user);
+        token.increaseAllowance(address(bridge), amount);
 
-        if (amount == 0 || price == 0) {
+        bridge.setFees(Bridge.Fees({purchaseFee: fee, saleFee: fee}));
+
+        if (amount == 0) {
             vm.expectRevert(Bridge.ZeroValue.selector);
             vm.prank(user);
-            bridge.submitPurchase(order);
+            bridge.submitSwap(swap, salt);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit PurchaseSubmitted(orderId, user, order);
+            emit SwapSubmitted(swapId, user, swap, sell ? amount : amount - PrbMath.mulDiv18(amount, fee));
             vm.prank(user);
-            bridge.submitPurchase(order);
-            assertTrue(bridge.isPurchaseActive(orderId));
+            bridge.submitSwap(swap, salt);
+            assertTrue(bridge.isSwapActive(swapId));
         }
     }
 
-    function testSubmitPurchasePausedReverts() public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+    function testSubmitSwapPausedReverts() public {
+        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        Bridge.Swap memory swap = Bridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            amount: 100,
-            price: 100
+            sell: false,
+            amount: 100
         });
 
         bridge.setOrdersPaused(true);
 
         vm.expectRevert(Bridge.Paused.selector);
         vm.prank(user);
-        bridge.submitPurchase(order);
+        bridge.submitSwap(swap, salt);
     }
 
-    function testSubmitPurchaseProxyOrderReverts() public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+    function testSubmitSwapProxyOrderReverts() public {
+        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        Bridge.Swap memory swap = Bridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            amount: 100,
-            price: 100
+            sell: false,
+            amount: 100
         });
 
         vm.expectRevert(Bridge.NoProxyOrders.selector);
-        bridge.submitPurchase(order);
+        bridge.submitSwap(swap, salt);
     }
 
-    function testSubmitPurchaseUnsupportedPaymentReverts(address tryPaymentToken) public {
+    function testSubmitSwapUnsupportedPaymentReverts(address tryPaymentToken) public {
         vm.assume(!bridge.paymentTokenEnabled(tryPaymentToken));
 
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        Bridge.Swap memory swap = Bridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: tryPaymentToken,
-            amount: 100,
-            price: 100
+            sell: false,
+            amount: 100
         });
 
         vm.expectRevert(Bridge.UnsupportedPaymentToken.selector);
         vm.prank(user);
-        bridge.submitPurchase(order);
+        bridge.submitSwap(swap, salt);
     }
 
-    function testSubmitPurchaseCollisionReverts() public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+    function testSubmitSwapCollisionReverts() public {
+        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        Bridge.Swap memory swap = Bridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            amount: 100,
-            price: 100
+            sell: false,
+            amount: 100
         });
 
         paymentToken.mint(user, 10000);
@@ -160,202 +189,64 @@ contract BridgeTest is Test {
         paymentToken.increaseAllowance(address(bridge), 10000);
 
         vm.prank(user);
-        bridge.submitPurchase(order);
+        bridge.submitSwap(swap, salt);
 
         vm.expectRevert(Bridge.DuplicateOrder.selector);
         vm.prank(user);
-        bridge.submitPurchase(order);
+        bridge.submitSwap(swap, salt);
     }
 
-    function testSubmitSale(uint128 amount, uint128 price) public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+    function testFulfillSwap(bool sell, uint256 amount, uint64 fee, uint256 finalAmount) public {
+        vm.assume(amount > 0);
+        vm.assume(fee < 1 ether);
+
+        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        Bridge.Swap memory swap = Bridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            amount: amount,
-            price: price
+            sell: sell,
+            amount: amount
         });
-        bytes32 orderId = bridge.hashOrderInfo(order);
+        bytes32 swapId = bridge.hashSwapTicket(swap, salt);
 
-        token.mint(user, amount);
-
-        vm.prank(user);
-        token.increaseAllowance(address(bridge), amount);
-
-        if (amount == 0 || price == 0) {
-            vm.expectRevert(Bridge.ZeroValue.selector);
+        if (sell) {
+            token.mint(user, amount);
             vm.prank(user);
-            bridge.submitSale(order);
+            token.increaseAllowance(address(bridge), amount);
+
+            paymentToken.mint(bridgeOperator, finalAmount);
+            vm.prank(bridgeOperator);
+            paymentToken.increaseAllowance(address(bridge), finalAmount);
         } else {
-            vm.expectEmit(true, true, true, true);
-            emit SaleSubmitted(orderId, user, order);
+            paymentToken.mint(user, amount);
             vm.prank(user);
-            bridge.submitSale(order);
-            assertTrue(bridge.isSaleActive(orderId));
+            paymentToken.increaseAllowance(address(bridge), amount);
         }
-    }
 
-    function testSubmitSalePausedReverts() public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            amount: 100,
-            price: 100
-        });
-
-        bridge.setOrdersPaused(true);
-
-        vm.expectRevert(Bridge.Paused.selector);
-        vm.prank(user);
-        bridge.submitSale(order);
-    }
-
-    function testSubmitSaleProxyOrderReverts() public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            amount: 100,
-            price: 100
-        });
-
-        vm.expectRevert(Bridge.NoProxyOrders.selector);
-        bridge.submitSale(order);
-    }
-
-    function testSubmitSaleUnsupportedPaymentReverts(address tryPaymentToken) public {
-        vm.assume(!bridge.paymentTokenEnabled(tryPaymentToken));
-
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
-            user: user,
-            assetToken: address(token),
-            paymentToken: tryPaymentToken,
-            amount: 100,
-            price: 100
-        });
-
-        vm.expectRevert(Bridge.UnsupportedPaymentToken.selector);
-        vm.prank(user);
-        bridge.submitSale(order);
-    }
-
-    function testSubmitSaleCollisionReverts() public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            amount: 100,
-            price: 100
-        });
-
-        token.mint(user, 100);
+        bridge.setFees(Bridge.Fees({purchaseFee: fee, saleFee: fee}));
 
         vm.prank(user);
-        token.increaseAllowance(address(bridge), 100);
-
-        vm.prank(user);
-        bridge.submitSale(order);
-
-        vm.expectRevert(Bridge.DuplicateOrder.selector);
-        vm.prank(user);
-        bridge.submitSale(order);
-    }
-
-    function testFulfillPurchase(uint128 amount, uint128 price, uint128 finalAmount) public {
-        vm.assume(amount > 0);
-        vm.assume(price > 0);
-
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            amount: amount,
-            price: price
-        });
-        bytes32 orderId = bridge.hashOrderInfo(order);
-
-        uint256 paymentAmount = uint256(amount) * price;
-        paymentToken.mint(user, paymentAmount);
-
-        vm.prank(user);
-        paymentToken.increaseAllowance(address(bridge), paymentAmount);
-
-        vm.prank(user);
-        bridge.submitPurchase(order);
+        bridge.submitSwap(swap, salt);
 
         vm.expectEmit(true, true, true, true);
-        emit PurchaseFulfilled(orderId, user, finalAmount);
+        emit SwapFulfilled(swapId, user, finalAmount);
         vm.prank(bridgeOperator);
-        bridge.fulfillPurchase(order, finalAmount);
+        bridge.fulfillSwap(swap, salt, finalAmount);
     }
 
-    function testFulfillPurchaseNoOrderReverts() public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
+    function testFulfillSwapNoOrderReverts() public {
+        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+        Bridge.Swap memory swap = Bridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            amount: 100,
-            price: 100
+            sell: false,
+            amount: 100
         });
 
         vm.expectRevert(Bridge.OrderNotFound.selector);
         vm.prank(bridgeOperator);
-        bridge.fulfillPurchase(order, 100);
-    }
-
-    function testFulfillSale(uint128 amount, uint128 price, uint128 proceeds) public {
-        vm.assume(amount > 0);
-        vm.assume(price > 0);
-        vm.assume(proceeds > 0);
-
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            amount: amount,
-            price: price
-        });
-        bytes32 orderId = bridge.hashOrderInfo(order);
-
-        token.mint(user, amount);
-
-        vm.prank(user);
-        token.increaseAllowance(address(bridge), amount);
-
-        vm.prank(user);
-        bridge.submitSale(order);
-
-        paymentToken.mint(bridgeOperator, proceeds);
-        vm.prank(bridgeOperator);
-        paymentToken.increaseAllowance(address(bridge), proceeds);
-
-        vm.expectEmit(true, true, true, true);
-        emit SaleFulfilled(orderId, user, proceeds);
-        vm.prank(bridgeOperator);
-        bridge.fulfillSale(order, proceeds);
-    }
-
-    function testFulfillSaleNoOrderReverts() public {
-        Bridge.OrderInfo memory order = Bridge.OrderInfo({
-            salt: 0x0000000000000000000000000000000000000000000000000000000000000001,
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            amount: 100,
-            price: 100
-        });
-
-        vm.expectRevert(Bridge.OrderNotFound.selector);
-        vm.prank(bridgeOperator);
-        bridge.fulfillSale(order, 100);
+        bridge.fulfillSwap(swap, salt, 100);
     }
 }

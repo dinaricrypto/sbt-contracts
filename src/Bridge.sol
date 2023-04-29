@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.19;
 
 import "solady/auth/OwnableRoles.sol";
 import "solady/utils/SafeTransferLib.sol";
+import "prb-math/Common.sol" as PrbMath;
 import "openzeppelin/proxy/utils/Initializable.sol";
 import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "./IMintBurn.sol";
@@ -11,53 +12,86 @@ import "./IMintBurn.sol";
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/Bridge.sol)
 contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     // This contract handles the submission and fulfillment of orders
+    // Takes fees from payment token
     // TODO: submit by sig - forwarder/gsn support?
-    // TODO: fees
     // TODO: liquidity pools for cross-chain swaps
-    // TODO: add proof of fulfillment?
     // TODO: should we allow beneficiary != submit msg.sender?
     // TODO: cancel orders
+    // TODO: forwarder support for fulfiller - worker/custodian separation
 
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned
 
-    struct OrderInfo {
+    enum OrderType {
+        MARKET,
+        LIMIT,
+        STOP
+    }
+
+    /// @dev Data model for structured orders
+    struct Order {
         bytes32 salt;
         address user;
         address assetToken;
         address paymentToken;
-        uint128 amount;
-        uint128 price;
+        uint256 assetTokenQuantity;
+        uint256 assetTokenPrice;
+        uint64 timeInForce;
+    }
+
+    /// @dev Data model for atomic swaps
+    struct Swap {
+        address user;
+        address assetToken;
+        address paymentToken;
+        bool sell;
+        uint256 amount;
+    }
+
+    struct OrderState {
+        uint256 feeCollection;
+        uint256 orderAmount;
+    }
+
+    struct Fees {
+        uint64 purchaseFee;
+        uint64 saleFee;
     }
 
     error ZeroValue();
+    error FeeTooLarge();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
     error OrderNotFound();
     error DuplicateOrder();
     error Paused();
 
+    event TreasurySet(address indexed treasury);
+    event FeesSet(Fees fees);
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
-    event PurchaseSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
-    event SaleSubmitted(bytes32 indexed orderId, address indexed user, OrderInfo orderInfo);
-    event PurchaseFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
-    event SaleFulfilled(bytes32 indexed orderId, address indexed user, uint256 amount);
+    event SwapSubmitted(bytes32 indexed swapId, address indexed user, Swap swap, uint256 orderAmount);
+    event SwapFulfilled(bytes32 indexed swapId, address indexed user, uint256 amount);
 
-    // keccak256(OrderInfo(bytes32 salt,address user,address assetToken,address paymentToken,uint128 amount,uint128 price))
-    bytes32 public constant ORDERINFO_TYPE_HASH = 0x48b55fd842c35498e68cc0663faa85682a260093cebf3a270227d3cad69d1a69;
+    // keccak256(SwapTicket(bytes32 salt,address user,address assetToken,address paymentToken,bool sell,uint256 amount))
+    bytes32 private constant SWAPTICKET_TYPE_HASH = 0xb9a9d2af18036c7d42c1a8a82a27fc2f128e6bcd7b9a70c0b8e777098b9740e6;
+
+    address public treasury;
+
+    Fees public fees;
 
     /// @dev accepted payment tokens for this issuer
     mapping(address => bool) public paymentTokenEnabled;
 
-    /// @dev unfulfilled orders
-    mapping(bytes32 => bool) private _purchases;
-    mapping(bytes32 => bool) private _sales;
+    /// @dev unfulfilled swap orders
+    mapping(bytes32 => OrderState) private _swaps;
 
     bool public ordersPaused;
 
-    function initialize(address owner) external initializer {
+    function initialize(address owner, address treasury_) external initializer {
         _initializeOwner(owner);
+
+        treasury = treasury_;
     }
 
     function operatorRole() external pure returns (uint256) {
@@ -66,26 +100,29 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
 
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
-    function isPurchaseActive(bytes32 orderId) external view returns (bool) {
-        return _purchases[orderId];
+    function isSwapActive(bytes32 swapId) external view returns (bool) {
+        return _swaps[swapId].orderAmount > 0;
     }
 
-    function isSaleActive(bytes32 orderId) external view returns (bool) {
-        return _sales[orderId];
-    }
-
-    function hashOrderInfo(OrderInfo memory orderInfo) public pure returns (bytes32) {
+    function hashSwapTicket(Swap calldata swap, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                ORDERINFO_TYPE_HASH,
-                orderInfo.salt,
-                orderInfo.user,
-                orderInfo.assetToken,
-                orderInfo.paymentToken,
-                orderInfo.amount,
-                orderInfo.price
+                SWAPTICKET_TYPE_HASH, salt, swap.user, swap.assetToken, swap.paymentToken, swap.sell, swap.amount
             )
         );
+    }
+
+    function setTreasury(address account) external onlyOwner {
+        treasury = account;
+        emit TreasurySet(account);
+    }
+
+    function setFees(Fees calldata fees_) external onlyOwner {
+        if (fees_.purchaseFee > 1 ether) revert FeeTooLarge();
+        if (fees_.saleFee > 1 ether) revert FeeTooLarge();
+
+        fees = fees_;
+        emit FeesSet(fees_);
     }
 
     function setPaymentTokenEnabled(address token, bool enabled) external onlyOwner {
@@ -93,68 +130,56 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
         emit PaymentTokenEnabled(token, enabled);
     }
 
-    function setOrdersPaused(bool pause) external {
+    function setOrdersPaused(bool pause) external onlyOwner {
         ordersPaused = pause;
         emit OrdersPaused(pause);
     }
 
-    function submitPurchase(OrderInfo calldata order) external {
+    function submitSwap(Swap calldata swap, bytes32 salt) external {
         if (ordersPaused) revert Paused();
-        if (order.user != msg.sender) revert NoProxyOrders();
-        if (order.amount == 0 || order.price == 0) revert ZeroValue();
-        if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
-        bytes32 orderId = hashOrderInfo(order);
-        if (_purchases[orderId]) revert DuplicateOrder();
+        if (swap.user != msg.sender) revert NoProxyOrders();
+        if (swap.amount == 0) revert ZeroValue();
+        if (!paymentTokenEnabled[swap.paymentToken]) revert UnsupportedPaymentToken();
+        bytes32 swapId = hashSwapTicket(swap, salt);
+        if (_swaps[swapId].orderAmount > 0) revert DuplicateOrder();
+
+        // Calculate fees
+        uint256 collection = swap.sell ? 0 : PrbMath.mulDiv18(swap.amount, fees.purchaseFee);
+        OrderState memory swapState = OrderState({feeCollection: collection, orderAmount: swap.amount - collection});
 
         // Emit the data, store the hash
-        _purchases[orderId] = true;
-        emit PurchaseSubmitted(orderId, order.user, order);
+        _swaps[swapId] = swapState;
+        emit SwapSubmitted(swapId, swap.user, swap, swapState.orderAmount);
 
-        // Move payment tokens
-        uint256 paymentAmount = uint256(order.amount) * order.price;
-        SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentAmount);
+        // Escrow
+        SafeTransferLib.safeTransferFrom(
+            swap.sell ? swap.assetToken : swap.paymentToken, msg.sender, address(this), swap.amount
+        );
     }
 
-    function submitSale(OrderInfo calldata order) external {
-        if (ordersPaused) revert Paused();
-        if (order.user != msg.sender) revert NoProxyOrders();
-        if (order.amount == 0 || order.price == 0) revert ZeroValue();
-        if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
-        bytes32 orderId = hashOrderInfo(order);
-        if (_sales[orderId]) revert DuplicateOrder();
+    function fulfillSwap(Swap calldata swap, bytes32 salt, uint256 amount) external {
+        bytes32 swapId = hashSwapTicket(swap, salt);
+        OrderState memory swapState = _swaps[swapId];
+        if (swapState.orderAmount == 0) revert OrderNotFound();
 
-        // Emit the data, store the hash
-        _sales[orderId] = true;
-        emit SaleSubmitted(orderId, order.user, order);
+        delete _swaps[swapId];
+        emit SwapFulfilled(swapId, swap.user, amount);
 
-        // Move asset tokens
-        SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.amount);
-    }
-
-    function fulfillPurchase(OrderInfo calldata order, uint256 purchasedAmount) external onlyRoles(_ROLE_1) {
-        bytes32 orderId = hashOrderInfo(order);
-        if (!_purchases[orderId]) revert OrderNotFound();
-
-        delete _purchases[orderId];
-        emit PurchaseFulfilled(orderId, order.user, purchasedAmount);
-
-        // Mint
-        IMintBurn(order.assetToken).mint(order.user, purchasedAmount);
-        // Claim payment
-        uint256 paymentAmount = uint256(order.amount) * order.price;
-        SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, paymentAmount);
-    }
-
-    function fulfillSale(OrderInfo calldata order, uint256 proceeds) external onlyRoles(_ROLE_1) {
-        bytes32 orderId = hashOrderInfo(order);
-        if (!_sales[orderId]) revert OrderNotFound();
-
-        delete _sales[orderId];
-        emit SaleFulfilled(orderId, order.user, proceeds);
-
-        // Forward payment
-        SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.user, proceeds);
-        // Burn
-        IMintBurn(order.assetToken).burn(order.amount);
+        if (swap.sell) {
+            // Collect fees
+            uint256 collection = PrbMath.mulDiv18(amount, fees.saleFee);
+            SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, treasury, collection);
+            // Forward proceeds
+            SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, swap.user, amount - collection);
+            // Burn
+            IMintBurn(swap.assetToken).burn(swap.amount);
+        } else {
+            // Mint
+            IMintBurn(swap.assetToken).mint(swap.user, amount);
+            // Distribute fees
+            SafeTransferLib.safeTransfer(swap.paymentToken, treasury, swapState.feeCollection);
+            // Claim payment
+            SafeTransferLib.safeTransfer(swap.paymentToken, msg.sender, swapState.orderAmount);
+        }
     }
 }

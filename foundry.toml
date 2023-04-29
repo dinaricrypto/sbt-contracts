@@ -7,6 +7,7 @@ remappings = [
   "solady=lib/solady/src/",
   "solady-test=lib/solady/test/",
   "openzeppelin=lib/openzeppelin-contracts/contracts/",
+  "prb-math=lib/prb-math/src/",
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
