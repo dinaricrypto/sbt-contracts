@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.19;
 
 import "solady/auth/OwnableRoles.sol";
 import "solady/utils/SafeTransferLib.sol";
-import "solady/utils/FixedPointMathLib.sol";
+import "prb-math/Common.sol" as PrbMath;
 import "openzeppelin/proxy/utils/Initializable.sol";
 import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "./IMintBurn.sol";
@@ -11,7 +11,6 @@ import "./IMintBurn.sol";
 /// @notice Bridge interface managing swaps for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/Bridge.sol)
 contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
-    using FixedPointMathLib for uint256;
     // This contract handles the submission and fulfillment of orders
     // Takes fees from payment token
     // TODO: submit by sig - forwarder/gsn support?
@@ -150,7 +149,7 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
         if (_swaps[swapId].orderAmount > 0) revert DuplicateOrder();
 
         // Calculate fees
-        uint256 collection = swap.action == OrderAction.BUY ? (swap.amount / 1 ether) * fees.purchaseFee : 0;
+        uint256 collection = swap.action == OrderAction.BUY ? PrbMath.mulDiv18(swap.amount, fees.purchaseFee) : 0;
         OrderState memory swapState = OrderState({feeCollection: collection, orderAmount: swap.amount - collection});
 
         // Emit the data, store the hash
@@ -180,7 +179,7 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
             SafeTransferLib.safeTransfer(swap.paymentToken, msg.sender, swapState.orderAmount);
         } else {
             // Collect fees
-            uint256 collection = amount.mulWad(fees.saleFee);
+            uint256 collection = PrbMath.mulDiv18(amount, fees.saleFee);
             SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, treasury, collection);
             // Forward proceeds
             SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, swap.user, amount - collection);

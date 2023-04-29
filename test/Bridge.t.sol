@@ -3,15 +3,12 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "solady/auth/Ownable.sol";
-import "solady/utils/FixedPointMathLib.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "../src/Bridge.sol";
 
 contract BridgeTest is Test {
-    using FixedPointMathLib for uint256;
-
     event TreasurySet(address indexed treasury);
     event FeesSet(Bridge.Fees fees);
     event PaymentTokenEnabled(address indexed token, bool enabled);
@@ -120,8 +117,8 @@ contract BridgeTest is Test {
             vm.prank(user);
             bridge.submitSwap(swap, salt);
         } else {
-            // vm.expectEmit(true, true, true, true);
-            // emit SwapSubmitted(swapId, user, swap, buy ? amount - amount.mulWad(fee) : amount);
+            vm.expectEmit(true, true, true, true);
+            emit SwapSubmitted(swapId, user, swap, buy ? amount - PrbMath.mulDiv18(amount, fee) : amount);
             vm.prank(user);
             bridge.submitSwap(swap, salt);
             assertTrue(bridge.isSwapActive(swapId));
