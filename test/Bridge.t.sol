@@ -89,7 +89,7 @@ contract BridgeTest is Test {
         assertEq(bridge.ordersPaused(), pause);
     }
 
-    function testSubmitSwap(bool buy, uint256 amount, uint64 fee) public {
+    function testSubmitSwap(bool sell, uint256 amount, uint64 fee) public {
         vm.assume(fee < 1 ether);
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
@@ -97,7 +97,7 @@ contract BridgeTest is Test {
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            action: buy ? Bridge.OrderAction.BUY : Bridge.OrderAction.SELL,
+            sell: sell,
             amount: amount
         });
         bytes32 swapId = bridge.hashSwapTicket(swap, salt);
@@ -118,7 +118,7 @@ contract BridgeTest is Test {
             bridge.submitSwap(swap, salt);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit SwapSubmitted(swapId, user, swap, buy ? amount - PrbMath.mulDiv18(amount, fee) : amount);
+            emit SwapSubmitted(swapId, user, swap, sell ? amount : amount - PrbMath.mulDiv18(amount, fee));
             vm.prank(user);
             bridge.submitSwap(swap, salt);
             assertTrue(bridge.isSwapActive(swapId));
@@ -131,7 +131,7 @@ contract BridgeTest is Test {
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            action: Bridge.OrderAction.BUY,
+            sell: false,
             amount: 100
         });
 
@@ -148,7 +148,7 @@ contract BridgeTest is Test {
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            action: Bridge.OrderAction.BUY,
+            sell: false,
             amount: 100
         });
 
@@ -164,7 +164,7 @@ contract BridgeTest is Test {
             user: user,
             assetToken: address(token),
             paymentToken: tryPaymentToken,
-            action: Bridge.OrderAction.BUY,
+            sell: false,
             amount: 100
         });
 
@@ -179,7 +179,7 @@ contract BridgeTest is Test {
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            action: Bridge.OrderAction.BUY,
+            sell: false,
             amount: 100
         });
 
@@ -196,7 +196,7 @@ contract BridgeTest is Test {
         bridge.submitSwap(swap, salt);
     }
 
-    function testFulfillSwap(bool buy, uint256 amount, uint64 fee, uint256 finalAmount) public {
+    function testFulfillSwap(bool sell, uint256 amount, uint64 fee, uint256 finalAmount) public {
         vm.assume(amount > 0);
         vm.assume(fee < 1 ether);
 
@@ -205,16 +205,12 @@ contract BridgeTest is Test {
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            action: buy ? Bridge.OrderAction.BUY : Bridge.OrderAction.SELL,
+            sell: sell,
             amount: amount
         });
         bytes32 swapId = bridge.hashSwapTicket(swap, salt);
 
-        if (buy) {
-            paymentToken.mint(user, amount);
-            vm.prank(user);
-            paymentToken.increaseAllowance(address(bridge), amount);
-        } else {
+        if (sell) {
             token.mint(user, amount);
             vm.prank(user);
             token.increaseAllowance(address(bridge), amount);
@@ -222,6 +218,10 @@ contract BridgeTest is Test {
             paymentToken.mint(bridgeOperator, finalAmount);
             vm.prank(bridgeOperator);
             paymentToken.increaseAllowance(address(bridge), finalAmount);
+        } else {
+            paymentToken.mint(user, amount);
+            vm.prank(user);
+            paymentToken.increaseAllowance(address(bridge), amount);
         }
 
         bridge.setFees(Bridge.Fees({purchaseFee: fee, saleFee: fee}));
@@ -241,7 +241,7 @@ contract BridgeTest is Test {
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            action: Bridge.OrderAction.BUY,
+            sell: false,
             amount: 100
         });
 

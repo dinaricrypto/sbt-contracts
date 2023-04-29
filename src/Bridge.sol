@@ -22,11 +22,6 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned
 
-    enum OrderAction {
-        BUY,
-        SELL
-    }
-
     enum OrderType {
         MARKET,
         LIMIT,
@@ -49,7 +44,7 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
         address user;
         address assetToken;
         address paymentToken;
-        OrderAction action;
+        bool sell;
         uint256 amount;
     }
 
@@ -78,8 +73,8 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     event SwapSubmitted(bytes32 indexed swapId, address indexed user, Swap swap, uint256 orderAmount);
     event SwapFulfilled(bytes32 indexed swapId, address indexed user, uint256 amount);
 
-    // keccak256(SwapTicket(bytes32 salt,address user,address assetToken,address paymentToken,uint8 action,uint256 amount))
-    bytes32 private constant SWAPTICKET_TYPE_HASH = 0xbdf8c391853a76393ea7fba522fb5b119dbcd41e00e57a0db66763f95fb87367;
+    // keccak256(SwapTicket(bytes32 salt,address user,address assetToken,address paymentToken,bool sell,uint256 amount))
+    bytes32 private constant SWAPTICKET_TYPE_HASH = 0xb9a9d2af18036c7d42c1a8a82a27fc2f128e6bcd7b9a70c0b8e777098b9740e6;
 
     address public treasury;
 
@@ -112,7 +107,7 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
     function hashSwapTicket(Swap calldata swap, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                SWAPTICKET_TYPE_HASH, salt, swap.user, swap.assetToken, swap.paymentToken, swap.action, swap.amount
+                SWAPTICKET_TYPE_HASH, salt, swap.user, swap.assetToken, swap.paymentToken, swap.sell, swap.amount
             )
         );
     }
@@ -149,7 +144,7 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
         if (_swaps[swapId].orderAmount > 0) revert DuplicateOrder();
 
         // Calculate fees
-        uint256 collection = swap.action == OrderAction.BUY ? PrbMath.mulDiv18(swap.amount, fees.purchaseFee) : 0;
+        uint256 collection = swap.sell ? 0 : PrbMath.mulDiv18(swap.amount, fees.purchaseFee);
         OrderState memory swapState = OrderState({feeCollection: collection, orderAmount: swap.amount - collection});
 
         // Emit the data, store the hash
@@ -158,7 +153,7 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
 
         // Escrow
         SafeTransferLib.safeTransferFrom(
-            swap.action == OrderAction.BUY ? swap.paymentToken : swap.assetToken, msg.sender, address(this), swap.amount
+            swap.sell ? swap.assetToken : swap.paymentToken, msg.sender, address(this), swap.amount
         );
     }
 
@@ -170,14 +165,7 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
         delete _swaps[swapId];
         emit SwapFulfilled(swapId, swap.user, amount);
 
-        if (swap.action == OrderAction.BUY) {
-            // Mint
-            IMintBurn(swap.assetToken).mint(swap.user, amount);
-            // Distribute fees
-            SafeTransferLib.safeTransfer(swap.paymentToken, treasury, swapState.feeCollection);
-            // Claim payment
-            SafeTransferLib.safeTransfer(swap.paymentToken, msg.sender, swapState.orderAmount);
-        } else {
+        if (swap.sell) {
             // Collect fees
             uint256 collection = PrbMath.mulDiv18(amount, fees.saleFee);
             SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, treasury, collection);
@@ -185,6 +173,13 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
             SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, swap.user, amount - collection);
             // Burn
             IMintBurn(swap.assetToken).burn(swap.amount);
+        } else {
+            // Mint
+            IMintBurn(swap.assetToken).mint(swap.user, amount);
+            // Distribute fees
+            SafeTransferLib.safeTransfer(swap.paymentToken, treasury, swapState.feeCollection);
+            // Claim payment
+            SafeTransferLib.safeTransfer(swap.paymentToken, msg.sender, swapState.orderAmount);
         }
     }
 }
