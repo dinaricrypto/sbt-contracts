@@ -210,13 +210,19 @@ contract BridgeTest is Test {
         });
         bytes32 swapId = bridge.hashSwapTicket(swap, salt);
 
-        paymentToken.mint(user, amount);
-        token.mint(user, amount);
+        if (buy) {
+            paymentToken.mint(user, amount);
+            vm.prank(user);
+            paymentToken.increaseAllowance(address(bridge), amount);
+        } else {
+            token.mint(user, amount);
+            vm.prank(user);
+            token.increaseAllowance(address(bridge), amount);
 
-        vm.prank(user);
-        paymentToken.increaseAllowance(address(bridge), amount);
-        vm.prank(user);
-        token.increaseAllowance(address(bridge), amount);
+            paymentToken.mint(bridgeOperator, finalAmount);
+            vm.prank(bridgeOperator);
+            paymentToken.increaseAllowance(address(bridge), finalAmount);
+        }
 
         bridge.setFees(Bridge.Fees({purchaseFee: fee, saleFee: fee}));
 
