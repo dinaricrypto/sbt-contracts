@@ -14,12 +14,6 @@ coverage/
 # slither
 /crytic_export
 
-# deployments
-deployments/
-.contracts*
-contracts*.json
-manifest.json
-
 # env
 .env
 .env-*
