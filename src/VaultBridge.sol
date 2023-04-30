@@ -18,6 +18,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable {
     // TODO: should we allow beneficiary != submit msg.sender?
     // TODO: cancel orders
     // TODO: forwarder support for fulfiller - worker/custodian separation
+    // TODO: whitelist asset tokens?
 
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned

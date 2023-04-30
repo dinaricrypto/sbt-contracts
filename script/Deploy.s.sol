@@ -15,7 +15,7 @@ contract DeployScript is Script {
         new TransferRestrictor();
 
         VaultBridge bridgeImpl = new VaultBridge();
-        new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (address(this), treasuryAddress)));
+        new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (vm.addr(deployerPrivateKey), treasuryAddress)));
 
         vm.stopBroadcast();
     }

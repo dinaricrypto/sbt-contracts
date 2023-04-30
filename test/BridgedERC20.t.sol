@@ -18,6 +18,7 @@ contract BridgedERC20Test is Test {
     function setUp() public {
         restrictor = new TransferRestrictor();
         token = new BridgedERC20(
+            address(this),
             "Dinari Token",
             "dTKN",
             "example.com",

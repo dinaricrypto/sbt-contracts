@@ -29,7 +29,9 @@ contract VaultBridgeTest is Test {
         paymentToken = new MockERC20("Money", "$", 18);
         VaultBridge bridgeImpl = new VaultBridge();
         bridge = VaultBridge(
-            address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (address(this), treasury))))
+            address(
+                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (address(this), treasury)))
+            )
         );
 
         token.grantRoles(address(this), token.minterRole());
@@ -45,8 +47,9 @@ contract VaultBridgeTest is Test {
 
     function testInitialize(address owner) public {
         VaultBridge bridgeImpl = new VaultBridge();
-        VaultBridge newBridge =
-            VaultBridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury)))));
+        VaultBridge newBridge = VaultBridge(
+            address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury))))
+        );
         assertEq(newBridge.owner(), owner);
 
         VaultBridge newImpl = new VaultBridge();

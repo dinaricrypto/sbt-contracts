@@ -22,12 +22,13 @@ contract BridgedERC20 is ERC20, OwnableRoles {
     ITransferRestrictor public transferRestrictor;
 
     constructor(
+        address owner,
         string memory name_,
         string memory symbol_,
         string memory disclosures_,
         ITransferRestrictor transferRestrictor_
     ) {
-        _initializeOwner(msg.sender);
+        _initializeOwner(owner);
 
         _name = name_;
         _symbol = symbol_;
