@@ -8,7 +8,9 @@
     "pretty": "forge fmt",
     "build": "forge build",
     "test": "forge test -vvv",
-    "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info"
+    "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
+    "deploy:testnet": "./script/deploy-testnet.sh",
+    "deploy:token:testnet": "./script/deploy-token-testnet.sh"
   },
   "devDependencies": {
     "pre-commit": "^1.2.2"
