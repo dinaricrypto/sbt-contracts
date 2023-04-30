@@ -10,7 +10,7 @@ import "./IMintBurn.sol";
 
 /// @notice Bridge interface managing swaps for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/Bridge.sol)
-contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
+contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable {
     // This contract handles the submission and fulfillment of orders
     // Takes fees from payment token
     // TODO: submit by sig - forwarder/gsn support?
@@ -21,23 +21,6 @@ contract Bridge is Initializable, OwnableRoles, UUPSUpgradeable {
 
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned
-
-    enum OrderType {
-        MARKET,
-        LIMIT,
-        STOP
-    }
-
-    /// @dev Data model for structured orders
-    struct Order {
-        bytes32 salt;
-        address user;
-        address assetToken;
-        address paymentToken;
-        uint256 assetTokenQuantity;
-        uint256 assetTokenPrice;
-        uint64 timeInForce;
-    }
 
     /// @dev Data model for atomic swaps
     struct Swap {

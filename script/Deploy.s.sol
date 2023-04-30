@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import "../src/TransferRestrictor.sol";
-import "../src/Bridge.sol";
+import "../src/VaultBridge.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployScript is Script {
@@ -14,8 +14,8 @@ contract DeployScript is Script {
 
         new TransferRestrictor();
 
-        Bridge bridgeImpl = new Bridge();
-        new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this), treasuryAddress)));
+        VaultBridge bridgeImpl = new VaultBridge();
+        new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (address(this), treasuryAddress)));
 
         vm.stopBroadcast();
     }

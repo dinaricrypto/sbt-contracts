@@ -6,18 +6,18 @@ import "solady/auth/Ownable.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
-import "../src/Bridge.sol";
+import "../src/VaultBridge.sol";
 
-contract BridgeTest is Test {
+contract VaultBridgeTest is Test {
     event TreasurySet(address indexed treasury);
-    event FeesSet(Bridge.Fees fees);
+    event FeesSet(VaultBridge.Fees fees);
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
-    event SwapSubmitted(bytes32 indexed swapId, address indexed user, Bridge.Swap swap, uint256 orderAmount);
+    event SwapSubmitted(bytes32 indexed swapId, address indexed user, VaultBridge.Swap swap, uint256 orderAmount);
     event SwapFulfilled(bytes32 indexed swapId, address indexed user, uint256 amount);
 
     BridgedERC20 token;
-    Bridge bridge;
+    VaultBridge bridge;
     MockERC20 paymentToken;
 
     address constant user = address(1);
@@ -27,9 +27,9 @@ contract BridgeTest is Test {
     function setUp() public {
         token = new MockBridgedERC20();
         paymentToken = new MockERC20("Money", "$", 18);
-        Bridge bridgeImpl = new Bridge();
-        bridge = Bridge(
-            address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (address(this), treasury))))
+        VaultBridge bridgeImpl = new VaultBridge();
+        bridge = VaultBridge(
+            address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (address(this), treasury))))
         );
 
         token.grantRoles(address(this), token.minterRole());
@@ -44,14 +44,14 @@ contract BridgeTest is Test {
     }
 
     function testInitialize(address owner) public {
-        Bridge bridgeImpl = new Bridge();
-        Bridge newBridge =
-            Bridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(Bridge.initialize, (owner, treasury)))));
+        VaultBridge bridgeImpl = new VaultBridge();
+        VaultBridge newBridge =
+            VaultBridge(address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury)))));
         assertEq(newBridge.owner(), owner);
 
-        Bridge newImpl = new Bridge();
+        VaultBridge newImpl = new VaultBridge();
         vm.expectRevert(Ownable.Unauthorized.selector);
-        newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(Bridge.initialize, (owner, treasury)));
+        newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury)));
     }
 
     function testSetTreasury(address account) public {
@@ -61,9 +61,9 @@ contract BridgeTest is Test {
         assertEq(bridge.treasury(), account);
     }
 
-    function testSetFees(Bridge.Fees calldata fees) public {
+    function testSetFees(VaultBridge.Fees calldata fees) public {
         if (fees.purchaseFee > 1 ether || fees.saleFee > 1 ether) {
-            vm.expectRevert(Bridge.FeeTooLarge.selector);
+            vm.expectRevert(VaultBridge.FeeTooLarge.selector);
             bridge.setFees(fees);
         } else {
             vm.expectEmit(true, true, true, true);
@@ -93,7 +93,7 @@ contract BridgeTest is Test {
         vm.assume(fee < 1 ether);
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        Bridge.Swap memory swap = Bridge.Swap({
+        VaultBridge.Swap memory swap = VaultBridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -110,10 +110,10 @@ contract BridgeTest is Test {
         vm.prank(user);
         token.increaseAllowance(address(bridge), amount);
 
-        bridge.setFees(Bridge.Fees({purchaseFee: fee, saleFee: fee}));
+        bridge.setFees(VaultBridge.Fees({purchaseFee: fee, saleFee: fee}));
 
         if (amount == 0) {
-            vm.expectRevert(Bridge.ZeroValue.selector);
+            vm.expectRevert(VaultBridge.ZeroValue.selector);
             vm.prank(user);
             bridge.submitSwap(swap, salt);
         } else {
@@ -127,7 +127,7 @@ contract BridgeTest is Test {
 
     function testSubmitSwapPausedReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        Bridge.Swap memory swap = Bridge.Swap({
+        VaultBridge.Swap memory swap = VaultBridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -137,14 +137,14 @@ contract BridgeTest is Test {
 
         bridge.setOrdersPaused(true);
 
-        vm.expectRevert(Bridge.Paused.selector);
+        vm.expectRevert(VaultBridge.Paused.selector);
         vm.prank(user);
         bridge.submitSwap(swap, salt);
     }
 
     function testSubmitSwapProxyOrderReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        Bridge.Swap memory swap = Bridge.Swap({
+        VaultBridge.Swap memory swap = VaultBridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -152,7 +152,7 @@ contract BridgeTest is Test {
             amount: 100
         });
 
-        vm.expectRevert(Bridge.NoProxyOrders.selector);
+        vm.expectRevert(VaultBridge.NoProxyOrders.selector);
         bridge.submitSwap(swap, salt);
     }
 
@@ -160,7 +160,7 @@ contract BridgeTest is Test {
         vm.assume(!bridge.paymentTokenEnabled(tryPaymentToken));
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        Bridge.Swap memory swap = Bridge.Swap({
+        VaultBridge.Swap memory swap = VaultBridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: tryPaymentToken,
@@ -168,14 +168,14 @@ contract BridgeTest is Test {
             amount: 100
         });
 
-        vm.expectRevert(Bridge.UnsupportedPaymentToken.selector);
+        vm.expectRevert(VaultBridge.UnsupportedPaymentToken.selector);
         vm.prank(user);
         bridge.submitSwap(swap, salt);
     }
 
     function testSubmitSwapCollisionReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        Bridge.Swap memory swap = Bridge.Swap({
+        VaultBridge.Swap memory swap = VaultBridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -191,7 +191,7 @@ contract BridgeTest is Test {
         vm.prank(user);
         bridge.submitSwap(swap, salt);
 
-        vm.expectRevert(Bridge.DuplicateOrder.selector);
+        vm.expectRevert(VaultBridge.DuplicateOrder.selector);
         vm.prank(user);
         bridge.submitSwap(swap, salt);
     }
@@ -201,7 +201,7 @@ contract BridgeTest is Test {
         vm.assume(fee < 1 ether);
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        Bridge.Swap memory swap = Bridge.Swap({
+        VaultBridge.Swap memory swap = VaultBridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -224,7 +224,7 @@ contract BridgeTest is Test {
             paymentToken.increaseAllowance(address(bridge), amount);
         }
 
-        bridge.setFees(Bridge.Fees({purchaseFee: fee, saleFee: fee}));
+        bridge.setFees(VaultBridge.Fees({purchaseFee: fee, saleFee: fee}));
 
         vm.prank(user);
         bridge.submitSwap(swap, salt);
@@ -237,7 +237,7 @@ contract BridgeTest is Test {
 
     function testFulfillSwapNoOrderReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        Bridge.Swap memory swap = Bridge.Swap({
+        VaultBridge.Swap memory swap = VaultBridge.Swap({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -245,7 +245,7 @@ contract BridgeTest is Test {
             amount: 100
         });
 
-        vm.expectRevert(Bridge.OrderNotFound.selector);
+        vm.expectRevert(VaultBridge.OrderNotFound.selector);
         vm.prank(bridgeOperator);
         bridge.fulfillSwap(swap, salt, 100);
     }

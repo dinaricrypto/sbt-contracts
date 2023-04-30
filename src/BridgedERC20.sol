@@ -8,6 +8,7 @@ import "./ITransferRestrictor.sol";
 /// @notice ERC20 with minter and blacklist.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
 contract BridgedERC20 is ERC20, OwnableRoles {
+    // TODO: compare with openeden vault
     event NameSet(string name);
     event SymbolSet(string symbol);
     event DisclosuresSet(string disclosures);
