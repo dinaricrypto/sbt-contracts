@@ -10,4 +10,11 @@ remappings = [
   "prb-math=lib/prb-math/src/",
 ]
 
+[rpc_endpoints]
+arbitrum-goerli = "${ARBITRUM_GOERLI_RPC_URL}"
+
+[etherscan]
+arbitrum-goerli = { key = "${ARBISCAN_API_KEY}" }
+
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
