@@ -201,9 +201,8 @@ contract VaultBridgeTest is Test {
         bridge.submitSwap(swap, salt);
     }
 
-    function testFulfillSwap(bool sell, uint256 amount, uint256 finalAmount) public {
-        vm.assume(amount > 0);
-        // TODO: test partial fills and fillstoolarge
+    function testFulfillSwap(bool sell, uint256 orderAmount, uint256 fillAmount, uint256 proceeds) public {
+        vm.assume(orderAmount > 0);
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
         VaultBridge.Swap memory swap = VaultBridge.Swap({
@@ -211,31 +210,37 @@ contract VaultBridgeTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: sell,
-            amount: amount
+            amount: orderAmount
         });
         bytes32 swapId = bridge.hashSwapTicket(swap, salt);
 
         if (sell) {
-            token.mint(user, amount);
+            token.mint(user, orderAmount);
             vm.prank(user);
-            token.increaseAllowance(address(bridge), amount);
+            token.increaseAllowance(address(bridge), orderAmount);
 
-            paymentToken.mint(bridgeOperator, finalAmount);
+            paymentToken.mint(bridgeOperator, proceeds);
             vm.prank(bridgeOperator);
-            paymentToken.increaseAllowance(address(bridge), finalAmount);
+            paymentToken.increaseAllowance(address(bridge), proceeds);
         } else {
-            paymentToken.mint(user, amount);
+            paymentToken.mint(user, orderAmount);
             vm.prank(user);
-            paymentToken.increaseAllowance(address(bridge), amount);
+            paymentToken.increaseAllowance(address(bridge), orderAmount);
         }
 
         vm.prank(user);
         bridge.submitSwap(swap, salt);
 
-        vm.expectEmit(true, true, true, true);
-        emit SwapFulfilled(swapId, user, amount, finalAmount);
-        vm.prank(bridgeOperator);
-        bridge.fulfillSwap(swap, salt, amount, finalAmount);
+        if (fillAmount > orderAmount) {
+            vm.expectRevert(VaultBridge.FillTooLarge.selector);
+            vm.prank(bridgeOperator);
+            bridge.fulfillSwap(swap, salt, fillAmount, proceeds);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit SwapFulfilled(swapId, user, fillAmount, proceeds);
+            vm.prank(bridgeOperator);
+            bridge.fulfillSwap(swap, salt, fillAmount, proceeds);
+        }
     }
 
     function testFulfillSwapNoOrderReverts() public {
