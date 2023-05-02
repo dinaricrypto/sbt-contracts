@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import "../src/TransferRestrictor.sol";
+import "../src/FlatOrderFees.sol";
 import "../src/VaultBridge.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -14,8 +15,10 @@ contract DeployScript is Script {
 
         new TransferRestrictor();
 
+        IOrderFees orderFees = new FlatOrderFees();
+
         VaultBridge bridgeImpl = new VaultBridge();
-        new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (vm.addr(deployerPrivateKey), treasuryAddress)));
+        new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (vm.addr(deployerPrivateKey), treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
     }

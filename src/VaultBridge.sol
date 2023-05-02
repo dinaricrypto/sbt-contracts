@@ -3,9 +3,9 @@ pragma solidity ^0.8.19;
 
 import "solady/auth/OwnableRoles.sol";
 import "solady/utils/SafeTransferLib.sol";
-import "prb-math/Common.sol" as PrbMath;
 import "openzeppelin/proxy/utils/Initializable.sol";
 import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
+import "./IOrderFees.sol";
 import "./IMintBurn.sol";
 
 /// @notice Bridge interface managing swaps for bridged assets
@@ -32,50 +32,41 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable {
         uint256 amount;
     }
 
-    struct OrderState {
-        uint256 feeCollection;
-        uint256 orderAmount;
-    }
-
-    struct Fees {
-        uint64 purchaseFee;
-        uint64 saleFee;
-    }
-
     error ZeroValue();
-    error FeeTooLarge();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
     error OrderNotFound();
     error DuplicateOrder();
     error Paused();
+    error FillTooLarge();
 
     event TreasurySet(address indexed treasury);
-    event FeesSet(Fees fees);
+    event OrderFeesSet(IOrderFees orderFees);
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
-    event SwapSubmitted(bytes32 indexed swapId, address indexed user, Swap swap, uint256 orderAmount);
-    event SwapFulfilled(bytes32 indexed swapId, address indexed user, uint256 amount);
+    event SwapSubmitted(bytes32 indexed swapId, address indexed user, Swap swap);
+    event SwapFulfilled(bytes32 indexed swapId, address indexed user, uint256 fillAmount, uint256 proceeds);
 
     // keccak256(SwapTicket(bytes32 salt,address user,address assetToken,address paymentToken,bool sell,uint256 amount))
     bytes32 private constant SWAPTICKET_TYPE_HASH = 0xb9a9d2af18036c7d42c1a8a82a27fc2f128e6bcd7b9a70c0b8e777098b9740e6;
 
     address public treasury;
 
-    Fees public fees;
+    IOrderFees public orderFees;
 
     /// @dev accepted payment tokens for this issuer
     mapping(address => bool) public paymentTokenEnabled;
 
     /// @dev unfulfilled swap orders
-    mapping(bytes32 => OrderState) private _swaps;
+    mapping(bytes32 => uint256) private _swaps;
 
     bool public ordersPaused;
 
-    function initialize(address owner, address treasury_) external initializer {
+    function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
         _initializeOwner(owner);
 
         treasury = treasury_;
+        orderFees = orderFees_;
     }
 
     function operatorRole() external pure returns (uint256) {
@@ -85,7 +76,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable {
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     function isSwapActive(bytes32 swapId) external view returns (bool) {
-        return _swaps[swapId].orderAmount > 0;
+        return _swaps[swapId] > 0;
     }
 
     function hashSwapTicket(Swap calldata swap, bytes32 salt) public pure returns (bytes32) {
@@ -101,12 +92,9 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable {
         emit TreasurySet(account);
     }
 
-    function setFees(Fees calldata fees_) external onlyOwner {
-        if (fees_.purchaseFee > 1 ether) revert FeeTooLarge();
-        if (fees_.saleFee > 1 ether) revert FeeTooLarge();
-
-        fees = fees_;
-        emit FeesSet(fees_);
+    function setOrderFees(IOrderFees fees) external onlyOwner {
+        orderFees = fees;
+        emit OrderFeesSet(fees);
     }
 
     function setPaymentTokenEnabled(address token, bool enabled) external onlyOwner {
@@ -125,15 +113,11 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable {
         if (swap.amount == 0) revert ZeroValue();
         if (!paymentTokenEnabled[swap.paymentToken]) revert UnsupportedPaymentToken();
         bytes32 swapId = hashSwapTicket(swap, salt);
-        if (_swaps[swapId].orderAmount > 0) revert DuplicateOrder();
-
-        // Calculate fees
-        uint256 collection = swap.sell ? 0 : PrbMath.mulDiv18(swap.amount, fees.purchaseFee);
-        OrderState memory swapState = OrderState({feeCollection: collection, orderAmount: swap.amount - collection});
+        if (_swaps[swapId] > 0) revert DuplicateOrder();
 
         // Emit the data, store the hash
-        _swaps[swapId] = swapState;
-        emit SwapSubmitted(swapId, swap.user, swap, swapState.orderAmount);
+        _swaps[swapId] = swap.amount;
+        emit SwapSubmitted(swapId, swap.user, swap);
 
         // Escrow
         SafeTransferLib.safeTransferFrom(
@@ -141,29 +125,31 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable {
         );
     }
 
-    function fulfillSwap(Swap calldata swap, bytes32 salt, uint256 amount) external {
+    function fulfillSwap(Swap calldata swap, bytes32 salt, uint256 fillAmount, uint256 proceeds) external {
         bytes32 swapId = hashSwapTicket(swap, salt);
-        OrderState memory swapState = _swaps[swapId];
-        if (swapState.orderAmount == 0) revert OrderNotFound();
+        uint256 swapRemaining = _swaps[swapId];
+        if (swapRemaining == 0) revert OrderNotFound();
+        if (fillAmount > swapRemaining) revert FillTooLarge();
 
         delete _swaps[swapId];
-        emit SwapFulfilled(swapId, swap.user, amount);
+        emit SwapFulfilled(swapId, swap.user, fillAmount, proceeds);
 
+        // Get fees
+        uint256 collection = orderFees.getFees(swap.sell, false, proceeds);
         if (swap.sell) {
             // Collect fees
-            uint256 collection = PrbMath.mulDiv18(amount, fees.saleFee);
             SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, treasury, collection);
             // Forward proceeds
-            SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, swap.user, amount - collection);
+            SafeTransferLib.safeTransferFrom(swap.paymentToken, msg.sender, swap.user, proceeds - collection);
             // Burn
-            IMintBurn(swap.assetToken).burn(swap.amount);
+            IMintBurn(swap.assetToken).burn(fillAmount);
         } else {
+            // Collect fees
+            SafeTransferLib.safeTransferFrom(swap.assetToken, msg.sender, treasury, collection);
+            // Forward proceeds
+            SafeTransferLib.safeTransferFrom(swap.assetToken, msg.sender, swap.user, proceeds - collection);
             // Mint
-            IMintBurn(swap.assetToken).mint(swap.user, amount);
-            // Distribute fees
-            SafeTransferLib.safeTransfer(swap.paymentToken, treasury, swapState.feeCollection);
-            // Claim payment
-            SafeTransferLib.safeTransfer(swap.paymentToken, msg.sender, swapState.orderAmount);
+            IMintBurn(swap.assetToken).mint(swap.user, fillAmount);
         }
     }
 }
