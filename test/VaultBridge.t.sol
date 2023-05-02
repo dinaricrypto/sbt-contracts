@@ -7,6 +7,7 @@ import "solady-test/utils/mocks/MockERC20.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "../src/VaultBridge.sol";
+import "../src/FlatOrderFees.sol";
 
 contract VaultBridgeTest is Test {
     event TreasurySet(address indexed treasury);
@@ -17,7 +18,7 @@ contract VaultBridgeTest is Test {
     event SwapFulfilled(bytes32 indexed swapId, address indexed user, uint256 fillAmount, uint256 proceeds);
 
     BridgedERC20 token;
-    IOrderFees orderFees;
+    FlatOrderFees orderFees;
     VaultBridge bridge;
     MockERC20 paymentToken;
 
@@ -28,6 +29,11 @@ contract VaultBridgeTest is Test {
     function setUp() public {
         token = new MockBridgedERC20();
         paymentToken = new MockERC20("Money", "$", 18);
+
+        orderFees = new FlatOrderFees();
+        orderFees.setSellerFee(0.1 ether);
+        orderFees.setBuyerFee(0.1 ether);
+
         VaultBridge bridgeImpl = new VaultBridge();
         bridge = VaultBridge(
             address(
@@ -49,13 +55,17 @@ contract VaultBridgeTest is Test {
     function testInitialize(address owner) public {
         VaultBridge bridgeImpl = new VaultBridge();
         VaultBridge newBridge = VaultBridge(
-            address(new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury, orderFees))))
+            address(
+                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury, orderFees)))
+            )
         );
         assertEq(newBridge.owner(), owner);
 
         VaultBridge newImpl = new VaultBridge();
         vm.expectRevert(Ownable.Unauthorized.selector);
-        newBridge.upgradeToAndCall(address(newImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury, orderFees)));
+        newBridge.upgradeToAndCall(
+            address(newImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury, orderFees))
+        );
     }
 
     function testSetTreasury(address account) public {
@@ -66,21 +76,10 @@ contract VaultBridgeTest is Test {
     }
 
     function testSetFees(IOrderFees fees) public {
-            vm.expectEmit(true, true, true, true);
-            emit OrderFeesSet(fees);
-            bridge.setOrderFees(fees);
-            assertEq(address(bridge.orderFees()), address(fees));
-        // if (fees.purchaseFee > 1 ether || fees.saleFee > 1 ether) {
-        //     vm.expectRevert(VaultBridge.FeeTooLarge.selector);
-        //     bridge.setFees(fees);
-        // } else {
-        //     vm.expectEmit(true, true, true, true);
-        //     emit FeesSet(fees);
-        //     bridge.setFees(fees);
-        //     (uint128 purchaseFee, uint128 saleFee) = bridge.fees();
-        //     assertEq(purchaseFee, fees.purchaseFee);
-        //     assertEq(saleFee, fees.saleFee);
-        // }
+        vm.expectEmit(true, true, true, true);
+        emit OrderFeesSet(fees);
+        bridge.setOrderFees(fees);
+        assertEq(address(bridge.orderFees()), address(fees));
     }
 
     function testSetPaymentTokenEnabled(address account, bool enabled) public {
@@ -97,9 +96,7 @@ contract VaultBridgeTest is Test {
         assertEq(bridge.ordersPaused(), pause);
     }
 
-    function testSubmitSwap(bool sell, uint256 amount, uint64 fee) public {
-        vm.assume(fee < 1 ether);
-
+    function testSubmitSwap(bool sell, uint256 amount) public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
         VaultBridge.Swap memory swap = VaultBridge.Swap({
             user: user,
@@ -117,8 +114,6 @@ contract VaultBridgeTest is Test {
         paymentToken.increaseAllowance(address(bridge), amount);
         vm.prank(user);
         token.increaseAllowance(address(bridge), amount);
-
-        // bridge.setFees(VaultBridge.Fees({purchaseFee: fee, saleFee: fee}));
 
         if (amount == 0) {
             vm.expectRevert(VaultBridge.ZeroValue.selector);
@@ -204,9 +199,8 @@ contract VaultBridgeTest is Test {
         bridge.submitSwap(swap, salt);
     }
 
-    function testFulfillSwap(bool sell, uint256 amount, uint64 fee, uint256 finalAmount) public {
+    function testFulfillSwap(bool sell, uint256 amount, uint256 finalAmount) public {
         vm.assume(amount > 0);
-        vm.assume(fee < 1 ether);
         // TODO: test partial fills and fillstoolarge
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
@@ -232,8 +226,6 @@ contract VaultBridgeTest is Test {
             vm.prank(user);
             paymentToken.increaseAllowance(address(bridge), amount);
         }
-
-        // bridge.setFees(VaultBridge.Fees({purchaseFee: fee, saleFee: fee}));
 
         vm.prank(user);
         bridge.submitSwap(swap, salt);

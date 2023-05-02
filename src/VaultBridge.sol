@@ -145,11 +145,11 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable {
             IMintBurn(swap.assetToken).burn(fillAmount);
         } else {
             // Collect fees
-            SafeTransferLib.safeTransferFrom(swap.assetToken, msg.sender, treasury, collection);
-            // Forward proceeds
-            SafeTransferLib.safeTransferFrom(swap.assetToken, msg.sender, swap.user, proceeds - collection);
+            IMintBurn(swap.assetToken).mint(treasury, collection);
             // Mint
-            IMintBurn(swap.assetToken).mint(swap.user, fillAmount);
+            IMintBurn(swap.assetToken).mint(swap.user, proceeds - collection);
+            // Claim payment
+            SafeTransferLib.safeTransfer(swap.assetToken, msg.sender, fillAmount);
         }
     }
 }
