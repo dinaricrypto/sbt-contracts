@@ -15,6 +15,10 @@ contract FlatOrderFeesTest is Test {
         orderFees = new FlatOrderFees();
     }
 
+    function testInit(bool sell, uint64 value) public {
+        assertEq(orderFees.getFees(sell, false, value), 0);
+    }
+
     function testSetSellerFee(uint64 fee) public {
         if (fee > 1 ether) {
             vm.expectRevert(FlatOrderFees.FeeTooLarge.selector);

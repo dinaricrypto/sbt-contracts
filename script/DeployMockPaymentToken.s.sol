@@ -9,7 +9,7 @@ contract DeployMockPaymentTokenScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
-        MockERC20 token = new MockERC20("Money", "$", 18);
+        new MockERC20("Money", "$", 18);
 
         vm.stopBroadcast();
     }
