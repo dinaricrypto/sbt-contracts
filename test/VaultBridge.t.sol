@@ -53,6 +53,8 @@ contract VaultBridgeTest is Test {
     }
 
     function testInitialize(address owner) public {
+        vm.assume(owner != address(this));
+
         VaultBridge bridgeImpl = new VaultBridge();
         VaultBridge newBridge = VaultBridge(
             address(
