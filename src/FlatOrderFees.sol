@@ -13,6 +13,8 @@ contract FlatOrderFees is Ownable, IOrderFees {
     event SellerFeeSet(uint64 fee);
     event BuyerFeeSet(uint64 fee);
 
+    uint64 private constant MAX_FEE = 1 ether; // 100%
+
     uint64 public sellerFee;
     uint64 public buyerFee;
 
@@ -21,14 +23,14 @@ contract FlatOrderFees is Ownable, IOrderFees {
     }
 
     function setSellerFee(uint64 fee) external onlyOwner {
-        if (fee > 1 ether) revert FeeTooLarge();
+        if (fee > MAX_FEE) revert FeeTooLarge();
 
         sellerFee = fee;
         emit SellerFeeSet(fee);
     }
 
     function setBuyerFee(uint64 fee) external onlyOwner {
-        if (fee > 1 ether) revert FeeTooLarge();
+        if (fee > MAX_FEE) revert FeeTooLarge();
 
         buyerFee = fee;
         emit BuyerFeeSet(fee);
