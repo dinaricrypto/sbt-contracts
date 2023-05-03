@@ -1,6 +1,13 @@
 name: ci
 
-on: [pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+  workflow_dispatch:
 
 env:
   FOUNDRY_PROFILE: ci
