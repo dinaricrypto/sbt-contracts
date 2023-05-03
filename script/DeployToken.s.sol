@@ -13,10 +13,14 @@ contract DeployTokenScript is Script {
         address bridge = vm.envAddress("VAULT_BRIDGE");
         vm.startBroadcast(deployerPrivateKey);
 
+        address deployerAddress = vm.addr(deployerPrivateKey);
         BridgedERC20 token =
-        new BridgedERC20(vm.addr(deployerPrivateKey), vm.envString("TOKEN_NAME"), vm.envString("TOKEN_SYMBOL"), "example.com", ITransferRestrictor(restrictor));
+        new BridgedERC20(deployerAddress, vm.envString("TOKEN_NAME"), vm.envString("TOKEN_SYMBOL"), "example.com", ITransferRestrictor(restrictor));
 
         token.grantRoles(bridge, token.minterRole());
+        token.grantRoles(deployerAddress, token.minterRole());
+
+        token.mint(deployerAddress, 1 ether);
 
         vm.stopBroadcast();
     }
