@@ -147,6 +147,7 @@ contract VaultBridgeTest is Test {
             bridge.requestOrder(order, salt);
             assertTrue(bridge.isOrderActive(orderId));
             assertEq(bridge.getUnfilledAmount(orderId), amount);
+            assertEq(bridge.numOpenOrders(), 1);
         }
     }
 
@@ -230,8 +231,14 @@ contract VaultBridgeTest is Test {
         } else {
             vm.expectEmit(true, true, true, true);
             emit OrderFill(orderId, user, fillAmount);
+            if (fillAmount == order.amount) {
+                vm.expectEmit(true, true, true, true);
+                emit OrderFulfilled(orderId, user, order.amount);
+            }
             vm.prank(bridgeOperator);
             bridge.fillOrder(order, salt, assetAmount, paymentAmount);
+            assertEq(bridge.getUnfilledAmount(orderId), order.amount - fillAmount);
+            assertEq(bridge.numOpenOrders(), 0);
         }
     }
 
