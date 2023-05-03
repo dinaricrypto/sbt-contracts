@@ -23,10 +23,10 @@ interface IVaultBridge {
     }
 
     event OrderRequested(bytes32 indexed id, address indexed user, Order order);
-    event OrderFilled(
-        bytes32 indexed id, address indexed user, bool sell, uint256 assetTokenQuantity, uint256 paymentTokenQuantity
+    event OrderFill(
+        bytes32 indexed id, address indexed user, uint256 fillAmount
     );
-    event OrderClosed(bytes32 indexed id, address indexed user);
+    event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
 
     function getOrderId(Order calldata order, bytes32 salt) external view returns (bytes32);
 
@@ -36,6 +36,6 @@ interface IVaultBridge {
 
     function requestOrder(Order calldata order, bytes32 salt) external;
 
-    function fulfillOrder(Order calldata order, bytes32 salt, uint256 assetTokenQuantity, uint256 paymentTokenQuantity)
+    function fillOrder(Order calldata order, bytes32 salt, uint256 assetTokenQuantity, uint256 paymentTokenQuantity)
         external;
 }

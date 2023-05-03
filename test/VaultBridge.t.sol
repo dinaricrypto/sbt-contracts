@@ -11,10 +11,10 @@ import "../src/FlatOrderFees.sol";
 
 contract VaultBridgeTest is Test {
     event OrderRequested(bytes32 indexed id, address indexed user, IVaultBridge.Order order);
-    event OrderFilled(
-        bytes32 indexed id, address indexed user, bool sell, uint256 assetTokenQuantity, uint256 paymentTokenQuantity
+    event OrderFill(
+        bytes32 indexed id, address indexed user, uint256 fillAmount
     );
-    event OrderClosed(bytes32 indexed id, address indexed user);
+    event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
 
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
@@ -200,7 +200,7 @@ contract VaultBridgeTest is Test {
         bridge.requestOrder(dummyOrder, salt);
     }
 
-    function testFulfillOrder(bool sell, uint256 orderAmount, uint256 fillAmount, uint256 proceeds) public {
+    function testFillOrder(bool sell, uint256 orderAmount, uint256 fillAmount, uint256 proceeds) public {
         vm.assume(orderAmount > 0);
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
@@ -231,20 +231,20 @@ contract VaultBridgeTest is Test {
         if (fillAmount > orderAmount) {
             vm.expectRevert(VaultBridge.FillTooLarge.selector);
             vm.prank(bridgeOperator);
-            bridge.fulfillOrder(order, salt, assetAmount, paymentAmount);
+            bridge.fillOrder(order, salt, assetAmount, paymentAmount);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit OrderFilled(orderId, user, sell, assetAmount, paymentAmount);
+            emit OrderFill(orderId, user, fillAmount);
             vm.prank(bridgeOperator);
-            bridge.fulfillOrder(order, salt, assetAmount, paymentAmount);
+            bridge.fillOrder(order, salt, assetAmount, paymentAmount);
         }
     }
 
-    function testFulfillorderNoOrderReverts() public {
+    function testFillorderNoOrderReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
 
         vm.expectRevert(VaultBridge.OrderNotFound.selector);
         vm.prank(bridgeOperator);
-        bridge.fulfillOrder(dummyOrder, salt, 100, 100);
+        bridge.fillOrder(dummyOrder, salt, 100, 100);
     }
 }

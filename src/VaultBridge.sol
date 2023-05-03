@@ -133,7 +133,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         );
     }
 
-    function fulfillOrder(Order calldata order, bytes32 salt, uint256 assetTokenQuantity, uint256 paymentTokenQuantity)
+    function fillOrder(Order calldata order, bytes32 salt, uint256 assetTokenQuantity, uint256 paymentTokenQuantity)
         external
     {
         bytes32 orderId = getOrderId(order, salt);
@@ -144,9 +144,9 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
 
         uint256 remainingUnfilled = unfilled - fillAmount;
         _orders[orderId] = remainingUnfilled;
-        emit OrderFilled(orderId, order.user, order.sell, assetTokenQuantity, paymentTokenQuantity); // TODO: decrement fees before final emit?
+        emit OrderFill(orderId, order.user, fillAmount); // TODO: decrement fees before final emit?
         if (remainingUnfilled == 0) {
-            emit OrderClosed(orderId, order.user);
+            emit OrderFulfilled(orderId, order.user, order.amount);
         }
 
         // Get fees
