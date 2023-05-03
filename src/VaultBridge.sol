@@ -200,8 +200,6 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         }
 
         // Return Escrow
-        SafeTransferLib.safeTransferFrom(
-            order.sell ? order.assetToken : order.paymentToken, address(this), order.user, unfilled
-        );
+        SafeTransferLib.safeTransfer(order.sell ? order.assetToken : order.paymentToken, order.user, unfilled);
     }
 }
