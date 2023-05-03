@@ -23,9 +23,7 @@ interface IVaultBridge {
     }
 
     event OrderRequested(bytes32 indexed id, address indexed user, Order order);
-    event OrderFill(
-        bytes32 indexed id, address indexed user, uint256 fillAmount
-    );
+    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount);
     event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
 
     function getOrderId(Order calldata order, bytes32 salt) external view returns (bytes32);
