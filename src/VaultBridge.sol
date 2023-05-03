@@ -135,6 +135,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
 
     function fillOrder(Order calldata order, bytes32 salt, uint256 assetTokenQuantity, uint256 paymentTokenQuantity)
         external
+        onlyRoles(_ROLE_1)
     {
         bytes32 orderId = getOrderId(order, salt);
         uint256 unfilled = _orders[orderId];
@@ -173,6 +174,29 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
             IMintBurn(order.assetToken).mint(order.user, proceedsToUser);
             // Claim payment
             SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, fillAmount);
+        }
+    }
+
+    function requestCancel(Order calldata order, bytes32 salt) external {
+        if (order.user != msg.sender) revert NoProxyOrders();
+        bytes32 orderId = getOrderId(order, salt);
+        uint256 unfilled = _orders[orderId];
+        if (unfilled == 0) revert OrderNotFound();
+
+        emit CancelRequested(orderId, order.user);
+    }
+
+    function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
+        bytes32 orderId = getOrderId(order, salt);
+        uint256 unfilled = _orders[orderId];
+        if (unfilled == 0) revert OrderNotFound();
+
+        delete _orders[orderId];
+        emit OrderCancelled(orderId, order.user, reason);
+
+        uint256 filled = order.amount - unfilled;
+        if (filled != 0) {
+            emit OrderFulfilled(orderId, order.user, filled);
         }
     }
 }
