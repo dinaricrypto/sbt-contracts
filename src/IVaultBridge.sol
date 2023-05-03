@@ -22,15 +22,15 @@ interface IVaultBridge {
         address paymentToken;
         bool sell;
         OrderType orderType;
-        // For market orders, this is the source token quantity (asset for sells, payment for buys)
-        // For limit orders, this is the asset token quantity
-        uint256 amount;
+        uint256 assetTokenQuantity;
+        uint256 paymentTokenQuantity;
+        uint256 price;
         // Time in force
         TIF tif;
     }
 
-    event OrderRequested(bytes32 indexed id, address indexed user, Order order);
-    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount);
+    event OrderRequested(bytes32 indexed id, address indexed user, Order order, bytes32 salt);
+    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount, uint256 proceeds);
     event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
     event CancelRequested(bytes32 indexed id, address indexed user);
     event OrderCancelled(bytes32 indexed id, address indexed user, string reason);
@@ -43,8 +43,7 @@ interface IVaultBridge {
 
     function requestOrder(Order calldata order, bytes32 salt) external;
 
-    function fillOrder(Order calldata order, bytes32 salt, uint256 assetTokenQuantity, uint256 paymentTokenQuantity)
-        external;
+    function fillOrder(Order calldata order, bytes32 salt, uint256 filledAmount, uint256 resultAmount) external;
 
     function requestCancel(Order calldata order, bytes32 salt) external;
 
