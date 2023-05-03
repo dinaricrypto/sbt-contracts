@@ -62,6 +62,7 @@ contract VaultBridgeTest is Test {
             orderType: IVaultBridge.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100,
+            price: 10,
             tif: IVaultBridge.TIF.GTC
         });
     }
@@ -121,6 +122,7 @@ contract VaultBridgeTest is Test {
         uint8 orderType,
         uint256 assetTokenQuantity,
         uint256 paymentTokenQuantity,
+        uint256 price,
         uint8 tif
     ) public {
         vm.assume(orderType < 2);
@@ -134,6 +136,7 @@ contract VaultBridgeTest is Test {
             orderType: IVaultBridge.OrderType(orderType),
             assetTokenQuantity: assetTokenQuantity,
             paymentTokenQuantity: paymentTokenQuantity,
+            price: price,
             tif: IVaultBridge.TIF(tif)
         });
         bytes32 orderId = bridge.getOrderId(order, salt);

@@ -24,6 +24,7 @@ interface IVaultBridge {
         OrderType orderType;
         uint256 assetTokenQuantity;
         uint256 paymentTokenQuantity;
+        uint256 price;
         // Time in force
         TIF tif;
     }

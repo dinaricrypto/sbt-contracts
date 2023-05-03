@@ -21,6 +21,7 @@ contract DummyOrderScript is Script {
             orderType: IVaultBridge.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100,
+            price: 10,
             tif: IVaultBridge.TIF.GTC
         });
 
