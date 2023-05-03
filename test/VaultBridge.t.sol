@@ -13,6 +13,8 @@ contract VaultBridgeTest is Test {
     event OrderRequested(bytes32 indexed id, address indexed user, IVaultBridge.Order order);
     event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount);
     event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
+    event CancelRequested(bytes32 indexed id, address indexed user);
+    event OrderCancelled(bytes32 indexed id, address indexed user, string reason);
 
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
@@ -29,6 +31,7 @@ contract VaultBridgeTest is Test {
     address constant treasury = address(4);
 
     IVaultBridge.Order dummyOrder;
+    bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
 
     function setUp() public {
         token = new MockBridgedERC20();
@@ -116,7 +119,6 @@ contract VaultBridgeTest is Test {
         vm.assume(orderType < 2);
         vm.assume(tif < 4);
 
-        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
         IVaultBridge.Order memory order = IVaultBridge.Order({
             user: user,
             assetToken: address(token),
@@ -151,8 +153,6 @@ contract VaultBridgeTest is Test {
     }
 
     function testRequestOrderPausedReverts() public {
-        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-
         bridge.setOrdersPaused(true);
 
         vm.expectRevert(VaultBridge.Paused.selector);
@@ -161,8 +161,6 @@ contract VaultBridgeTest is Test {
     }
 
     function testRequestOrderProxyOrderReverts() public {
-        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-
         vm.expectRevert(VaultBridge.NoProxyOrders.selector);
         bridge.requestOrder(dummyOrder, salt);
     }
@@ -170,7 +168,6 @@ contract VaultBridgeTest is Test {
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
         vm.assume(!bridge.paymentTokenEnabled(tryPaymentToken));
 
-        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
         IVaultBridge.Order memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
@@ -180,8 +177,6 @@ contract VaultBridgeTest is Test {
     }
 
     function testRequestOrderCollisionReverts() public {
-        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-
         paymentToken.mint(user, 10000);
 
         vm.prank(user);
@@ -198,7 +193,6 @@ contract VaultBridgeTest is Test {
     function testFillOrder(bool sell, uint256 orderAmount, uint256 fillAmount, uint256 proceeds) public {
         vm.assume(orderAmount > 0);
 
-        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
         IVaultBridge.Order memory order = dummyOrder;
         order.sell = sell;
         order.amount = orderAmount;
@@ -236,10 +230,72 @@ contract VaultBridgeTest is Test {
     }
 
     function testFillorderNoOrderReverts() public {
-        bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-
         vm.expectRevert(VaultBridge.OrderNotFound.selector);
         vm.prank(bridgeOperator);
         bridge.fillOrder(dummyOrder, salt, 100, 100);
+    }
+
+    function testRequestCancel() public {
+        paymentToken.mint(user, dummyOrder.amount);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(bridge), dummyOrder.amount);
+
+        vm.prank(user);
+        bridge.requestOrder(dummyOrder, salt);
+
+        bytes32 orderId = bridge.getOrderId(dummyOrder, salt);
+        vm.expectEmit(true, true, true, true);
+        emit CancelRequested(orderId, user);
+        vm.prank(user);
+        bridge.requestCancel(dummyOrder, salt);
+    }
+
+    function testRequestCancelNoProxyReverts() public {
+        paymentToken.mint(user, dummyOrder.amount);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(bridge), dummyOrder.amount);
+
+        vm.prank(user);
+        bridge.requestOrder(dummyOrder, salt);
+
+        vm.expectRevert(VaultBridge.NoProxyOrders.selector);
+        bridge.requestCancel(dummyOrder, salt);
+    }
+
+    function testRequestCancelNotFoundReverts() public {
+        vm.expectRevert(VaultBridge.OrderNotFound.selector);
+        vm.prank(user);
+        bridge.requestCancel(dummyOrder, salt);
+    }
+
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
+        vm.assume(orderAmount > 0);
+        vm.assume(fillAmount > 0);
+        vm.assume(fillAmount < orderAmount);
+
+        IVaultBridge.Order memory order = dummyOrder;
+        order.amount = orderAmount;
+
+        paymentToken.mint(user, order.amount);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(bridge), order.amount);
+
+        vm.prank(user);
+        bridge.requestOrder(order, salt);
+
+        vm.prank(bridgeOperator);
+        bridge.fillOrder(order, salt, 100, fillAmount);
+
+        bytes32 orderId = bridge.getOrderId(order, salt);
+        vm.expectEmit(true, true, true, true);
+        emit OrderCancelled(orderId, user, reason);
+        vm.prank(bridgeOperator);
+        bridge.cancelOrder(order, salt, reason);
+    }
+
+    function testCancelOrderNotFoundReverts() public {
+        vm.expectRevert(VaultBridge.OrderNotFound.selector);
+        vm.prank(bridgeOperator);
+        bridge.cancelOrder(dummyOrder, salt, "msg");
     }
 }
