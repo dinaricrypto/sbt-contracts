@@ -19,12 +19,13 @@ contract DummyOrderScript is Script {
             paymentToken: paymentTokenAddress,
             sell: false,
             orderType: IVaultBridge.OrderType.MARKET,
-            amount: 100,
+            assetTokenQuantity: 0,
+            paymentTokenQuantity: 100,
             tif: IVaultBridge.TIF.GTC
         });
 
         MockERC20 paymentToken = MockERC20(paymentTokenAddress);
-        paymentToken.increaseAllowance(bridgeAddress, order.amount);
+        paymentToken.increaseAllowance(bridgeAddress, 100);
 
         VaultBridge bridge = VaultBridge(bridgeAddress);
         bridge.requestOrder(order, keccak256(abi.encode(block.number)));

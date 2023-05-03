@@ -17,11 +17,9 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     // TODO: submit by sig - forwarder/gsn support?
     // TODO: liquidity pools for cross-chain swaps
     // TODO: should we allow beneficiary != submit msg.sender?
-    // TODO: cancel orders
     // TODO: forwarder support for fulfiller - worker/custodian separation
     // TODO: whitelist asset tokens?
     // TODO: per-asset order pause
-    // TODO: time in force checks and cleanup?
 
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned
@@ -100,7 +98,8 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
                 order.paymentToken,
                 order.sell,
                 order.orderType,
-                order.amount,
+                order.assetTokenQuantity,
+                order.paymentTokenQuantity,
                 order.tif
             )
         );
@@ -117,49 +116,50 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     function requestOrder(Order calldata order, bytes32 salt) external {
         if (ordersPaused) revert Paused();
         if (order.user != msg.sender) revert NoProxyOrders();
-        if (order.amount == 0) revert ZeroValue();
+        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
+        if (orderAmount == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
         bytes32 orderId = getOrderId(order, salt);
         if (_orders[orderId] > 0) revert DuplicateOrder();
 
         // Emit the data, store the hash
-        _orders[orderId] = order.amount;
+        _orders[orderId] = orderAmount;
         numOpenOrders++;
-        emit OrderRequested(orderId, order.user, order);
+        emit OrderRequested(orderId, order.user, order, salt);
 
         // Escrow
         SafeTransferLib.safeTransferFrom(
-            order.sell ? order.assetToken : order.paymentToken, msg.sender, address(this), order.amount
+            order.sell ? order.assetToken : order.paymentToken, msg.sender, address(this), orderAmount
         );
     }
 
-    function fillOrder(Order calldata order, bytes32 salt, uint256 assetTokenQuantity, uint256 paymentTokenQuantity)
+    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 resultAmount)
         external
         onlyRoles(_ROLE_1)
     {
         bytes32 orderId = getOrderId(order, salt);
         uint256 unfilled = _orders[orderId];
         if (unfilled == 0) revert OrderNotFound();
-        uint256 fillAmount = order.sell ? assetTokenQuantity : paymentTokenQuantity;
         if (fillAmount > unfilled) revert FillTooLarge();
 
         uint256 remainingUnfilled = unfilled - fillAmount;
         _orders[orderId] = remainingUnfilled;
         numOpenOrders--;
-        emit OrderFill(orderId, order.user, fillAmount); // TODO: decrement fees before final emit?
-        if (remainingUnfilled == 0) {
-            emit OrderFulfilled(orderId, order.user, order.amount);
-        }
 
         // Get fees
-        uint256 proceeds = order.sell ? paymentTokenQuantity : assetTokenQuantity;
-        uint256 collection = orderFees.getFees(order.sell, false, proceeds);
+        uint256 collection = orderFees.getFees(order.sell, false, resultAmount);
         uint256 proceedsToUser;
-        if (collection > proceeds) {
-            collection = proceeds;
+        if (collection > resultAmount) {
+            collection = resultAmount;
         } else {
-            proceedsToUser = proceeds - collection;
+            proceedsToUser = resultAmount - collection;
         }
+        emit OrderFill(orderId, order.user, fillAmount, proceedsToUser);
+        if (remainingUnfilled == 0) {
+            uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
+            emit OrderFulfilled(orderId, order.user, orderAmount);
+        }
+
         if (order.sell) {
             // Collect fees
             SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, treasury, collection);
@@ -194,7 +194,8 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         delete _orders[orderId];
         emit OrderCancelled(orderId, order.user, reason);
 
-        uint256 filled = order.amount - unfilled;
+        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
+        uint256 filled = orderAmount - unfilled;
         if (filled != 0) {
             emit OrderFulfilled(orderId, order.user, filled);
         }
