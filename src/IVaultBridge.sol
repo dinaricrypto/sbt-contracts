@@ -9,6 +9,15 @@ interface IVaultBridge {
         LIMIT
     }
 
+    enum TIF {
+        GTC,
+        IOC,
+        DAY,
+        FOK,
+        OPG,
+        CLS
+    }
+
     struct Order {
         address user;
         address assetToken;
@@ -19,7 +28,7 @@ interface IVaultBridge {
         // For limit orders, this is the asset token quantity
         uint256 amount;
         // Time in force
-        uint64 tif;
+        TIF tif;
     }
 
     event OrderRequested(bytes32 indexed id, address indexed user, Order order);

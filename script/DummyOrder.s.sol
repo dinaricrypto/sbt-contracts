@@ -20,7 +20,7 @@ contract DummyOrderScript is Script {
             sell: false,
             orderType: IVaultBridge.OrderType.MARKET,
             amount: 100,
-            tif: 0
+            tif: IVaultBridge.TIF.GTC
         });
 
         MockERC20 paymentToken = MockERC20(paymentTokenAddress);

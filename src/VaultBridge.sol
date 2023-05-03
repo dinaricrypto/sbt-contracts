@@ -41,8 +41,8 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     event OrdersPaused(bool paused);
 
     // keccak256(OrderTicket(bytes32 salt, ...))
-    // ... address user,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 amount,uint64 tif
-    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x4b4fc3500ef49f43e900985df4adefda371e41fb8407e946bdf59e031c938ca8;
+    // ... address user,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 amount,uint8 tif
+    bytes32 private constant ORDERTICKET_TYPE_HASH = 0xa0faa2afef6a26ed0bf51fd8a0ad3f748a44267351b18c6257e625624ccfcb61;
 
     address public treasury;
 
@@ -116,6 +116,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     function requestOrder(Order calldata order, bytes32 salt) external {
         if (ordersPaused) revert Paused();
         if (order.orderType != OrderType.MARKET) revert NotImplemented(); // TODO: limit orders
+        if (order.tif != TIF.GTC) revert NotImplemented();
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();

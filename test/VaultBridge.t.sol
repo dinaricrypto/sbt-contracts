@@ -58,7 +58,7 @@ contract VaultBridgeTest is Test {
             sell: false,
             orderType: IVaultBridge.OrderType.MARKET,
             amount: 100,
-            tif: 0
+            tif: IVaultBridge.TIF.GTC
         });
     }
 
@@ -112,8 +112,9 @@ contract VaultBridgeTest is Test {
         assertEq(bridge.ordersPaused(), pause);
     }
 
-    function testRequestOrder(bool sell, uint8 orderType, uint256 amount) public {
+    function testRequestOrder(bool sell, uint8 orderType, uint256 amount, uint8 tif) public {
         vm.assume(orderType < 2);
+        vm.assume(tif < 6);
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
         IVaultBridge.Order memory order = IVaultBridge.Order({
@@ -123,7 +124,7 @@ contract VaultBridgeTest is Test {
             sell: sell,
             orderType: IVaultBridge.OrderType(orderType),
             amount: amount,
-            tif: 0
+            tif: IVaultBridge.TIF(tif)
         });
         bytes32 orderId = bridge.getOrderId(order, salt);
 
@@ -136,6 +137,10 @@ contract VaultBridgeTest is Test {
         token.increaseAllowance(address(bridge), amount);
 
         if (orderType != 0) {
+            vm.expectRevert(VaultBridge.NotImplemented.selector);
+            vm.prank(user);
+            bridge.requestOrder(order, salt);
+        } else if (tif != 0) {
             vm.expectRevert(VaultBridge.NotImplemented.selector);
             vm.prank(user);
             bridge.requestOrder(order, salt);
