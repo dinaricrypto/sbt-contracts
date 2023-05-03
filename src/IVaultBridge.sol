@@ -10,12 +10,10 @@ interface IVaultBridge {
     }
 
     enum TIF {
+        DAY,
         GTC,
         IOC,
-        DAY,
-        FOK,
-        OPG,
-        CLS
+        FOK
     }
 
     struct Order {
