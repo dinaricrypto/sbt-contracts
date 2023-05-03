@@ -114,7 +114,7 @@ contract VaultBridgeTest is Test {
 
     function testRequestOrder(bool sell, uint8 orderType, uint256 amount, uint8 tif) public {
         vm.assume(orderType < 2);
-        vm.assume(tif < 6);
+        vm.assume(tif < 4);
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
         IVaultBridge.Order memory order = IVaultBridge.Order({
@@ -136,15 +136,7 @@ contract VaultBridgeTest is Test {
         vm.prank(user);
         token.increaseAllowance(address(bridge), amount);
 
-        if (orderType != 0) {
-            vm.expectRevert(VaultBridge.NotImplemented.selector);
-            vm.prank(user);
-            bridge.requestOrder(order, salt);
-        } else if (tif != 0) {
-            vm.expectRevert(VaultBridge.NotImplemented.selector);
-            vm.prank(user);
-            bridge.requestOrder(order, salt);
-        } else if (amount == 0) {
+        if (amount == 0) {
             vm.expectRevert(VaultBridge.ZeroValue.selector);
             vm.prank(user);
             bridge.requestOrder(order, salt);

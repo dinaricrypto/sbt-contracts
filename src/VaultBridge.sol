@@ -33,7 +33,6 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     error DuplicateOrder();
     error Paused();
     error FillTooLarge();
-    error NotImplemented();
 
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
@@ -115,8 +114,6 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
 
     function requestOrder(Order calldata order, bytes32 salt) external {
         if (ordersPaused) revert Paused();
-        if (order.orderType != OrderType.MARKET) revert NotImplemented(); // TODO: limit orders
-        if (order.tif != TIF.GTC) revert NotImplemented();
         if (order.user != msg.sender) revert NoProxyOrders();
         if (order.amount == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
@@ -128,7 +125,6 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         emit OrderRequested(orderId, order.user, order);
 
         // Escrow
-        // TODO: limit orders
         SafeTransferLib.safeTransferFrom(
             order.sell ? order.assetToken : order.paymentToken, msg.sender, address(this), order.amount
         );
