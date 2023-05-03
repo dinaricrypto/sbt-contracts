@@ -12,7 +12,8 @@
     "keccak": "cast keccak",
     "deploy:testnet": "./script/deploy-testnet.sh",
     "deploy:token:testnet": "./script/deploy-token-testnet.sh",
-    "deploy:mockpayment:testnet": "./script/deploy-mockpayment-testnet.sh"
+    "deploy:mockpayment:testnet": "./script/deploy-mockpayment-testnet.sh",
+    "dummyorder:testnet": "./script/dummyorder-testnet.sh"
   },
   "devDependencies": {
     "pre-commit": "^1.2.2"
