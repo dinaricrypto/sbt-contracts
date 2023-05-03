@@ -13,19 +13,21 @@ contract DummyOrderScript is Script {
         address paymentTokenAddress = vm.envAddress("PAYMENT_TOKEN");
         vm.startBroadcast(deployerPrivateKey);
 
-        VaultBridge.Swap memory swap = VaultBridge.Swap({
+        IVaultBridge.Order memory order = IVaultBridge.Order({
             user: vm.addr(deployerPrivateKey),
             assetToken: assetToken,
             paymentToken: paymentTokenAddress,
             sell: false,
-            amount: 100
+            orderType: IVaultBridge.OrderType.MARKET,
+            amount: 100,
+            tif: IVaultBridge.TIF.GTC
         });
 
         MockERC20 paymentToken = MockERC20(paymentTokenAddress);
-        paymentToken.increaseAllowance(bridgeAddress, swap.amount);
+        paymentToken.increaseAllowance(bridgeAddress, order.amount);
 
         VaultBridge bridge = VaultBridge(bridgeAddress);
-        bridge.submitSwap(swap, keccak256(abi.encode(block.number)));
+        bridge.requestOrder(order, keccak256(abi.encode(block.number)));
 
         vm.stopBroadcast();
     }

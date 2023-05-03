@@ -10,12 +10,14 @@ import "../src/VaultBridge.sol";
 import "../src/FlatOrderFees.sol";
 
 contract VaultBridgeTest is Test {
+    event OrderRequested(bytes32 indexed id, address indexed user, IVaultBridge.Order order);
+    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount);
+    event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
+
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
     event PaymentTokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
-    event SwapSubmitted(bytes32 indexed swapId, address indexed user, VaultBridge.Swap swap);
-    event SwapFulfilled(bytes32 indexed swapId, address indexed user, uint256 fillAmount, uint256 proceeds);
 
     BridgedERC20 token;
     FlatOrderFees orderFees;
@@ -25,6 +27,8 @@ contract VaultBridgeTest is Test {
     address constant user = address(1);
     address constant bridgeOperator = address(3);
     address constant treasury = address(4);
+
+    IVaultBridge.Order dummyOrder;
 
     function setUp() public {
         token = new MockBridgedERC20();
@@ -46,6 +50,16 @@ contract VaultBridgeTest is Test {
 
         bridge.setPaymentTokenEnabled(address(paymentToken), true);
         bridge.grantRoles(bridgeOperator, bridge.operatorRole());
+
+        dummyOrder = IVaultBridge.Order({
+            user: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            sell: false,
+            orderType: IVaultBridge.OrderType.MARKET,
+            amount: 100,
+            tif: IVaultBridge.TIF.GTC
+        });
     }
 
     function testInvariants() public {
@@ -98,16 +112,21 @@ contract VaultBridgeTest is Test {
         assertEq(bridge.ordersPaused(), pause);
     }
 
-    function testSubmitSwap(bool sell, uint256 amount) public {
+    function testRequestOrder(bool sell, uint8 orderType, uint256 amount, uint8 tif) public {
+        vm.assume(orderType < 2);
+        vm.assume(tif < 4);
+
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        VaultBridge.Swap memory swap = VaultBridge.Swap({
+        IVaultBridge.Order memory order = IVaultBridge.Order({
             user: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: sell,
-            amount: amount
+            orderType: IVaultBridge.OrderType(orderType),
+            amount: amount,
+            tif: IVaultBridge.TIF(tif)
         });
-        bytes32 swapId = bridge.hashSwapTicket(swap, salt);
+        bytes32 orderId = bridge.getOrderId(order, salt);
 
         paymentToken.mint(user, amount);
         token.mint(user, amount);
@@ -120,73 +139,48 @@ contract VaultBridgeTest is Test {
         if (amount == 0) {
             vm.expectRevert(VaultBridge.ZeroValue.selector);
             vm.prank(user);
-            bridge.submitSwap(swap, salt);
+            bridge.requestOrder(order, salt);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit SwapSubmitted(swapId, user, swap);
+            emit OrderRequested(orderId, user, order);
             vm.prank(user);
-            bridge.submitSwap(swap, salt);
-            assertTrue(bridge.isSwapActive(swapId));
+            bridge.requestOrder(order, salt);
+            assertTrue(bridge.isOrderActive(orderId));
+            assertEq(bridge.getUnfilledAmount(orderId), amount);
         }
     }
 
-    function testSubmitSwapPausedReverts() public {
+    function testRequestOrderPausedReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        VaultBridge.Swap memory swap = VaultBridge.Swap({
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            sell: false,
-            amount: 100
-        });
 
         bridge.setOrdersPaused(true);
 
         vm.expectRevert(VaultBridge.Paused.selector);
         vm.prank(user);
-        bridge.submitSwap(swap, salt);
+        bridge.requestOrder(dummyOrder, salt);
     }
 
-    function testSubmitSwapProxyOrderReverts() public {
+    function testRequestOrderProxyOrderReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        VaultBridge.Swap memory swap = VaultBridge.Swap({
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            sell: false,
-            amount: 100
-        });
 
         vm.expectRevert(VaultBridge.NoProxyOrders.selector);
-        bridge.submitSwap(swap, salt);
+        bridge.requestOrder(dummyOrder, salt);
     }
 
-    function testSubmitSwapUnsupportedPaymentReverts(address tryPaymentToken) public {
+    function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
         vm.assume(!bridge.paymentTokenEnabled(tryPaymentToken));
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        VaultBridge.Swap memory swap = VaultBridge.Swap({
-            user: user,
-            assetToken: address(token),
-            paymentToken: tryPaymentToken,
-            sell: false,
-            amount: 100
-        });
+        IVaultBridge.Order memory order = dummyOrder;
+        order.paymentToken = tryPaymentToken;
 
         vm.expectRevert(VaultBridge.UnsupportedPaymentToken.selector);
         vm.prank(user);
-        bridge.submitSwap(swap, salt);
+        bridge.requestOrder(order, salt);
     }
 
-    function testSubmitSwapCollisionReverts() public {
+    function testRequestOrderCollisionReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        VaultBridge.Swap memory swap = VaultBridge.Swap({
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            sell: false,
-            amount: 100
-        });
 
         paymentToken.mint(user, 10000);
 
@@ -194,25 +188,21 @@ contract VaultBridgeTest is Test {
         paymentToken.increaseAllowance(address(bridge), 10000);
 
         vm.prank(user);
-        bridge.submitSwap(swap, salt);
+        bridge.requestOrder(dummyOrder, salt);
 
         vm.expectRevert(VaultBridge.DuplicateOrder.selector);
         vm.prank(user);
-        bridge.submitSwap(swap, salt);
+        bridge.requestOrder(dummyOrder, salt);
     }
 
-    function testFulfillSwap(bool sell, uint256 orderAmount, uint256 fillAmount, uint256 proceeds) public {
+    function testFillOrder(bool sell, uint256 orderAmount, uint256 fillAmount, uint256 proceeds) public {
         vm.assume(orderAmount > 0);
 
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        VaultBridge.Swap memory swap = VaultBridge.Swap({
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            sell: sell,
-            amount: orderAmount
-        });
-        bytes32 swapId = bridge.hashSwapTicket(swap, salt);
+        IVaultBridge.Order memory order = dummyOrder;
+        order.sell = sell;
+        order.amount = orderAmount;
+        bytes32 orderId = bridge.getOrderId(order, salt);
 
         if (sell) {
             token.mint(user, orderAmount);
@@ -229,32 +219,27 @@ contract VaultBridgeTest is Test {
         }
 
         vm.prank(user);
-        bridge.submitSwap(swap, salt);
+        bridge.requestOrder(order, salt);
 
+        uint256 assetAmount = sell ? fillAmount : proceeds;
+        uint256 paymentAmount = sell ? proceeds : fillAmount;
         if (fillAmount > orderAmount) {
             vm.expectRevert(VaultBridge.FillTooLarge.selector);
             vm.prank(bridgeOperator);
-            bridge.fulfillSwap(swap, salt, fillAmount, proceeds);
+            bridge.fillOrder(order, salt, assetAmount, paymentAmount);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit SwapFulfilled(swapId, user, fillAmount, proceeds);
+            emit OrderFill(orderId, user, fillAmount);
             vm.prank(bridgeOperator);
-            bridge.fulfillSwap(swap, salt, fillAmount, proceeds);
+            bridge.fillOrder(order, salt, assetAmount, paymentAmount);
         }
     }
 
-    function testFulfillSwapNoOrderReverts() public {
+    function testFillorderNoOrderReverts() public {
         bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-        VaultBridge.Swap memory swap = VaultBridge.Swap({
-            user: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            sell: false,
-            amount: 100
-        });
 
         vm.expectRevert(VaultBridge.OrderNotFound.selector);
         vm.prank(bridgeOperator);
-        bridge.fulfillSwap(swap, salt, 100, 100);
+        bridge.fillOrder(dummyOrder, salt, 100, 100);
     }
 }
