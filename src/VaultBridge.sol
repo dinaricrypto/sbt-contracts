@@ -38,8 +38,8 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     event OrdersPaused(bool paused);
 
     // keccak256(OrderTicket(bytes32 salt, ...))
-    // ... address user,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 amount,uint8 tif
-    bytes32 private constant ORDERTICKET_TYPE_HASH = 0xa0faa2afef6a26ed0bf51fd8a0ad3f748a44267351b18c6257e625624ccfcb61;
+    // ... address user,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint8 tif
+    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x709b33c75deed16be0943f3ffa6358f012c9bb13ab7eb6365596e358c0f26e15;
 
     address public treasury;
 
