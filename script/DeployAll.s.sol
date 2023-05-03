@@ -2,18 +2,24 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
+import "../src/Messager.sol";
 import "../src/TransferRestrictor.sol";
+import "../src/BridgedTokenFactory.sol";
 import "../src/FlatOrderFees.sol";
 import "../src/VaultBridge.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract DeployScript is Script {
+contract DeployAllScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address treasuryAddress = vm.envAddress("BRIDGE_TREASURY");
         vm.startBroadcast(deployerPrivateKey);
 
+        new Messager();
+
         new TransferRestrictor();
+
+        new BridgedTokenFactory();
 
         IOrderFees orderFees = new FlatOrderFees();
 
