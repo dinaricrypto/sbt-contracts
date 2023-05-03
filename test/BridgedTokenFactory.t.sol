@@ -12,7 +12,7 @@ contract BridgedTokenFactoryTest is Test {
     function setUp() public {
         factory = new BridgedTokenFactory();
     }
-    
+
     function testDeployToken() public {
         vm.expectEmit(false, false, false, false);
         emit TokenDeployed(address(3));
