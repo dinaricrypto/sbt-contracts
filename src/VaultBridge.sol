@@ -53,6 +53,8 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     /// @dev unfilled orders
     mapping(bytes32 => uint256) private _orders;
 
+    uint256 public numOpenOrders;
+
     bool public ordersPaused;
 
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
@@ -122,6 +124,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
 
         // Emit the data, store the hash
         _orders[orderId] = order.amount;
+        numOpenOrders++;
         emit OrderRequested(orderId, order.user, order);
 
         // Escrow
@@ -142,6 +145,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
 
         uint256 remainingUnfilled = unfilled - fillAmount;
         _orders[orderId] = remainingUnfilled;
+        numOpenOrders--;
         emit OrderFill(orderId, order.user, fillAmount); // TODO: decrement fees before final emit?
         if (remainingUnfilled == 0) {
             emit OrderFulfilled(orderId, order.user, order.amount);
