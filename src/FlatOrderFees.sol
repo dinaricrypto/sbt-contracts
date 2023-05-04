@@ -36,7 +36,7 @@ contract FlatOrderFees is Ownable, IOrderFees {
         emit BuyerFeeSet(fee);
     }
 
-    function getFees(bool sell, bool, uint256 value) external view returns (uint256) {
+    function getFees(bool sell, uint256 value) external view returns (uint256) {
         uint64 fee = sell ? sellerFee : buyerFee;
         if (fee == 0) {
             return 0;

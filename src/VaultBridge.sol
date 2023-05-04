@@ -100,6 +100,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
                 order.orderType,
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
+                order.price,
                 order.tif
             )
         );
@@ -147,14 +148,14 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         numOpenOrders--;
 
         // Get fees
-        uint256 collection = orderFees.getFees(order.sell, false, resultAmount);
+        uint256 collection = orderFees.getFees(order.sell, resultAmount);
         uint256 proceedsToUser;
         if (collection > resultAmount) {
             collection = resultAmount;
         } else {
             proceedsToUser = resultAmount - collection;
         }
-        emit OrderFill(orderId, order.user, fillAmount, proceedsToUser);
+        emit OrderFill(orderId, order.user, fillAmount);
         if (remainingUnfilled == 0) {
             uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
             emit OrderFulfilled(orderId, order.user, orderAmount);
