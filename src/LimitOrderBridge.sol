@@ -135,6 +135,10 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         return orderValue + collection;
     }
 
+    function proceedsForFill(uint256 fillAmount, uint256 price) external pure returns (uint256) {
+        return PrbMath.mulDiv18(fillAmount, price);
+    }
+
     function requestOrder(Order calldata order, bytes32 salt) external {
         if (ordersPaused) revert Paused();
         if (order.orderType != OrderType.LIMIT) revert OnlyLimitOrders();
@@ -164,7 +168,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         }
     }
 
-    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 resultAmount)
+    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256)
         external
         onlyRoles(_ROLE_1)
     {
@@ -186,13 +190,14 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
 
         // If sell, calc fees here, else use percent of escrowed payment
         if (order.sell) {
+            uint256 proceedsDue = PrbMath.mulDiv18(fillAmount, order.price);
             // Get fees
-            uint256 collection = orderFees.getFees(true, resultAmount);
+            uint256 collection = orderFees.getFees(true, proceedsDue);
             uint256 proceedsToUser;
-            if (collection > resultAmount) {
-                collection = resultAmount;
+            if (collection > proceedsDue) {
+                collection = proceedsDue;
             } else {
-                proceedsToUser = resultAmount - collection;
+                proceedsToUser = proceedsDue - collection;
                 // Forward proceeds
                 SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.user, proceedsToUser);
             }

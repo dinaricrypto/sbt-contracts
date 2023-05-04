@@ -43,7 +43,7 @@ interface IVaultBridge {
 
     function requestOrder(Order calldata order, bytes32 salt) external;
 
-    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 resultAmount) external;
+    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 paymentAmount) external;
 
     function requestCancel(Order calldata order, bytes32 salt) external;
 

@@ -213,7 +213,7 @@ contract LimitOrderBridgeTest is Test {
         bridge.requestOrder(dummyOrder, salt);
     }
 
-    function testFillOrder(bool sell, uint128 orderAmount, uint128 price, uint128 fillAmount, uint256 proceeds)
+    function testFillOrder(bool sell, uint128 orderAmount, uint128 price, uint128 fillAmount)
         public
     {
         vm.assume(orderAmount > 0);
@@ -225,6 +225,7 @@ contract LimitOrderBridgeTest is Test {
         vm.assume(sell || bridge.totalPaymentForOrder(order) > 0);
 
         bytes32 orderId = bridge.getOrderId(order, salt);
+        uint256 proceeds = bridge.proceedsForFill(fillAmount, price);
 
         if (sell) {
             token.mint(user, orderAmount);
@@ -247,11 +248,11 @@ contract LimitOrderBridgeTest is Test {
         if (fillAmount == 0) {
             vm.expectRevert(LimitOrderBridge.ZeroValue.selector);
             vm.prank(bridgeOperator);
-            bridge.fillOrder(order, salt, fillAmount, proceeds);
+            bridge.fillOrder(order, salt, fillAmount, 0);
         } else if (fillAmount > orderAmount) {
             vm.expectRevert(LimitOrderBridge.FillTooLarge.selector);
             vm.prank(bridgeOperator);
-            bridge.fillOrder(order, salt, fillAmount, proceeds);
+            bridge.fillOrder(order, salt, fillAmount, 0);
         } else {
             vm.expectEmit(true, true, true, true);
             emit OrderFill(orderId, user, fillAmount);
@@ -260,7 +261,7 @@ contract LimitOrderBridgeTest is Test {
                 emit OrderFulfilled(orderId, user, orderAmount);
             }
             vm.prank(bridgeOperator);
-            bridge.fillOrder(order, salt, fillAmount, proceeds);
+            bridge.fillOrder(order, salt, fillAmount, 0);
             assertEq(bridge.getUnfilledAmount(orderId), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(bridge.numOpenOrders(), 0);
