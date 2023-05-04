@@ -38,6 +38,8 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     error DuplicateOrder();
     error Paused();
     error FillTooLarge();
+    error NotBuyOrder();
+    error OrderTooSmall();
 
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
@@ -121,6 +123,18 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         return _orders[id].unfilled;
     }
 
+    function getPaymentEscrow(bytes32 id) external view returns (uint256) {
+        return _orders[id].paymentTokenEscrowed;
+    }
+
+    function totalPaymentForOrder(Order calldata order) external view returns (uint256) {
+        if (order.sell) revert NotBuyOrder();
+
+        uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
+        uint256 collection = orderFees.getFees(order.sell, orderValue);
+        return orderValue + collection;
+    }
+
     function requestOrder(Order calldata order, bytes32 salt) external {
         if (ordersPaused) revert Paused();
         if (order.orderType != OrderType.LIMIT) revert OnlyLimitOrders();
@@ -135,6 +149,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
             uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
             uint256 collection = orderFees.getFees(order.sell, orderValue);
             paymentTokenEscrowed = orderValue + collection;
+            if (paymentTokenEscrowed == 0) revert OrderTooSmall();
         }
         _orders[orderId] =
             LimitOrderState({unfilled: order.assetTokenQuantity, paymentTokenEscrowed: paymentTokenEscrowed});
@@ -153,6 +168,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         external
         onlyRoles(_ROLE_1)
     {
+        if (fillAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderId(order, salt);
         LimitOrderState memory orderState = _orders[orderId];
         if (orderState.unfilled == 0) revert OrderNotFound();
@@ -186,16 +202,21 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
             IMintBurn(order.assetToken).burn(fillAmount);
         } else {
             // Calc fees
-            uint256 collection =
-                (orderState.paymentTokenEscrowed - orderState.unfilled * order.price) * fillAmount / orderState.unfilled;
-            uint256 paymentClaim = fillAmount * order.price;
+            uint256 remainingListValue = PrbMath.mulDiv18(orderState.unfilled, order.price);
+            uint256 collection;
+            if (orderState.paymentTokenEscrowed > remainingListValue) {
+                collection = PrbMath.mulDiv(orderState.paymentTokenEscrowed - remainingListValue, fillAmount, orderState.unfilled);
+            }
+            uint256 paymentClaim = PrbMath.mulDiv18(fillAmount, order.price);
             if (remainingUnfilled == 0 && orderState.paymentTokenEscrowed > collection + paymentClaim) {
                 paymentClaim += orderState.paymentTokenEscrowed - collection - paymentClaim;
             } else {
                 _orders[orderId].paymentTokenEscrowed = orderState.paymentTokenEscrowed - collection - paymentClaim;
             }
             // Collect fees
-            SafeTransferLib.safeTransfer(order.paymentToken, treasury, collection);
+            if (collection > 0) {
+                SafeTransferLib.safeTransfer(order.paymentToken, treasury, collection);
+            }
             // Claim payment
             SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, paymentClaim);
             // Mint
@@ -221,8 +242,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         numOpenOrders--;
         emit OrderCancelled(orderId, order.user, reason);
 
-        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        uint256 filled = orderAmount - orderState.unfilled;
+        uint256 filled = order.assetTokenQuantity - orderState.unfilled;
         if (filled != 0) {
             emit OrderFulfilled(orderId, order.user, filled);
         }
@@ -231,7 +251,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         if (order.sell) {
             SafeTransferLib.safeTransfer(order.assetToken, order.user, orderState.unfilled);
         } else if (orderState.paymentTokenEscrowed > 0) {
-        SafeTransferLib.safeTransfer(order.paymentToken, order.user, orderState.paymentTokenEscrowed);
-    }
+            SafeTransferLib.safeTransfer(order.paymentToken, order.user, orderState.paymentTokenEscrowed);
+        }
     }
 }
