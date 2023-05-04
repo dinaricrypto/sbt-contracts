@@ -205,7 +205,9 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
             uint256 remainingListValue = PrbMath.mulDiv18(orderState.unfilled, order.price);
             uint256 collection;
             if (orderState.paymentTokenEscrowed > remainingListValue) {
-                collection = PrbMath.mulDiv(orderState.paymentTokenEscrowed - remainingListValue, fillAmount, orderState.unfilled);
+                collection = PrbMath.mulDiv(
+                    orderState.paymentTokenEscrowed - remainingListValue, fillAmount, orderState.unfilled
+                );
             }
             uint256 paymentClaim = PrbMath.mulDiv18(fillAmount, order.price);
             if (remainingUnfilled == 0 && orderState.paymentTokenEscrowed > collection + paymentClaim) {
