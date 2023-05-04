@@ -213,9 +213,7 @@ contract LimitOrderBridgeTest is Test {
         bridge.requestOrder(dummyOrder, salt);
     }
 
-    function testFillOrder(bool sell, uint128 orderAmount, uint128 price, uint128 fillAmount)
-        public
-    {
+    function testFillOrder(bool sell, uint128 orderAmount, uint128 price, uint128 fillAmount) public {
         vm.assume(orderAmount > 0);
 
         IVaultBridge.Order memory order = dummyOrder;

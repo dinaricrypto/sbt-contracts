@@ -168,10 +168,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         }
     }
 
-    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256)
-        external
-        onlyRoles(_ROLE_1)
-    {
+    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256) external onlyRoles(_ROLE_1) {
         if (fillAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderId(order, salt);
         LimitOrderState memory orderState = _orders[orderId];
