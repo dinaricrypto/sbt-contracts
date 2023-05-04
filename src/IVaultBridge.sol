@@ -30,7 +30,7 @@ interface IVaultBridge {
     }
 
     event OrderRequested(bytes32 indexed id, address indexed user, Order order, bytes32 salt);
-    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount, uint256 proceeds);
+    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount);
     event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
     event CancelRequested(bytes32 indexed id, address indexed user);
     event OrderCancelled(bytes32 indexed id, address indexed user, string reason);
@@ -43,7 +43,7 @@ interface IVaultBridge {
 
     function requestOrder(Order calldata order, bytes32 salt) external;
 
-    function fillOrder(Order calldata order, bytes32 salt, uint256 filledAmount, uint256 resultAmount) external;
+    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 resultAmount) external;
 
     function requestCancel(Order calldata order, bytes32 salt) external;
 

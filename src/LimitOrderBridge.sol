@@ -5,13 +5,14 @@ import "solady/auth/OwnableRoles.sol";
 import "solady/utils/SafeTransferLib.sol";
 import "openzeppelin/proxy/utils/Initializable.sol";
 import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
+import "prb-math/Common.sol" as PrbMath;
 import "./IVaultBridge.sol";
 import "./IOrderFees.sol";
 import "./IMintBurn.sol";
 
-/// @notice Bridge interface managing swaps for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/Bridge.sol)
-contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBridge {
+/// @notice Bridge interface managing limit orders for bridged assets
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/LimitOrderBridge.sol)
+contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBridge {
     // This contract handles the submission and fulfillment of orders
     // Takes fees from payment token
     // TODO: submit by sig - forwarder/gsn support?
@@ -24,9 +25,15 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned
 
+    struct LimitOrderState {
+        uint256 unfilled;
+        uint256 paymentTokenEscrowed;
+    }
+
     error ZeroValue();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
+    error OnlyLimitOrders();
     error OrderNotFound();
     error DuplicateOrder();
     error Paused();
@@ -49,7 +56,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     mapping(address => bool) public paymentTokenEnabled;
 
     /// @dev unfilled orders
-    mapping(bytes32 => uint256) private _orders;
+    mapping(bytes32 => LimitOrderState) private _orders;
 
     uint256 public numOpenOrders;
 
@@ -107,31 +114,39 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     }
 
     function isOrderActive(bytes32 id) external view returns (bool) {
-        return _orders[id] > 0;
+        return _orders[id].unfilled > 0;
     }
 
     function getUnfilledAmount(bytes32 id) external view returns (uint256) {
-        return _orders[id];
+        return _orders[id].unfilled;
     }
 
     function requestOrder(Order calldata order, bytes32 salt) external {
         if (ordersPaused) revert Paused();
+        if (order.orderType != OrderType.LIMIT) revert OnlyLimitOrders();
         if (order.user != msg.sender) revert NoProxyOrders();
-        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        if (orderAmount == 0) revert ZeroValue();
+        if (order.assetTokenQuantity == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
         bytes32 orderId = getOrderId(order, salt);
-        if (_orders[orderId] > 0) revert DuplicateOrder();
+        if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
-        // Emit the data, store the hash
-        _orders[orderId] = orderAmount;
+        uint256 paymentTokenEscrowed;
+        if (!order.sell) {
+            uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
+            uint256 collection = orderFees.getFees(order.sell, orderValue);
+            paymentTokenEscrowed = orderValue + collection;
+        }
+        _orders[orderId] =
+            LimitOrderState({unfilled: order.assetTokenQuantity, paymentTokenEscrowed: paymentTokenEscrowed});
         numOpenOrders++;
         emit OrderRequested(orderId, order.user, order, salt);
 
         // Escrow
-        SafeTransferLib.safeTransferFrom(
-            order.sell ? order.assetToken : order.paymentToken, msg.sender, address(this), orderAmount
-        );
+        if (order.sell) {
+            SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.assetTokenQuantity);
+        } else {
+            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentTokenEscrowed);
+        }
     }
 
     function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 resultAmount)
@@ -139,49 +154,59 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         onlyRoles(_ROLE_1)
     {
         bytes32 orderId = getOrderId(order, salt);
-        uint256 unfilled = _orders[orderId];
-        if (unfilled == 0) revert OrderNotFound();
-        if (fillAmount > unfilled) revert FillTooLarge();
+        LimitOrderState memory orderState = _orders[orderId];
+        if (orderState.unfilled == 0) revert OrderNotFound();
+        if (fillAmount > orderState.unfilled) revert FillTooLarge();
 
-        uint256 remainingUnfilled = unfilled - fillAmount;
-        _orders[orderId] = remainingUnfilled;
-        numOpenOrders--;
-
-        // Get fees
-        uint256 collection = orderFees.getFees(order.sell, resultAmount);
-        uint256 proceedsToUser;
-        if (collection > resultAmount) {
-            collection = resultAmount;
-        } else {
-            proceedsToUser = resultAmount - collection;
-        }
         emit OrderFill(orderId, order.user, fillAmount);
+        uint256 remainingUnfilled = orderState.unfilled - fillAmount;
         if (remainingUnfilled == 0) {
-            uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-            emit OrderFulfilled(orderId, order.user, orderAmount);
+            delete _orders[orderId];
+            numOpenOrders--;
+            emit OrderFulfilled(orderId, order.user, order.assetTokenQuantity);
+        } else {
+            _orders[orderId].unfilled = remainingUnfilled;
         }
 
+        // If sell, calc fees here, else use percent of escrowed payment
         if (order.sell) {
+            // Get fees
+            uint256 collection = orderFees.getFees(true, resultAmount);
+            uint256 proceedsToUser;
+            if (collection > resultAmount) {
+                collection = resultAmount;
+            } else {
+                proceedsToUser = resultAmount - collection;
+                // Forward proceeds
+                SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.user, proceedsToUser);
+            }
             // Collect fees
             SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, treasury, collection);
-            // Forward proceeds
-            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.user, proceedsToUser);
             // Burn
             IMintBurn(order.assetToken).burn(fillAmount);
         } else {
+            // Calc fees
+            uint256 collection =
+                (orderState.paymentTokenEscrowed - orderState.unfilled * order.price) * fillAmount / orderState.unfilled;
+            uint256 paymentClaim = fillAmount * order.price;
+            if (remainingUnfilled == 0 && orderState.paymentTokenEscrowed > collection + paymentClaim) {
+                paymentClaim += orderState.paymentTokenEscrowed - collection - paymentClaim;
+            } else {
+                _orders[orderId].paymentTokenEscrowed = orderState.paymentTokenEscrowed - collection - paymentClaim;
+            }
             // Collect fees
-            IMintBurn(order.assetToken).mint(treasury, collection);
-            // Mint
-            IMintBurn(order.assetToken).mint(order.user, proceedsToUser);
+            SafeTransferLib.safeTransfer(order.paymentToken, treasury, collection);
             // Claim payment
-            SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, fillAmount);
+            SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, paymentClaim);
+            // Mint
+            IMintBurn(order.assetToken).mint(order.user, fillAmount);
         }
     }
 
     function requestCancel(Order calldata order, bytes32 salt) external {
         if (order.user != msg.sender) revert NoProxyOrders();
         bytes32 orderId = getOrderId(order, salt);
-        uint256 unfilled = _orders[orderId];
+        uint256 unfilled = _orders[orderId].unfilled;
         if (unfilled == 0) revert OrderNotFound();
 
         emit CancelRequested(orderId, order.user);
@@ -189,19 +214,24 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
 
     function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
         bytes32 orderId = getOrderId(order, salt);
-        uint256 unfilled = _orders[orderId];
-        if (unfilled == 0) revert OrderNotFound();
+        LimitOrderState memory orderState = _orders[orderId];
+        if (orderState.unfilled == 0) revert OrderNotFound();
 
         delete _orders[orderId];
+        numOpenOrders--;
         emit OrderCancelled(orderId, order.user, reason);
 
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        uint256 filled = orderAmount - unfilled;
+        uint256 filled = orderAmount - orderState.unfilled;
         if (filled != 0) {
             emit OrderFulfilled(orderId, order.user, filled);
         }
 
         // Return Escrow
-        SafeTransferLib.safeTransfer(order.sell ? order.assetToken : order.paymentToken, order.user, unfilled);
+        if (order.sell) {
+            SafeTransferLib.safeTransfer(order.assetToken, order.user, orderState.unfilled);
+        } else if (orderState.paymentTokenEscrowed > 0) {
+        SafeTransferLib.safeTransfer(order.paymentToken, order.user, orderState.paymentTokenEscrowed);
+    }
     }
 }

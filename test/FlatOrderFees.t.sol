@@ -16,7 +16,7 @@ contract FlatOrderFeesTest is Test {
     }
 
     function testInit(bool sell, uint64 value) public {
-        assertEq(orderFees.getFees(sell, false, value), 0);
+        assertEq(orderFees.getFees(sell, value), 0);
     }
 
     function testSetSellerFee(uint64 fee) public {

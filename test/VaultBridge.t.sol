@@ -11,7 +11,7 @@ import "../src/FlatOrderFees.sol";
 
 contract VaultBridgeTest is Test {
     event OrderRequested(bytes32 indexed id, address indexed user, IVaultBridge.Order order, bytes32 salt);
-    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount, uint256 proceeds);
+    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount);
     event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
     event CancelRequested(bytes32 indexed id, address indexed user);
     event OrderCancelled(bytes32 indexed id, address indexed user, string reason);
@@ -234,8 +234,8 @@ contract VaultBridgeTest is Test {
             vm.prank(bridgeOperator);
             bridge.fillOrder(order, salt, fillAmount, proceeds);
         } else {
-            vm.expectEmit(true, true, true, false);
-            emit OrderFill(orderId, user, fillAmount, proceeds);
+            vm.expectEmit(true, true, true, true);
+            emit OrderFill(orderId, user, fillAmount);
             if (fillAmount == orderAmount) {
                 vm.expectEmit(true, true, true, true);
                 emit OrderFulfilled(orderId, user, orderAmount);
