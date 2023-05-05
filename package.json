@@ -9,6 +9,7 @@
     "build": "forge build",
     "test": "forge test -vvv",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
+    "snapshot": "forge snapshot",
     "keccak": "cast keccak",
     "deployall:testnet": "./script/deployall-testnet.sh",
     "deploy:tokenlist:testnet": "./script/deploytokenlist-testnet.sh",
@@ -23,6 +24,7 @@
     "pre-commit": "^1.2.2"
   },
   "pre-commit": [
-    "pretty"
+    "pretty",
+    "snapshot"
   ]
 }
