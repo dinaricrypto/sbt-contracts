@@ -81,7 +81,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
 
     function setTreasury(address account) external onlyOwner {
         if (account == address(0)) revert ZeroValue();
-        
+
         treasury = account;
         emit TreasurySet(account);
     }
