@@ -11,7 +11,7 @@
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "keccak": "cast keccak",
     "deployall:testnet": "./script/deployall-testnet.sh",
-    "deploy:token:testnet": "./script/deploy-token-testnet.sh",
+    "deploy:tokenlist:testnet": "./script/deploytokenlist-testnet.sh",
     "deploy:mockpayment:testnet": "./script/deploy-mockpayment-testnet.sh",
     "dummyorder:testnet": "./script/dummyorder-testnet.sh",
     "errorcodes": "forge script script/Errors.s.sol:ErrorsScript -vvvv"
