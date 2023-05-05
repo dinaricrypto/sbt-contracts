@@ -56,6 +56,8 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     bool public ordersPaused;
 
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
+        if (treasury_ == address(0)) revert ZeroValue();
+
         _initializeOwner(owner);
 
         treasury = treasury_;
@@ -69,6 +71,8 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     function setTreasury(address account) external onlyOwner {
+        if (account == address(0)) revert ZeroValue();
+
         treasury = account;
         emit TreasurySet(account);
     }
@@ -148,7 +152,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         numOpenOrders--;
 
         // Get fees
-        uint256 collection = orderFees.getFees(order.sell, resultAmount);
+        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(order.sell, resultAmount);
         uint256 proceedsToUser = 0;
         if (collection > resultAmount) {
             collection = resultAmount;
