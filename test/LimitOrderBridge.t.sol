@@ -71,13 +71,19 @@ contract LimitOrderBridgeTest is Test {
         assertEq(bridge.operatorRole(), uint256(1 << 1));
     }
 
-    function testInitialize(address owner) public {
+    function testInitialize(address owner, address newTreasury) public {
         vm.assume(owner != address(this));
 
         LimitOrderBridge bridgeImpl = new LimitOrderBridge();
+        if (newTreasury == address(0)) {
+            vm.expectRevert(LimitOrderBridge.ZeroAddress.selector);
+
+            new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(LimitOrderBridge.initialize, (owner, newTreasury, orderFees)));
+            return;
+        }
         LimitOrderBridge newBridge = LimitOrderBridge(
             address(
-                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(LimitOrderBridge.initialize, (owner, treasury, orderFees)))
+                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(LimitOrderBridge.initialize, (owner, newTreasury, orderFees)))
             )
         );
         assertEq(newBridge.owner(), owner);
@@ -85,15 +91,20 @@ contract LimitOrderBridgeTest is Test {
         LimitOrderBridge newImpl = new LimitOrderBridge();
         vm.expectRevert(Ownable.Unauthorized.selector);
         newBridge.upgradeToAndCall(
-            address(newImpl), abi.encodeCall(LimitOrderBridge.initialize, (owner, treasury, orderFees))
+            address(newImpl), abi.encodeCall(LimitOrderBridge.initialize, (owner, newTreasury, orderFees))
         );
     }
 
     function testSetTreasury(address account) public {
-        vm.expectEmit(true, true, true, true);
-        emit TreasurySet(account);
-        bridge.setTreasury(account);
-        assertEq(bridge.treasury(), account);
+        if (account == address(0)) {
+            vm.expectRevert(LimitOrderBridge.ZeroAddress.selector);
+            bridge.setTreasury(account);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit TreasurySet(account);
+            bridge.setTreasury(account);
+            assertEq(bridge.treasury(), account);
+        }
     }
 
     function testSetFees(IOrderFees fees) public {
@@ -172,6 +183,11 @@ contract LimitOrderBridgeTest is Test {
             assertTrue(bridge.isOrderActive(orderId));
             assertEq(bridge.getUnfilledAmount(orderId), assetTokenQuantity);
             assertEq(bridge.numOpenOrders(), 1);
+            if (sell) {
+                assertEq(bridge.getPaymentEscrow(orderId), 0);
+            } else {
+                assertEq(bridge.getPaymentEscrow(orderId), bridge.totalPaymentForOrder(order));
+            }
         }
     }
 

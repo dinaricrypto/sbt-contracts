@@ -1,0 +1,4 @@
+{
+  "filter_paths": "lib,node_modules,script,test",
+  "detectors_to_exclude": "naming-convention,solc-version"
+}

@@ -31,6 +31,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     }
 
     error ZeroValue();
+    error ZeroAddress();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
     error OnlyLimitOrders();
@@ -65,6 +66,8 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     bool public ordersPaused;
 
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
+        if (treasury_ == address(0)) revert ZeroAddress();
+
         _initializeOwner(owner);
 
         treasury = treasury_;
@@ -78,6 +81,8 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     function setTreasury(address account) external onlyOwner {
+        if (account == address(0)) revert ZeroAddress();
+
         treasury = account;
         emit TreasurySet(account);
     }
@@ -131,7 +136,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         if (order.sell) revert NotBuyOrder();
 
         uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
-        uint256 collection = orderFees.getFees(order.sell, orderValue);
+        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(order.sell, orderValue);
         return orderValue + collection;
     }
 
@@ -148,10 +153,10 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         bytes32 orderId = getOrderId(order, salt);
         if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
-        uint256 paymentTokenEscrowed;
+        uint256 paymentTokenEscrowed = 0;
         if (!order.sell) {
             uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
-            uint256 collection = orderFees.getFees(order.sell, orderValue);
+            uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(order.sell, orderValue);
             paymentTokenEscrowed = orderValue + collection;
             if (paymentTokenEscrowed == 0) revert OrderTooSmall();
         }
@@ -189,7 +194,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         if (order.sell) {
             uint256 proceedsDue = PrbMath.mulDiv18(fillAmount, order.price);
             // Get fees
-            uint256 collection = orderFees.getFees(true, proceedsDue);
+            uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(true, proceedsDue);
             uint256 proceedsToUser;
             if (collection > proceedsDue) {
                 collection = proceedsDue;
@@ -205,7 +210,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         } else {
             // Calc fees
             uint256 remainingListValue = PrbMath.mulDiv18(orderState.unfilled, order.price);
-            uint256 collection;
+            uint256 collection = 0;
             if (orderState.paymentTokenEscrowed > remainingListValue) {
                 collection = PrbMath.mulDiv(
                     orderState.paymentTokenEscrowed - remainingListValue, fillAmount, orderState.unfilled

@@ -71,13 +71,19 @@ contract VaultBridgeTest is Test {
         assertEq(bridge.operatorRole(), uint256(1 << 1));
     }
 
-    function testInitialize(address owner) public {
+    function testInitialize(address owner, address newTreasury) public {
         vm.assume(owner != address(this));
 
         VaultBridge bridgeImpl = new VaultBridge();
+        if (newTreasury == address(0)) {
+            vm.expectRevert(VaultBridge.ZeroAddress.selector);
+
+            new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (owner, newTreasury, orderFees)));
+            return;
+        }
         VaultBridge newBridge = VaultBridge(
             address(
-                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury, orderFees)))
+                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(VaultBridge.initialize, (owner, newTreasury, orderFees)))
             )
         );
         assertEq(newBridge.owner(), owner);
@@ -85,15 +91,20 @@ contract VaultBridgeTest is Test {
         VaultBridge newImpl = new VaultBridge();
         vm.expectRevert(Ownable.Unauthorized.selector);
         newBridge.upgradeToAndCall(
-            address(newImpl), abi.encodeCall(VaultBridge.initialize, (owner, treasury, orderFees))
+            address(newImpl), abi.encodeCall(VaultBridge.initialize, (owner, newTreasury, orderFees))
         );
     }
 
     function testSetTreasury(address account) public {
-        vm.expectEmit(true, true, true, true);
-        emit TreasurySet(account);
-        bridge.setTreasury(account);
-        assertEq(bridge.treasury(), account);
+        if (account == address(0)) {
+            vm.expectRevert(VaultBridge.ZeroAddress.selector);
+            bridge.setTreasury(account);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit TreasurySet(account);
+            bridge.setTreasury(account);
+            assertEq(bridge.treasury(), account);
+        }
     }
 
     function testSetFees(IOrderFees fees) public {
