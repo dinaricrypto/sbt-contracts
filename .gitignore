@@ -13,6 +13,7 @@ coverage/
 
 # hardhat
 artifacts/
+cache_hardhat/
 
 # slither
 /crytic_export

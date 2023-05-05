@@ -2,4 +2,4 @@
 
 source .env
 
-forge script script/DeployMockPaymentToken.s.sol:DeployMockPaymentTokenScript --rpc-url $ARBITRUM_GOERLI_RPC_URL --broadcast --verify -vvvv
+forge script script/DeployMockPaymentToken.s.sol:DeployMockPaymentTokenScript --rpc-url $TEST_RPC_URL --broadcast --verify -vvvv

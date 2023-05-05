@@ -2,4 +2,4 @@
 
 source .env
 
-forge script script/DummyOrder.s.sol:DummyOrderScript --rpc-url $ARBITRUM_GOERLI_RPC_URL --broadcast --verify -vvvv
+forge script script/DummyOrder.s.sol:DummyOrderScript --rpc-url $TEST_RPC_URL --broadcast -vvvv
