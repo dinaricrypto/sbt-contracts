@@ -148,7 +148,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         bytes32 orderId = getOrderId(order, salt);
         if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
-        uint256 paymentTokenEscrowed;
+        uint256 paymentTokenEscrowed = 0;
         if (!order.sell) {
             uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
             uint256 collection = orderFees.getFees(order.sell, orderValue);
@@ -205,7 +205,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         } else {
             // Calc fees
             uint256 remainingListValue = PrbMath.mulDiv18(orderState.unfilled, order.price);
-            uint256 collection;
+            uint256 collection = 0;
             if (orderState.paymentTokenEscrowed > remainingListValue) {
                 collection = PrbMath.mulDiv(
                     orderState.paymentTokenEscrowed - remainingListValue, fillAmount, orderState.unfilled

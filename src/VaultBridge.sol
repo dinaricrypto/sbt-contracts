@@ -149,7 +149,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
 
         // Get fees
         uint256 collection = orderFees.getFees(order.sell, resultAmount);
-        uint256 proceedsToUser;
+        uint256 proceedsToUser = 0;
         if (collection > resultAmount) {
             collection = resultAmount;
         } else {
