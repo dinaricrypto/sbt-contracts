@@ -11,10 +11,10 @@ remappings = [
 ]
 
 [rpc_endpoints]
-arbitrum-goerli = "${ARBITRUM_GOERLI_RPC_URL}"
+sepolia = "${TEST_RPC_URL}"
 
 [etherscan]
-arbitrum-goerli = { key = "${ARBISCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
 
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
