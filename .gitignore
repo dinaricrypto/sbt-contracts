@@ -11,6 +11,9 @@ flattened.txt
 broadcast
 coverage/
 
+# hardhat
+artifacts/
+
 # slither
 /crytic_export
 
