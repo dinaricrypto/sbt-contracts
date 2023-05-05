@@ -1,0 +1,11 @@
+@prb/test/=lib/prb-math/lib/prb-test/src/
+ds-test/=lib/forge-std/lib/ds-test/src/
+forge-std/=lib/forge-std/src/
+hardhat/=node_modules/hardhat/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
+openzeppelin/=lib/openzeppelin-contracts/contracts/
+prb-math/=lib/prb-math/src/
+prb-test/=lib/prb-math/lib/prb-test/src/
+solady-test/=lib/solady/test/
+solady/=lib/solady/src/
+solmate/=lib/solady/lib/solmate/src/
