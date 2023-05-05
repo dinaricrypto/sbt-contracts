@@ -25,6 +25,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     // 2. Order fulfilled, escrow claimed, assets minted/burned
 
     error ZeroValue();
+    error ZeroAddress();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
     error OrderNotFound();
@@ -56,7 +57,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     bool public ordersPaused;
 
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
-        if (treasury_ == address(0)) revert ZeroValue();
+        if (treasury_ == address(0)) revert ZeroAddress();
 
         _initializeOwner(owner);
 
@@ -71,7 +72,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     function setTreasury(address account) external onlyOwner {
-        if (account == address(0)) revert ZeroValue();
+        if (account == address(0)) revert ZeroAddress();
 
         treasury = account;
         emit TreasurySet(account);

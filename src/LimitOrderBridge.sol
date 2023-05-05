@@ -31,6 +31,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     }
 
     error ZeroValue();
+    error ZeroAddress();
     error UnsupportedPaymentToken();
     error NoProxyOrders();
     error OnlyLimitOrders();
@@ -65,7 +66,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     bool public ordersPaused;
 
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
-        if (treasury_ == address(0)) revert ZeroValue();
+        if (treasury_ == address(0)) revert ZeroAddress();
 
         _initializeOwner(owner);
 
@@ -80,7 +81,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
     function setTreasury(address account) external onlyOwner {
-        if (account == address(0)) revert ZeroValue();
+        if (account == address(0)) revert ZeroAddress();
 
         treasury = account;
         emit TreasurySet(account);
