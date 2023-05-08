@@ -33,7 +33,9 @@ Buy/Sell: {
     clearing -> bot: Limit order fulfillment
     bot -> rpc: bridge.fillOrder
     rpc -> contracts: bridge.fillOrder
+    contracts -> contracts: Fees taken
+    contracts -> contracts: Fractional remainder swap
+    contracts -> bot: Payment withdrawn
     contracts -> wallet: Mint/Burn dAsset tokens
-    contracts -> bot: Payment token withdrawn
   }
 }

@@ -3,7 +3,7 @@
   "packageManager": "yarn@3.2.0",
   "scripts": {
     "install:d2": "curl -fsSL https://d2lang.com/install.sh | sh -s --",
-    "build:d2": "find . -type f  -name '*.d2' -exec d2 '{}' \\;",
+    "build:d2": "find . -type f  -name '*.d2' -exec d2 --theme 104 '{}' \\;",
     "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
     "pretty": "forge fmt",
     "build": "forge build",
