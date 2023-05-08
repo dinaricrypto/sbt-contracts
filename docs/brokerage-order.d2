@@ -1,16 +1,39 @@
-Brokerage Order: {
+Buy/Sell: {
   shape: sequence_diagram
 
-  user: User Client App
-  api: Dinari Brokerage Service
-  contracts: Brokerage Smart Contracts
-  clearing: Clearning House
+  user: User
+  wallet: User Wallet
+  app: Client App
+  rpc: Alchemy (RPC Node)
+  contracts: Bridge Smart Contracts
+  bot: Fulfillment Bot
+  clearing: Clearing House
 
-  user -> api: Order w/ Payment Escrow
-  api -> contracts: Submit Order and Escrow Payment
-  api -> clearing: Order
-  clearing -> api: Order Fulfillment
-  api -> contracts: Mint/Burn Certificates
-  contracts -> api: Payment Token Settlement
-  api -> user: Notify User
+  app -> rpc: payToken.balanceOf(user)
+  app -> rpc: bridge.orderFees(order)
+  app -> rpc: payToken.allowance(user, bridge)
+  Pre-sign Approval: {
+    user -> app: Approve use of payToken
+    app -> wallet: payToken.permit(user, bridge, ...)
+    wallet -> user: Request to sign permit
+    user -> wallet: Sign permit
+    wallet -> app: Permit signature
+  }
+  Order Request: {
+    user -> app: Submit order request
+    app -> wallet: bridge.requestOrder w/ signed permit
+    wallet -> user: Request to sign order
+    user -> wallet: Sign order request
+    wallet -> contracts: bridge.requestOrder + signed permit (*)
+    wallet -> contracts: Payment token escrowed
+    contracts -> bot: Order details
+  }
+  Order Fulfillment: {
+    bot -> clearing: Limit order
+    clearing -> bot: Limit order fulfillment
+    bot -> rpc: bridge.fillOrder
+    rpc -> contracts: bridge.fillOrder
+    contracts -> wallet: Mint/Burn dAsset tokens
+    contracts -> bot: Payment token withdrawn
+  }
 }
