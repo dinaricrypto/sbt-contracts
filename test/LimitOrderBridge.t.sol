@@ -160,12 +160,14 @@ contract LimitOrderBridgeTest is Test {
         });
         bytes32 orderId = bridge.getOrderId(order, salt);
 
+        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
+        uint256 totalPayment = fees + value;
+
         if (sell) {
             token.mint(user, assetTokenQuantity);
             vm.prank(user);
             token.increaseAllowance(address(bridge), assetTokenQuantity);
         } else {
-            uint256 totalPayment = bridge.totalPaymentForOrder(order);
             paymentToken.mint(user, totalPayment);
             vm.prank(user);
             paymentToken.increaseAllowance(address(bridge), totalPayment);
@@ -179,7 +181,7 @@ contract LimitOrderBridgeTest is Test {
             vm.expectRevert(LimitOrderBridge.ZeroValue.selector);
             vm.prank(user);
             bridge.requestOrder(order, salt);
-        } else if (!sell && bridge.totalPaymentForOrder(order) == 0) {
+        } else if (!sell && totalPayment == 0) {
             vm.expectRevert(LimitOrderBridge.OrderTooSmall.selector);
             vm.prank(user);
             bridge.requestOrder(order, salt);
@@ -194,7 +196,7 @@ contract LimitOrderBridgeTest is Test {
             if (sell) {
                 assertEq(bridge.getPaymentEscrow(orderId), 0);
             } else {
-                assertEq(bridge.getPaymentEscrow(orderId), bridge.totalPaymentForOrder(order));
+                assertEq(bridge.getPaymentEscrow(orderId), totalPayment);
             }
         }
     }
@@ -234,7 +236,9 @@ contract LimitOrderBridgeTest is Test {
 
     function testRequestOrderWithPermit() public {
         bytes32 orderId = bridge.getOrderId(dummyOrder, salt);
-        uint256 totalPayment = bridge.totalPaymentForOrder(dummyOrder);
+        (uint256 fees, uint256 value) =
+            bridge.getFeesForOrder(dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
+        uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
 
         SigUtils.Permit memory permit =
@@ -253,7 +257,7 @@ contract LimitOrderBridgeTest is Test {
         assertTrue(bridge.isOrderActive(orderId));
         assertEq(bridge.getUnfilledAmount(orderId), dummyOrder.assetTokenQuantity);
         assertEq(bridge.numOpenOrders(), 1);
-        assertEq(bridge.getPaymentEscrow(orderId), bridge.totalPaymentForOrder(dummyOrder));
+        assertEq(bridge.getPaymentEscrow(orderId), totalPayment);
     }
 
     function testFillOrder(bool sell, uint128 orderAmount, uint128 price, uint128 fillAmount) public {
@@ -263,7 +267,9 @@ contract LimitOrderBridgeTest is Test {
         order.sell = sell;
         order.assetTokenQuantity = orderAmount;
         order.price = price;
-        vm.assume(sell || bridge.totalPaymentForOrder(order) > 0);
+        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
+        uint256 totalPayment = fees + value;
+        vm.assume(sell || totalPayment > 0);
 
         bytes32 orderId = bridge.getOrderId(order, salt);
         uint256 proceeds = bridge.proceedsForFill(fillAmount, price);
@@ -277,7 +283,6 @@ contract LimitOrderBridgeTest is Test {
             vm.prank(bridgeOperator);
             paymentToken.increaseAllowance(address(bridge), proceeds);
         } else {
-            uint256 totalPayment = bridge.totalPaymentForOrder(order);
             paymentToken.mint(user, totalPayment);
             vm.prank(user);
             paymentToken.increaseAllowance(address(bridge), totalPayment);
@@ -317,7 +322,9 @@ contract LimitOrderBridgeTest is Test {
     }
 
     function testRequestCancel() public {
-        uint256 totalPayment = bridge.totalPaymentForOrder(dummyOrder);
+        (uint256 fees, uint256 value) =
+            bridge.getFeesForOrder(dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
+        uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);
         paymentToken.increaseAllowance(address(bridge), totalPayment);
@@ -333,7 +340,9 @@ contract LimitOrderBridgeTest is Test {
     }
 
     function testRequestCancelNotRecipientReverts() public {
-        uint256 totalPayment = bridge.totalPaymentForOrder(dummyOrder);
+        (uint256 fees, uint256 value) =
+            bridge.getFeesForOrder(dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
+        uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);
         paymentToken.increaseAllowance(address(bridge), totalPayment);
@@ -359,7 +368,8 @@ contract LimitOrderBridgeTest is Test {
         IVaultBridge.Order memory order = dummyOrder;
         order.assetTokenQuantity = orderAmount;
 
-        uint256 totalPayment = bridge.totalPaymentForOrder(order);
+        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
+        uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);
         paymentToken.increaseAllowance(address(bridge), totalPayment);

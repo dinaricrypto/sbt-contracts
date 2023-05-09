@@ -132,12 +132,14 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         return _orders[id].paymentTokenEscrowed;
     }
 
-    function totalPaymentForOrder(Order calldata order) external view returns (uint256) {
-        if (order.sell) revert NotBuyOrder();
-
-        uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
-        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(order.sell, orderValue);
-        return orderValue + collection;
+    function getFeesForOrder(bool sell, uint256 assetTokenQuantity, uint256 price)
+        public
+        view
+        returns (uint256, uint256)
+    {
+        uint256 orderValue = PrbMath.mulDiv18(assetTokenQuantity, price);
+        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(sell, orderValue);
+        return (collection, orderValue);
     }
 
     function proceedsForFill(uint256 fillAmount, uint256 price) external pure returns (uint256) {
@@ -199,9 +201,8 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
 
         // If sell, calc fees here, else use percent of escrowed payment
         if (order.sell) {
-            uint256 proceedsDue = PrbMath.mulDiv18(fillAmount, order.price);
             // Get fees
-            uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(true, proceedsDue);
+            (uint256 collection, uint256 proceedsDue) = getFeesForOrder(order.sell, fillAmount, order.price);
             uint256 proceedsToUser;
             if (collection > proceedsDue) {
                 collection = proceedsDue;
@@ -283,8 +284,8 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
 
         paymentTokenEscrowed = 0;
         if (!order.sell) {
-            uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
-            uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(order.sell, orderValue);
+            (uint256 collection, uint256 orderValue) =
+                getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
             paymentTokenEscrowed = orderValue + collection;
             if (paymentTokenEscrowed == 0) revert OrderTooSmall();
         }
