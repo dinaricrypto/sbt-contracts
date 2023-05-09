@@ -55,7 +55,7 @@ contract VaultBridgeTest is Test {
         bridge.grantRoles(bridgeOperator, bridge.operatorRole());
 
         dummyOrder = IVaultBridge.Order({
-            user: user,
+            recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
@@ -140,7 +140,7 @@ contract VaultBridgeTest is Test {
         vm.assume(tif < 4);
 
         IVaultBridge.Order memory order = IVaultBridge.Order({
-            user: user,
+            recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: sell,

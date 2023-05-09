@@ -2,12 +2,13 @@
 pragma solidity ^0.8.18;
 
 import "solady/tokens/ERC20.sol";
+import "solady/utils/Multicallable.sol";
 import "solady/auth/OwnableRoles.sol";
 import "./ITransferRestrictor.sol";
 
 /// @notice ERC20 with minter and blacklist.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
-contract BridgedERC20 is ERC20, OwnableRoles {
+contract BridgedERC20 is ERC20, Multicallable, OwnableRoles {
     // TODO: compare with openeden vault
     event NameSet(string name);
     event SymbolSet(string symbol);

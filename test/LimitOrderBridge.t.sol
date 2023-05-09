@@ -55,7 +55,7 @@ contract LimitOrderBridgeTest is Test {
         bridge.grantRoles(bridgeOperator, bridge.operatorRole());
 
         dummyOrder = IVaultBridge.Order({
-            user: user,
+            recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
@@ -140,7 +140,7 @@ contract LimitOrderBridgeTest is Test {
         vm.assume(tif < 4);
 
         IVaultBridge.Order memory order = IVaultBridge.Order({
-            user: user,
+            recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: sell,
@@ -196,11 +196,6 @@ contract LimitOrderBridgeTest is Test {
 
         vm.expectRevert(LimitOrderBridge.Paused.selector);
         vm.prank(user);
-        bridge.requestOrder(dummyOrder, salt);
-    }
-
-    function testRequestOrderProxyOrderReverts() public {
-        vm.expectRevert(LimitOrderBridge.NoProxyOrders.selector);
         bridge.requestOrder(dummyOrder, salt);
     }
 
@@ -305,7 +300,7 @@ contract LimitOrderBridgeTest is Test {
         bridge.requestCancel(dummyOrder, salt);
     }
 
-    function testRequestCancelNoProxyReverts() public {
+    function testRequestCancelNotRecipientReverts() public {
         uint256 totalPayment = bridge.totalPaymentForOrder(dummyOrder);
         paymentToken.mint(user, totalPayment);
         vm.prank(user);
@@ -314,7 +309,7 @@ contract LimitOrderBridgeTest is Test {
         vm.prank(user);
         bridge.requestOrder(dummyOrder, salt);
 
-        vm.expectRevert(LimitOrderBridge.NoProxyOrders.selector);
+        vm.expectRevert(LimitOrderBridge.NotRecipient.selector);
         bridge.requestCancel(dummyOrder, salt);
     }
 

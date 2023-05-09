@@ -17,7 +17,7 @@ interface IVaultBridge {
     }
 
     struct Order {
-        address user;
+        address recipient;
         address assetToken;
         address paymentToken;
         bool sell;
@@ -29,11 +29,11 @@ interface IVaultBridge {
         TIF tif;
     }
 
-    event OrderRequested(bytes32 indexed id, address indexed user, Order order, bytes32 salt);
-    event OrderFill(bytes32 indexed id, address indexed user, uint256 fillAmount);
-    event OrderFulfilled(bytes32 indexed id, address indexed user, uint256 filledAmount);
-    event CancelRequested(bytes32 indexed id, address indexed user);
-    event OrderCancelled(bytes32 indexed id, address indexed user, string reason);
+    event OrderRequested(bytes32 indexed id, address indexed recipient, Order order, bytes32 salt);
+    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount);
+    event OrderFulfilled(bytes32 indexed id, address indexed recipient, uint256 filledAmount);
+    event CancelRequested(bytes32 indexed id, address indexed recipient);
+    event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
     function getOrderId(Order calldata order, bytes32 salt) external view returns (bytes32);
 

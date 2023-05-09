@@ -16,8 +16,9 @@ contract ErrorsScript is Script {
         vm.startBroadcast();
 
         emit ErrorCode(LimitOrderBridge.ZeroValue.selector, "ZeroValue");
+        emit ErrorCode(LimitOrderBridge.ZeroValue.selector, "ZeroAddress");
         emit ErrorCode(LimitOrderBridge.UnsupportedPaymentToken.selector, "UnsupportedPaymentToken");
-        emit ErrorCode(LimitOrderBridge.NoProxyOrders.selector, "NoProxyOrders");
+        emit ErrorCode(LimitOrderBridge.NotRecipient.selector, "NotRecipient");
         emit ErrorCode(LimitOrderBridge.OnlyLimitOrders.selector, "OnlyLimitOrders");
         emit ErrorCode(LimitOrderBridge.OrderNotFound.selector, "OrderNotFound");
         emit ErrorCode(LimitOrderBridge.DuplicateOrder.selector, "DuplicateOrder");
