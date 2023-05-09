@@ -147,7 +147,14 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     function requestOrder(Order calldata order, bytes32 salt) public {
         if (ordersPaused) revert Paused();
 
-        _requestOrder(order, salt);
+        uint256 paymentTokenEscrowed = _requestOrderAccounting(order, salt);
+
+        // Escrow
+        if (order.sell) {
+            SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.assetTokenQuantity);
+        } else {
+            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentTokenEscrowed);
+        }
     }
 
     function requestOrderWithPermit(
@@ -161,11 +168,16 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     ) external {
         if (ordersPaused) revert Paused();
 
-        IERC20Permit(order.sell ? order.assetToken : order.paymentToken).permit(
-            msg.sender, address(this), value, deadline, v, r, s
-        );
+        uint256 paymentTokenEscrowed = _requestOrderAccounting(order, salt);
 
-        _requestOrder(order, salt);
+        // Escrow
+        if (order.sell) {
+            IERC20Permit(order.assetToken).permit(msg.sender, address(this), value, deadline, v, r, s);
+            SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.assetTokenQuantity);
+        } else {
+            IERC20Permit(order.paymentToken).permit(msg.sender, address(this), value, deadline, v, r, s);
+            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentTokenEscrowed);
+        }
     }
 
     function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256) external onlyRoles(_ROLE_1) {
@@ -259,14 +271,17 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         }
     }
 
-    function _requestOrder(Order calldata order, bytes32 salt) internal {
+    function _requestOrderAccounting(Order calldata order, bytes32 salt)
+        internal
+        returns (uint256 paymentTokenEscrowed)
+    {
         if (order.orderType != OrderType.LIMIT) revert OnlyLimitOrders();
         if (order.assetTokenQuantity == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
         bytes32 orderId = getOrderId(order, salt);
         if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
-        uint256 paymentTokenEscrowed = 0;
+        paymentTokenEscrowed = 0;
         if (!order.sell) {
             uint256 orderValue = PrbMath.mulDiv18(order.assetTokenQuantity, order.price);
             uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(order.sell, orderValue);
@@ -277,12 +292,5 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
             LimitOrderState({unfilled: order.assetTokenQuantity, paymentTokenEscrowed: paymentTokenEscrowed});
         numOpenOrders++;
         emit OrderRequested(orderId, order.recipient, order, salt);
-
-        // Escrow
-        if (order.sell) {
-            SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.assetTokenQuantity);
-        } else {
-            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentTokenEscrowed);
-        }
     }
 }
