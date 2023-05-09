@@ -25,6 +25,7 @@
   },
   "pre-commit": [
     "pretty",
-    "snapshot"
+    "snapshot",
+    "build:d2"
   ]
 }
