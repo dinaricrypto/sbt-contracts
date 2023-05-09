@@ -21,10 +21,10 @@ Buy/Sell: {
   }
   Order Request: {
     user -> app: Submit order request
-    app -> wallet: bridge.requestOrder w/ signed permit
+    app -> wallet: bridge.requestOrderWithPermit
     wallet -> user: Request to sign order
     user -> wallet: Sign order request
-    wallet -> contracts: bridge.requestOrder + signed permit (*)
+    wallet -> contracts: bridge.requestOrderWithPermit
     wallet -> contracts: Payment token escrowed
     contracts -> bot: Order details
   }
