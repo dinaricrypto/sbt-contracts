@@ -10,8 +10,8 @@ Buy/Sell: {
   clearing: Clearing House
 
   app -> rpc: payToken.balanceOf(user)
-  app -> rpc: bridge.orderFees(order)
   app -> rpc: payToken.allowance(user, bridge)
+  app -> rpc: bridge.getFeesForOrder(...)
   Pre-sign Approval: {
     user -> app: Approve use of payToken
     app -> wallet: payToken.permit(user, bridge, ...)
