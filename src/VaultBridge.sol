@@ -98,7 +98,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
             abi.encode(
                 ORDERTICKET_TYPE_HASH,
                 salt,
-                order.user,
+                order.recipient,
                 order.assetToken,
                 order.paymentToken,
                 order.sell,
@@ -121,7 +121,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
 
     function requestOrder(Order calldata order, bytes32 salt) external {
         if (ordersPaused) revert Paused();
-        if (order.user != msg.sender) revert NoProxyOrders();
+        if (order.recipient != msg.sender) revert NoProxyOrders();
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         if (orderAmount == 0) revert ZeroValue();
         if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
@@ -131,7 +131,7 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         // Emit the data, store the hash
         _orders[orderId] = orderAmount;
         numOpenOrders++;
-        emit OrderRequested(orderId, order.user, order, salt);
+        emit OrderRequested(orderId, order.recipient, order, salt);
 
         // Escrow
         SafeTransferLib.safeTransferFrom(
@@ -160,36 +160,36 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         } else {
             proceedsToUser = resultAmount - collection;
         }
-        emit OrderFill(orderId, order.user, fillAmount);
+        emit OrderFill(orderId, order.recipient, fillAmount);
         if (remainingUnfilled == 0) {
             uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-            emit OrderFulfilled(orderId, order.user, orderAmount);
+            emit OrderFulfilled(orderId, order.recipient, orderAmount);
         }
 
         if (order.sell) {
             // Collect fees
             SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, treasury, collection);
             // Forward proceeds
-            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.user, proceedsToUser);
+            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.recipient, proceedsToUser);
             // Burn
             IMintBurn(order.assetToken).burn(fillAmount);
         } else {
             // Collect fees
             IMintBurn(order.assetToken).mint(treasury, collection);
             // Mint
-            IMintBurn(order.assetToken).mint(order.user, proceedsToUser);
+            IMintBurn(order.assetToken).mint(order.recipient, proceedsToUser);
             // Claim payment
             SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, fillAmount);
         }
     }
 
     function requestCancel(Order calldata order, bytes32 salt) external {
-        if (order.user != msg.sender) revert NoProxyOrders();
+        if (order.recipient != msg.sender) revert NoProxyOrders();
         bytes32 orderId = getOrderId(order, salt);
         uint256 unfilled = _orders[orderId];
         if (unfilled == 0) revert OrderNotFound();
 
-        emit CancelRequested(orderId, order.user);
+        emit CancelRequested(orderId, order.recipient);
     }
 
     function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
@@ -198,15 +198,15 @@ contract VaultBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBrid
         if (unfilled == 0) revert OrderNotFound();
 
         delete _orders[orderId];
-        emit OrderCancelled(orderId, order.user, reason);
+        emit OrderCancelled(orderId, order.recipient, reason);
 
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         uint256 filled = orderAmount - unfilled;
         if (filled != 0) {
-            emit OrderFulfilled(orderId, order.user, filled);
+            emit OrderFulfilled(orderId, order.recipient, filled);
         }
 
         // Return Escrow
-        SafeTransferLib.safeTransfer(order.sell ? order.assetToken : order.paymentToken, order.user, unfilled);
+        SafeTransferLib.safeTransfer(order.sell ? order.assetToken : order.paymentToken, order.recipient, unfilled);
     }
 }

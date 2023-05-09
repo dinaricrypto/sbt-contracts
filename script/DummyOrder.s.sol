@@ -14,7 +14,7 @@ contract DummyOrderScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         IVaultBridge.Order memory order = IVaultBridge.Order({
-            user: vm.addr(deployerPrivateKey),
+            recipient: vm.addr(deployerPrivateKey),
             assetToken: assetToken,
             paymentToken: paymentTokenAddress,
             sell: false,
