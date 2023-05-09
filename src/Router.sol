@@ -27,7 +27,7 @@ contract Router is Ownable {
         for (uint256 i = 0; i < numCalls;) {
             if (!isAuthorizedCall(targets[i], bytes4(calldatas[i]))) revert UnauthorizedCall();
 
-            Address.functionCallWithValue(targets[i], calldatas[i], msg.value);
+            Address.functionCall(targets[i], calldatas[i]);
 
             unchecked {
                 i++;
