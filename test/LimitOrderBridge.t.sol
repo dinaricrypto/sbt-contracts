@@ -6,6 +6,7 @@ import "solady/auth/Ownable.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
+import "./utils/SigUtils.sol";
 import "../src/LimitOrderBridge.sol";
 import {FlatOrderFees} from "../src/FlatOrderFees.sol";
 
@@ -25,8 +26,11 @@ contract LimitOrderBridgeTest is Test {
     FlatOrderFees orderFees;
     LimitOrderBridge bridge;
     MockERC20 paymentToken;
+    SigUtils sigUtils;
 
-    address constant user = address(1);
+    uint256 userPrivateKey;
+    address user;
+
     address constant bridgeOperator = address(3);
     address constant treasury = address(4);
 
@@ -34,8 +38,12 @@ contract LimitOrderBridgeTest is Test {
     bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
 
     function setUp() public {
+        userPrivateKey = 0x01;
+        user = vm.addr(userPrivateKey);
+
         token = new MockBridgedERC20();
         paymentToken = new MockERC20("Money", "$", 18);
+        sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new FlatOrderFees();
         orderFees.setSellerFee(0.1 ether);
@@ -222,6 +230,30 @@ contract LimitOrderBridgeTest is Test {
         vm.expectRevert(LimitOrderBridge.DuplicateOrder.selector);
         vm.prank(user);
         bridge.requestOrder(dummyOrder, salt);
+    }
+
+    function testRequestOrderWithPermit() public {
+        bytes32 orderId = bridge.getOrderId(dummyOrder, salt);
+        uint256 totalPayment = bridge.totalPaymentForOrder(dummyOrder);
+        paymentToken.mint(user, totalPayment);
+
+        SigUtils.Permit memory permit =
+            SigUtils.Permit({owner: user, spender: address(bridge), value: totalPayment, nonce: 0, deadline: 30 days});
+
+        bytes32 digest = sigUtils.getTypedDataHash(permit);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
+
+        vm.expectEmit(true, true, true, true);
+        emit OrderRequested(orderId, user, dummyOrder, salt);
+        vm.prank(user);
+        bridge.requestOrderWithPermit(dummyOrder, salt, permit.value, permit.deadline, v, r, s);
+        assertEq(paymentToken.nonces(user), 1);
+        assertEq(paymentToken.allowance(user, address(bridge)), 0);
+        assertTrue(bridge.isOrderActive(orderId));
+        assertEq(bridge.getUnfilledAmount(orderId), dummyOrder.assetTokenQuantity);
+        assertEq(bridge.numOpenOrders(), 1);
+        assertEq(bridge.getPaymentEscrow(orderId), bridge.totalPaymentForOrder(dummyOrder));
     }
 
     function testFillOrder(bool sell, uint128 orderAmount, uint128 price, uint128 fillAmount) public {
