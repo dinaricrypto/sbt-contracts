@@ -39,7 +39,6 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
     error DuplicateOrder();
     error Paused();
     error FillTooLarge();
-    error NotBuyOrder();
     error OrderTooSmall();
 
     event TreasurySet(address indexed treasury);
@@ -52,8 +51,8 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
     // keccak256(OrderTicket(bytes32 salt, ...))
-    // ... address user,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint8 tif
-    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x709b33c75deed16be0943f3ffa6358f012c9bb13ab7eb6365596e358c0f26e15;
+    // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 quantityIn
+    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x96afe6b4a56935119c43c29fad54b6b65405604883803328f56826662a554433;
 
     address public treasury;
 
