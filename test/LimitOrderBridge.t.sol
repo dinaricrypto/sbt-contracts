@@ -46,8 +46,7 @@ contract LimitOrderBridgeTest is Test {
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new FlatOrderFees();
-        orderFees.setSellerFee(0.1 ether);
-        orderFees.setBuyerFee(0.1 ether);
+        orderFees.setFee(0.1 ether);
 
         LimitOrderBridge bridgeImpl = new LimitOrderBridge();
         bridge = LimitOrderBridge(
@@ -160,7 +159,7 @@ contract LimitOrderBridgeTest is Test {
         });
         bytes32 orderId = bridge.getOrderId(order, salt);
 
-        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
+        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         uint256 totalPayment = fees + value;
 
         if (sell) {
@@ -237,7 +236,7 @@ contract LimitOrderBridgeTest is Test {
     function testRequestOrderWithPermit() public {
         bytes32 orderId = bridge.getOrderId(dummyOrder, salt);
         (uint256 fees, uint256 value) =
-            bridge.getFeesForOrder(dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
+            bridge.getFeesForOrder(dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
         uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
 
@@ -267,7 +266,7 @@ contract LimitOrderBridgeTest is Test {
         order.sell = sell;
         order.assetTokenQuantity = orderAmount;
         order.price = price;
-        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
+        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         uint256 totalPayment = fees + value;
         vm.assume(sell || totalPayment > 0);
 
@@ -323,7 +322,7 @@ contract LimitOrderBridgeTest is Test {
 
     function testRequestCancel() public {
         (uint256 fees, uint256 value) =
-            bridge.getFeesForOrder(dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
+            bridge.getFeesForOrder(dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
         uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);
@@ -341,7 +340,7 @@ contract LimitOrderBridgeTest is Test {
 
     function testRequestCancelNotRecipientReverts() public {
         (uint256 fees, uint256 value) =
-            bridge.getFeesForOrder(dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
+            bridge.getFeesForOrder(dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price);
         uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);
@@ -368,7 +367,7 @@ contract LimitOrderBridgeTest is Test {
         IVaultBridge.Order memory order = dummyOrder;
         order.assetTokenQuantity = orderAmount;
 
-        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
+        (uint256 fees, uint256 value) = bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);

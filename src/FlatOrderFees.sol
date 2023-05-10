@@ -10,38 +10,29 @@ import "./IOrderFees.sol";
 contract FlatOrderFees is Ownable, IOrderFees {
     error FeeTooLarge();
 
-    event SellerFeeSet(uint64 fee);
-    event BuyerFeeSet(uint64 fee);
+    event FeeSet(uint64 fee);
 
     uint64 private constant MAX_FEE = 1 ether; // 100%
 
-    uint64 public sellerFee;
-    uint64 public buyerFee;
+    uint64 public fee;
 
     constructor() {
         _initializeOwner(msg.sender);
     }
 
-    function setSellerFee(uint64 fee) external onlyOwner {
-        if (fee > MAX_FEE) revert FeeTooLarge();
+    function setFee(uint64 _fee) external onlyOwner {
+        if (_fee > MAX_FEE) revert FeeTooLarge();
 
-        sellerFee = fee;
-        emit SellerFeeSet(fee);
+        fee = _fee;
+        emit FeeSet(_fee);
     }
 
-    function setBuyerFee(uint64 fee) external onlyOwner {
-        if (fee > MAX_FEE) revert FeeTooLarge();
-
-        buyerFee = fee;
-        emit BuyerFeeSet(fee);
-    }
-
-    function getFees(bool sell, uint256 value) external view returns (uint256) {
-        uint64 fee = sell ? sellerFee : buyerFee;
-        if (fee == 0) {
+    function getFees(address, bool, uint256 value) external view returns (uint256) {
+        uint64 _fee = fee;
+        if (_fee == 0) {
             return 0;
         } else {
-            return PrbMath.mulDiv18(value, fee);
+            return PrbMath.mulDiv18(value, _fee);
         }
     }
 }

@@ -132,13 +132,13 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         return _orders[id].paymentTokenEscrowed;
     }
 
-    function getFeesForOrder(bool sell, uint256 assetTokenQuantity, uint256 price)
+    function getFeesForOrder(address assetToken, bool sell, uint256 assetTokenQuantity, uint256 price)
         public
         view
         returns (uint256, uint256)
     {
         uint256 orderValue = PrbMath.mulDiv18(assetTokenQuantity, price);
-        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(sell, orderValue);
+        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, sell, orderValue);
         return (collection, orderValue);
     }
 
@@ -202,7 +202,8 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         // If sell, calc fees here, else use percent of escrowed payment
         if (order.sell) {
             // Get fees
-            (uint256 collection, uint256 proceedsDue) = getFeesForOrder(order.sell, fillAmount, order.price);
+            (uint256 collection, uint256 proceedsDue) =
+                getFeesForOrder(order.assetToken, order.sell, fillAmount, order.price);
             uint256 proceedsToUser;
             if (collection > proceedsDue) {
                 collection = proceedsDue;
@@ -285,7 +286,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         paymentTokenEscrowed = 0;
         if (!order.sell) {
             (uint256 collection, uint256 orderValue) =
-                getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
+                getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
             paymentTokenEscrowed = orderValue + collection;
             if (paymentTokenEscrowed == 0) revert OrderTooSmall();
         }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "../src/VaultBridge.sol";
+import "../src/LimitOrderBridge.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
 
 contract DummyOrderScript is Script {
@@ -28,7 +28,7 @@ contract DummyOrderScript is Script {
         MockERC20 paymentToken = MockERC20(paymentTokenAddress);
         paymentToken.increaseAllowance(bridgeAddress, 100);
 
-        VaultBridge bridge = VaultBridge(bridgeAddress);
+        LimitOrderBridge bridge = LimitOrderBridge(bridgeAddress);
         bridge.requestOrder(order, keccak256(abi.encode(block.number)));
 
         vm.stopBroadcast();
