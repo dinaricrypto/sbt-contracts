@@ -224,9 +224,7 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
         );
     }
 
-    function _requestOrderAccounting(Order calldata order, bytes32 salt)
-        internal
-    {
+    function _requestOrderAccounting(Order calldata order, bytes32 salt) internal {
         if (ordersPaused) revert Paused();
         if (order.quantityIn == 0) revert ZeroValue();
         if (!tokenEnabled[order.assetToken] || !tokenEnabled[order.paymentToken]) revert UnsupportedToken();
