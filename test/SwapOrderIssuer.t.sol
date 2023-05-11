@@ -15,6 +15,7 @@ contract SwapOrderIssuerTest is Test {
     event OrderFeesSet(IOrderFees orderFees);
     event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
+
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount);
     event CancelRequested(bytes32 indexed id, address indexed recipient);

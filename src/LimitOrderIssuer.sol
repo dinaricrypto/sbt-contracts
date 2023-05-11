@@ -36,7 +36,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrde
 
     error ZeroValue();
     error ZeroAddress();
-    error UnsupportedPaymentToken();
+    error UnsupportedToken();
     error NotRecipient();
     error OrderNotFound();
     error DuplicateOrder();
@@ -46,7 +46,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrde
 
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
-    event PaymentTokenEnabled(address indexed token, bool enabled);
+    event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
 
     // keccak256(OrderTicket(bytes32 salt, ...))
@@ -58,7 +58,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrde
     IOrderFees public orderFees;
 
     /// @dev accepted payment tokens for this issuer
-    mapping(address => bool) public paymentTokenEnabled;
+    mapping(address => bool) public tokenEnabled;
 
     /// @dev unfilled orders
     mapping(bytes32 => LimitOrderState) private _orders;
@@ -94,9 +94,9 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrde
         emit OrderFeesSet(fees);
     }
 
-    function setPaymentTokenEnabled(address token, bool enabled) external onlyOwner {
-        paymentTokenEnabled[token] = enabled;
-        emit PaymentTokenEnabled(token, enabled);
+    function setTokenEnabled(address token, bool enabled) external onlyOwner {
+        tokenEnabled[token] = enabled;
+        emit TokenEnabled(token, enabled);
     }
 
     function setOrdersPaused(bool pause) external onlyOwner {
@@ -274,7 +274,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrde
         returns (uint256 paymentTokenEscrowed)
     {
         if (order.assetTokenQuantity == 0) revert ZeroValue();
-        if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
+        if (!tokenEnabled[order.paymentToken] || !tokenEnabled[order.assetToken]) revert UnsupportedToken();
         bytes32 orderId = getOrderId(order, salt);
         if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
