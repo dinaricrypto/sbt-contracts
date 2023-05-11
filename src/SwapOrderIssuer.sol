@@ -7,12 +7,13 @@ import "openzeppelin/proxy/utils/Initializable.sol";
 import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
 import "prb-math/Common.sol" as PrbMath;
+import "./IOrderBridge.sol";
 import "./IOrderFees.sol";
 import "./IMintBurn.sol";
 
-/// @notice Interface managing swap market orders for bridged assets
+/// @notice Contract managing swap market orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/SwapOrderIssuer.sol)
-contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
+contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrderBridge {
     // This contract handles the submission and fulfillment of orders
 
     // 1. Order submitted and payment/asset escrowed
@@ -45,12 +46,6 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
     event OrderFeesSet(IOrderFees orderFees);
     event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
-    event OrderRequested(
-        bytes32 indexed id, address indexed recipient, SwapOrder order, bytes32 salt, uint256 orderAmount
-    );
-    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 spendAmount);
-    event CancelRequested(bytes32 indexed id, address indexed recipient);
-    event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
     // keccak256(OrderTicket(bytes32 salt, ...))
     // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 quantityIn
@@ -238,6 +233,22 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
         uint256 orderAmount = order.quantityIn - collection;
         _orders[orderId] = OrderState({remainingOrder: orderAmount, remainingFees: collection});
         numOpenOrders++;
-        emit OrderRequested(orderId, order.recipient, order, salt, orderAmount);
+        Order memory bridgeOrderData = Order({
+            recipient: order.recipient,
+            assetToken: order.assetToken,
+            paymentToken: order.paymentToken,
+            sell: order.sell,
+            orderType: OrderType.MARKET,
+            assetTokenQuantity: 0,
+            paymentTokenQuantity: 0,
+            price: 0,
+            tif: TIF.DAY
+        });
+        if (order.sell) {
+            bridgeOrderData.assetTokenQuantity = orderAmount;
+        } else {
+            bridgeOrderData.paymentTokenQuantity = orderAmount;
+        }
+        emit OrderRequested(orderId, order.recipient, bridgeOrderData, salt);
     }
 }

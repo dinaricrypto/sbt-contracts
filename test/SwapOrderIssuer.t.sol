@@ -15,14 +15,8 @@ contract SwapOrderIssuerTest is Test {
     event OrderFeesSet(IOrderFees orderFees);
     event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
-    event OrderRequested(
-        bytes32 indexed id,
-        address indexed recipient,
-        SwapOrderIssuer.SwapOrder order,
-        bytes32 salt,
-        uint256 orderAmount
-    );
-    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 spendAmount);
+    event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
+    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount);
     event CancelRequested(bytes32 indexed id, address indexed recipient);
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
@@ -38,8 +32,10 @@ contract SwapOrderIssuerTest is Test {
     address constant operator = address(3);
     address constant treasury = address(4);
 
-    SwapOrderIssuer.SwapOrder dummyOrder;
     bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+    SwapOrderIssuer.SwapOrder dummyOrder;
+    uint256 dummyOrderFees;
+    IOrderBridge.Order dummyOrderBridgeData;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -72,6 +68,18 @@ contract SwapOrderIssuerTest is Test {
             paymentToken: address(paymentToken),
             sell: false,
             quantityIn: 100
+        });
+        dummyOrderFees = issuer.getFeesForOrder(dummyOrder.assetToken, dummyOrder.sell, dummyOrder.quantityIn);
+        dummyOrderBridgeData = IOrderBridge.Order({
+            recipient: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            sell: false,
+            orderType: IOrderBridge.OrderType.MARKET,
+            assetTokenQuantity: 0,
+            paymentTokenQuantity: dummyOrder.quantityIn - dummyOrderFees,
+            price: 0,
+            tif: IOrderBridge.TIF.DAY
         });
     }
 
@@ -147,12 +155,25 @@ contract SwapOrderIssuerTest is Test {
         bytes32 orderId = issuer.getOrderId(order, salt);
 
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
+        IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
+            recipient: order.recipient,
+            assetToken: order.assetToken,
+            paymentToken: order.paymentToken,
+            sell: order.sell,
+            orderType: IOrderBridge.OrderType.MARKET,
+            assetTokenQuantity: 0,
+            paymentTokenQuantity: 0,
+            price: 0,
+            tif: IOrderBridge.TIF.DAY
+        });
 
         if (sell) {
+            bridgeOrderData.assetTokenQuantity = quantityIn - fees;
             token.mint(user, quantityIn);
             vm.prank(user);
             token.increaseAllowance(address(issuer), quantityIn);
         } else {
+            bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
             paymentToken.mint(user, quantityIn);
             vm.prank(user);
             paymentToken.increaseAllowance(address(issuer), quantityIn);
@@ -168,7 +189,7 @@ contract SwapOrderIssuerTest is Test {
             issuer.requestOrder(order, salt);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(orderId, user, order, salt, quantityIn - fees);
+            emit OrderRequested(orderId, user, bridgeOrderData, salt);
             vm.prank(user);
             issuer.requestOrder(order, salt);
             assertTrue(issuer.isOrderActive(orderId));
@@ -223,7 +244,6 @@ contract SwapOrderIssuerTest is Test {
 
     function testRequestOrderWithPermit() public {
         bytes32 orderId = issuer.getOrderId(dummyOrder, salt);
-        uint256 fees = issuer.getFeesForOrder(dummyOrder.assetToken, dummyOrder.sell, dummyOrder.quantityIn);
         paymentToken.mint(user, dummyOrder.quantityIn);
 
         SigUtils.Permit memory permit = SigUtils.Permit({
@@ -239,13 +259,13 @@ contract SwapOrderIssuerTest is Test {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
 
         vm.expectEmit(true, true, true, true);
-        emit OrderRequested(orderId, user, dummyOrder, salt, dummyOrder.quantityIn - fees);
+        emit OrderRequested(orderId, user, dummyOrderBridgeData, salt);
         vm.prank(user);
         issuer.requestOrderWithPermit(dummyOrder, salt, permit.value, permit.deadline, v, r, s);
         assertEq(paymentToken.nonces(user), 1);
         assertEq(paymentToken.allowance(user, address(issuer)), 0);
         assertTrue(issuer.isOrderActive(orderId));
-        assertEq(issuer.getUnspentAmount(orderId), dummyOrder.quantityIn - fees);
+        assertEq(issuer.getUnspentAmount(orderId), dummyOrder.quantityIn - dummyOrderFees);
         assertEq(issuer.numOpenOrders(), 1);
     }
 
