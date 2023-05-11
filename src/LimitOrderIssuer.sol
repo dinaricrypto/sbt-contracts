@@ -196,6 +196,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrde
         if (remainingUnfilled == 0) {
             delete _orders[orderId];
             numOpenOrders--;
+            emit OrderFulfilled(orderId, order.recipient);
         } else {
             _orders[orderId].unfilled = remainingUnfilled;
         }

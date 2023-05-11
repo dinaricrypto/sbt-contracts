@@ -171,6 +171,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrder
             delete _orders[orderId];
             numOpenOrders--;
             collection = orderState.remainingFees;
+            emit OrderFulfilled(orderId, order.recipient);
         } else {
             _orders[orderId].remainingOrder = remainingUnspent;
             if (orderState.remainingFees > 0) {
