@@ -10,15 +10,15 @@ import "prb-math/Common.sol" as PrbMath;
 import "./IOrderFees.sol";
 import "./IMintBurn.sol";
 
-/// @notice Interface managing market orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/SwapIssuer.sol)
-contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
+/// @notice Interface managing swap market orders for bridged assets
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/SwapOrderIssuer.sol)
+contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
     // This contract handles the submission and fulfillment of orders
 
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned
 
-    struct Order {
+    struct SwapOrder {
         address recipient;
         address assetToken;
         address paymentToken;
@@ -45,7 +45,9 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
     event OrderFeesSet(IOrderFees orderFees);
     event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
-    event OrderRequested(bytes32 indexed id, address indexed recipient, Order order, bytes32 salt, uint256 orderAmount);
+    event OrderRequested(
+        bytes32 indexed id, address indexed recipient, SwapOrder order, bytes32 salt, uint256 orderAmount
+    );
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 spendAmount);
     event CancelRequested(bytes32 indexed id, address indexed recipient);
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
@@ -105,7 +107,7 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
         emit OrdersPaused(pause);
     }
 
-    function getOrderId(Order calldata order, bytes32 salt) public pure returns (bytes32) {
+    function getOrderId(SwapOrder calldata order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 ORDERTICKET_TYPE_HASH,
@@ -131,7 +133,7 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
         return address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, sell, amount);
     }
 
-    function requestOrder(Order calldata order, bytes32 salt) public {
+    function requestOrder(SwapOrder calldata order, bytes32 salt) public {
         _requestOrderAccounting(order, salt);
 
         // Escrow
@@ -141,7 +143,7 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
     }
 
     function requestOrderWithPermit(
-        Order calldata order,
+        SwapOrder calldata order,
         bytes32 salt,
         uint256 value,
         uint256 deadline,
@@ -157,7 +159,7 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
         SafeTransferLib.safeTransferFrom(tokenIn, msg.sender, address(this), order.quantityIn);
     }
 
-    function fillOrder(Order calldata order, bytes32 salt, uint256 spendAmount, uint256 receivedAmount)
+    function fillOrder(SwapOrder calldata order, bytes32 salt, uint256 spendAmount, uint256 receivedAmount)
         external
         onlyRoles(_ROLE_1)
     {
@@ -199,7 +201,7 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
         }
     }
 
-    function requestCancel(Order calldata order, bytes32 salt) external {
+    function requestCancel(SwapOrder calldata order, bytes32 salt) external {
         if (order.recipient != msg.sender) revert NotRecipient();
         bytes32 orderId = getOrderId(order, salt);
         uint256 remainingOrder = _orders[orderId].remainingOrder;
@@ -208,7 +210,7 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
         emit CancelRequested(orderId, order.recipient);
     }
 
-    function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
+    function cancelOrder(SwapOrder calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
         bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();
@@ -223,7 +225,7 @@ contract MarketOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable {
         );
     }
 
-    function _requestOrderAccounting(Order calldata order, bytes32 salt) internal {
+    function _requestOrderAccounting(SwapOrder calldata order, bytes32 salt) internal {
         if (ordersPaused) revert Paused();
         if (order.quantityIn == 0) revert ZeroValue();
         if (!tokenEnabled[order.assetToken] || !tokenEnabled[order.paymentToken]) revert UnsupportedToken();
