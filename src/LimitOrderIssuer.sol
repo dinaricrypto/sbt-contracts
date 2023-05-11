@@ -51,7 +51,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrde
 
     // keccak256(OrderTicket(bytes32 salt, ...))
     // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 assetTokenQuantity,uint256 price
-    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x709b33c75deed16be0943f3ffa6358f012c9bb13ab7eb6365596e358c0f26e15;
+    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x215ae685e66f9c7e06d95180afde8bab27cf88f0a82a87aa956e8e0ff57844a7;
 
     address public treasury;
 
