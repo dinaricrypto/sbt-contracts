@@ -10,6 +10,9 @@ remappings = [
   "prb-math=lib/prb-math/src/",
 ]
 
+[fuzz]
+runs = 518
+
 [rpc_endpoints]
 sepolia = "${TEST_RPC_URL}"
 
