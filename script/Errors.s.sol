@@ -6,7 +6,7 @@ import "../src/Messager.sol";
 import "../src/TransferRestrictor.sol";
 import "../src/BridgedTokenFactory.sol";
 import "../src/FlatOrderFees.sol";
-import {LimitOrderBridge} from "../src/LimitOrderBridge.sol";
+import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract ErrorsScript is Script {
@@ -15,17 +15,15 @@ contract ErrorsScript is Script {
     function run() external {
         vm.startBroadcast();
 
-        emit ErrorCode(LimitOrderBridge.ZeroValue.selector, "ZeroValue");
-        emit ErrorCode(LimitOrderBridge.ZeroValue.selector, "ZeroAddress");
-        emit ErrorCode(LimitOrderBridge.UnsupportedPaymentToken.selector, "UnsupportedPaymentToken");
-        emit ErrorCode(LimitOrderBridge.NotRecipient.selector, "NotRecipient");
-        emit ErrorCode(LimitOrderBridge.OnlyLimitOrders.selector, "OnlyLimitOrders");
-        emit ErrorCode(LimitOrderBridge.OrderNotFound.selector, "OrderNotFound");
-        emit ErrorCode(LimitOrderBridge.DuplicateOrder.selector, "DuplicateOrder");
-        emit ErrorCode(LimitOrderBridge.Paused.selector, "Paused");
-        emit ErrorCode(LimitOrderBridge.FillTooLarge.selector, "FillTooLarge");
-        emit ErrorCode(LimitOrderBridge.NotBuyOrder.selector, "NotBuyOrder");
-        emit ErrorCode(LimitOrderBridge.OrderTooSmall.selector, "OrderTooSmall");
+        emit ErrorCode(SwapOrderIssuer.ZeroValue.selector, "ZeroValue");
+        emit ErrorCode(SwapOrderIssuer.ZeroValue.selector, "ZeroAddress");
+        emit ErrorCode(SwapOrderIssuer.UnsupportedToken.selector, "UnsupportedToken");
+        emit ErrorCode(SwapOrderIssuer.NotRecipient.selector, "NotRecipient");
+        emit ErrorCode(SwapOrderIssuer.OrderNotFound.selector, "OrderNotFound");
+        emit ErrorCode(SwapOrderIssuer.DuplicateOrder.selector, "DuplicateOrder");
+        emit ErrorCode(SwapOrderIssuer.Paused.selector, "Paused");
+        emit ErrorCode(SwapOrderIssuer.FillTooLarge.selector, "FillTooLarge");
+        emit ErrorCode(SwapOrderIssuer.OrderTooSmall.selector, "OrderTooSmall");
 
         vm.stopBroadcast();
     }

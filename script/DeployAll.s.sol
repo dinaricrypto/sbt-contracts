@@ -6,7 +6,7 @@ import "../src/Messager.sol";
 import "../src/TransferRestrictor.sol";
 import "../src/BridgedTokenFactory.sol";
 import "../src/FlatOrderFees.sol";
-import {LimitOrderBridge} from "../src/LimitOrderBridge.sol";
+import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
@@ -23,8 +23,8 @@ contract DeployAllScript is Script {
 
         IOrderFees orderFees = new FlatOrderFees();
 
-        LimitOrderBridge bridgeImpl = new LimitOrderBridge();
-        new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(LimitOrderBridge.initialize, (vm.addr(deployerPrivateKey), treasuryAddress, orderFees)));
+        SwapOrderIssuer issuerImpl = new SwapOrderIssuer();
+        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(SwapOrderIssuer.initialize, (vm.addr(deployerPrivateKey), treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
     }

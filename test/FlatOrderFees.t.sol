@@ -6,8 +6,7 @@ import "solady/auth/Ownable.sol";
 import "../src/FlatOrderFees.sol";
 
 contract FlatOrderFeesTest is Test {
-    event SellerFeeSet(uint64 fee);
-    event BuyerFeeSet(uint64 fee);
+    event FeeSet(uint64 fee);
 
     FlatOrderFees orderFees;
 
@@ -15,31 +14,19 @@ contract FlatOrderFeesTest is Test {
         orderFees = new FlatOrderFees();
     }
 
-    function testInit(bool sell, uint64 value) public {
-        assertEq(orderFees.getFees(sell, value), 0);
+    function testInit(address token, bool sell, uint64 value) public {
+        assertEq(orderFees.getFees(token, sell, value), 0);
     }
 
-    function testSetSellerFee(uint64 fee) public {
+    function testSetFee(uint64 fee) public {
         if (fee > 1 ether) {
             vm.expectRevert(FlatOrderFees.FeeTooLarge.selector);
-            orderFees.setSellerFee(fee);
+            orderFees.setFee(fee);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit SellerFeeSet(fee);
-            orderFees.setSellerFee(fee);
-            assertEq(orderFees.sellerFee(), fee);
-        }
-    }
-
-    function testSetBuyerFee(uint64 fee) public {
-        if (fee > 1 ether) {
-            vm.expectRevert(FlatOrderFees.FeeTooLarge.selector);
-            orderFees.setBuyerFee(fee);
-        } else {
-            vm.expectEmit(true, true, true, true);
-            emit BuyerFeeSet(fee);
-            orderFees.setBuyerFee(fee);
-            assertEq(orderFees.buyerFee(), fee);
+            emit FeeSet(fee);
+            orderFees.setFee(fee);
+            assertEq(orderFees.fee(), fee);
         }
     }
 }

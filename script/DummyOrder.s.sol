@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "../src/VaultBridge.sol";
+import "../src/SwapOrderIssuer.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
 
 contract DummyOrderScript is Script {
@@ -13,23 +13,19 @@ contract DummyOrderScript is Script {
         address paymentTokenAddress = vm.envAddress("PAYMENT_TOKEN");
         vm.startBroadcast(deployerPrivateKey);
 
-        IVaultBridge.Order memory order = IVaultBridge.Order({
+        SwapOrderIssuer.SwapOrder memory order = SwapOrderIssuer.SwapOrder({
             recipient: vm.addr(deployerPrivateKey),
             assetToken: assetToken,
             paymentToken: paymentTokenAddress,
             sell: false,
-            orderType: IVaultBridge.OrderType.MARKET,
-            assetTokenQuantity: 0,
-            paymentTokenQuantity: 100,
-            price: 10,
-            tif: IVaultBridge.TIF.GTC
+            quantityIn: 100
         });
 
         MockERC20 paymentToken = MockERC20(paymentTokenAddress);
         paymentToken.increaseAllowance(bridgeAddress, 100);
 
-        VaultBridge bridge = VaultBridge(bridgeAddress);
-        bridge.requestOrder(order, keccak256(abi.encode(block.number)));
+        SwapOrderIssuer issuer = SwapOrderIssuer(bridgeAddress);
+        issuer.requestOrder(order, keccak256(abi.encode(block.number)));
 
         vm.stopBroadcast();
     }

@@ -7,23 +7,27 @@ import "openzeppelin/proxy/utils/Initializable.sol";
 import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
 import "prb-math/Common.sol" as PrbMath;
-import "./IVaultBridge.sol";
+import "./IOrderBridge.sol";
 import "./IOrderFees.sol";
 import "./IMintBurn.sol";
 
-/// @notice Bridge interface managing limit orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/LimitOrderBridge.sol)
-contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaultBridge {
+/// @notice Contract managing limit orders for bridged assets
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/LimitOrderIssuer.sol)
+contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrderBridge {
     // This contract handles the submission and fulfillment of orders
     // Takes fees from payment token
-    // TODO: submit by sig - forwarder/gsn support?
-    // TODO: liquidity pools for cross-chain swaps
-    // TODO: forwarder support for fulfiller - worker/custodian separation
-    // TODO: whitelist asset tokens?
-    // TODO: per-asset order pause
 
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned
+
+    struct LimitOrder {
+        address recipient;
+        address assetToken;
+        address paymentToken;
+        bool sell;
+        uint256 assetTokenQuantity;
+        uint256 price;
+    }
 
     struct LimitOrderState {
         uint256 unfilled;
@@ -32,31 +36,29 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
 
     error ZeroValue();
     error ZeroAddress();
-    error UnsupportedPaymentToken();
+    error UnsupportedToken();
     error NotRecipient();
-    error OnlyLimitOrders();
     error OrderNotFound();
     error DuplicateOrder();
     error Paused();
     error FillTooLarge();
-    error NotBuyOrder();
     error OrderTooSmall();
 
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
-    event PaymentTokenEnabled(address indexed token, bool enabled);
+    event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
 
     // keccak256(OrderTicket(bytes32 salt, ...))
-    // ... address user,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint8 tif
-    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x709b33c75deed16be0943f3ffa6358f012c9bb13ab7eb6365596e358c0f26e15;
+    // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 assetTokenQuantity,uint256 price
+    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x215ae685e66f9c7e06d95180afde8bab27cf88f0a82a87aa956e8e0ff57844a7;
 
     address public treasury;
 
     IOrderFees public orderFees;
 
     /// @dev accepted payment tokens for this issuer
-    mapping(address => bool) public paymentTokenEnabled;
+    mapping(address => bool) public tokenEnabled;
 
     /// @dev unfilled orders
     mapping(bytes32 => LimitOrderState) private _orders;
@@ -92,9 +94,9 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         emit OrderFeesSet(fees);
     }
 
-    function setPaymentTokenEnabled(address token, bool enabled) external onlyOwner {
-        paymentTokenEnabled[token] = enabled;
-        emit PaymentTokenEnabled(token, enabled);
+    function setTokenEnabled(address token, bool enabled) external onlyOwner {
+        tokenEnabled[token] = enabled;
+        emit TokenEnabled(token, enabled);
     }
 
     function setOrdersPaused(bool pause) external onlyOwner {
@@ -102,7 +104,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         emit OrdersPaused(pause);
     }
 
-    function getOrderId(Order calldata order, bytes32 salt) public pure returns (bytes32) {
+    function getOrderId(LimitOrder calldata order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 ORDERTICKET_TYPE_HASH,
@@ -111,11 +113,8 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
                 order.assetToken,
                 order.paymentToken,
                 order.sell,
-                order.orderType,
                 order.assetTokenQuantity,
-                order.paymentTokenQuantity,
-                order.price,
-                order.tif
+                order.price
             )
         );
     }
@@ -132,13 +131,13 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         return _orders[id].paymentTokenEscrowed;
     }
 
-    function getFeesForOrder(bool sell, uint256 assetTokenQuantity, uint256 price)
+    function getFeesForOrder(address assetToken, bool sell, uint256 assetTokenQuantity, uint256 price)
         public
         view
         returns (uint256, uint256)
     {
         uint256 orderValue = PrbMath.mulDiv18(assetTokenQuantity, price);
-        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(sell, orderValue);
+        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, sell, orderValue);
         return (collection, orderValue);
     }
 
@@ -146,7 +145,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         return PrbMath.mulDiv18(fillAmount, price);
     }
 
-    function requestOrder(Order calldata order, bytes32 salt) public {
+    function requestOrder(LimitOrder calldata order, bytes32 salt) public {
         if (ordersPaused) revert Paused();
 
         uint256 paymentTokenEscrowed = _requestOrderAccounting(order, salt);
@@ -160,7 +159,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
     }
 
     function requestOrderWithPermit(
-        Order calldata order,
+        LimitOrder calldata order,
         bytes32 salt,
         uint256 value,
         uint256 deadline,
@@ -182,7 +181,10 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         }
     }
 
-    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256) external onlyRoles(_ROLE_1) {
+    function fillOrder(LimitOrder calldata order, bytes32 salt, uint256 fillAmount, uint256)
+        external
+        onlyRoles(_ROLE_1)
+    {
         if (fillAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderId(order, salt);
         LimitOrderState memory orderState = _orders[orderId];
@@ -194,7 +196,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         if (remainingUnfilled == 0) {
             delete _orders[orderId];
             numOpenOrders--;
-            emit OrderFulfilled(orderId, order.recipient, order.assetTokenQuantity);
+            emit OrderFulfilled(orderId, order.recipient);
         } else {
             _orders[orderId].unfilled = remainingUnfilled;
         }
@@ -202,7 +204,8 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         // If sell, calc fees here, else use percent of escrowed payment
         if (order.sell) {
             // Get fees
-            (uint256 collection, uint256 proceedsDue) = getFeesForOrder(order.sell, fillAmount, order.price);
+            (uint256 collection, uint256 proceedsDue) =
+                getFeesForOrder(order.assetToken, order.sell, fillAmount, order.price);
             uint256 proceedsToUser;
             if (collection > proceedsDue) {
                 collection = proceedsDue;
@@ -241,7 +244,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         }
     }
 
-    function requestCancel(Order calldata order, bytes32 salt) external {
+    function requestCancel(LimitOrder calldata order, bytes32 salt) external {
         if (order.recipient != msg.sender) revert NotRecipient();
         bytes32 orderId = getOrderId(order, salt);
         uint256 unfilled = _orders[orderId].unfilled;
@@ -250,7 +253,7 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         emit CancelRequested(orderId, order.recipient);
     }
 
-    function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
+    function cancelOrder(LimitOrder calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
         bytes32 orderId = getOrderId(order, salt);
         LimitOrderState memory orderState = _orders[orderId];
         if (orderState.unfilled == 0) revert OrderNotFound();
@@ -258,11 +261,6 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         delete _orders[orderId];
         numOpenOrders--;
         emit OrderCancelled(orderId, order.recipient, reason);
-
-        uint256 filled = order.assetTokenQuantity - orderState.unfilled;
-        if (filled != 0) {
-            emit OrderFulfilled(orderId, order.recipient, filled);
-        }
 
         // Return Escrow
         if (order.sell) {
@@ -272,26 +270,40 @@ contract LimitOrderBridge is Initializable, OwnableRoles, UUPSUpgradeable, IVaul
         }
     }
 
-    function _requestOrderAccounting(Order calldata order, bytes32 salt)
+    function _requestOrderAccounting(LimitOrder calldata order, bytes32 salt)
         internal
         returns (uint256 paymentTokenEscrowed)
     {
-        if (order.orderType != OrderType.LIMIT) revert OnlyLimitOrders();
         if (order.assetTokenQuantity == 0) revert ZeroValue();
-        if (!paymentTokenEnabled[order.paymentToken]) revert UnsupportedPaymentToken();
+        if (!tokenEnabled[order.paymentToken] || !tokenEnabled[order.assetToken]) revert UnsupportedToken();
         bytes32 orderId = getOrderId(order, salt);
         if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
         paymentTokenEscrowed = 0;
         if (!order.sell) {
             (uint256 collection, uint256 orderValue) =
-                getFeesForOrder(order.sell, order.assetTokenQuantity, order.price);
+                getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
             paymentTokenEscrowed = orderValue + collection;
             if (paymentTokenEscrowed == 0) revert OrderTooSmall();
         }
         _orders[orderId] =
             LimitOrderState({unfilled: order.assetTokenQuantity, paymentTokenEscrowed: paymentTokenEscrowed});
         numOpenOrders++;
-        emit OrderRequested(orderId, order.recipient, order, salt);
+        emit OrderRequested(
+            orderId,
+            order.recipient,
+            Order({
+                recipient: order.recipient,
+                assetToken: order.assetToken,
+                paymentToken: order.paymentToken,
+                sell: order.sell,
+                orderType: OrderType.LIMIT,
+                assetTokenQuantity: order.assetTokenQuantity,
+                paymentTokenQuantity: 0,
+                price: order.price,
+                tif: TIF.GTC
+            }),
+            salt
+        );
     }
 }
