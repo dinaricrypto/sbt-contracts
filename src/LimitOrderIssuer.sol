@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import "solady/auth/OwnableRoles.sol";
 import "solady/utils/SafeTransferLib.sol";
+import "solady/utils/Multicallable.sol";
 import "openzeppelin/proxy/utils/Initializable.sol";
 import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
@@ -13,7 +14,7 @@ import "./IMintBurn.sol";
 
 /// @notice Contract managing limit orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/LimitOrderIssuer.sol)
-contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrderBridge {
+contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multicallable, IOrderBridge {
     // This contract handles the submission and fulfillment of orders
     // Takes fees from payment token
 
