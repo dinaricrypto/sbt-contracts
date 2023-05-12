@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import "solady/auth/OwnableRoles.sol";
 import "solady/utils/SafeTransferLib.sol";
+import "solady/utils/Multicallable.sol";
 import "openzeppelin/proxy/utils/Initializable.sol";
 import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
 import "openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
@@ -13,7 +14,7 @@ import "./IMintBurn.sol";
 
 /// @notice Contract managing swap market orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/SwapOrderIssuer.sol)
-contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, IOrderBridge {
+contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multicallable, IOrderBridge {
     // This contract handles the submission and fulfillment of orders
 
     // 1. Order submitted and payment/asset escrowed
