@@ -1,4 +1,7 @@
 require("hardhat-preprocessor");
+require('@typechain/hardhat')
+require('@nomiclabs/hardhat-ethers')
+require('@nomiclabs/hardhat-waffle')
 const fs = require("fs");
 
 /** @type import('hardhat/config').HardhatUserConfig */
@@ -22,6 +25,9 @@ module.exports = {
   paths: {
     sources: "./src",
     cache: "./cache_hardhat",
+  },
+  typechain: {
+    outDir: 'out/types'
   }
 };
 

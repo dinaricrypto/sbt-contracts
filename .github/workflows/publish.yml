@@ -1,0 +1,66 @@
+#  workflow pipeline
+name: publish
+
+on:
+    release:
+        types: [ published ]
+
+jobs:
+    publish-package:
+        runs-on: ubuntu-latest
+        environment: staging
+
+        strategy:
+            matrix:
+                node-version: [ 16.x ]
+
+        steps:
+            -   uses: actions/checkout@v2
+
+            -   uses: actions/setup-node@v2
+                with:
+                    node-version: ${{ matrix.node-version }}
+                    cache: "yarn"
+
+            -   name: Enable Node Corepack
+                run: corepack enable
+
+            -   name: Generate version
+                id: package-version
+                run: echo ::set-output name=PACKAGE_VERSION::${GITHUB_REF#refs/*/}
+
+            -   name: Set package name
+                run: |
+                    sed -i 's/@dinari\/sbt-contracts/@dinari\/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' package.json
+                    sed -i 's/@dinari\/sbt-contracts/@dinari\/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' yarn.lock
+
+            -   name: Set package name for Python
+                run: |
+                    sed -i 's/sbt-contracts/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+                    sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+
+            -   name: Install
+                run: yarn install
+
+            -   name: Set package version
+                run: yarn ci:publish:build:set-version ${{ steps.package-version.outputs.PACKAGE_VERSION }}
+
+            -   name: Configure AWS credentials
+                uses: aws-actions/configure-aws-credentials@v1
+                with:
+                    aws-access-key-id: ${{ secrets.DEPLOY_AGENT_ACCESS_KEY_ID }}
+                    aws-secret-access-key: ${{ secrets.DEPLOY_AGENT_SECRET_ACCESS_KEY }}
+                    aws-region: us-west-2
+                    role-to-assume: arn:aws:iam::875886734390:role/npm-repository-publisher-20220519210503438100000002
+                    role-duration-seconds: 3600
+
+            -   name: Publish Typescript library
+                run: yarn ci:publish:typescript
+
+            -   name: Build completion notification
+                uses: slackapi/slack-github-action@v1.16.0
+                with:
+                    channel-id: "#ci"
+                    slack-message: "@${{ github.actor }} built `${{ github.repository }}`\n>Branch: `${{ github.ref_name }}`\n>Commit: `${{ github.sha }}`\n>Package: `${{ steps.package-version.outputs.PACKAGE_VERSION }}`"
+                env:
+                    SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}

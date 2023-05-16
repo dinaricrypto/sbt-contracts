@@ -1,6 +1,8 @@
 {
   "name": "@dinari/sbt-contracts",
   "packageManager": "yarn@3.2.2",
+  "main": "dist/typescript/index.js",
+  "typings": "dist/typescript/index.d.ts",
   "scripts": {
     "install:d2": "curl -fsSL https://d2lang.com/install.sh | sh -s --",
     "build:d2": "find . -type f  -name '*.d2' -exec d2 --theme 104 '{}' \\;",
@@ -17,13 +19,25 @@
     "dummyorder:testnet": "./script/dummyorder-testnet.sh",
     "mint:testnet": "./script/mint-testnet.sh",
     "errorcodes": "forge script script/Errors.s.sol:ErrorsScript -vvvv",
-    "deploy:build": "rm -r out; forge build --skip test --skip script --out './out' --extra-output-files abi --extra-output-files evm",
-    "deploy:python": "yarn deploy:build; rm dist/python/src/sbt/abi/*.json; cp ./out/**/*.abi.json ./dist/python/src/sbt/abi/; rm dist/python/src/sbt/bin/*.bin; cp ./out/**/*.bin ./dist/python/src/sbt/bin/"
+    "ci:publish:build:forge": "rm -rf out/forge && forge build --skip test --skip script --out './out/forge' --extra-output-files abi --extra-output-files evm",
+    "ci:publish:build:hardhat": "npx hardhat compile",
+    "ci:publish:build:set-version": "npm version --no-git-tag-version",
+    "ci:publish:build:python": "yarn ci:publish:build:forge && rm -f dist/python/src/sbt/abi/*.json && cp ./out/forge/**/*.abi.json ./dist/python/src/sbt/abi/ && rm -f dist/python/src/sbt/bin/*.bin && cp ./out/forge/**/*.bin ./dist/python/src/sbt/bin/",
+    "ci:publish:build:typescript": "yarn ci:publish:build:hardhat && rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json",
+    "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository dinari --domain dinari-dev --namespace @dinari",
+    "ci:publish:typescript": "yarn ci:publish:build:typescript && yarn ci:publish:login:typescript && npm publish"
   },
   "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
+    "@typechain/ethers-v5": "^10.2.1",
+    "@typechain/hardhat": "^6.1.6",
+    "@types/mocha": "^10.0.1",
     "hardhat": "^2.14.0",
     "hardhat-preprocessor": "^0.1.5",
-    "pre-commit": "^1.2.2"
+    "pre-commit": "^1.2.2",
+    "typechain": "^8.1.1",
+    "typescript": "~4.9.3"
   },
   "pre-commit": [
     "pretty",
