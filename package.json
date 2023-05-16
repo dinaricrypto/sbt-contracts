@@ -1,5 +1,5 @@
 {
-  "name": "@dinari/brokerage-contracts",
+  "name": "@dinari/sbt-contracts",
   "packageManager": "yarn@3.2.2",
   "scripts": {
     "install:d2": "curl -fsSL https://d2lang.com/install.sh | sh -s --",

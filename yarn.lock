@@ -51,9 +51,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@dinari/brokerage-contracts@workspace:.":
+"@dinari/sbt-contracts@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@dinari/brokerage-contracts@workspace:."
+  resolution: "@dinari/sbt-contracts@workspace:."
   dependencies:
     hardhat: ^2.14.0
     hardhat-preprocessor: ^0.1.5
