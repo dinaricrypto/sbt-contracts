@@ -17,7 +17,17 @@ jobs:
         steps:
             -   uses: actions/checkout@v2
 
-            -   uses: actions/setup-node@v2
+            -   name: Configure AWS credentials
+                uses: aws-actions/configure-aws-credentials@v1
+                with:
+                    aws-access-key-id: ${{ secrets.DEPLOY_AGENT_ACCESS_KEY_ID }}
+                    aws-secret-access-key: ${{ secrets.DEPLOY_AGENT_SECRET_ACCESS_KEY }}
+                    aws-region: us-west-2
+                    role-to-assume: arn:aws:iam::875886734390:role/npm-repository-publisher-20220519210503438100000002
+                    role-duration-seconds: 3600
+
+            -   name: Set up Node
+                uses: actions/setup-node@v2
                 with:
                     node-version: ${{ matrix.node-version }}
                     cache: "yarn"
@@ -34,28 +44,42 @@ jobs:
                     sed -i 's/@dinari\/sbt-contracts/@dinari\/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' package.json
                     sed -i 's/@dinari\/sbt-contracts/@dinari\/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' yarn.lock
 
-            -   name: Set package name for Python
-                run: |
-                    sed -i 's/sbt-contracts/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
-                    sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
-
             -   name: Install
                 run: yarn install
 
             -   name: Set package version
                 run: yarn ci:publish:build:set-version ${{ steps.package-version.outputs.PACKAGE_VERSION }}
 
-            -   name: Configure AWS credentials
-                uses: aws-actions/configure-aws-credentials@v1
-                with:
-                    aws-access-key-id: ${{ secrets.DEPLOY_AGENT_ACCESS_KEY_ID }}
-                    aws-secret-access-key: ${{ secrets.DEPLOY_AGENT_SECRET_ACCESS_KEY }}
-                    aws-region: us-west-2
-                    role-to-assume: arn:aws:iam::875886734390:role/npm-repository-publisher-20220519210503438100000002
-                    role-duration-seconds: 3600
-
             -   name: Publish Typescript library
                 run: yarn ci:publish:typescript
+
+            -   name: Set up Python
+                uses: actions/setup-python@v4
+                with:
+                    python-version: "3.x"
+
+            -   name: Install pypa/build
+                run: >-
+                    python -m
+                    pip install
+                    build
+                    twine
+                    --user
+
+            -   name: Set package version for Python
+                run: |
+                    sed -i 's/sbt-contracts/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+                    sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+
+            -   name: Build a binary wheel and a source tarball
+                working-directory: ./dist/python
+                run: >-
+                    python -m
+                    build
+                    --sdist
+                    --wheel
+                    --outdir dist/
+                    .
 
             -   name: Build completion notification
                 uses: slackapi/slack-github-action@v1.16.0
