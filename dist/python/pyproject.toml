@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sbt-contracts"
+version = "LATEST"
+authors = [{ name = "Jake Timoty", email = "jake@dinari.com" }]
+description = "sbt-contracts"
+
+[tool.setuptools.package-data]
+"sbt.abi" = ["*.json"]
+"sbt.bin" = ["*.bin"]
