@@ -21,7 +21,7 @@ jobs:
                     aws-access-key-id: ${{ vars.DEPLOY_AGENT_ACCESS_KEY_ID }}
                     aws-secret-access-key: ${{ secrets.DEPLOY_AGENT_SECRET_ACCESS_KEY }}
                     aws-region: us-west-2
-                    role-to-assume: arn:aws:iam::875886734390:role/npm-repository-publisher-20220519210503438100000002
+                    role-to-assume: arn:aws:iam::875886734390:role/npm-repository-publisher-20230503234619423000000002
                     role-duration-seconds: 3600
 
             -   name: Install Foundry
