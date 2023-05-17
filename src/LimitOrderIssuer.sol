@@ -192,8 +192,35 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         if (orderState.unfilled == 0) revert OrderNotFound();
         if (fillAmount > orderState.unfilled) revert FillTooLarge();
 
-        emit OrderFill(orderId, order.recipient, fillAmount);
+        // If sell, calc fees here, else use percent of escrowed payment
+        uint256 collection = 0;
+        uint256 proceedsToUser = 0;
+        uint256 paymentClaim;
         uint256 remainingUnfilled = orderState.unfilled - fillAmount;
+        if (order.sell) {
+            // Get fees
+            (collection, proceedsToUser) = getFeesForOrder(order.assetToken, order.sell, fillAmount, order.price);
+            if (collection > proceedsToUser) {
+                collection = proceedsToUser;
+            }
+            proceedsToUser -= collection;
+        } else {
+            // Calc fees
+            uint256 remainingListValue = PrbMath.mulDiv18(orderState.unfilled, order.price);
+            if (orderState.paymentTokenEscrowed > remainingListValue) {
+                collection = PrbMath.mulDiv(
+                    orderState.paymentTokenEscrowed - remainingListValue, fillAmount, orderState.unfilled
+                );
+            }
+            paymentClaim = PrbMath.mulDiv18(fillAmount, order.price);
+            if (remainingUnfilled == 0 && orderState.paymentTokenEscrowed > collection + paymentClaim) {
+                paymentClaim += orderState.paymentTokenEscrowed - collection - paymentClaim;
+            } else {
+                _orders[orderId].paymentTokenEscrowed = orderState.paymentTokenEscrowed - collection - paymentClaim;
+            }
+        }
+
+        emit OrderFill(orderId, order.recipient, fillAmount, order.sell ? proceedsToUser : fillAmount);
         if (remainingUnfilled == 0) {
             delete _orders[orderId];
             numOpenOrders--;
@@ -202,17 +229,9 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
             _orders[orderId].unfilled = remainingUnfilled;
         }
 
-        // If sell, calc fees here, else use percent of escrowed payment
         if (order.sell) {
-            // Get fees
-            (uint256 collection, uint256 proceedsDue) =
-                getFeesForOrder(order.assetToken, order.sell, fillAmount, order.price);
-            uint256 proceedsToUser;
-            if (collection > proceedsDue) {
-                collection = proceedsDue;
-            } else {
-                proceedsToUser = proceedsDue - collection;
-                // Forward proceeds
+            // Forward proceeds
+            if (proceedsToUser > 0) {
                 SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.recipient, proceedsToUser);
             }
             // Collect fees
@@ -220,20 +239,6 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
             // Burn
             IMintBurn(order.assetToken).burn(fillAmount);
         } else {
-            // Calc fees
-            uint256 remainingListValue = PrbMath.mulDiv18(orderState.unfilled, order.price);
-            uint256 collection = 0;
-            if (orderState.paymentTokenEscrowed > remainingListValue) {
-                collection = PrbMath.mulDiv(
-                    orderState.paymentTokenEscrowed - remainingListValue, fillAmount, orderState.unfilled
-                );
-            }
-            uint256 paymentClaim = PrbMath.mulDiv18(fillAmount, order.price);
-            if (remainingUnfilled == 0 && orderState.paymentTokenEscrowed > collection + paymentClaim) {
-                paymentClaim += orderState.paymentTokenEscrowed - collection - paymentClaim;
-            } else {
-                _orders[orderId].paymentTokenEscrowed = orderState.paymentTokenEscrowed - collection - paymentClaim;
-            }
             // Collect fees
             if (collection > 0) {
                 SafeTransferLib.safeTransfer(order.paymentToken, treasury, collection);

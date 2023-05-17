@@ -12,23 +12,23 @@ import "./IOrderBridge.sol";
 import "./IOrderFees.sol";
 import "./IMintBurn.sol";
 
-/// @notice Contract managing swap market orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/SwapOrderIssuer.sol)
-contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multicallable, IOrderBridge {
+/// @notice Contract managing direct swap buy market orders for bridged assets
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/DirectBuyIssuer.sol)
+contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multicallable, IOrderBridge {
     // This contract handles the submission and fulfillment of orders
 
     // 1. Order submitted and payment/asset escrowed
     // 2. Order fulfilled, escrow claimed, assets minted/burned
 
-    struct SwapOrder {
+    struct BuyOrder {
         address recipient;
         address assetToken;
         address paymentToken;
-        bool sell;
         uint256 quantityIn;
     }
 
     struct OrderState {
+        uint256 remainingEscrow;
         uint256 remainingOrder;
         uint256 remainingFees;
     }
@@ -37,20 +37,22 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     error ZeroAddress();
     error UnsupportedToken();
     error NotRecipient();
+    error AmountTooLarge();
     error OrderNotFound();
     error DuplicateOrder();
     error Paused();
     error FillTooLarge();
     error OrderTooSmall();
 
+    event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
     event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
 
     // keccak256(OrderTicket(bytes32 salt, ...))
-    // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 quantityIn
-    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x96afe6b4a56935119c43c29fad54b6b65405604883803328f56826662a554433;
+    // ... address recipient,address assetToken,address paymentToken,uint256 quantityIn
+    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x11b95e3e1ebc2dccd6194e9fa1d87f6a22606ca32569221cb50bfd5e4da28c2d;
 
     address public treasury;
 
@@ -103,16 +105,10 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit OrdersPaused(pause);
     }
 
-    function getOrderId(SwapOrder calldata order, bytes32 salt) public pure returns (bytes32) {
+    function getOrderId(BuyOrder calldata order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                ORDERTICKET_TYPE_HASH,
-                salt,
-                order.recipient,
-                order.assetToken,
-                order.paymentToken,
-                order.sell,
-                order.quantityIn
+                ORDERTICKET_TYPE_HASH, salt, order.recipient, order.assetToken, order.paymentToken, order.quantityIn
             )
         );
     }
@@ -121,25 +117,23 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         return _orders[id].remainingOrder > 0;
     }
 
-    function getUnspentAmount(bytes32 id) external view returns (uint256) {
+    function getRemainingOrder(bytes32 id) external view returns (uint256) {
         return _orders[id].remainingOrder;
     }
 
-    function getFeesForOrder(address assetToken, bool sell, uint256 amount) public view returns (uint256) {
-        return address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, sell, amount);
+    function getFeesForOrder(address assetToken, uint256 amount) public view returns (uint256) {
+        return address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, false, amount);
     }
 
-    function requestOrder(SwapOrder calldata order, bytes32 salt) public {
+    function requestOrder(BuyOrder calldata order, bytes32 salt) public {
         _requestOrderAccounting(order, salt);
 
-        // Escrow
-        SafeTransferLib.safeTransferFrom(
-            order.sell ? order.assetToken : order.paymentToken, msg.sender, address(this), order.quantityIn
-        );
+        // Escrow payment
+        SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), order.quantityIn);
     }
 
     function requestOrderWithPermit(
-        SwapOrder calldata order,
+        BuyOrder calldata order,
         bytes32 salt,
         uint256 value,
         uint256 deadline,
@@ -149,13 +143,25 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     ) external {
         _requestOrderAccounting(order, salt);
 
-        // Escrow
-        address tokenIn = order.sell ? order.assetToken : order.paymentToken;
-        IERC20Permit(tokenIn).permit(msg.sender, address(this), value, deadline, v, r, s);
-        SafeTransferLib.safeTransferFrom(tokenIn, msg.sender, address(this), order.quantityIn);
+        // Escrow payment
+        IERC20Permit(order.paymentToken).permit(msg.sender, address(this), value, deadline, v, r, s);
+        SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), order.quantityIn);
     }
 
-    function fillOrder(SwapOrder calldata order, bytes32 salt, uint256 spendAmount, uint256 receivedAmount)
+    function takeOrder(BuyOrder calldata order, bytes32 salt, uint256 amount) external onlyRoles(_ROLE_1) {
+        if (amount == 0) revert ZeroValue();
+        bytes32 orderId = getOrderId(order, salt);
+        OrderState memory orderState = _orders[orderId];
+        if (amount > orderState.remainingEscrow) revert AmountTooLarge();
+
+        _orders[orderId].remainingEscrow = orderState.remainingEscrow - amount;
+        emit OrderTaken(orderId, order.recipient, amount);
+
+        // Claim payment
+        SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, amount);
+    }
+
+    function fillOrder(BuyOrder calldata order, bytes32 salt, uint256 spendAmount, uint256 receivedAmount)
         external
         onlyRoles(_ROLE_1)
     {
@@ -181,24 +187,15 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
             }
         }
 
-        address tokenIn = order.sell ? order.assetToken : order.paymentToken;
         // Collect fees from tokenIn
         if (collection > 0) {
-            SafeTransferLib.safeTransfer(tokenIn, treasury, collection);
+            SafeTransferLib.safeTransfer(order.paymentToken, treasury, collection);
         }
-        // Mint/Burn
-        if (order.sell) {
-            // Forward proceeds
-            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.recipient, receivedAmount);
-            IMintBurn(order.assetToken).burn(spendAmount);
-        } else {
-            // Claim payment
-            SafeTransferLib.safeTransfer(tokenIn, msg.sender, spendAmount);
-            IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
-        }
+        // Mint asset
+        IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
     }
 
-    function requestCancel(SwapOrder calldata order, bytes32 salt) external {
+    function requestCancel(BuyOrder calldata order, bytes32 salt) external {
         if (order.recipient != msg.sender) revert NotRecipient();
         bytes32 orderId = getOrderId(order, salt);
         uint256 remainingOrder = _orders[orderId].remainingOrder;
@@ -207,7 +204,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit CancelRequested(orderId, order.recipient);
     }
 
-    function cancelOrder(SwapOrder calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
+    function cancelOrder(BuyOrder calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
         bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();
@@ -217,40 +214,34 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit OrderCancelled(orderId, order.recipient, reason);
 
         // Return Escrow
-        SafeTransferLib.safeTransfer(
-            order.sell ? order.assetToken : order.paymentToken, order.recipient, orderState.remainingOrder
-        );
+        SafeTransferLib.safeTransfer(order.paymentToken, order.recipient, orderState.remainingOrder);
     }
 
-    function _requestOrderAccounting(SwapOrder calldata order, bytes32 salt) internal {
+    function _requestOrderAccounting(BuyOrder calldata order, bytes32 salt) internal {
         if (ordersPaused) revert Paused();
         if (order.quantityIn == 0) revert ZeroValue();
         if (!tokenEnabled[order.assetToken] || !tokenEnabled[order.paymentToken]) revert UnsupportedToken();
         bytes32 orderId = getOrderId(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-        uint256 collection = getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
+        uint256 collection = getFeesForOrder(order.assetToken, order.quantityIn);
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
         uint256 orderAmount = order.quantityIn - collection;
-        _orders[orderId] = OrderState({remainingOrder: orderAmount, remainingFees: collection});
+        _orders[orderId] =
+            OrderState({remainingEscrow: orderAmount, remainingOrder: orderAmount, remainingFees: collection});
         numOpenOrders++;
         Order memory bridgeOrderData = Order({
             recipient: order.recipient,
             assetToken: order.assetToken,
             paymentToken: order.paymentToken,
-            sell: order.sell,
+            sell: false,
             orderType: OrderType.MARKET,
             assetTokenQuantity: 0,
-            paymentTokenQuantity: 0,
+            paymentTokenQuantity: orderAmount,
             price: 0,
-            tif: TIF.DAY
+            tif: TIF.GTC
         });
-        if (order.sell) {
-            bridgeOrderData.assetTokenQuantity = orderAmount;
-        } else {
-            bridgeOrderData.paymentTokenQuantity = orderAmount;
-        }
         emit OrderRequested(orderId, order.recipient, bridgeOrderData, salt);
     }
 }

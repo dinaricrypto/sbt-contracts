@@ -17,7 +17,7 @@ contract LimitOrderIssuerTest is Test {
     event OrdersPaused(bool paused);
 
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
-    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount);
+    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
     event CancelRequested(bytes32 indexed id, address indexed recipient);
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
@@ -359,10 +359,10 @@ contract LimitOrderIssuerTest is Test {
             vm.prank(bridgeOperator);
             bridge.fillOrder(order, salt, fillAmount, 0);
         } else {
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(orderId, user, fillAmount);
+            vm.expectEmit(true, true, true, false);
+            emit OrderFill(orderId, user, fillAmount, 0);
             vm.prank(bridgeOperator);
-            bridge.fillOrder(order, salt, fillAmount, 0);
+            bridge.fillOrder(order, salt, fillAmount, 10);
             assertEq(bridge.getUnfilledAmount(orderId), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(bridge.numOpenOrders(), 0);
