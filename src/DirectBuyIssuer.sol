@@ -41,7 +41,6 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     error OrderNotFound();
     error DuplicateOrder();
     error Paused();
-    error FillTooLarge();
     error OrderTooSmall();
 
     event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
@@ -117,6 +116,10 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         return _orders[id].remainingOrder > 0;
     }
 
+    function getRemainingEscrow(bytes32 id) external view returns (uint256) {
+        return _orders[id].remainingEscrow;
+    }
+
     function getRemainingOrder(bytes32 id) external view returns (uint256) {
         return _orders[id].remainingOrder;
     }
@@ -169,7 +172,10 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();
-        if (spendAmount > orderState.remainingOrder) revert FillTooLarge();
+        if (
+            spendAmount > orderState.remainingOrder
+                || orderState.remainingOrder - spendAmount < orderState.remainingEscrow
+        ) revert AmountTooLarge();
 
         emit OrderFill(orderId, order.recipient, spendAmount, receivedAmount);
         uint256 remainingUnspent = orderState.remainingOrder - spendAmount;

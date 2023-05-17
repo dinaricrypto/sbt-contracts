@@ -262,7 +262,7 @@ contract DirectBuyIssuerTest is Test {
         assertEq(issuer.numOpenOrders(), 1);
     }
 
-    function testFillOrder(uint128 orderAmount, uint128 fillAmount) public {
+    function testTakeOrder(uint128 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
@@ -277,20 +277,59 @@ contract DirectBuyIssuerTest is Test {
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
+        if (takeAmount == 0) {
+            vm.expectRevert(DirectBuyIssuer.ZeroValue.selector);
+            vm.prank(operator);
+            issuer.takeOrder(order, salt, takeAmount);
+        } else if (takeAmount > orderAmount - fees) {
+            vm.expectRevert(DirectBuyIssuer.AmountTooLarge.selector);
+            vm.prank(operator);
+            issuer.takeOrder(order, salt, takeAmount);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit OrderTaken(orderId, user, takeAmount);
+            vm.prank(operator);
+            issuer.takeOrder(order, salt, takeAmount);
+            assertEq(paymentToken.balanceOf(operator), takeAmount);
+            assertEq(issuer.getRemainingEscrow(orderId), orderAmount - fees - takeAmount);
+        }
+    }
+
+    function testFillOrder(uint128 orderAmount, uint128 takeAmount, uint128 fillAmount, uint256 receivedAmount)
+        public
+    {
+        vm.assume(takeAmount > 0);
+
+        DirectBuyIssuer.BuyOrder memory order = dummyOrder;
+        order.quantityIn = orderAmount;
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        vm.assume(takeAmount <= orderAmount - fees);
+
+        bytes32 orderId = issuer.getOrderId(order, salt);
+
+        paymentToken.mint(user, orderAmount);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), orderAmount);
+
+        vm.prank(user);
+        issuer.requestOrder(order, salt);
+
+        vm.prank(operator);
+        issuer.takeOrder(order, salt, takeAmount);
 
         if (fillAmount == 0) {
             vm.expectRevert(DirectBuyIssuer.ZeroValue.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, 0);
-        } else if (fillAmount > orderAmount - fees) {
-            vm.expectRevert(DirectBuyIssuer.FillTooLarge.selector);
+            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
+        } else if (fillAmount > orderAmount - fees || fillAmount > takeAmount) {
+            vm.expectRevert(DirectBuyIssuer.AmountTooLarge.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, 0);
+            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit OrderFill(orderId, user, fillAmount, 10);
+            emit OrderFill(orderId, user, fillAmount, receivedAmount);
             vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, 10);
+            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
             assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
@@ -352,6 +391,9 @@ contract DirectBuyIssuerTest is Test {
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
+
+        vm.prank(operator);
+        issuer.takeOrder(order, salt, fillAmount);
 
         vm.prank(operator);
         issuer.fillOrder(order, salt, fillAmount, 100);
