@@ -48,7 +48,14 @@ jobs:
             -   name: Set package version for Typescript
                 run: yarn ci:publish:build:set-version ${{ steps.package-version.outputs.PACKAGE_VERSION }}
 
+            -   name: Build Typescript library
+                run: yarn ci:publish:build:typescript
+
+            -   name: Login to Typescript repository
+                run: yarn ci:publish:login:typescript
+
             -   name: Publish Typescript library
+                working-directory: ./dist/typescript
                 run: yarn ci:publish:typescript
 
 #            -   name: Notify Typescript Build

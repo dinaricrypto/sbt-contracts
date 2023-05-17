@@ -1,7 +1,7 @@
 {
   "name": "@dinari/sbt-contracts",
   "packageManager": "yarn@3.2.2",
-  "version": "0.0.1",
+  "version": "0.0.1-build-20230517232409-de7a604",
   "main": "index.js",
   "typings": "index.d.ts",
   "publishConfig": {
@@ -29,9 +29,9 @@
     "ci:publish:build:gen-version": "echo $(npm pkg get version | sed 's/\"//g' | sed 's/-.*//g')-build-$(date +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)",
     "ci:publish:build:python": "yarn ci:publish:build:forge && cp ./out/forge/**/*.abi.json ./dist/python/src/dinari/sbt/abi/ && cp ./out/forge/**/*.bin ./dist/python/src/dinari/sbt/bin/",
     "ci:publish:build:python:gen-version": "echo $(date +%Y.%m.%ddev%H%M%S)",
-    "ci:publish:build:typescript": "yarn ci:publish:build:hardhat && rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json",
+    "ci:publish:build:typescript": "yarn ci:publish:build:hardhat && rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json && cp package.json ./dist/typescript/",
     "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari",
-    "ci:publish:typescript": "yarn ci:publish:build:typescript && yarn ci:publish:login:typescript && cp package.json ./dist/typescript/ && npm publish dist/typescript"
+    "ci:publish:typescript": "npm publish"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.3",
