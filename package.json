@@ -2,8 +2,8 @@
   "name": "@dinari/sbt-contracts",
   "packageManager": "yarn@3.2.2",
   "version": "0.0.1",
-  "main": "dist/typescript/index.js",
-  "typings": "dist/typescript/index.d.ts",
+  "main": "index.js",
+  "typings": "index.d.ts",
   "publishConfig": {
     "registry": "https://sbt-dev-875886734390.d.codeartifact.us-west-2.amazonaws.com/npm/sbt/"
   },
@@ -31,7 +31,7 @@
     "ci:publish:build:python:gen-version": "echo $(date +%Y.%m.%ddev%H%M%S)",
     "ci:publish:build:typescript": "yarn ci:publish:build:hardhat && rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json",
     "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari",
-    "ci:publish:typescript": "yarn ci:publish:build:typescript && yarn ci:publish:login:typescript && npm publish"
+    "ci:publish:typescript": "yarn ci:publish:build:typescript && yarn ci:publish:login:typescript && cp package.json ./dist/typescript/ && npm publish dist/typescript"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.3",
