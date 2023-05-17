@@ -34,23 +34,31 @@ jobs:
             -   name: Enable Node Corepack
                 run: corepack enable
 
-            -   name: Generate version
+            -   name: Install packages
+                run: yarn install
+
+            -   name: Generate version for Typescript
                 id: package-version
                 run: echo ::set-output name=PACKAGE_VERSION::${GITHUB_REF#refs/*/}
 
-            -   name: Set package name
+            -   name: Update package name for Typescript
                 run: |
                     sed -i 's/@dinari\/sbt-contracts/@dinari\/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' package.json
                     sed -i 's/@dinari\/sbt-contracts/@dinari\/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' yarn.lock
-
-            -   name: Install packages
-                run: yarn install
 
             -   name: Set package version for Typescript
                 run: yarn ci:publish:build:set-version ${{ steps.package-version.outputs.PACKAGE_VERSION }}
 
             -   name: Publish Typescript library
                 run: yarn ci:publish:typescript
+
+#            -   name: Notify Typescript Build
+#                uses: slackapi/slack-github-action@v1.16.0
+#                with:
+#                    channel-id: "#ci"
+#                    slack-message: "@${{ github.actor }} built `${{ github.repository }}`\n>Branch: `${{ github.ref_name }}`\n>Commit: `${{ github.sha }}`\n>Package [NPM]: `@dinari/sbt-contracts:${{ steps.package-version.outputs.PACKAGE_VERSION }}`"
+#                env:
+#                    SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
 
             -   name: Set up Python
                 uses: actions/setup-python@v4
@@ -68,7 +76,7 @@ jobs:
             -   name: Build Python library
                 run: yarn ci:publish:build:python
 
-            -   name: Set package version for Python
+            -   name: Update package name for Python
                 run: |
                     sed -i 's/dinari-sbt-contracts/dinari-sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
                     sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
@@ -81,10 +89,10 @@ jobs:
                     python -m build --sdist --wheel --outdir dist/ .
                     twine upload dist/*
 
-            -   name: Build completion notification
-                uses: slackapi/slack-github-action@v1.16.0
-                with:
-                    channel-id: "#ci"
-                    slack-message: "@${{ github.actor }} built `${{ github.repository }}`\n>Branch: `${{ github.ref_name }}`\n>Commit: `${{ github.sha }}`\n>Package: `${{ steps.package-version.outputs.PACKAGE_VERSION }}`"
-                env:
-                    SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+#            -   name: Notify Python Build
+#                uses: slackapi/slack-github-action@v1.16.0
+#                with:
+#                    channel-id: "#ci"
+#                    slack-message: "@${{ github.actor }} built `${{ github.repository }}`\n>Branch: `${{ github.ref_name }}`\n>Commit: `${{ github.sha }}`\n>Package [PyPi]: `dinari-sbt-contracts:${{ steps.package-version.outputs.PACKAGE_VERSION }}`"
+#                env:
+#                    SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
