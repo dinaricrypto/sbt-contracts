@@ -1,6 +1,7 @@
 {
   "name": "@dinari/sbt-contracts",
   "packageManager": "yarn@3.2.2",
+  "version": "0.0.1",
   "main": "dist/typescript/index.js",
   "typings": "dist/typescript/index.d.ts",
   "publishConfig": {
@@ -25,7 +26,9 @@
     "ci:publish:build:forge": "rm -rf out/forge && forge build --skip test --skip script --out './out/forge' --extra-output-files abi --extra-output-files evm",
     "ci:publish:build:hardhat": "npx hardhat compile",
     "ci:publish:build:set-version": "npm version --no-git-tag-version",
+    "ci:publish-build:gen-version": "echo $(npm pkg get version | sed 's/\"//g' | sed 's/-.*//g')-build-$(date +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)",
     "ci:publish:build:python": "yarn ci:publish:build:forge && rm -f dist/python/src/dinari/sbt/abi/*.json && cp ./out/forge/**/*.abi.json ./dist/python/src/dinari/sbt/abi/ && rm -f dist/python/src/dinari/sbt/bin/*.bin && cp ./out/forge/**/*.bin ./dist/python/src/dinari/sbt/bin/",
+    "ci:publish:build:python:gen-version": "echo $(date +%Y.%m.%ddev%H%M%S)",
     "ci:publish:build:typescript": "yarn ci:publish:build:hardhat && rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json",
     "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari",
     "ci:publish:typescript": "yarn ci:publish:build:typescript && yarn ci:publish:login:typescript && npm publish"
