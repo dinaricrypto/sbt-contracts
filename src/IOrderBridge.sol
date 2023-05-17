@@ -30,7 +30,7 @@ interface IOrderBridge {
     }
 
     event OrderRequested(bytes32 indexed id, address indexed recipient, Order order, bytes32 salt);
-    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount);
+    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
     event OrderFulfilled(bytes32 indexed id, address indexed recipient);
     event CancelRequested(bytes32 indexed id, address indexed recipient);
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
