@@ -12,13 +12,14 @@ import "./IOrderBridge.sol";
 import "./IOrderFees.sol";
 import "./IMintBurn.sol";
 
-/// @notice Contract managing direct swap buy market orders for bridged assets
+/// @notice Contract managing direct market buy swap orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/DirectBuyIssuer.sol)
 contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multicallable, IOrderBridge {
     // This contract handles the submission and fulfillment of orders
 
-    // 1. Order submitted and payment/asset escrowed
-    // 2. Order fulfilled, escrow claimed, assets minted/burned
+    // 1. Order submitted and payment escrowed
+    // 2. Payment taken
+    // 3. Order fulfilled, fees claimed, assets minted
 
     struct BuyOrder {
         address recipient;
