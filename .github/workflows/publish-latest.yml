@@ -84,6 +84,7 @@ jobs:
                     sed -i 's/LATEST/${{ steps.package-version-python.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
 
             -   name: Publish Python library
+                working-directory: ./dist/python
                 run: |
                     export TWINE_USERNAME=aws
                     export TWINE_PASSWORD=`aws codeartifact get-authorization-token --domain sbt-dev --query authorizationToken --output text`
