@@ -10,10 +10,6 @@ jobs:
         runs-on: ubuntu-latest
         environment: staging
 
-        strategy:
-            matrix:
-                node-version: [ 16.x ]
-
         steps:
             -   uses: actions/checkout@v2
 
@@ -32,7 +28,7 @@ jobs:
             -   name: Set up Node
                 uses: actions/setup-node@v2
                 with:
-                    node-version: ${{ matrix.node-version }}
+                    node-version: "16.x"
                     cache: "yarn"
 
             -   name: Enable Node Corepack
