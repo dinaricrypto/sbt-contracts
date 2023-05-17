@@ -74,12 +74,12 @@ jobs:
                 run: yarn ci:publish:build:python
 
             -   name: Generate version for Python
-                id: package-version
+                id: package-version-python
                 run: echo ::set-output name=PACKAGE_VERSION::$(yarn run ci:publish:build:python:gen-version)
 
             -   name: Set package version for Python
                 run: |
-                    sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+                    sed -i 's/LATEST/${{ steps.package-version-python.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
 
             -   name: Publish Python library
                 run: |
