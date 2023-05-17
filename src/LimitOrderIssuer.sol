@@ -182,6 +182,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         }
     }
 
+    // slither-disable-next-line cyclomatic-complexity
     function fillOrder(LimitOrder calldata order, bytes32 salt, uint256 fillAmount, uint256)
         external
         onlyRoles(_ROLE_1)
@@ -195,7 +196,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         // If sell, calc fees here, else use percent of escrowed payment
         uint256 collection = 0;
         uint256 proceedsToUser = 0;
-        uint256 paymentClaim;
+        uint256 paymentClaim = 0;
         uint256 remainingUnfilled = orderState.unfilled - fillAmount;
         if (order.sell) {
             // Get fees
