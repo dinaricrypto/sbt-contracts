@@ -26,6 +26,9 @@ jobs:
                     role-to-assume: arn:aws:iam::875886734390:role/npm-repository-publisher-20220519210503438100000002
                     role-duration-seconds: 3600
 
+            -   name: Install Foundry
+                uses: foundry-rs/foundry-toolchain@v1
+
             -   name: Set up Node
                 uses: actions/setup-node@v2
                 with:
@@ -44,10 +47,10 @@ jobs:
                     sed -i 's/@dinari\/sbt-contracts/@dinari\/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' package.json
                     sed -i 's/@dinari\/sbt-contracts/@dinari\/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' yarn.lock
 
-            -   name: Install
+            -   name: Install packages
                 run: yarn install
 
-            -   name: Set package version
+            -   name: Set package version for Typescript
                 run: yarn ci:publish:build:set-version ${{ steps.package-version.outputs.PACKAGE_VERSION }}
 
             -   name: Publish Typescript library
@@ -65,6 +68,9 @@ jobs:
                     build
                     twine
                     --user
+
+            -   name: Build Python library
+                run: yarn ci:publish:build:python
 
             -   name: Set package version for Python
                 run: |
