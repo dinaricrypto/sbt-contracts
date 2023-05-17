@@ -27,7 +27,7 @@
     "ci:publish:build:set-version": "npm version --no-git-tag-version",
     "ci:publish:build:python": "yarn ci:publish:build:forge && rm -f dist/python/src/dinari/sbt/abi/*.json && cp ./out/forge/**/*.abi.json ./dist/python/src/dinari/sbt/abi/ && rm -f dist/python/src/dinari/sbt/bin/*.bin && cp ./out/forge/**/*.bin ./dist/python/src/dinari/sbt/bin/",
     "ci:publish:build:typescript": "yarn ci:publish:build:hardhat && rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json",
-    "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository dinari --domain dinari-dev --namespace @dinari",
+    "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari",
     "ci:publish:typescript": "yarn ci:publish:build:typescript && yarn ci:publish:login:typescript && npm publish"
   },
   "devDependencies": {

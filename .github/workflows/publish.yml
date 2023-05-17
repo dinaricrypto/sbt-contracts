@@ -77,6 +77,14 @@ jobs:
                     sed -i 's/dinari-sbt-contracts/dinari-sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
                     sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
 
+            -   name: Publish Python library
+                run: |
+                    export TWINE_USERNAME=aws
+                    export TWINE_PASSWORD=`aws codeartifact get-authorization-token --domain sbt-dev --query authorizationToken --output text`
+                    export TWINE_REPOSITORY_URL=`aws codeartifact get-repository-endpoint --domain sbt-dev --repository sbt --format pypi --query repositoryEndpoint --output text`
+                    python -m build --sdist --wheel --outdir dist/ .
+                    twine upload dist/*
+
             -   name: Build a binary wheel and a source tarball
                 working-directory: ./dist/python
                 run: >-
