@@ -56,7 +56,7 @@ jobs:
 
             -   name: Publish Typescript library
                 working-directory: ./dist/typescript
-                run: yarn ci:publish:typescript
+                run: npm publish
 
 #            -   name: Notify Typescript Build
 #                uses: slackapi/slack-github-action@v1.16.0
