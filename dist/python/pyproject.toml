@@ -3,11 +3,11 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sbt-contracts"
+name = "dinari-sbt-contracts"
 version = "LATEST"
 authors = [{ name = "Jake Timoty", email = "jake@dinari.com" }]
-description = "sbt-contracts"
+description = "ABI and binary for Dinari's SBT product"
 
 [tool.setuptools.package-data]
-"sbt.abi" = ["*.json"]
-"sbt.bin" = ["*.bin"]
+"dinari.sbt.abi" = ["*.json"]
+"dinari.sbt.bin" = ["*.bin"]

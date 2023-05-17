@@ -60,6 +60,7 @@ __metadata:
     "@typechain/ethers-v5": ^10.2.1
     "@typechain/hardhat": ^6.1.6
     "@types/mocha": ^10.0.1
+    ethers: ^5.7.2
     hardhat: ^2.14.0
     hardhat-preprocessor: ^0.1.5
     pre-commit: ^1.2.2
@@ -1935,7 +1936,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ethers@npm:^5.7.1":
+"ethers@npm:^5.7.1, ethers@npm:^5.7.2":
   version: 5.7.2
   resolution: "ethers@npm:5.7.2"
   dependencies:

@@ -74,7 +74,7 @@ jobs:
 
             -   name: Set package version for Python
                 run: |
-                    sed -i 's/sbt-contracts/sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+                    sed -i 's/dinari-sbt-contracts/dinari-sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
                     sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
 
             -   name: Build a binary wheel and a source tarball
