@@ -1,6 +1,12 @@
 {
-  "name": "@dinari/brokerage-contracts",
-  "packageManager": "yarn@3.2.0",
+  "name": "@dinari/sbt-contracts",
+  "packageManager": "yarn@3.2.2",
+  "version": "0.0.1-build-20230517232409-de7a604",
+  "main": "index.js",
+  "typings": "index.d.ts",
+  "publishConfig": {
+    "registry": "https://sbt-dev-875886734390.d.codeartifact.us-west-2.amazonaws.com/npm/sbt/"
+  },
   "scripts": {
     "install:d2": "curl -fsSL https://d2lang.com/install.sh | sh -s --",
     "build:d2": "find . -type f  -name '*.d2' -exec d2 --theme 104 '{}' \\;",
@@ -16,12 +22,25 @@
     "deploy:mockpayment:testnet": "./script/deploy-mockpayment-testnet.sh",
     "dummyorder:testnet": "./script/dummyorder-testnet.sh",
     "mint:testnet": "./script/mint-testnet.sh",
-    "errorcodes": "forge script script/Errors.s.sol:ErrorsScript -vvvv"
+    "errorcodes": "forge script script/Errors.s.sol:ErrorsScript -vvvv",
+    "ci:publish:build:forge": "rm -rf out/forge && forge build --skip test --skip script --out './out/forge' --extra-output-files abi --extra-output-files evm",
+    "ci:publish:build:typechain": "rm -rf out/types && typechain --target ethers-v5 --out-dir out/types './out/forge/**/*.json'",
+    "ci:publish:build:set-version": "npm version --no-git-tag-version",
+    "ci:publish:build:gen-version": "echo $(npm pkg get version | sed 's/\"//g' | sed 's/-.*//g')-build-$(date +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)",
+    "ci:publish:build:python": "cp ./out/forge/**/*.abi.json ./dist/python/src/dinari_sbt_contracts/abi/ && cp ./out/forge/**/*.bin ./dist/python/src/dinari_sbt_contracts/bin/",
+    "ci:publish:build:python:gen-version": "echo $(date +%Y.%m.%ddev%H%M%S)",
+    "ci:publish:build:typescript": "rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json && cp package.json ./dist/typescript/",
+    "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari"
   },
   "devDependencies": {
-    "hardhat": "^2.14.0",
-    "hardhat-preprocessor": "^0.1.5",
-    "pre-commit": "^1.2.2"
+    "@typechain/ethers-v5": "^10.2.1",
+    "@types/node": "^16.11.0",
+    "pre-commit": "^1.2.2",
+    "typechain": "^8.1.1",
+    "typescript": "~4.9.3"
+  },
+  "dependencies": {
+    "ethers": "^5.7.2"
   },
   "pre-commit": [
     "pretty",
