@@ -40,6 +40,11 @@ jobs:
             -   name: Install packages
                 run: yarn install
 
+            -   name: Build artifacts
+                run: |
+                    yarn ci:publish:build:python
+                    yarn ci:publish:build:typechain
+
             -   name: Generate version for Typescript
                 id: package-version
                 run: echo ::set-output name=PACKAGE_VERSION::$(yarn run ci:publish:build:gen-version)
@@ -77,9 +82,6 @@ jobs:
                     build
                     twine
                     --user
-
-            -   name: Build Python library
-                run: yarn ci:publish:build:python
 
             -   name: Generate version for Python
                 id: package-version-python
