@@ -5,7 +5,6 @@ on:
     push:
         branches:
             - main
-            - ykim/initPackages
 
 jobs:
     publish-package:
@@ -90,13 +89,6 @@ jobs:
             -   name: Generate version for Python
                 id: package-version-python
                 run: echo "PACKAGE_VERSION=$(yarn run ci:publish:build:python:gen-version)" >> $GITHUB_OUTPUT
-
-            -   name: Generate normalized version for Python
-                id: package-version-python-normal
-                run: echo "PACKAGE_VERSION=$(yarn run ci:publish:build:python:gen-version)" | tr '.' '_' | tr '-' '_' >> $GITHUB_OUTPUT
-
-            -   name: Get normalized version
-                run: echo "${{ steps.package-version-python-normal.outputs.PACKAGE_VERSION }}"
 
             -   name: Set package version for Python
                 run: |
