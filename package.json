@@ -27,13 +27,14 @@
     "ci:publish:build:typechain": "rm -rf out/types && typechain --target ethers-v5 --out-dir out/types './out/forge/**/*.json'",
     "ci:publish:build:set-version": "npm version --no-git-tag-version",
     "ci:publish:build:gen-version": "echo $(npm pkg get version | sed 's/\"//g' | sed 's/-.*//g')-build-$(date +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)",
-    "ci:publish:build:python": "yarn ci:publish:build:forge && mv ./out/forge/**/*.abi.json ./dist/python/src/dinari/sbt/abi/ && cp ./out/forge/**/*.bin ./dist/python/src/dinari/sbt/bin/",
+    "ci:publish:build:python": "cp ./out/forge/**/*.abi.json ./dist/python/src/dinari/sbt/abi/ && cp ./out/forge/**/*.bin ./dist/python/src/dinari/sbt/bin/",
     "ci:publish:build:python:gen-version": "echo $(date +%Y.%m.%ddev%H%M%S)",
     "ci:publish:build:typescript": "rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json && cp package.json ./dist/typescript/",
     "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari"
   },
   "devDependencies": {
     "@typechain/ethers-v5": "^10.2.1",
+    "@types/node": "^16.11.0",
     "pre-commit": "^1.2.2",
     "typechain": "^8.1.1",
     "typescript": "~4.9.3"

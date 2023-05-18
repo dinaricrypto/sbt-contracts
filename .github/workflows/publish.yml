@@ -41,7 +41,7 @@ jobs:
 
             -   name: Build artifacts
                 run: |
-                    yarn ci:publish:build:python
+                    yarn ci:publish:build:forge
                     yarn ci:publish:build:typechain
 
             -   name: Generate version for Typescript
@@ -86,6 +86,9 @@ jobs:
                     build
                     twine
                     --user
+
+            -   name: Build Python library
+                run: yarn ci:publish:build:python
 
             -   name: Update package name for Python
                 run: |
