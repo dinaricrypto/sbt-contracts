@@ -46,7 +46,7 @@ jobs:
 
             -   name: Generate version for Typescript
                 id: package-version
-                run: echo "name=PACKAGE_VERSION::${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+                run: echo "PACKAGE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
             -   name: Update package name for Typescript
                 run: |
@@ -96,7 +96,7 @@ jobs:
 
             -   name: Generate normalized version for Python
                 id: package-version-python
-                run: echo "name=PACKAGE_VERSION::${GITHUB_REF#refs/*/}" | tr '.' '-' >> $GITHUB_OUTPUT
+                run: echo "PACKAGE_VERSION=${GITHUB_REF#refs/*/}" | tr '.' '-' >> $GITHUB_OUTPUT
 
             -   name: Update package name and folder for Python
                 run: |

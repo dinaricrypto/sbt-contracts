@@ -48,7 +48,7 @@ jobs:
 
             -   name: Generate version for Typescript
                 id: package-version
-                run: echo "name=PACKAGE_VERSION::$(yarn run ci:publish:build:gen-version)" >> $GITHUB_OUTPUT
+                run: echo "PACKAGE_VERSION=$(yarn run ci:publish:build:gen-version)" >> $GITHUB_OUTPUT
 
             -   name: Set package version for Typescript
                 run: yarn ci:publish:build:set-version ${{ steps.package-version.outputs.PACKAGE_VERSION }}
@@ -89,11 +89,11 @@ jobs:
 
             -   name: Generate version for Python
                 id: package-version-python
-                run: echo "name=PACKAGE_VERSION::$(yarn run ci:publish:build:python:gen-version)" >> $GITHUB_OUTPUT
+                run: echo "PACKAGE_VERSION=$(yarn run ci:publish:build:python:gen-version)" >> $GITHUB_OUTPUT
 
             -   name: Generate normalized version for Python
                 id: package-version-python-normal
-                run: echo "name=PACKAGE_VERSION::$(yarn run ci:publish:build:python:gen-version)" | tr '.' '-' >> $GITHUB_OUTPUT
+                run: echo "PACKAGE_VERSION=$(yarn run ci:publish:build:python:gen-version)" | tr '.' '-' >> $GITHUB_OUTPUT
 
             -   name: Get normalized version
                 run: echo "${{ steps.package-version-python-normal.outputs.PACKAGE_VERSION }}"
