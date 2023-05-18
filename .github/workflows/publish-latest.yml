@@ -89,7 +89,7 @@ jobs:
 
             -   name: Generate version for Python
                 id: package-version-python
-                run: echo ::set-output name=PACKAGE_VERSION::$(yarn run ci:publish:build:python:gen-version)
+                run: echo "name=PACKAGE_VERSION::$(yarn run ci:publish:build:python:gen-version)" >> $GITHUB_OUTPUT
 
             -   name: Set package version for Python
                 run: |
