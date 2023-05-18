@@ -48,7 +48,7 @@ jobs:
 
             -   name: Generate version for Typescript
                 id: package-version
-                run: echo ::set-output name=PACKAGE_VERSION::$(yarn run ci:publish:build:gen-version)
+                run: echo "name=PACKAGE_VERSION::$(yarn run ci:publish:build:gen-version)" >> $GITHUB_OUTPUT
 
             -   name: Set package version for Typescript
                 run: yarn ci:publish:build:set-version ${{ steps.package-version.outputs.PACKAGE_VERSION }}

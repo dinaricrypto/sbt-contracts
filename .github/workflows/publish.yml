@@ -46,7 +46,7 @@ jobs:
 
             -   name: Generate version for Typescript
                 id: package-version
-                run: echo ::set-output name=PACKAGE_VERSION::${GITHUB_REF#refs/*/}
+                run: echo "name=PACKAGE_VERSION::${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
 
             -   name: Update package name for Typescript
                 run: |
@@ -90,10 +90,13 @@ jobs:
             -   name: Build Python library
                 run: yarn ci:publish:build:python
 
-            -   name: Update package name for Python
+            -   name: Set package version for Python
+                run: |
+                    sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+
+            -   name: Set package name for Python
                 run: |
                     sed -i 's/dinari-sbt-contracts/dinari-sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
-                    sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
 
             -   name: Publish Python library
                 working-directory: ./dist/python
