@@ -93,15 +93,16 @@ jobs:
             -   name: Set package version for Python
                 run: |
                     sed -i 's/LATEST/${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+                    sed -i 's/dinari-sbt-contracts/dinari-sbt-contracts-${{ steps.package-version.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
 
             -   name: Generate normalized version for Python
                 id: package-version-python
-                run: echo "PACKAGE_VERSION=${GITHUB_REF#refs/*/}" | tr '.' '-' >> $GITHUB_OUTPUT
+                run: echo "PACKAGE_VERSION=${GITHUB_REF#refs/*/}" | tr '.' '_' | tr '-' '_' >> $GITHUB_OUTPUT
 
-            -   name: Update package name and folder for Python
+            -   name: Update package folder for Python
                 run: |
-                    sed -i 's/dinari-sbt-contracts/dinari-sbt-contracts-${{ steps.package-version-python.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
-                    mv dist/python/src/dinari-sbt-contracts dist/python/src/${{ steps.package-version-python.outputs.PACKAGE_VERSION }}
+                    sed -i 's/dinari_sbt_contracts/dinari_sbt_contracts_${{ steps.package-version-python.outputs.PACKAGE_VERSION }}/g' ./dist/python/pyproject.toml
+                    mv dist/python/src/dinari_sbt_contracts dist/python/src/dinari_sbt_contracts_${{ steps.package-version-python.outputs.PACKAGE_VERSION }}
 
             -   name: Publish Python library
                 working-directory: ./dist/python

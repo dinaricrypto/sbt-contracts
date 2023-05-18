@@ -9,5 +9,5 @@ authors = [{ name = "Jake Timothy", email = "jake@dinari.com" }]
 description = "ABI and binary for Dinari's SBT product"
 
 [tool.setuptools.package-data]
-"dinari-sbt-contracts.abi" = ["*.json"]
-"dinari-sbt-contracts.bin" = ["*.bin"]
+"dinari_sbt_contracts.abi" = ["*.json"]
+"dinari_sbt_contracts.bin" = ["*.bin"]

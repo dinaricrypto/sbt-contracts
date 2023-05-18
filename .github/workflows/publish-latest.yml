@@ -93,7 +93,7 @@ jobs:
 
             -   name: Generate normalized version for Python
                 id: package-version-python-normal
-                run: echo "PACKAGE_VERSION=$(yarn run ci:publish:build:python:gen-version)" | tr '.' '-' >> $GITHUB_OUTPUT
+                run: echo "PACKAGE_VERSION=$(yarn run ci:publish:build:python:gen-version)" | tr '.' '_' | tr '-' '_' >> $GITHUB_OUTPUT
 
             -   name: Get normalized version
                 run: echo "${{ steps.package-version-python-normal.outputs.PACKAGE_VERSION }}"
