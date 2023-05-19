@@ -7,6 +7,7 @@ import "../src/TransferRestrictor.sol";
 import "../src/BridgedTokenFactory.sol";
 import "../src/FlatOrderFees.sol";
 import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
+import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
@@ -25,6 +26,9 @@ contract DeployAllScript is Script {
 
         SwapOrderIssuer issuerImpl = new SwapOrderIssuer();
         new ERC1967Proxy(address(issuerImpl), abi.encodeCall(SwapOrderIssuer.initialize, (vm.addr(deployerPrivateKey), treasuryAddress, orderFees)));
+
+        DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
+        new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(DirectBuyIssuer.initialize, (vm.addr(deployerPrivateKey), treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
     }
