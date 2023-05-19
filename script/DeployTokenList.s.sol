@@ -10,8 +10,8 @@ import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 contract DeployTokenListScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address restrictor = vm.envAddress("RESTRICTOR");
-        address bridge = vm.envAddress("VAULT_BRIDGE");
+        address restrictor = vm.envAddress("TRANSFER_RESTRICTOR");
+        address bridge = vm.envAddress("ISSUER");
         vm.startBroadcast(deployerPrivateKey);
 
         address deployerAddress = vm.addr(deployerPrivateKey);
