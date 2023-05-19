@@ -28,6 +28,8 @@ Currently deployment scripts are only configured for testnet.
 yarn deployall:testnet
 ```
 
+For a new deployment, after the deploy script succeeds, copy the addresses and ABI to the SBT deployments repository under the new version directory.
+
 Security and Liability
 ----------------------
 All contracts are WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
