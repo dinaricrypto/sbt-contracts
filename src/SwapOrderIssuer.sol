@@ -45,21 +45,20 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
 
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
-    event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
 
     // keccak256(OrderTicket(bytes32 salt, ...))
     // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 quantityIn
     bytes32 private constant ORDERTICKET_TYPE_HASH = 0x96afe6b4a56935119c43c29fad54b6b65405604883803328f56826662a554433;
+
     uint256 public constant ADMIN_ROLE = _ROLE_1;
     uint256 public constant OPERATOR_ROLE = _ROLE_2;
+    uint256 public constant PAYMENTTOKEN_ROLE = _ROLE_3;
+    uint256 public constant ASSETTOKEN_ROLE = _ROLE_4;
 
     address public treasury;
 
     IOrderFees public orderFees;
-
-    /// @dev accepted tokens for this issuer
-    mapping(address => bool) public tokenEnabled;
 
     /// @dev unfilled orders
     mapping(bytes32 => OrderState) private _orders;
@@ -90,11 +89,6 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     function setOrderFees(IOrderFees fees) external onlyRoles(ADMIN_ROLE) {
         orderFees = fees;
         emit OrderFeesSet(fees);
-    }
-
-    function setTokenEnabled(address token, bool enabled) external onlyRoles(ADMIN_ROLE) {
-        tokenEnabled[token] = enabled;
-        emit TokenEnabled(token, enabled);
     }
 
     function setOrdersPaused(bool pause) external onlyRoles(ADMIN_ROLE) {
@@ -227,7 +221,8 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     function _requestOrderAccounting(SwapOrder calldata order, bytes32 salt) internal {
         if (ordersPaused) revert Paused();
         if (order.quantityIn == 0) revert ZeroValue();
-        if (!tokenEnabled[order.assetToken] || !tokenEnabled[order.paymentToken]) revert UnsupportedToken();
+        if (!hasAnyRole(order.assetToken, ASSETTOKEN_ROLE)) revert UnsupportedToken();
+        if (!hasAnyRole(order.paymentToken, PAYMENTTOKEN_ROLE)) revert UnsupportedToken();
         bytes32 orderId = getOrderId(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 

@@ -13,7 +13,6 @@ import {FlatOrderFees} from "../src/FlatOrderFees.sol";
 contract LimitOrderIssuerTest is Test {
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
-    event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
 
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
@@ -60,8 +59,8 @@ contract LimitOrderIssuerTest is Test {
         token.grantRoles(address(this), token.minterRole());
         token.grantRoles(address(bridge), token.minterRole());
 
-        bridge.setTokenEnabled(address(paymentToken), true);
-        bridge.setTokenEnabled(address(token), true);
+        bridge.grantRoles(address(paymentToken), bridge.PAYMENTTOKEN_ROLE());
+        bridge.grantRoles(address(token), bridge.ASSETTOKEN_ROLE());
         bridge.grantRoles(bridgeOperator, bridge.OPERATOR_ROLE());
 
         dummyOrder = LimitOrderIssuer.LimitOrder({
@@ -126,13 +125,6 @@ contract LimitOrderIssuerTest is Test {
         emit OrderFeesSet(fees);
         bridge.setOrderFees(fees);
         assertEq(address(bridge.orderFees()), address(fees));
-    }
-
-    function testSetTokenEnabled(address account, bool enabled) public {
-        vm.expectEmit(true, true, true, true);
-        emit TokenEnabled(account, enabled);
-        bridge.setTokenEnabled(account, enabled);
-        assertEq(bridge.tokenEnabled(account), enabled);
     }
 
     function testSetOrdersPaused(bool pause) public {
@@ -212,7 +204,7 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
-        vm.assume(!bridge.tokenEnabled(tryPaymentToken));
+        vm.assume(!bridge.hasAnyRole(tryPaymentToken, bridge.PAYMENTTOKEN_ROLE()));
 
         LimitOrderIssuer.LimitOrder memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
@@ -223,7 +215,7 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
-        vm.assume(!bridge.tokenEnabled(tryAssetToken));
+        vm.assume(!bridge.hasAnyRole(tryAssetToken, bridge.ASSETTOKEN_ROLE()));
 
         LimitOrderIssuer.LimitOrder memory order = dummyOrder;
         order.assetToken = tryAssetToken;

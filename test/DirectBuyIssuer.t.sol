@@ -14,7 +14,6 @@ contract DirectBuyIssuerTest is Test {
     event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
-    event TokenEnabled(address indexed token, bool enabled);
     event OrdersPaused(bool paused);
 
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
@@ -60,8 +59,8 @@ contract DirectBuyIssuerTest is Test {
         token.grantRoles(address(this), token.minterRole());
         token.grantRoles(address(issuer), token.minterRole());
 
-        issuer.setTokenEnabled(address(paymentToken), true);
-        issuer.setTokenEnabled(address(token), true);
+        issuer.grantRoles(address(paymentToken), issuer.PAYMENTTOKEN_ROLE());
+        issuer.grantRoles(address(token), issuer.ASSETTOKEN_ROLE());
         issuer.grantRoles(operator, issuer.OPERATOR_ROLE());
 
         dummyOrder = DirectBuyIssuer.BuyOrder({
@@ -127,13 +126,6 @@ contract DirectBuyIssuerTest is Test {
         assertEq(address(issuer.orderFees()), address(fees));
     }
 
-    function testSetTokenEnabled(address account, bool enabled) public {
-        vm.expectEmit(true, true, true, true);
-        emit TokenEnabled(account, enabled);
-        issuer.setTokenEnabled(account, enabled);
-        assertEq(issuer.tokenEnabled(account), enabled);
-    }
-
     function testSetOrdersPaused(bool pause) public {
         vm.expectEmit(true, true, true, true);
         emit OrdersPaused(pause);
@@ -196,7 +188,7 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
-        vm.assume(!issuer.tokenEnabled(tryPaymentToken));
+        vm.assume(!issuer.hasAnyRole(tryPaymentToken, issuer.PAYMENTTOKEN_ROLE()));
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
@@ -207,7 +199,7 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
-        vm.assume(!issuer.tokenEnabled(tryAssetToken));
+        vm.assume(!issuer.hasAnyRole(tryAssetToken, issuer.ASSETTOKEN_ROLE()));
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.assetToken = tryAssetToken;
