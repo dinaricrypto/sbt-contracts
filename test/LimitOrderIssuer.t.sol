@@ -62,7 +62,7 @@ contract LimitOrderIssuerTest is Test {
 
         bridge.setTokenEnabled(address(paymentToken), true);
         bridge.setTokenEnabled(address(token), true);
-        bridge.grantRoles(bridgeOperator, bridge.operatorRole());
+        bridge.grantRoles(bridgeOperator, bridge.OPERATOR_ROLE());
 
         dummyOrder = LimitOrderIssuer.LimitOrder({
             recipient: user,
@@ -83,10 +83,6 @@ contract LimitOrderIssuerTest is Test {
             price: dummyOrder.price,
             tif: IOrderBridge.TIF.GTC
         });
-    }
-
-    function testInvariants() public {
-        assertEq(bridge.operatorRole(), uint256(1 << 1));
     }
 
     function testInitialize(address owner, address newTreasury) public {

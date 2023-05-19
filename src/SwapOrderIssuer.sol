@@ -51,6 +51,8 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     // keccak256(OrderTicket(bytes32 salt, ...))
     // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 quantityIn
     bytes32 private constant ORDERTICKET_TYPE_HASH = 0x96afe6b4a56935119c43c29fad54b6b65405604883803328f56826662a554433;
+    uint256 public constant ADMIN_ROLE = _ROLE_1;
+    uint256 public constant OPERATOR_ROLE = _ROLE_2;
 
     address public treasury;
 
@@ -70,35 +72,32 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         if (treasury_ == address(0)) revert ZeroAddress();
 
         _initializeOwner(owner);
+        _grantRoles(owner, ADMIN_ROLE);
 
         treasury = treasury_;
         orderFees = orderFees_;
     }
 
-    function operatorRole() external pure returns (uint256) {
-        return _ROLE_1;
-    }
-
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
-    function setTreasury(address account) external onlyOwner {
+    function setTreasury(address account) external onlyRoles(ADMIN_ROLE) {
         if (account == address(0)) revert ZeroAddress();
 
         treasury = account;
         emit TreasurySet(account);
     }
 
-    function setOrderFees(IOrderFees fees) external onlyOwner {
+    function setOrderFees(IOrderFees fees) external onlyRoles(ADMIN_ROLE) {
         orderFees = fees;
         emit OrderFeesSet(fees);
     }
 
-    function setTokenEnabled(address token, bool enabled) external onlyOwner {
+    function setTokenEnabled(address token, bool enabled) external onlyRoles(ADMIN_ROLE) {
         tokenEnabled[token] = enabled;
         emit TokenEnabled(token, enabled);
     }
 
-    function setOrdersPaused(bool pause) external onlyOwner {
+    function setOrdersPaused(bool pause) external onlyRoles(ADMIN_ROLE) {
         ordersPaused = pause;
         emit OrdersPaused(pause);
     }
@@ -157,7 +156,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
 
     function fillOrder(SwapOrder calldata order, bytes32 salt, uint256 spendAmount, uint256 receivedAmount)
         external
-        onlyRoles(_ROLE_1)
+        onlyRoles(OPERATOR_ROLE)
     {
         if (spendAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderId(order, salt);
@@ -207,7 +206,10 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit CancelRequested(orderId, order.recipient);
     }
 
-    function cancelOrder(SwapOrder calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
+    function cancelOrder(SwapOrder calldata order, bytes32 salt, string calldata reason)
+        external
+        onlyRoles(OPERATOR_ROLE)
+    {
         bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();

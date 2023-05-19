@@ -62,7 +62,7 @@ contract DirectBuyIssuerTest is Test {
 
         issuer.setTokenEnabled(address(paymentToken), true);
         issuer.setTokenEnabled(address(token), true);
-        issuer.grantRoles(operator, issuer.operatorRole());
+        issuer.grantRoles(operator, issuer.OPERATOR_ROLE());
 
         dummyOrder = DirectBuyIssuer.BuyOrder({
             recipient: user,
@@ -82,10 +82,6 @@ contract DirectBuyIssuerTest is Test {
             price: 0,
             tif: IOrderBridge.TIF.GTC
         });
-    }
-
-    function testInvariants() public {
-        assertEq(issuer.operatorRole(), uint256(1 << 1));
     }
 
     function testInitialize(address owner, address newTreasury) public {
