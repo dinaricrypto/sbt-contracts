@@ -36,7 +36,8 @@ To deploy set of new asset tokens, set env vars
 
 - `PRIVATE_KEY`
 - `TRANSFER_RESTRICTOR`
-- `ISSUER`
+- `SWAP_ISSUER`
+- `DIRECT_ISSUER`
 
 then run
 
