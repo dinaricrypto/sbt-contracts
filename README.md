@@ -1,4 +1,33 @@
-[![codecov](https://codecov.io/gh/dinaricrypto/sbt-contracts/branch/main/graph/badge.svg?token=6GFOt4AsfI)](https://codecov.io/gh/dinaricrypto/sbt-contracts)
-# sbt-contracts
+SBT Contracts
+================
 
-Build diagrams with `yarn build:d2`
+[![codecov](https://codecov.io/gh/dinaricrypto/sbt-contracts/branch/main/graph/badge.svg?token=6GFOt4AsfI)](https://codecov.io/gh/dinaricrypto/sbt-contracts)
+
+Usage
+------
+### Install foundry tools
+
+```bash
+yarn install:foundry
+```
+
+### Build and test
+
+```bash
+yarn build
+yarn test
+```
+
+### Deployment
+
+A collection of the different SBT contract deployments and their addresses can be found in the [SBT deployments](https://github.com/dinaricrypto/sbt-deployments) repository.
+
+Currently deployment scripts are only configured for testnet.
+
+```bash
+yarn deployall:testnet
+```
+
+Security and Liability
+----------------------
+All contracts are WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
