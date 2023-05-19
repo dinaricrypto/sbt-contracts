@@ -53,6 +53,8 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     // keccak256(OrderTicket(bytes32 salt, ...))
     // ... address recipient,address assetToken,address paymentToken,uint256 quantityIn
     bytes32 private constant ORDERTICKET_TYPE_HASH = 0x11b95e3e1ebc2dccd6194e9fa1d87f6a22606ca32569221cb50bfd5e4da28c2d;
+    uint256 public constant ADMIN_ROLE = _ROLE_1;
+    uint256 public constant OPERATOR_ROLE = _ROLE_2;
 
     address public treasury;
 
@@ -72,35 +74,32 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         if (treasury_ == address(0)) revert ZeroAddress();
 
         _initializeOwner(owner);
+        _grantRoles(owner, ADMIN_ROLE);
 
         treasury = treasury_;
         orderFees = orderFees_;
     }
 
-    function operatorRole() external pure returns (uint256) {
-        return _ROLE_1;
-    }
-
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
 
-    function setTreasury(address account) external onlyOwner {
+    function setTreasury(address account) external onlyRoles(ADMIN_ROLE) {
         if (account == address(0)) revert ZeroAddress();
 
         treasury = account;
         emit TreasurySet(account);
     }
 
-    function setOrderFees(IOrderFees fees) external onlyOwner {
+    function setOrderFees(IOrderFees fees) external onlyRoles(ADMIN_ROLE) {
         orderFees = fees;
         emit OrderFeesSet(fees);
     }
 
-    function setTokenEnabled(address token, bool enabled) external onlyOwner {
+    function setTokenEnabled(address token, bool enabled) external onlyRoles(ADMIN_ROLE) {
         tokenEnabled[token] = enabled;
         emit TokenEnabled(token, enabled);
     }
 
-    function setOrdersPaused(bool pause) external onlyOwner {
+    function setOrdersPaused(bool pause) external onlyRoles(ADMIN_ROLE) {
         ordersPaused = pause;
         emit OrdersPaused(pause);
     }
@@ -152,7 +151,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), order.quantityIn);
     }
 
-    function takeOrder(BuyOrder calldata order, bytes32 salt, uint256 amount) external onlyRoles(_ROLE_1) {
+    function takeOrder(BuyOrder calldata order, bytes32 salt, uint256 amount) external onlyRoles(OPERATOR_ROLE) {
         if (amount == 0) revert ZeroValue();
         bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
@@ -167,7 +166,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
 
     function fillOrder(BuyOrder calldata order, bytes32 salt, uint256 spendAmount, uint256 receivedAmount)
         external
-        onlyRoles(_ROLE_1)
+        onlyRoles(OPERATOR_ROLE)
     {
         if (spendAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderId(order, salt);
@@ -211,7 +210,10 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit CancelRequested(orderId, order.recipient);
     }
 
-    function cancelOrder(BuyOrder calldata order, bytes32 salt, string calldata reason) external onlyRoles(_ROLE_1) {
+    function cancelOrder(BuyOrder calldata order, bytes32 salt, string calldata reason)
+        external
+        onlyRoles(OPERATOR_ROLE)
+    {
         bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();
