@@ -96,7 +96,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit OrdersPaused(pause);
     }
 
-    function getOrderId(SwapOrder calldata order, bytes32 salt) public pure returns (bytes32) {
+    function getOrderIdFromSwapOrder(SwapOrder memory order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 ORDERTICKET_TYPE_HASH,
@@ -107,6 +107,19 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
                 order.sell,
                 order.quantityIn
             )
+        );
+    }
+
+    function getOrderId(Order calldata order, bytes32 salt) public pure returns (bytes32) {
+        return getOrderIdFromSwapOrder(
+            SwapOrder({
+                recipient: order.recipient,
+                assetToken: order.assetToken,
+                paymentToken: order.paymentToken,
+                sell: order.sell,
+                quantityIn: (order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity) + order.fee
+            }),
+            salt
         );
     }
 
@@ -153,7 +166,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         onlyRoles(OPERATOR_ROLE)
     {
         if (spendAmount == 0) revert ZeroValue();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromSwapOrder(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();
         if (spendAmount > orderState.remainingOrder) revert FillTooLarge();
@@ -193,7 +206,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
 
     function requestCancel(SwapOrder calldata order, bytes32 salt) external {
         if (order.recipient != msg.sender) revert NotRecipient();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromSwapOrder(order, salt);
         uint256 remainingOrder = _orders[orderId].remainingOrder;
         if (remainingOrder == 0) revert OrderNotFound();
 
@@ -204,7 +217,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         external
         onlyRoles(OPERATOR_ROLE)
     {
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromSwapOrder(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();
 
@@ -223,7 +236,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         if (order.quantityIn == 0) revert ZeroValue();
         if (!hasAnyRole(order.assetToken, ASSETTOKEN_ROLE)) revert UnsupportedToken();
         if (!hasAnyRole(order.paymentToken, PAYMENTTOKEN_ROLE)) revert UnsupportedToken();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromSwapOrder(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
         uint256 collection = getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
@@ -241,7 +254,8 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
             assetTokenQuantity: 0,
             paymentTokenQuantity: 0,
             price: 0,
-            tif: TIF.DAY
+            tif: TIF.DAY,
+            fee: collection
         });
         if (order.sell) {
             bridgeOrderData.assetTokenQuantity = orderAmount;

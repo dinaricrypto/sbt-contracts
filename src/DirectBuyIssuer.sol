@@ -98,11 +98,23 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit OrdersPaused(pause);
     }
 
-    function getOrderId(BuyOrder calldata order, bytes32 salt) public pure returns (bytes32) {
+    function getOrderIdFromBuyOrder(BuyOrder memory order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 ORDERTICKET_TYPE_HASH, salt, order.recipient, order.assetToken, order.paymentToken, order.quantityIn
             )
+        );
+    }
+
+    function getOrderId(Order calldata order, bytes32 salt) public pure returns (bytes32) {
+        return getOrderIdFromBuyOrder(
+            BuyOrder({
+                recipient: order.recipient,
+                assetToken: order.assetToken,
+                paymentToken: order.paymentToken,
+                quantityIn: order.paymentTokenQuantity + order.fee
+            }),
+            salt
         );
     }
 
@@ -147,7 +159,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
 
     function takeOrder(BuyOrder calldata order, bytes32 salt, uint256 amount) external onlyRoles(OPERATOR_ROLE) {
         if (amount == 0) revert ZeroValue();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (amount > orderState.remainingEscrow) revert AmountTooLarge();
 
@@ -163,7 +175,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         onlyRoles(OPERATOR_ROLE)
     {
         if (spendAmount == 0) revert ZeroValue();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();
         if (
@@ -197,7 +209,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
 
     function requestCancel(BuyOrder calldata order, bytes32 salt) external {
         if (order.recipient != msg.sender) revert NotRecipient();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         uint256 remainingOrder = _orders[orderId].remainingOrder;
         if (remainingOrder == 0) revert OrderNotFound();
 
@@ -208,7 +220,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         external
         onlyRoles(OPERATOR_ROLE)
     {
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         OrderState memory orderState = _orders[orderId];
         if (orderState.remainingOrder == 0) revert OrderNotFound();
 
@@ -225,7 +237,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         if (order.quantityIn == 0) revert ZeroValue();
         if (!hasAnyRole(order.assetToken, ASSETTOKEN_ROLE)) revert UnsupportedToken();
         if (!hasAnyRole(order.paymentToken, PAYMENTTOKEN_ROLE)) revert UnsupportedToken();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
         uint256 collection = getFeesForOrder(order.assetToken, order.quantityIn);
@@ -244,7 +256,8 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
             assetTokenQuantity: 0,
             paymentTokenQuantity: orderAmount,
             price: 0,
-            tif: TIF.GTC
+            tif: TIF.GTC,
+            fee: collection
         });
         emit OrderRequested(orderId, order.recipient, bridgeOrderData, salt);
     }

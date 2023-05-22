@@ -71,6 +71,9 @@ contract LimitOrderIssuerTest is Test {
             assetTokenQuantity: 100,
             price: 10 ether
         });
+        (uint256 fees,) = bridge.getFeesForOrder(
+            dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price
+        );
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
@@ -80,7 +83,8 @@ contract LimitOrderIssuerTest is Test {
             assetTokenQuantity: dummyOrder.assetTokenQuantity,
             paymentTokenQuantity: 0,
             price: dummyOrder.price,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderBridge.TIF.GTC,
+            fee: fees
         });
     }
 
@@ -144,6 +148,9 @@ contract LimitOrderIssuerTest is Test {
             price: price
         });
 
+        (uint256 fees, uint256 value) =
+            bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
+        uint256 totalPayment = fees + value;
         IOrderBridge.Order memory orderBridgeData = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
@@ -153,13 +160,10 @@ contract LimitOrderIssuerTest is Test {
             assetTokenQuantity: assetTokenQuantity,
             paymentTokenQuantity: 0,
             price: price,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderBridge.TIF.GTC,
+            fee: fees
         });
-        bytes32 orderId = bridge.getOrderId(order, salt);
-
-        (uint256 fees, uint256 value) =
-            bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
-        uint256 totalPayment = fees + value;
+        bytes32 orderId = bridge.getOrderIdFromLimitOrder(order, salt);
 
         if (sell) {
             token.mint(user, assetTokenQuantity);
@@ -242,7 +246,7 @@ contract LimitOrderIssuerTest is Test {
     function testRequestOrderWithPermit(bool sell) public {
         LimitOrderIssuer.LimitOrder memory order = dummyOrder;
         order.sell = sell;
-        bytes32 orderId = bridge.getOrderId(order, salt);
+        bytes32 orderId = bridge.getOrderIdFromLimitOrder(order, salt);
         (uint256 fees, uint256 value) =
             bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         uint256 totalPayment = fees + value;
@@ -286,7 +290,8 @@ contract LimitOrderIssuerTest is Test {
             assetTokenQuantity: order.assetTokenQuantity,
             paymentTokenQuantity: 0,
             price: order.price,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderBridge.TIF.GTC,
+            fee: fees
         });
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(orderId, user, orderBridgeData, salt);
@@ -318,7 +323,7 @@ contract LimitOrderIssuerTest is Test {
         uint256 totalPayment = fees + value;
         vm.assume(sell || totalPayment > 0);
 
-        bytes32 orderId = bridge.getOrderId(order, salt);
+        bytes32 orderId = bridge.getOrderIdFromLimitOrder(order, salt);
         uint256 proceeds = bridge.proceedsForFill(fillAmount, price);
 
         if (sell) {
@@ -376,7 +381,7 @@ contract LimitOrderIssuerTest is Test {
         vm.prank(user);
         bridge.requestOrder(dummyOrder, salt);
 
-        bytes32 orderId = bridge.getOrderId(dummyOrder, salt);
+        bytes32 orderId = bridge.getOrderIdFromLimitOrder(dummyOrder, salt);
         vm.expectEmit(true, true, true, true);
         emit CancelRequested(orderId, user);
         vm.prank(user);
@@ -426,7 +431,7 @@ contract LimitOrderIssuerTest is Test {
         vm.prank(bridgeOperator);
         bridge.fillOrder(order, salt, fillAmount, 100);
 
-        bytes32 orderId = bridge.getOrderId(order, salt);
+        bytes32 orderId = bridge.getOrderIdFromLimitOrder(order, salt);
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(orderId, user, reason);
         vm.prank(bridgeOperator);

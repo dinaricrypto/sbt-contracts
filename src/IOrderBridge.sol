@@ -27,6 +27,7 @@ interface IOrderBridge {
         uint256 price;
         // Time in force
         TIF tif;
+        uint256 fee;
     }
 
     event OrderRequested(bytes32 indexed id, address indexed recipient, Order order, bytes32 salt);
@@ -34,6 +35,8 @@ interface IOrderBridge {
     event OrderFulfilled(bytes32 indexed id, address indexed recipient);
     event CancelRequested(bytes32 indexed id, address indexed recipient);
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
+
+    function getOrderId(Order calldata order, bytes32 salt) external view returns (bytes32);
 
     function isOrderActive(bytes32 id) external view returns (bool);
 

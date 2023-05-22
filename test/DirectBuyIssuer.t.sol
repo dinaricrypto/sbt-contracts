@@ -79,7 +79,8 @@ contract DirectBuyIssuerTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: dummyOrder.quantityIn - dummyOrderFees,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderBridge.TIF.GTC,
+            fee: dummyOrderFees
         });
     }
 
@@ -140,7 +141,7 @@ contract DirectBuyIssuerTest is Test {
             paymentToken: address(paymentToken),
             quantityIn: quantityIn
         });
-        bytes32 orderId = issuer.getOrderId(order, salt);
+        bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
 
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
@@ -152,7 +153,8 @@ contract DirectBuyIssuerTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 0,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderBridge.TIF.GTC,
+            fee: fees
         });
 
         bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
@@ -224,7 +226,7 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testRequestOrderWithPermit() public {
-        bytes32 orderId = issuer.getOrderId(dummyOrder, salt);
+        bytes32 orderId = issuer.getOrderIdFromBuyOrder(dummyOrder, salt);
         paymentToken.mint(user, dummyOrder.quantityIn);
 
         SigUtils.Permit memory permit = SigUtils.Permit({
@@ -257,7 +259,7 @@ contract DirectBuyIssuerTest is Test {
         order.quantityIn = orderAmount;
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
 
-        bytes32 orderId = issuer.getOrderId(order, salt);
+        bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
 
         paymentToken.mint(user, orderAmount);
         vm.prank(user);
@@ -293,7 +295,7 @@ contract DirectBuyIssuerTest is Test {
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         vm.assume(takeAmount <= orderAmount - fees);
 
-        bytes32 orderId = issuer.getOrderId(order, salt);
+        bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
 
         paymentToken.mint(user, orderAmount);
         vm.prank(user);
@@ -339,7 +341,7 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
 
-        bytes32 orderId = issuer.getOrderId(dummyOrder, salt);
+        bytes32 orderId = issuer.getOrderIdFromBuyOrder(dummyOrder, salt);
         vm.expectEmit(true, true, true, true);
         emit CancelRequested(orderId, user);
         vm.prank(user);
@@ -386,7 +388,7 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(operator);
         issuer.fillOrder(order, salt, fillAmount, 100);
 
-        bytes32 orderId = issuer.getOrderId(order, salt);
+        bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(orderId, user, reason);
         vm.prank(operator);
