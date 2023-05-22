@@ -32,6 +32,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         uint256 remainingEscrow;
         uint256 remainingOrder;
         uint256 remainingFees;
+        uint256 totalReceived;
     }
 
     error ZeroValue();
@@ -131,6 +132,10 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         return _orders[id].remainingOrder;
     }
 
+    function getTotalReceived(bytes32 id) external view returns (uint256) {
+        return _orders[id].totalReceived;
+    }
+
     function getFeesForOrder(address assetToken, uint256 amount) public view returns (uint256) {
         return address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, false, amount);
     }
@@ -194,6 +199,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
             emit OrderFulfilled(orderId, order.recipient);
         } else {
             _orders[orderId].remainingOrder = remainingUnspent;
+            _orders[orderId].totalReceived = orderState.totalReceived + receivedAmount;
             if (orderState.remainingFees > 0) {
                 collection = PrbMath.mulDiv(orderState.remainingFees, spendAmount, orderState.remainingOrder);
                 _orders[orderId].remainingFees = orderState.remainingFees - collection;
@@ -245,8 +251,12 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
         uint256 orderAmount = order.quantityIn - collection;
-        _orders[orderId] =
-            OrderState({remainingEscrow: orderAmount, remainingOrder: orderAmount, remainingFees: collection});
+        _orders[orderId] = OrderState({
+            remainingEscrow: orderAmount,
+            remainingOrder: orderAmount,
+            remainingFees: collection,
+            totalReceived: 0
+        });
         numOpenOrders++;
         Order memory bridgeOrderData = Order({
             recipient: order.recipient,
