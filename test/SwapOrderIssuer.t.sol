@@ -79,7 +79,8 @@ contract SwapOrderIssuerTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: dummyOrder.quantityIn - dummyOrderFees,
             price: 0,
-            tif: IOrderBridge.TIF.DAY
+            tif: IOrderBridge.TIF.DAY,
+            fee: dummyOrderFees
         });
     }
 
@@ -133,6 +134,33 @@ contract SwapOrderIssuerTest is Test {
         assertEq(issuer.ordersPaused(), pause);
     }
 
+    function testRequestOrderGasUsage(bool sell, uint128 quantityIn) public {
+        vm.assume(quantityIn > 0);
+
+        SwapOrderIssuer.SwapOrder memory order = SwapOrderIssuer.SwapOrder({
+            recipient: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            sell: sell,
+            quantityIn: quantityIn
+        });
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
+        vm.assume(fees < quantityIn);
+
+        if (sell) {
+            token.mint(user, quantityIn);
+            vm.prank(user);
+            token.increaseAllowance(address(issuer), quantityIn);
+        } else {
+            paymentToken.mint(user, quantityIn);
+            vm.prank(user);
+            paymentToken.increaseAllowance(address(issuer), quantityIn);
+        }
+
+        vm.prank(user);
+        issuer.requestOrder(order, salt);
+    }
+
     function testRequestOrder(bool sell, uint128 quantityIn) public {
         SwapOrderIssuer.SwapOrder memory order = SwapOrderIssuer.SwapOrder({
             recipient: user,
@@ -141,7 +169,7 @@ contract SwapOrderIssuerTest is Test {
             sell: sell,
             quantityIn: quantityIn
         });
-        bytes32 orderId = issuer.getOrderId(order, salt);
+        bytes32 orderId = issuer.getOrderIdFromSwapOrder(order, salt);
 
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
         IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
@@ -153,7 +181,8 @@ contract SwapOrderIssuerTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 0,
             price: 0,
-            tif: IOrderBridge.TIF.DAY
+            tif: IOrderBridge.TIF.DAY,
+            fee: fees
         });
 
         if (sell) {
@@ -167,6 +196,7 @@ contract SwapOrderIssuerTest is Test {
             vm.prank(user);
             paymentToken.increaseAllowance(address(issuer), quantityIn);
         }
+        assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
 
         if (quantityIn == 0) {
             vm.expectRevert(SwapOrderIssuer.ZeroValue.selector);
@@ -232,7 +262,7 @@ contract SwapOrderIssuerTest is Test {
     }
 
     function testRequestOrderWithPermit() public {
-        bytes32 orderId = issuer.getOrderId(dummyOrder, salt);
+        bytes32 orderId = issuer.getOrderIdFromSwapOrder(dummyOrder, salt);
         paymentToken.mint(user, dummyOrder.quantityIn);
 
         SigUtils.Permit memory permit = SigUtils.Permit({
@@ -266,7 +296,7 @@ contract SwapOrderIssuerTest is Test {
         order.quantityIn = orderAmount;
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
 
-        bytes32 orderId = issuer.getOrderId(order, salt);
+        bytes32 orderId = issuer.getOrderIdFromSwapOrder(order, salt);
 
         if (sell) {
             token.mint(user, orderAmount);
@@ -319,7 +349,7 @@ contract SwapOrderIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
 
-        bytes32 orderId = issuer.getOrderId(dummyOrder, salt);
+        bytes32 orderId = issuer.getOrderIdFromSwapOrder(dummyOrder, salt);
         vm.expectEmit(true, true, true, true);
         emit CancelRequested(orderId, user);
         vm.prank(user);
@@ -363,7 +393,7 @@ contract SwapOrderIssuerTest is Test {
         vm.prank(operator);
         issuer.fillOrder(order, salt, fillAmount, 100);
 
-        bytes32 orderId = issuer.getOrderId(order, salt);
+        bytes32 orderId = issuer.getOrderIdFromSwapOrder(order, salt);
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(orderId, user, reason);
         vm.prank(operator);

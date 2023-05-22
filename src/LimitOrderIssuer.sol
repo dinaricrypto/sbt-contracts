@@ -98,7 +98,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         emit OrdersPaused(pause);
     }
 
-    function getOrderId(LimitOrder calldata order, bytes32 salt) public pure returns (bytes32) {
+    function getOrderIdFromLimitOrder(LimitOrder memory order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 ORDERTICKET_TYPE_HASH,
@@ -111,6 +111,21 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
                 order.price
             )
         );
+    }
+
+    function getOrderId(Order calldata order, bytes32 salt) external pure returns (bytes32) {
+        return getOrderIdFromLimitOrder(getLimitOrderForOrder(order), salt);
+    }
+
+    function getLimitOrderForOrder(Order calldata order) public pure returns (LimitOrder memory) {
+        return LimitOrder({
+            recipient: order.recipient,
+            assetToken: order.assetToken,
+            paymentToken: order.paymentToken,
+            sell: order.sell,
+            assetTokenQuantity: order.assetTokenQuantity,
+            price: order.price
+        });
     }
 
     function isOrderActive(bytes32 id) external view returns (bool) {
@@ -181,7 +196,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         onlyRoles(OPERATOR_ROLE)
     {
         if (fillAmount == 0) revert ZeroValue();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromLimitOrder(order, salt);
         LimitOrderState memory orderState = _orders[orderId];
         if (orderState.unfilled == 0) revert OrderNotFound();
         if (fillAmount > orderState.unfilled) revert FillTooLarge();
@@ -246,7 +261,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
 
     function requestCancel(LimitOrder calldata order, bytes32 salt) external {
         if (order.recipient != msg.sender) revert NotRecipient();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromLimitOrder(order, salt);
         uint256 unfilled = _orders[orderId].unfilled;
         if (unfilled == 0) revert OrderNotFound();
 
@@ -257,7 +272,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         external
         onlyRoles(OPERATOR_ROLE)
     {
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromLimitOrder(order, salt);
         LimitOrderState memory orderState = _orders[orderId];
         if (orderState.unfilled == 0) revert OrderNotFound();
 
@@ -280,13 +295,13 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         if (order.assetTokenQuantity == 0) revert ZeroValue();
         if (!hasAnyRole(order.assetToken, ASSETTOKEN_ROLE)) revert UnsupportedToken();
         if (!hasAnyRole(order.paymentToken, PAYMENTTOKEN_ROLE)) revert UnsupportedToken();
-        bytes32 orderId = getOrderId(order, salt);
+        bytes32 orderId = getOrderIdFromLimitOrder(order, salt);
         if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
+        (uint256 collection, uint256 orderValue) =
+            getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         paymentTokenEscrowed = 0;
         if (!order.sell) {
-            (uint256 collection, uint256 orderValue) =
-                getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
             paymentTokenEscrowed = orderValue + collection;
             if (paymentTokenEscrowed == 0) revert OrderTooSmall();
         }
@@ -305,7 +320,8 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
                 assetTokenQuantity: order.assetTokenQuantity,
                 paymentTokenQuantity: 0,
                 price: order.price,
-                tif: TIF.GTC
+                tif: TIF.GTC,
+                fee: collection
             }),
             salt
         );
