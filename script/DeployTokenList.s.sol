@@ -6,6 +6,7 @@ import {BridgedERC20} from "../src/BridgedERC20.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
 import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
+import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployTokenListScript is Script {
@@ -17,6 +18,7 @@ contract DeployTokenListScript is Script {
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
         SwapOrderIssuer swapIssuer = SwapOrderIssuer(vm.envAddress("SWAP_ISSUER"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
+        LimitOrderIssuer limitIssuer = LimitOrderIssuer(vm.envAddress("LIMIT_ISSUER"));
 
         // start
         vm.startBroadcast(deployerPrivateKey);
@@ -38,11 +40,13 @@ contract DeployTokenListScript is Script {
             // allow issuers to mint and burn
             token.grantRoles(address(swapIssuer), token.minterRole());
             token.grantRoles(address(directIssuer), token.minterRole());
+            token.grantRoles(address(limitIssuer), token.minterRole());
 
             // allow orders for token on issuers
             // previously: swapIssuer.setTokenEnabled(address(token), true);
             swapIssuer.grantRoles(address(token), swapIssuer.ASSETTOKEN_ROLE());
             directIssuer.grantRoles(address(token), directIssuer.ASSETTOKEN_ROLE());
+            limitIssuer.grantRoles(address(token), limitIssuer.ASSETTOKEN_ROLE());
         }
 
         vm.stopBroadcast();
