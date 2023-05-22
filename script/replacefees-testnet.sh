@@ -2,4 +2,4 @@
 
 source .env
 
-forge script script/DeployAll.s.sol:DeployAllScript --rpc-url $TEST_RPC_URL --broadcast --verify -vvvv
+forge script script/ReplaceFees.s.sol:ReplaceFeesScript --rpc-url $TEST_RPC_URL --broadcast --verify -vvvv
