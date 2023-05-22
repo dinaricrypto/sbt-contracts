@@ -196,6 +196,7 @@ contract SwapOrderIssuerTest is Test {
             vm.prank(user);
             paymentToken.increaseAllowance(address(issuer), quantityIn);
         }
+        assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
 
         if (quantityIn == 0) {
             vm.expectRevert(SwapOrderIssuer.ZeroValue.selector);

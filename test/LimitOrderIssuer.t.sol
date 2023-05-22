@@ -164,6 +164,7 @@ contract LimitOrderIssuerTest is Test {
             fee: fees
         });
         bytes32 orderId = bridge.getOrderIdFromLimitOrder(order, salt);
+        assertEq(bridge.getOrderId(orderBridgeData, salt), orderId);
 
         if (sell) {
             token.mint(user, assetTokenQuantity);

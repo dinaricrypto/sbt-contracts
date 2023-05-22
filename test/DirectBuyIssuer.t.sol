@@ -156,8 +156,9 @@ contract DirectBuyIssuerTest is Test {
             tif: IOrderBridge.TIF.GTC,
             fee: fees
         });
-
         bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
+        assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
+
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.increaseAllowance(address(issuer), quantityIn);
