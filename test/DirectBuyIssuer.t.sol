@@ -46,8 +46,7 @@ contract DirectBuyIssuerTest is Test {
         paymentToken = new MockERC20("Money", "$", 18);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new FlatOrderFees();
-        orderFees.setFee(0.1 ether);
+        orderFees = new FlatOrderFees(address(this), 0.005 ether);
 
         DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
         issuer = DirectBuyIssuer(
