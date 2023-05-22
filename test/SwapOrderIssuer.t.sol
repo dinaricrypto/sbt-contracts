@@ -133,6 +133,33 @@ contract SwapOrderIssuerTest is Test {
         assertEq(issuer.ordersPaused(), pause);
     }
 
+    function testRequestOrderGasUsage(bool sell, uint128 quantityIn) public {
+        vm.assume(quantityIn > 0);
+
+        SwapOrderIssuer.SwapOrder memory order = SwapOrderIssuer.SwapOrder({
+            recipient: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            sell: sell,
+            quantityIn: quantityIn
+        });
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
+        vm.assume(fees < quantityIn);
+
+        if (sell) {
+            token.mint(user, quantityIn);
+            vm.prank(user);
+            token.increaseAllowance(address(issuer), quantityIn);
+        } else {
+            paymentToken.mint(user, quantityIn);
+            vm.prank(user);
+            paymentToken.increaseAllowance(address(issuer), quantityIn);
+        }
+
+        vm.prank(user);
+        issuer.requestOrder(order, salt);
+    }
+
     function testRequestOrder(bool sell, uint128 quantityIn) public {
         SwapOrderIssuer.SwapOrder memory order = SwapOrderIssuer.SwapOrder({
             recipient: user,
