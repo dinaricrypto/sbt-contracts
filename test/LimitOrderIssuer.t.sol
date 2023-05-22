@@ -47,7 +47,7 @@ contract LimitOrderIssuerTest is Test {
         assetTokenSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
         orderFees = new FlatOrderFees(address(this), 0.005 ether);
-    
+
         LimitOrderIssuer bridgeImpl = new LimitOrderIssuer();
         bridge = LimitOrderIssuer(
             address(
