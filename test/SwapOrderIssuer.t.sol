@@ -211,7 +211,7 @@ contract SwapOrderIssuerTest is Test {
             vm.prank(user);
             issuer.requestOrder(order, salt);
             assertTrue(issuer.isOrderActive(orderId));
-            assertEq(issuer.getUnspentAmount(orderId), quantityIn - fees);
+            assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
             assertEq(issuer.numOpenOrders(), 1);
         }
     }
@@ -283,7 +283,7 @@ contract SwapOrderIssuerTest is Test {
         assertEq(paymentToken.nonces(user), 1);
         assertEq(paymentToken.allowance(user, address(issuer)), 0);
         assertTrue(issuer.isOrderActive(orderId));
-        assertEq(issuer.getUnspentAmount(orderId), dummyOrder.quantityIn - dummyOrderFees);
+        assertEq(issuer.getRemainingOrder(orderId), dummyOrder.quantityIn - dummyOrderFees);
         assertEq(issuer.numOpenOrders(), 1);
     }
 
@@ -327,7 +327,7 @@ contract SwapOrderIssuerTest is Test {
             emit OrderFill(orderId, user, fillAmount, receivedAmount);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-            assertEq(issuer.getUnspentAmount(orderId), orderAmount - fees - fillAmount);
+            assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(orderId), 0);

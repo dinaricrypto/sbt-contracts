@@ -189,7 +189,7 @@ contract LimitOrderIssuerTest is Test {
             vm.prank(user);
             bridge.requestOrder(order, salt);
             assertTrue(bridge.isOrderActive(orderId));
-            assertEq(bridge.getUnfilledAmount(orderId), assetTokenQuantity);
+            assertEq(bridge.getRemainingOrder(orderId), assetTokenQuantity);
             assertEq(bridge.numOpenOrders(), 1);
             if (sell) {
                 assertEq(bridge.getPaymentEscrow(orderId), 0);
@@ -298,7 +298,7 @@ contract LimitOrderIssuerTest is Test {
         vm.prank(user);
         bridge.requestOrderWithPermit(order, salt, permit.value, permit.deadline, v, r, s);
         assertTrue(bridge.isOrderActive(orderId));
-        assertEq(bridge.getUnfilledAmount(orderId), order.assetTokenQuantity);
+        assertEq(bridge.getRemainingOrder(orderId), order.assetTokenQuantity);
         assertEq(bridge.numOpenOrders(), 1);
         if (sell) {
             assertEq(token.nonces(user), 1);
@@ -356,7 +356,7 @@ contract LimitOrderIssuerTest is Test {
             emit OrderFill(orderId, user, fillAmount, 0);
             vm.prank(bridgeOperator);
             bridge.fillOrder(order, salt, fillAmount, 10);
-            assertEq(bridge.getUnfilledAmount(orderId), orderAmount - fillAmount);
+            assertEq(bridge.getRemainingOrder(orderId), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(bridge.numOpenOrders(), 0);
             }
