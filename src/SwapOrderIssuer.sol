@@ -31,6 +31,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     struct OrderState {
         uint256 remainingOrder;
         uint256 remainingFees;
+        uint256 totalReceived;
     }
 
     error ZeroValue();
@@ -132,6 +133,10 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         return _orders[id].remainingOrder;
     }
 
+    function getTotalReceived(bytes32 id) external view returns (uint256) {
+        return _orders[id].totalReceived;
+    }
+
     function getFeesForOrder(address assetToken, bool sell, uint256 amount) public view returns (uint256) {
         return address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, sell, amount);
     }
@@ -182,6 +187,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
             emit OrderFulfilled(orderId, order.recipient);
         } else {
             _orders[orderId].remainingOrder = remainingUnspent;
+            _orders[orderId].totalReceived = orderState.totalReceived + receivedAmount;
             if (orderState.remainingFees > 0) {
                 collection = PrbMath.mulDiv(orderState.remainingFees, spendAmount, orderState.remainingOrder);
                 _orders[orderId].remainingFees = orderState.remainingFees - collection;
@@ -244,7 +250,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
         uint256 orderAmount = order.quantityIn - collection;
-        _orders[orderId] = OrderState({remainingOrder: orderAmount, remainingFees: collection});
+        _orders[orderId] = OrderState({remainingOrder: orderAmount, remainingFees: collection, totalReceived: 0});
         numOpenOrders++;
         Order memory bridgeOrderData = Order({
             recipient: order.recipient,

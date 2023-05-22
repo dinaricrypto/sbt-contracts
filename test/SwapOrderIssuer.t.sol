@@ -330,6 +330,9 @@ contract SwapOrderIssuerTest is Test {
             assertEq(issuer.getUnspentAmount(orderId), orderAmount - fees - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
+                assertEq(issuer.getTotalReceived(orderId), 0);
+            } else {
+                assertEq(issuer.getTotalReceived(orderId), receivedAmount);
             }
         }
     }
