@@ -11,11 +11,15 @@ contract FlatOrderFeesTest is Test {
     FlatOrderFees orderFees;
 
     function setUp() public {
-        orderFees = new FlatOrderFees();
+        orderFees = new FlatOrderFees(address(this), 0.005 ether);
     }
 
     function testInit(address token, bool sell, uint64 value) public {
-        assertEq(orderFees.getFees(token, sell, value), 0);
+        if (value == 0) {
+            assertEq(orderFees.getFees(token, sell, value), 0);
+        } else {
+            assertEq(orderFees.getFees(token, sell, value), PrbMath.mulDiv18(value, 0.005 ether));
+        }
     }
 
     function testSetFee(uint64 fee) public {

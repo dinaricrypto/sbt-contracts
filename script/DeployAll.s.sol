@@ -8,12 +8,15 @@ import "../src/BridgedTokenFactory.sol";
 import "../src/FlatOrderFees.sol";
 import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
+import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
 import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerPrivateKey);
         address treasuryAddress = vm.envAddress("BRIDGE_TREASURY");
+
         vm.startBroadcast(deployerPrivateKey);
 
         new Messager();
@@ -22,13 +25,16 @@ contract DeployAllScript is Script {
 
         new BridgedTokenFactory();
 
-        IOrderFees orderFees = new FlatOrderFees();
+        IOrderFees orderFees = new FlatOrderFees(deployer, 0.005 ether);
 
         SwapOrderIssuer issuerImpl = new SwapOrderIssuer();
-        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(SwapOrderIssuer.initialize, (vm.addr(deployerPrivateKey), treasuryAddress, orderFees)));
+        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(SwapOrderIssuer.initialize, (deployer, treasuryAddress, orderFees)));
 
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
-        new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(DirectBuyIssuer.initialize, (vm.addr(deployerPrivateKey), treasuryAddress, orderFees)));
+        new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(DirectBuyIssuer.initialize, (deployer, treasuryAddress, orderFees)));
+
+        LimitOrderIssuer limitIssuer = new LimitOrderIssuer();
+        new ERC1967Proxy(address(limitIssuer), abi.encodeCall(LimitOrderIssuer.initialize, (deployer, treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
     }

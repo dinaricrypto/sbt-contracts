@@ -16,8 +16,10 @@ contract FlatOrderFees is Ownable, IOrderFees {
 
     uint64 public fee;
 
-    constructor() {
-        _initializeOwner(msg.sender);
+    constructor(address owner, uint64 _fee) {
+        _initializeOwner(owner);
+
+        fee = _fee;
     }
 
     function setFee(uint64 _fee) external onlyOwner {
