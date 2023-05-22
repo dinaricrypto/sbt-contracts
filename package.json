@@ -21,6 +21,7 @@
     "deploy:tokenlist:testnet": "./script/deploytokenlist-testnet.sh",
     "deploy:mockpayment:testnet": "./script/deploy-mockpayment-testnet.sh",
     "addtokens:testnet": "./script/addtokens-testnet.sh",
+    "replacefees:testnet": "./script/replacefees-testnet.sh",
     "dummyorder:testnet": "./script/dummyorder-testnet.sh",
     "mint:testnet": "./script/mint-testnet.sh",
     "errorcodes": "forge script script/Errors.s.sol:ErrorsScript -vvvv",
