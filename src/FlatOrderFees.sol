@@ -31,7 +31,7 @@ contract FlatOrderFees is Ownable, IOrderFees {
 
     function getFees(address, bool, uint256 value) external view returns (uint256) {
         uint64 _fee = fee;
-        if (_fee == 0) {
+        if (_fee == 0 || value == 0) {
             return 0;
         } else {
             return PrbMath.mulDiv18(value, _fee);

@@ -22,7 +22,7 @@ contract FlatOrderFeesTest is Test {
         }
     }
 
-    function testSetFee(uint64 fee) public {
+    function testSetFee(uint64 fee, address token, bool sell, uint64 value) public {
         if (fee > 1 ether) {
             vm.expectRevert(FlatOrderFees.FeeTooLarge.selector);
             orderFees.setFee(fee);
@@ -31,6 +31,11 @@ contract FlatOrderFeesTest is Test {
             emit FeeSet(fee);
             orderFees.setFee(fee);
             assertEq(orderFees.fee(), fee);
+            if (fee == 0 || value == 0) {
+                assertEq(orderFees.getFees(token, sell, value), 0);
+            } else {
+                assertEq(orderFees.getFees(token, sell, value), PrbMath.mulDiv18(value, fee));
+            }
         }
     }
 }
