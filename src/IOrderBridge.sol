@@ -40,5 +40,7 @@ interface IOrderBridge {
 
     function isOrderActive(bytes32 id) external view returns (bool);
 
+    function getRemainingOrder(bytes32 id) external view returns (uint256);
+
     function numOpenOrders() external view returns (uint256);
 }
