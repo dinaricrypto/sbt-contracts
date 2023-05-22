@@ -110,17 +110,18 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         );
     }
 
-    function getOrderId(Order calldata order, bytes32 salt) public pure returns (bytes32) {
-        return getOrderIdFromSwapOrder(
-            SwapOrder({
-                recipient: order.recipient,
-                assetToken: order.assetToken,
-                paymentToken: order.paymentToken,
-                sell: order.sell,
-                quantityIn: (order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity) + order.fee
-            }),
-            salt
-        );
+    function getOrderId(Order calldata order, bytes32 salt) external pure returns (bytes32) {
+        return getOrderIdFromSwapOrder(getSwapOrderForOrder(order), salt);
+    }
+
+    function getSwapOrderForOrder(Order calldata order) public pure returns (SwapOrder memory) {
+        return SwapOrder({
+            recipient: order.recipient,
+            assetToken: order.assetToken,
+            paymentToken: order.paymentToken,
+            sell: order.sell,
+            quantityIn: (order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity) + order.fee
+        });
     }
 
     function isOrderActive(bytes32 id) external view returns (bool) {

@@ -106,16 +106,17 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         );
     }
 
-    function getOrderId(Order calldata order, bytes32 salt) public pure returns (bytes32) {
-        return getOrderIdFromBuyOrder(
-            BuyOrder({
-                recipient: order.recipient,
-                assetToken: order.assetToken,
-                paymentToken: order.paymentToken,
-                quantityIn: order.paymentTokenQuantity + order.fee
-            }),
-            salt
-        );
+    function getOrderId(Order calldata order, bytes32 salt) external pure returns (bytes32) {
+        return getOrderIdFromBuyOrder(getBuyOrderFromOrder(order), salt);
+    }
+
+    function getBuyOrderFromOrder(Order calldata order) public pure returns (BuyOrder memory) {
+        return BuyOrder({
+            recipient: order.recipient,
+            assetToken: order.assetToken,
+            paymentToken: order.paymentToken,
+            quantityIn: order.paymentTokenQuantity + order.fee
+        });
     }
 
     function isOrderActive(bytes32 id) external view returns (bool) {

@@ -113,18 +113,19 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         );
     }
 
-    function getOrderId(Order calldata order, bytes32 salt) public pure returns (bytes32) {
-        return getOrderIdFromLimitOrder(
-            LimitOrder({
-                recipient: order.recipient,
-                assetToken: order.assetToken,
-                paymentToken: order.paymentToken,
-                sell: order.sell,
-                assetTokenQuantity: order.assetTokenQuantity,
-                price: order.price
-            }),
-            salt
-        );
+    function getOrderId(Order calldata order, bytes32 salt) external pure returns (bytes32) {
+        return getOrderIdFromLimitOrder(getLimitOrderForOrder(order), salt);
+    }
+
+    function getLimitOrderForOrder(Order calldata order) public pure returns (LimitOrder memory) {
+        return LimitOrder({
+            recipient: order.recipient,
+            assetToken: order.assetToken,
+            paymentToken: order.paymentToken,
+            sell: order.sell,
+            assetTokenQuantity: order.assetTokenQuantity,
+            price: order.price
+        });
     }
 
     function isOrderActive(bytes32 id) external view returns (bool) {
