@@ -128,7 +128,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         return _orders[id].remainingOrder > 0;
     }
 
-    function getUnspentAmount(bytes32 id) external view returns (uint256) {
+    function getRemainingOrder(bytes32 id) external view returns (uint256) {
         return _orders[id].remainingOrder;
     }
 
