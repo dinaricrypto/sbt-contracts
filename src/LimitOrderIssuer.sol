@@ -132,7 +132,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         return _orders[id].unfilled > 0;
     }
 
-    function getUnfilledAmount(bytes32 id) external view returns (uint256) {
+    function getRemainingOrder(bytes32 id) external view returns (uint256) {
         return _orders[id].unfilled;
     }
 
