@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.18;
 
+// solady ERC20 allows EIP-2612 domain separator with `name` changes
 import "solady/tokens/ERC20.sol";
-import "solady/auth/OwnableRoles.sol";
+import "openzeppelin/access/Ownable2Step.sol";
 import "./ITransferRestrictor.sol";
 
 /// @notice ERC20 with minter and blacklist.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
-contract BridgedERC20 is ERC20, OwnableRoles {
-    // TODO: compare with openeden vault
+contract BridgedERC20 is ERC20, Ownable2Step {
+    error Unauthorized();
+
+    event MinterSet(address indexed account, bool enabled);
     event NameSet(string name);
     event SymbolSet(string symbol);
     event DisclosuresSet(string disclosures);
@@ -16,6 +19,8 @@ contract BridgedERC20 is ERC20, OwnableRoles {
 
     string internal _name;
     string internal _symbol;
+
+    mapping(address => bool) public isMinter;
 
     /// @dev URI to information
     string public disclosures;
@@ -28,12 +33,17 @@ contract BridgedERC20 is ERC20, OwnableRoles {
         string memory disclosures_,
         ITransferRestrictor transferRestrictor_
     ) {
-        _initializeOwner(owner);
+        _transferOwnership(owner);
 
         _name = name_;
         _symbol = symbol_;
         disclosures = disclosures_;
         transferRestrictor = transferRestrictor_;
+    }
+
+    modifier onlyMinter() {
+        if (!isMinter[msg.sender]) revert Unauthorized();
+        _;
     }
 
     function name() public view virtual override returns (string memory) {
@@ -44,21 +54,22 @@ contract BridgedERC20 is ERC20, OwnableRoles {
         return _symbol;
     }
 
-    function minterRole() external pure returns (uint256) {
-        return _ROLE_1;
+    function setMinter(address minter, bool enabled) external onlyOwner {
+        isMinter[minter] = enabled;
+        emit MinterSet(minter, enabled);
     }
 
-    function setName(string calldata name_) external {
+    function setName(string calldata name_) external onlyOwner {
         _name = name_;
         emit NameSet(name_);
     }
 
-    function setSymbol(string calldata symbol_) external {
+    function setSymbol(string calldata symbol_) external onlyOwner {
         _symbol = symbol_;
         emit SymbolSet(symbol_);
     }
 
-    function setDisclosures(string calldata disclosures_) external {
+    function setDisclosures(string calldata disclosures_) external onlyOwner {
         disclosures = disclosures_;
         emit DisclosuresSet(disclosures_);
     }
@@ -68,11 +79,11 @@ contract BridgedERC20 is ERC20, OwnableRoles {
         emit TransferRestrictorSet(restrictor);
     }
 
-    function mint(address to, uint256 value) public virtual onlyRoles(_ROLE_1) {
+    function mint(address to, uint256 value) public virtual onlyMinter {
         _mint(to, value);
     }
 
-    function burn(uint256 value) public virtual onlyRoles(_ROLE_1) {
+    function burn(uint256 value) public virtual onlyMinter {
         _burn(msg.sender, value);
     }
 

@@ -44,14 +44,13 @@ contract AddTokensScript is Script {
 
         // assumes all issuers have the same role
         uint256 assetTokenRole = swapIssuer.ASSETTOKEN_ROLE();
-        uint256 minterRole = BridgedERC20(assetTokens[0]).minterRole();
         for (uint256 i = 0; i < assetTokens.length; i++) {
             swapIssuer.grantRoles(assetTokens[i], assetTokenRole);
             directIssuer.grantRoles(assetTokens[i], assetTokenRole);
             limitIssuer.grantRoles(assetTokens[i], assetTokenRole);
-            BridgedERC20(assetTokens[i]).grantRoles(address(swapIssuer), minterRole);
-            BridgedERC20(assetTokens[i]).grantRoles(address(directIssuer), minterRole);
-            BridgedERC20(assetTokens[i]).grantRoles(address(limitIssuer), minterRole);
+            BridgedERC20(assetTokens[i]).setMinter(address(swapIssuer), true);
+            BridgedERC20(assetTokens[i]).setMinter(address(directIssuer), true);
+            BridgedERC20(assetTokens[i]).setMinter(address(limitIssuer), true);
         }
 
         vm.stopBroadcast();

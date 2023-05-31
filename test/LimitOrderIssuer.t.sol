@@ -55,8 +55,8 @@ contract LimitOrderIssuerTest is Test {
             )
         );
 
-        token.grantRoles(address(this), token.minterRole());
-        token.grantRoles(address(bridge), token.minterRole());
+        token.setMinter(address(this), true);
+        token.setMinter(address(bridge), true);
 
         bridge.grantRoles(address(paymentToken), bridge.PAYMENTTOKEN_ROLE());
         bridge.grantRoles(address(token), bridge.ASSETTOKEN_ROLE());

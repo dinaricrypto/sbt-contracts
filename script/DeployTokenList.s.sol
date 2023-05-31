@@ -38,9 +38,9 @@ contract DeployTokenListScript is Script {
             BridgedERC20 token = new BridgedERC20(deployerAddress, names[i], symbols[i], "example.com", restrictor);
 
             // allow issuers to mint and burn
-            token.grantRoles(address(swapIssuer), token.minterRole());
-            token.grantRoles(address(directIssuer), token.minterRole());
-            token.grantRoles(address(limitIssuer), token.minterRole());
+            token.setMinter(address(swapIssuer), true);
+            token.setMinter(address(directIssuer), true);
+            token.setMinter(address(limitIssuer), true);
 
             // allow orders for token on issuers
             // previously: swapIssuer.setTokenEnabled(address(token), true);

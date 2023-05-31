@@ -54,8 +54,8 @@ contract SwapOrderIssuerTest is Test {
             )
         );
 
-        token.grantRoles(address(this), token.minterRole());
-        token.grantRoles(address(issuer), token.minterRole());
+        token.setMinter(address(this), true);
+        token.setMinter(address(issuer), true);
 
         issuer.grantRoles(address(paymentToken), issuer.PAYMENTTOKEN_ROLE());
         issuer.grantRoles(address(token), issuer.ASSETTOKEN_ROLE());

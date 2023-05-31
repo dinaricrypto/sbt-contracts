@@ -2,12 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "../src/Messager.sol";
-import "../src/TransferRestrictor.sol";
-import "../src/BridgedTokenFactory.sol";
-import "../src/FlatOrderFees.sol";
 import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
-import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract ErrorsScript is Script {
     event ErrorCode(bytes4 indexed code, string name);

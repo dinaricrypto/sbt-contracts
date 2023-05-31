@@ -2,10 +2,10 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "../src/Messager.sol";
-import "../src/TransferRestrictor.sol";
-import "../src/BridgedTokenFactory.sol";
-import "../src/FlatOrderFees.sol";
+import {Messager} from "../src/Messager.sol";
+import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import {BridgedTokenFactory} from "../src/BridgedTokenFactory.sol";
+import {FlatOrderFees, IOrderFees} from "../src/FlatOrderFees.sol";
 import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
 import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
