@@ -411,7 +411,7 @@ contract SwapOrderIssuerTest is Test {
     function testOrderResubmission() public {
         paymentToken.mint(user, dummyOrder.quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), 2*dummyOrder.quantityIn);
+        paymentToken.increaseAllowance(address(issuer), 2 * dummyOrder.quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
@@ -421,8 +421,8 @@ contract SwapOrderIssuerTest is Test {
 
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
-        
+
         vm.prank(operator);
-        issuer.cancelOrder(dummyOrder, salt, "");        
+        issuer.cancelOrder(dummyOrder, salt, "");
     }
 }
