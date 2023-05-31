@@ -407,4 +407,22 @@ contract SwapOrderIssuerTest is Test {
         vm.prank(operator);
         issuer.cancelOrder(dummyOrder, salt, "msg");
     }
+
+    function testOrderResubmission() public {
+        paymentToken.mint(user, dummyOrder.quantityIn);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), 2*dummyOrder.quantityIn);
+
+        vm.prank(user);
+        issuer.requestOrder(dummyOrder, salt);
+
+        vm.prank(operator);
+        issuer.cancelOrder(dummyOrder, salt, "");
+
+        vm.prank(user);
+        issuer.requestOrder(dummyOrder, salt);
+        
+        vm.prank(operator);
+        issuer.cancelOrder(dummyOrder, salt, "");        
+    }
 }
