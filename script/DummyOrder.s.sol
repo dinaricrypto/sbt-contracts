@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "../src/SwapOrderIssuer.sol";
+import "../src/issuer/SwapOrderIssuer.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
 
 contract DummyOrderScript is Script {

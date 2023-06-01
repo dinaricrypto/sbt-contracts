@@ -2,13 +2,13 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "solady/auth/Ownable.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
-import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
-import "../src/LimitOrderIssuer.sol";
+import "../src/issuer/LimitOrderIssuer.sol";
 import {FlatOrderFees} from "../src/FlatOrderFees.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract LimitOrderIssuerTest is Test {
     event TreasurySet(address indexed treasury);
@@ -51,16 +51,16 @@ contract LimitOrderIssuerTest is Test {
         LimitOrderIssuer bridgeImpl = new LimitOrderIssuer();
         bridge = LimitOrderIssuer(
             address(
-                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(LimitOrderIssuer.initialize, (address(this), treasury, orderFees)))
+                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(bridgeImpl.initialize, (address(this), treasury, orderFees)))
             )
         );
 
         token.setMinter(address(this), true);
         token.setMinter(address(bridge), true);
 
-        bridge.grantRoles(address(paymentToken), bridge.PAYMENTTOKEN_ROLE());
-        bridge.grantRoles(address(token), bridge.ASSETTOKEN_ROLE());
-        bridge.grantRoles(bridgeOperator, bridge.OPERATOR_ROLE());
+        bridge.grantRole(bridge.PAYMENTTOKEN_ROLE(), address(paymentToken));
+        bridge.grantRole(bridge.ASSETTOKEN_ROLE(), address(token));
+        bridge.grantRole(bridge.OPERATOR_ROLE(), bridgeOperator);
 
         dummyOrder = LimitOrderIssuer.LimitOrder({
             recipient: user,
@@ -70,7 +70,7 @@ contract LimitOrderIssuerTest is Test {
             assetTokenQuantity: 100,
             price: 10 ether
         });
-        (uint256 fees,) = bridge.getFeesForOrder(
+        (uint256 fees,) = bridge.getFeesForLimitOrder(
             dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price
         );
         dummyOrderBridgeData = IOrderBridge.Order({
@@ -91,29 +91,33 @@ contract LimitOrderIssuerTest is Test {
         vm.assume(owner != address(this));
 
         LimitOrderIssuer bridgeImpl = new LimitOrderIssuer();
-        if (newTreasury == address(0)) {
-            vm.expectRevert(LimitOrderIssuer.ZeroAddress.selector);
+        if (owner == address(0)) {
+            vm.expectRevert("AccessControl: 0 default admin");
 
-            new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(LimitOrderIssuer.initialize, (owner, newTreasury, orderFees)));
-            return;
+            new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(bridgeImpl.initialize, (owner, newTreasury, orderFees)));
+        } else if (newTreasury == address(0)) {
+            vm.expectRevert(Issuer.ZeroAddress.selector);
+
+            new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(bridgeImpl.initialize, (owner, newTreasury, orderFees)));
+        } else {
+            LimitOrderIssuer newBridge = LimitOrderIssuer(
+                address(
+                    new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(bridgeImpl.initialize, (owner, newTreasury, orderFees)))
+                )
+            );
+            assertEq(newBridge.owner(), owner);
+
+            LimitOrderIssuer newImpl = new LimitOrderIssuer();
+            vm.expectRevert(bytes.concat("AccessControl: account ", bytes(Strings.toHexString(address(this))), " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"));
+            newBridge.upgradeToAndCall(
+                address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
+            );
         }
-        LimitOrderIssuer newBridge = LimitOrderIssuer(
-            address(
-                new ERC1967Proxy(address(bridgeImpl), abi.encodeCall(LimitOrderIssuer.initialize, (owner, newTreasury, orderFees)))
-            )
-        );
-        assertEq(newBridge.owner(), owner);
-
-        LimitOrderIssuer newImpl = new LimitOrderIssuer();
-        vm.expectRevert(Ownable.Unauthorized.selector);
-        newBridge.upgradeToAndCall(
-            address(newImpl), abi.encodeCall(LimitOrderIssuer.initialize, (owner, newTreasury, orderFees))
-        );
     }
 
     function testSetTreasury(address account) public {
         if (account == address(0)) {
-            vm.expectRevert(LimitOrderIssuer.ZeroAddress.selector);
+            vm.expectRevert(Issuer.ZeroAddress.selector);
             bridge.setTreasury(account);
         } else {
             vm.expectEmit(true, true, true, true);
@@ -148,7 +152,7 @@ contract LimitOrderIssuerTest is Test {
         });
 
         (uint256 fees, uint256 value) =
-            bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
+            bridge.getFeesForLimitOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         uint256 totalPayment = fees + value;
         IOrderBridge.Order memory orderBridgeData = IOrderBridge.Order({
             recipient: user,
@@ -208,23 +212,23 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
-        vm.assume(!bridge.hasAnyRole(tryPaymentToken, bridge.PAYMENTTOKEN_ROLE()));
+        vm.assume(!bridge.hasRole(bridge.PAYMENTTOKEN_ROLE(), tryPaymentToken));
 
         LimitOrderIssuer.LimitOrder memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
-        vm.expectRevert(LimitOrderIssuer.UnsupportedToken.selector);
+        vm.expectRevert(bytes(string.concat("AccessControl: account ", Strings.toHexString(tryPaymentToken), " is missing role ", Strings.toHexString(uint256(bridge.PAYMENTTOKEN_ROLE()), 32))));
         vm.prank(user);
         bridge.requestOrder(order, salt);
     }
 
     function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
-        vm.assume(!bridge.hasAnyRole(tryAssetToken, bridge.ASSETTOKEN_ROLE()));
+        vm.assume(!bridge.hasRole(bridge.ASSETTOKEN_ROLE(), tryAssetToken));
 
         LimitOrderIssuer.LimitOrder memory order = dummyOrder;
         order.assetToken = tryAssetToken;
 
-        vm.expectRevert(LimitOrderIssuer.UnsupportedToken.selector);
+        vm.expectRevert(bytes(string.concat("AccessControl: account ", Strings.toHexString(tryAssetToken), " is missing role ", Strings.toHexString(uint256(bridge.ASSETTOKEN_ROLE()), 32))));
         vm.prank(user);
         bridge.requestOrder(order, salt);
     }
@@ -248,7 +252,7 @@ contract LimitOrderIssuerTest is Test {
         order.sell = sell;
         bytes32 orderId = bridge.getOrderIdFromLimitOrder(order, salt);
         (uint256 fees, uint256 value) =
-            bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
+            bridge.getFeesForLimitOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         uint256 totalPayment = fees + value;
 
         SigUtils.Permit memory permit;
@@ -319,7 +323,7 @@ contract LimitOrderIssuerTest is Test {
         order.assetTokenQuantity = orderAmount;
         order.price = price;
         (uint256 fees, uint256 value) =
-            bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
+            bridge.getFeesForLimitOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         uint256 totalPayment = fees + value;
         vm.assume(sell || totalPayment > 0);
 
@@ -370,7 +374,7 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestCancel() public {
-        (uint256 fees, uint256 value) = bridge.getFeesForOrder(
+        (uint256 fees, uint256 value) = bridge.getFeesForLimitOrder(
             dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price
         );
         uint256 totalPayment = fees + value;
@@ -389,7 +393,7 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestCancelNotRecipientReverts() public {
-        (uint256 fees, uint256 value) = bridge.getFeesForOrder(
+        (uint256 fees, uint256 value) = bridge.getFeesForLimitOrder(
             dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price
         );
         uint256 totalPayment = fees + value;
@@ -419,7 +423,7 @@ contract LimitOrderIssuerTest is Test {
         order.assetTokenQuantity = orderAmount;
 
         (uint256 fees, uint256 value) =
-            bridge.getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
+            bridge.getFeesForLimitOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);

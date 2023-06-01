@@ -4,10 +4,9 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
-import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
-import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
-import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
+import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
+import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 
 contract DeployTokenListScript is Script {
     function run() external {
@@ -43,10 +42,9 @@ contract DeployTokenListScript is Script {
             token.setMinter(address(limitIssuer), true);
 
             // allow orders for token on issuers
-            // previously: swapIssuer.setTokenEnabled(address(token), true);
-            swapIssuer.grantRoles(address(token), swapIssuer.ASSETTOKEN_ROLE());
-            directIssuer.grantRoles(address(token), directIssuer.ASSETTOKEN_ROLE());
-            limitIssuer.grantRoles(address(token), limitIssuer.ASSETTOKEN_ROLE());
+            swapIssuer.grantRole(swapIssuer.ASSETTOKEN_ROLE(), address(token));
+            directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), address(token));
+            limitIssuer.grantRole(limitIssuer.ASSETTOKEN_ROLE(), address(token));
         }
 
         vm.stopBroadcast();

@@ -6,10 +6,10 @@ import {Messager} from "../src/Messager.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {BridgedTokenFactory} from "../src/BridgedTokenFactory.sol";
 import {FlatOrderFees, IOrderFees} from "../src/FlatOrderFees.sol";
-import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
-import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
-import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
+import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
+import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
     function run() external {
@@ -28,13 +28,13 @@ contract DeployAllScript is Script {
         IOrderFees orderFees = new FlatOrderFees(deployer, 0.005 ether);
 
         SwapOrderIssuer issuerImpl = new SwapOrderIssuer();
-        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(SwapOrderIssuer.initialize, (deployer, treasuryAddress, orderFees)));
+        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (deployer, treasuryAddress, orderFees)));
 
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
-        new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(DirectBuyIssuer.initialize, (deployer, treasuryAddress, orderFees)));
+        new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasuryAddress, orderFees)));
 
         LimitOrderIssuer limitIssuer = new LimitOrderIssuer();
-        new ERC1967Proxy(address(limitIssuer), abi.encodeCall(LimitOrderIssuer.initialize, (deployer, treasuryAddress, orderFees)));
+        new ERC1967Proxy(address(limitIssuer), abi.encodeCall(limitIssuer.initialize, (deployer, treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
     }

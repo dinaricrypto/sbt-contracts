@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 // solady ERC20 allows EIP-2612 domain separator with `name` changes
 import "solady/tokens/ERC20.sol";
-import "openzeppelin/access/Ownable2Step.sol";
+import "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import "./ITransferRestrictor.sol";
 
 /// @notice ERC20 with minter and blacklist.

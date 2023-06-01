@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
-import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
+import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
+import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 
 contract AddOperatorsScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
@@ -22,11 +22,11 @@ contract AddOperatorsScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // assumes all issuers have the same role
-        uint256 operatorRole = swapIssuer.OPERATOR_ROLE();
+        bytes32 operatorRole = swapIssuer.OPERATOR_ROLE();
         for (uint256 i = 0; i < operators.length; i++) {
-            swapIssuer.grantRoles(operators[i], operatorRole);
-            directIssuer.grantRoles(operators[i], operatorRole);
-            limitIssuer.grantRoles(operators[i], operatorRole);
+            swapIssuer.grantRole(operatorRole, operators[i]);
+            directIssuer.grantRole(operatorRole, operators[i]);
+            limitIssuer.grantRole(operatorRole, operators[i]);
         }
 
         vm.stopBroadcast();
