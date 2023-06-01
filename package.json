@@ -14,6 +14,7 @@
     "pretty": "forge fmt",
     "build": "forge build",
     "test": "forge test -vvv",
+    "test:contract": "forge test -vvv --match-contract",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "snapshot": "forge snapshot",
     "keccak": "cast keccak",
