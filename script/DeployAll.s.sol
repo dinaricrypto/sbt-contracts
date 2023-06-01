@@ -21,7 +21,7 @@ contract DeployAllScript is Script {
 
         new Messager();
 
-        new TransferRestrictor();
+        new TransferRestrictor(deployer);
 
         new BridgedTokenFactory();
 

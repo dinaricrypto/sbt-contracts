@@ -104,7 +104,13 @@ contract DirectBuyIssuerTest is Test {
             assertEq(newIssuer.owner(), owner);
 
             DirectBuyIssuer newImpl = new DirectBuyIssuer();
-            vm.expectRevert(bytes.concat("AccessControl: account ", bytes(Strings.toHexString(address(this))), " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"));
+            vm.expectRevert(
+                bytes.concat(
+                    "AccessControl: account ",
+                    bytes(Strings.toHexString(address(this))),
+                    " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
+                )
+            );
             newIssuer.upgradeToAndCall(
                 address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
             );
@@ -199,7 +205,16 @@ contract DirectBuyIssuerTest is Test {
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
-        vm.expectRevert(bytes(string.concat("AccessControl: account ", Strings.toHexString(tryPaymentToken), " is missing role ", Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32))));
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(tryPaymentToken),
+                    " is missing role ",
+                    Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32)
+                )
+            )
+        );
         vm.prank(user);
         issuer.requestOrder(order, salt);
     }
@@ -210,7 +225,16 @@ contract DirectBuyIssuerTest is Test {
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.assetToken = tryAssetToken;
 
-        vm.expectRevert(bytes(string.concat("AccessControl: account ", Strings.toHexString(tryAssetToken), " is missing role ", Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32))));
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(tryAssetToken),
+                    " is missing role ",
+                    Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32)
+                )
+            )
+        );
         vm.prank(user);
         issuer.requestOrder(order, salt);
     }

@@ -108,7 +108,13 @@ contract LimitOrderIssuerTest is Test {
             assertEq(newBridge.owner(), owner);
 
             LimitOrderIssuer newImpl = new LimitOrderIssuer();
-            vm.expectRevert(bytes.concat("AccessControl: account ", bytes(Strings.toHexString(address(this))), " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"));
+            vm.expectRevert(
+                bytes.concat(
+                    "AccessControl: account ",
+                    bytes(Strings.toHexString(address(this))),
+                    " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
+                )
+            );
             newBridge.upgradeToAndCall(
                 address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
             );
@@ -217,7 +223,16 @@ contract LimitOrderIssuerTest is Test {
         LimitOrderIssuer.LimitOrder memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
-        vm.expectRevert(bytes(string.concat("AccessControl: account ", Strings.toHexString(tryPaymentToken), " is missing role ", Strings.toHexString(uint256(bridge.PAYMENTTOKEN_ROLE()), 32))));
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(tryPaymentToken),
+                    " is missing role ",
+                    Strings.toHexString(uint256(bridge.PAYMENTTOKEN_ROLE()), 32)
+                )
+            )
+        );
         vm.prank(user);
         bridge.requestOrder(order, salt);
     }
@@ -228,7 +243,16 @@ contract LimitOrderIssuerTest is Test {
         LimitOrderIssuer.LimitOrder memory order = dummyOrder;
         order.assetToken = tryAssetToken;
 
-        vm.expectRevert(bytes(string.concat("AccessControl: account ", Strings.toHexString(tryAssetToken), " is missing role ", Strings.toHexString(uint256(bridge.ASSETTOKEN_ROLE()), 32))));
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(tryAssetToken),
+                    " is missing role ",
+                    Strings.toHexString(uint256(bridge.ASSETTOKEN_ROLE()), 32)
+                )
+            )
+        );
         vm.prank(user);
         bridge.requestOrder(order, salt);
     }

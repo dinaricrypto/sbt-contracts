@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.18;
 
-import "solady/auth/Ownable.sol";
+import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import "./ITransferRestrictor.sol";
 
 // each address can have a single kyc location
@@ -11,7 +11,7 @@ import "./ITransferRestrictor.sol";
 /// @notice Enforces jurisdictional restrictions
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 /// @author Modified from OpenEden (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
-contract TransferRestrictor is ITransferRestrictor, Ownable {
+contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     error AccountBanned();
     error AccountRestricted();
 
@@ -22,8 +22,8 @@ contract TransferRestrictor is ITransferRestrictor, Ownable {
 
     mapping(address => User) userList;
 
-    constructor() {
-        _initializeOwner(msg.sender);
+    constructor(address owner) {
+        _transferOwnership(owner);
     }
 
     /*//////////////////////////////////////////////////////////////
