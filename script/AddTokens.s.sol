@@ -2,9 +2,9 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
-import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
+import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
+import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 
 contract AddTokensScript is Script {
@@ -35,23 +35,22 @@ contract AddTokensScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // assumes all issuers have the same role
-        uint256 paymentTokenRole = swapIssuer.PAYMENTTOKEN_ROLE();
+        bytes32 paymentTokenRole = swapIssuer.PAYMENTTOKEN_ROLE();
         for (uint256 i = 0; i < paymentTokens.length; i++) {
-            swapIssuer.grantRoles(paymentTokens[i], paymentTokenRole);
-            directIssuer.grantRoles(paymentTokens[i], paymentTokenRole);
-            limitIssuer.grantRoles(paymentTokens[i], paymentTokenRole);
+            swapIssuer.grantRole(paymentTokenRole, paymentTokens[i]);
+            directIssuer.grantRole(paymentTokenRole, paymentTokens[i]);
+            limitIssuer.grantRole(paymentTokenRole, paymentTokens[i]);
         }
 
         // assumes all issuers have the same role
-        uint256 assetTokenRole = swapIssuer.ASSETTOKEN_ROLE();
-        uint256 minterRole = BridgedERC20(assetTokens[0]).minterRole();
+        bytes32 assetTokenRole = swapIssuer.ASSETTOKEN_ROLE();
         for (uint256 i = 0; i < assetTokens.length; i++) {
-            swapIssuer.grantRoles(assetTokens[i], assetTokenRole);
-            directIssuer.grantRoles(assetTokens[i], assetTokenRole);
-            limitIssuer.grantRoles(assetTokens[i], assetTokenRole);
-            BridgedERC20(assetTokens[i]).grantRoles(address(swapIssuer), minterRole);
-            BridgedERC20(assetTokens[i]).grantRoles(address(directIssuer), minterRole);
-            BridgedERC20(assetTokens[i]).grantRoles(address(limitIssuer), minterRole);
+            swapIssuer.grantRole(assetTokenRole, assetTokens[i]);
+            directIssuer.grantRole(assetTokenRole, assetTokens[i]);
+            limitIssuer.grantRole(assetTokenRole, assetTokens[i]);
+            BridgedERC20(assetTokens[i]).setMinter(address(swapIssuer), true);
+            BridgedERC20(assetTokens[i]).setMinter(address(directIssuer), true);
+            BridgedERC20(assetTokens[i]).setMinter(address(limitIssuer), true);
         }
 
         vm.stopBroadcast();

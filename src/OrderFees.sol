@@ -3,7 +3,7 @@ pragma solidity ^0.8.18;
 
 import "solady/auth/Ownable.sol";
 import "prb-math/Common.sol" as PrbMath;
-import {IERC20Metadata} from "openzeppelin/token/ERC20/extensions/IERC20Metadata.sol";
+import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "./IOrderFees.sol";
 
 /// @notice Manages fee calculations for orders.

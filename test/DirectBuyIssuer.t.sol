@@ -2,13 +2,13 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "solady/auth/Ownable.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
-import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
-import "../src/DirectBuyIssuer.sol";
+import "../src/issuer/DirectBuyIssuer.sol";
 import {OrderFees} from "../src/OrderFees.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract DirectBuyIssuerTest is Test {
     event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
@@ -51,16 +51,16 @@ contract DirectBuyIssuerTest is Test {
         DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
         issuer = DirectBuyIssuer(
             address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(DirectBuyIssuer.initialize, (address(this), treasury, orderFees)))
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
             )
         );
 
-        token.grantRoles(address(this), token.minterRole());
-        token.grantRoles(address(issuer), token.minterRole());
+        token.setMinter(address(this), true);
+        token.setMinter(address(issuer), true);
 
-        issuer.grantRoles(address(paymentToken), issuer.PAYMENTTOKEN_ROLE());
-        issuer.grantRoles(address(token), issuer.ASSETTOKEN_ROLE());
-        issuer.grantRoles(operator, issuer.OPERATOR_ROLE());
+        issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
+        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
+        issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         dummyOrder = DirectBuyIssuer.BuyOrder({
             recipient: user,
@@ -68,7 +68,7 @@ contract DirectBuyIssuerTest is Test {
             paymentToken: address(paymentToken),
             quantityIn: 100 ether
         });
-        dummyOrderFees = issuer.getFeesForOrder(dummyOrder.assetToken, dummyOrder.quantityIn);
+        dummyOrderFees = issuer.getFeesForOrder(dummyOrder.assetToken, false, dummyOrder.quantityIn);
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
@@ -87,29 +87,39 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(owner != address(this));
 
         DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
-        if (newTreasury == address(0)) {
-            vm.expectRevert(DirectBuyIssuer.ZeroAddress.selector);
+        if (owner == address(0)) {
+            vm.expectRevert("AccessControl: 0 default admin");
 
-            new ERC1967Proxy(address(issuerImpl), abi.encodeCall(DirectBuyIssuer.initialize, (owner, newTreasury, orderFees)));
-            return;
+            new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
+        } else if (newTreasury == address(0)) {
+            vm.expectRevert(Issuer.ZeroAddress.selector);
+
+            new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
+        } else {
+            DirectBuyIssuer newIssuer = DirectBuyIssuer(
+                address(
+                    new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)))
+                )
+            );
+            assertEq(newIssuer.owner(), owner);
+
+            DirectBuyIssuer newImpl = new DirectBuyIssuer();
+            vm.expectRevert(
+                bytes.concat(
+                    "AccessControl: account ",
+                    bytes(Strings.toHexString(address(this))),
+                    " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
+                )
+            );
+            newIssuer.upgradeToAndCall(
+                address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
+            );
         }
-        DirectBuyIssuer newIssuer = DirectBuyIssuer(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(DirectBuyIssuer.initialize, (owner, newTreasury, orderFees)))
-            )
-        );
-        assertEq(newIssuer.owner(), owner);
-
-        DirectBuyIssuer newImpl = new DirectBuyIssuer();
-        vm.expectRevert(Ownable.Unauthorized.selector);
-        newIssuer.upgradeToAndCall(
-            address(newImpl), abi.encodeCall(DirectBuyIssuer.initialize, (owner, newTreasury, orderFees))
-        );
     }
 
     function testSetTreasury(address account) public {
         if (account == address(0)) {
-            vm.expectRevert(DirectBuyIssuer.ZeroAddress.selector);
+            vm.expectRevert(Issuer.ZeroAddress.selector);
             issuer.setTreasury(account);
         } else {
             vm.expectEmit(true, true, true, true);
@@ -142,7 +152,7 @@ contract DirectBuyIssuerTest is Test {
         });
         bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
 
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
         IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
             recipient: order.recipient,
             assetToken: order.assetToken,
@@ -190,23 +200,41 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
-        vm.assume(!issuer.hasAnyRole(tryPaymentToken, issuer.PAYMENTTOKEN_ROLE()));
+        vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
-        vm.expectRevert(DirectBuyIssuer.UnsupportedToken.selector);
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(tryPaymentToken),
+                    " is missing role ",
+                    Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32)
+                )
+            )
+        );
         vm.prank(user);
         issuer.requestOrder(order, salt);
     }
 
     function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
-        vm.assume(!issuer.hasAnyRole(tryAssetToken, issuer.ASSETTOKEN_ROLE()));
+        vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), tryAssetToken));
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.assetToken = tryAssetToken;
 
-        vm.expectRevert(DirectBuyIssuer.UnsupportedToken.selector);
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(tryAssetToken),
+                    " is missing role ",
+                    Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32)
+                )
+            )
+        );
         vm.prank(user);
         issuer.requestOrder(order, salt);
     }
@@ -257,7 +285,7 @@ contract DirectBuyIssuerTest is Test {
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
 
         bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
 
@@ -292,7 +320,7 @@ contract DirectBuyIssuerTest is Test {
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
         vm.assume(takeAmount <= orderAmount - fees);
 
         bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
@@ -375,7 +403,7 @@ contract DirectBuyIssuerTest is Test {
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
         vm.assume(fillAmount < orderAmount - fees);
 
         paymentToken.mint(user, orderAmount);

@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import "solady/auth/OwnableRoles.sol";
-import "solady/utils/SafeTransferLib.sol";
-import "solady/utils/Multicallable.sol";
-import "openzeppelin/proxy/utils/Initializable.sol";
-import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
-import "openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
+import {SafeERC20, IERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
-import "./IOrderBridge.sol";
-import "./IOrderFees.sol";
-import "./IMintBurn.sol";
+import "./Issuer.sol";
+import "../IMintBurn.sol";
 
 /// @notice Contract managing direct market buy swap orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/DirectBuyIssuer.sol)
-contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multicallable, IOrderBridge {
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
+contract DirectBuyIssuer is Issuer {
+    using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20Permit;
     // This contract handles the submission and fulfillment of orders
 
     // 1. Order submitted and payment escrowed
@@ -36,8 +32,6 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     }
 
     error ZeroValue();
-    error ZeroAddress();
-    error UnsupportedToken();
     error NotRecipient();
     error AmountTooLarge();
     error OrderNotFound();
@@ -46,58 +40,13 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     error OrderTooSmall();
 
     event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
-    event TreasurySet(address indexed treasury);
-    event OrderFeesSet(IOrderFees orderFees);
-    event OrdersPaused(bool paused);
 
-    // keccak256(OrderTicket(bytes32 salt, ...))
-    // ... address recipient,address assetToken,address paymentToken,uint256 quantityIn
-    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x11b95e3e1ebc2dccd6194e9fa1d87f6a22606ca32569221cb50bfd5e4da28c2d;
-
-    uint256 public constant ADMIN_ROLE = _ROLE_1;
-    uint256 public constant OPERATOR_ROLE = _ROLE_2;
-    uint256 public constant PAYMENTTOKEN_ROLE = _ROLE_3;
-    uint256 public constant ASSETTOKEN_ROLE = _ROLE_4;
-
-    address public treasury;
-
-    IOrderFees public orderFees;
+    bytes32 private constant ORDERTICKET_TYPE_HASH = keccak256(
+        "OrderTicket(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn"
+    );
 
     /// @dev unfilled orders
     mapping(bytes32 => OrderState) private _orders;
-
-    uint256 public numOpenOrders;
-
-    bool public ordersPaused;
-
-    function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
-        if (treasury_ == address(0)) revert ZeroAddress();
-
-        _initializeOwner(owner);
-        _grantRoles(owner, ADMIN_ROLE);
-
-        treasury = treasury_;
-        orderFees = orderFees_;
-    }
-
-    function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
-
-    function setTreasury(address account) external onlyRoles(ADMIN_ROLE) {
-        if (account == address(0)) revert ZeroAddress();
-
-        treasury = account;
-        emit TreasurySet(account);
-    }
-
-    function setOrderFees(IOrderFees fees) external onlyRoles(ADMIN_ROLE) {
-        orderFees = fees;
-        emit OrderFeesSet(fees);
-    }
-
-    function setOrdersPaused(bool pause) external onlyRoles(ADMIN_ROLE) {
-        ordersPaused = pause;
-        emit OrdersPaused(pause);
-    }
 
     function getOrderIdFromBuyOrder(BuyOrder memory order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
@@ -136,15 +85,11 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         return _orders[id].totalReceived;
     }
 
-    function getFeesForOrder(address assetToken, uint256 amount) public view returns (uint256) {
-        return address(orderFees) == address(0) ? 0 : orderFees.feesForOrder(assetToken, false, amount);
-    }
-
     function requestOrder(BuyOrder calldata order, bytes32 salt) public {
         _requestOrderAccounting(order, salt);
 
         // Escrow payment
-        SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), order.quantityIn);
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), order.quantityIn);
     }
 
     function requestOrderWithPermit(
@@ -159,11 +104,11 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         _requestOrderAccounting(order, salt);
 
         // Escrow payment
-        IERC20Permit(order.paymentToken).permit(msg.sender, address(this), value, deadline, v, r, s);
-        SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), order.quantityIn);
+        IERC20Permit(order.paymentToken).safePermit(msg.sender, address(this), value, deadline, v, r, s);
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), order.quantityIn);
     }
 
-    function takeOrder(BuyOrder calldata order, bytes32 salt, uint256 amount) external onlyRoles(OPERATOR_ROLE) {
+    function takeOrder(BuyOrder calldata order, bytes32 salt, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         if (amount == 0) revert ZeroValue();
         bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         OrderState memory orderState = _orders[orderId];
@@ -173,12 +118,12 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit OrderTaken(orderId, order.recipient, amount);
 
         // Claim payment
-        SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, amount);
+        IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
     }
 
     function fillOrder(BuyOrder calldata order, bytes32 salt, uint256 spendAmount, uint256 receivedAmount)
         external
-        onlyRoles(OPERATOR_ROLE)
+        onlyRole(OPERATOR_ROLE)
     {
         if (spendAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
@@ -208,7 +153,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
 
         // Collect fees from tokenIn
         if (collection > 0) {
-            SafeTransferLib.safeTransfer(order.paymentToken, treasury, collection);
+            IERC20(order.paymentToken).safeTransfer(treasury, collection);
         }
         // Mint asset
         IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
@@ -225,7 +170,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
 
     function cancelOrder(BuyOrder calldata order, bytes32 salt, string calldata reason)
         external
-        onlyRoles(OPERATOR_ROLE)
+        onlyRole(OPERATOR_ROLE)
     {
         bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         OrderState memory orderState = _orders[orderId];
@@ -236,18 +181,18 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
         emit OrderCancelled(orderId, order.recipient, reason);
 
         // Return Escrow
-        SafeTransferLib.safeTransfer(order.paymentToken, order.recipient, orderState.remainingOrder);
+        IERC20(order.paymentToken).safeTransfer(order.recipient, orderState.remainingEscrow);
     }
 
     function _requestOrderAccounting(BuyOrder calldata order, bytes32 salt) internal {
         if (ordersPaused) revert Paused();
         if (order.quantityIn == 0) revert ZeroValue();
-        if (!hasAnyRole(order.assetToken, ASSETTOKEN_ROLE)) revert UnsupportedToken();
-        if (!hasAnyRole(order.paymentToken, PAYMENTTOKEN_ROLE)) revert UnsupportedToken();
+        _checkRole(ASSETTOKEN_ROLE, order.assetToken);
+        _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
         bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-        uint256 collection = getFeesForOrder(order.assetToken, order.quantityIn);
+        uint256 collection = getFeesForOrder(order.assetToken, false, order.quantityIn);
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
         uint256 orderAmount = order.quantityIn - collection;
