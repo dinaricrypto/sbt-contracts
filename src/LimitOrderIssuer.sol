@@ -146,7 +146,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         returns (uint256, uint256)
     {
         uint256 orderValue = PrbMath.mulDiv18(assetTokenQuantity, price);
-        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, sell, orderValue);
+        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.feesForOrder(assetToken, sell, orderValue);
         return (collection, orderValue);
     }
 

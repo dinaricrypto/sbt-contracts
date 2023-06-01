@@ -8,7 +8,7 @@ import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/DirectBuyIssuer.sol";
-import {FlatOrderFees} from "../src/FlatOrderFees.sol";
+import {OrderFees} from "../src/OrderFees.sol";
 
 contract DirectBuyIssuerTest is Test {
     event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
@@ -22,7 +22,7 @@ contract DirectBuyIssuerTest is Test {
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
     BridgedERC20 token;
-    FlatOrderFees orderFees;
+    OrderFees orderFees;
     DirectBuyIssuer issuer;
     MockERC20 paymentToken;
     SigUtils sigUtils;
@@ -46,7 +46,7 @@ contract DirectBuyIssuerTest is Test {
         paymentToken = new MockERC20("Money", "$", 18);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new FlatOrderFees(address(this), 0.005 ether);
+        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
         issuer = DirectBuyIssuer(
@@ -66,7 +66,7 @@ contract DirectBuyIssuerTest is Test {
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: 100
+            quantityIn: 100 ether
         });
         dummyOrderFees = issuer.getFeesForOrder(dummyOrder.assetToken, dummyOrder.quantityIn);
         dummyOrderBridgeData = IOrderBridge.Order({

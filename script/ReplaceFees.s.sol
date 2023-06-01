@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {FlatOrderFees, IOrderFees} from "../src/FlatOrderFees.sol";
+import {OrderFees, IOrderFees} from "../src/OrderFees.sol";
 import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
 import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
@@ -20,7 +20,7 @@ contract ReplaceFeesScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        IOrderFees orderFees = new FlatOrderFees(deployer, 0.005 ether);
+        IOrderFees orderFees = new OrderFees(deployer, 1 ether, 0.005 ether);
 
         swapIssuer.setOrderFees(orderFees);
         directIssuer.setOrderFees(orderFees);

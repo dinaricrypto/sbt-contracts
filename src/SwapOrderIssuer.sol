@@ -138,7 +138,7 @@ contract SwapOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     }
 
     function getFeesForOrder(address assetToken, bool sell, uint256 amount) public view returns (uint256) {
-        return address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, sell, amount);
+        return address(orderFees) == address(0) ? 0 : orderFees.feesForOrder(assetToken, sell, amount);
     }
 
     function requestOrder(SwapOrder calldata order, bytes32 salt) public {

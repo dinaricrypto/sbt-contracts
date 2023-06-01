@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../src/Messager.sol";
 import "../src/TransferRestrictor.sol";
 import "../src/BridgedTokenFactory.sol";
-import "../src/FlatOrderFees.sol";
+import "../src/OrderFees.sol";
 import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
 import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
@@ -31,7 +31,7 @@ contract DeployAllScript is Script {
         new BridgedTokenFactory();
 
         // deploy fee manager
-        IOrderFees orderFees = new FlatOrderFees(deployer, 0.005 ether);
+        IOrderFees orderFees = new OrderFees(deployer, 1 ether, 0.005 ether);
 
         // deploy SwapOrderIssuer implementation
         SwapOrderIssuer issuerImpl = new SwapOrderIssuer();

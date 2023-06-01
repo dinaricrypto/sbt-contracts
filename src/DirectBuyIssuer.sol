@@ -137,7 +137,7 @@ contract DirectBuyIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multic
     }
 
     function getFeesForOrder(address assetToken, uint256 amount) public view returns (uint256) {
-        return address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, false, amount);
+        return address(orderFees) == address(0) ? 0 : orderFees.feesForOrder(assetToken, false, amount);
     }
 
     function requestOrder(BuyOrder calldata order, bytes32 salt) public {

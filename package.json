@@ -47,8 +47,6 @@
     "ethers": "^5.7.2"
   },
   "pre-commit": [
-    "pretty",
-    "snapshot",
-    "build:d2"
+    "pretty"
   ]
 }

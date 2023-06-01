@@ -8,7 +8,7 @@ import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/LimitOrderIssuer.sol";
-import {FlatOrderFees} from "../src/FlatOrderFees.sol";
+import {OrderFees} from "../src/OrderFees.sol";
 
 contract LimitOrderIssuerTest is Test {
     event TreasurySet(address indexed treasury);
@@ -21,7 +21,7 @@ contract LimitOrderIssuerTest is Test {
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
     BridgedERC20 token;
-    FlatOrderFees orderFees;
+    OrderFees orderFees;
     LimitOrderIssuer bridge;
     MockERC20 paymentToken;
     SigUtils paymentTokenSigUtils;
@@ -46,7 +46,7 @@ contract LimitOrderIssuerTest is Test {
         paymentTokenSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         assetTokenSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        orderFees = new FlatOrderFees(address(this), 0.005 ether);
+        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         LimitOrderIssuer bridgeImpl = new LimitOrderIssuer();
         bridge = LimitOrderIssuer(
