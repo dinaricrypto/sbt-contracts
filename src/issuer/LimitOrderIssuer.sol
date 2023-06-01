@@ -1,20 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.19;
 
-import "solady/auth/OwnableRoles.sol";
-import "solady/utils/SafeTransferLib.sol";
-import "solady/utils/Multicallable.sol";
-import "openzeppelin/proxy/utils/Initializable.sol";
-import "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
-import "openzeppelin/token/ERC20/extensions/IERC20Permit.sol";
+import {SafeERC20, IERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
-import "./IOrderBridge.sol";
-import "./IOrderFees.sol";
-import "./IMintBurn.sol";
+import "./Issuer.sol";
+import "../IMintBurn.sol";
 
 /// @notice Contract managing limit orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/LimitOrderIssuer.sol)
-contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multicallable, IOrderBridge {
+contract LimitOrderIssuer is Issuer {
+    using SafeERC20 for IERC20;
+    using SafeERC20 for IERC20Permit;
     // This contract handles the submission and fulfillment of orders
     // Takes fees from payment token
 
@@ -36,8 +32,6 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
     }
 
     error ZeroValue();
-    error ZeroAddress();
-    error UnsupportedToken();
     error NotRecipient();
     error OrderNotFound();
     error DuplicateOrder();
@@ -45,58 +39,12 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
     error FillTooLarge();
     error OrderTooSmall();
 
-    event TreasurySet(address indexed treasury);
-    event OrderFeesSet(IOrderFees orderFees);
-    event OrdersPaused(bool paused);
-
     // keccak256(OrderTicket(bytes32 salt, ...))
     // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 assetTokenQuantity,uint256 price
     bytes32 private constant ORDERTICKET_TYPE_HASH = 0x215ae685e66f9c7e06d95180afde8bab27cf88f0a82a87aa956e8e0ff57844a7;
 
-    uint256 public constant ADMIN_ROLE = _ROLE_1;
-    uint256 public constant OPERATOR_ROLE = _ROLE_2;
-    uint256 public constant PAYMENTTOKEN_ROLE = _ROLE_3;
-    uint256 public constant ASSETTOKEN_ROLE = _ROLE_4;
-
-    address public treasury;
-
-    IOrderFees public orderFees;
-
     /// @dev unfilled orders
     mapping(bytes32 => LimitOrderState) private _orders;
-
-    uint256 public numOpenOrders;
-
-    bool public ordersPaused;
-
-    function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
-        if (treasury_ == address(0)) revert ZeroAddress();
-
-        _initializeOwner(owner);
-        _grantRoles(owner, ADMIN_ROLE);
-
-        treasury = treasury_;
-        orderFees = orderFees_;
-    }
-
-    function _authorizeUpgrade(address newImplementation) internal virtual override onlyOwner {}
-
-    function setTreasury(address account) external onlyRoles(ADMIN_ROLE) {
-        if (account == address(0)) revert ZeroAddress();
-
-        treasury = account;
-        emit TreasurySet(account);
-    }
-
-    function setOrderFees(IOrderFees fees) external onlyRoles(ADMIN_ROLE) {
-        orderFees = fees;
-        emit OrderFeesSet(fees);
-    }
-
-    function setOrdersPaused(bool pause) external onlyRoles(ADMIN_ROLE) {
-        ordersPaused = pause;
-        emit OrdersPaused(pause);
-    }
 
     function getOrderIdFromLimitOrder(LimitOrder memory order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
@@ -140,13 +88,13 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         return _orders[id].paymentTokenEscrowed;
     }
 
-    function getFeesForOrder(address assetToken, bool sell, uint256 assetTokenQuantity, uint256 price)
+    function getFeesForLimitOrder(address assetToken, bool sell, uint256 assetTokenQuantity, uint256 price)
         public
         view
         returns (uint256, uint256)
     {
         uint256 orderValue = PrbMath.mulDiv18(assetTokenQuantity, price);
-        uint256 collection = address(orderFees) == address(0) ? 0 : orderFees.getFees(assetToken, sell, orderValue);
+        uint256 collection = getFeesForOrder(assetToken, sell, orderValue);
         return (collection, orderValue);
     }
 
@@ -161,9 +109,9 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
 
         // Escrow
         if (order.sell) {
-            SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.assetTokenQuantity);
+            IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
         } else {
-            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentTokenEscrowed);
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), paymentTokenEscrowed);
         }
     }
 
@@ -182,18 +130,18 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
 
         // Escrow
         if (order.sell) {
-            IERC20Permit(order.assetToken).permit(msg.sender, address(this), value, deadline, v, r, s);
-            SafeTransferLib.safeTransferFrom(order.assetToken, msg.sender, address(this), order.assetTokenQuantity);
+            IERC20Permit(order.assetToken).safePermit(msg.sender, address(this), value, deadline, v, r, s);
+            IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
         } else {
-            IERC20Permit(order.paymentToken).permit(msg.sender, address(this), value, deadline, v, r, s);
-            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, address(this), paymentTokenEscrowed);
+            IERC20Permit(order.paymentToken).safePermit(msg.sender, address(this), value, deadline, v, r, s);
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), paymentTokenEscrowed);
         }
     }
 
     // slither-disable-next-line cyclomatic-complexity
     function fillOrder(LimitOrder calldata order, bytes32 salt, uint256 fillAmount, uint256)
         external
-        onlyRoles(OPERATOR_ROLE)
+        onlyRole(OPERATOR_ROLE)
     {
         if (fillAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderIdFromLimitOrder(order, salt);
@@ -208,7 +156,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         uint256 remainingUnfilled = orderState.unfilled - fillAmount;
         if (order.sell) {
             // Get fees
-            (collection, proceedsToUser) = getFeesForOrder(order.assetToken, order.sell, fillAmount, order.price);
+            (collection, proceedsToUser) = getFeesForLimitOrder(order.assetToken, order.sell, fillAmount, order.price);
             if (collection > proceedsToUser) {
                 collection = proceedsToUser;
             }
@@ -241,19 +189,19 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         if (order.sell) {
             // Forward proceeds
             if (proceedsToUser > 0) {
-                SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, order.recipient, proceedsToUser);
+                IERC20(order.paymentToken).safeTransferFrom(msg.sender, order.recipient, proceedsToUser);
             }
             // Collect fees
-            SafeTransferLib.safeTransferFrom(order.paymentToken, msg.sender, treasury, collection);
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, treasury, collection);
             // Burn
             IMintBurn(order.assetToken).burn(fillAmount);
         } else {
             // Collect fees
             if (collection > 0) {
-                SafeTransferLib.safeTransfer(order.paymentToken, treasury, collection);
+                IERC20(order.paymentToken).safeTransfer(treasury, collection);
             }
             // Claim payment
-            SafeTransferLib.safeTransfer(order.paymentToken, msg.sender, paymentClaim);
+            IERC20(order.paymentToken).safeTransfer(msg.sender, paymentClaim);
             // Mint
             IMintBurn(order.assetToken).mint(order.recipient, fillAmount);
         }
@@ -270,7 +218,7 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
 
     function cancelOrder(LimitOrder calldata order, bytes32 salt, string calldata reason)
         external
-        onlyRoles(OPERATOR_ROLE)
+        onlyRole(OPERATOR_ROLE)
     {
         bytes32 orderId = getOrderIdFromLimitOrder(order, salt);
         LimitOrderState memory orderState = _orders[orderId];
@@ -282,9 +230,9 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
 
         // Return Escrow
         if (order.sell) {
-            SafeTransferLib.safeTransfer(order.assetToken, order.recipient, orderState.unfilled);
+            IERC20(order.assetToken).safeTransfer(order.recipient, orderState.unfilled);
         } else if (orderState.paymentTokenEscrowed > 0) {
-            SafeTransferLib.safeTransfer(order.paymentToken, order.recipient, orderState.paymentTokenEscrowed);
+            IERC20(order.paymentToken).safeTransfer(order.recipient, orderState.paymentTokenEscrowed);
         }
     }
 
@@ -293,13 +241,13 @@ contract LimitOrderIssuer is Initializable, OwnableRoles, UUPSUpgradeable, Multi
         returns (uint256 paymentTokenEscrowed)
     {
         if (order.assetTokenQuantity == 0) revert ZeroValue();
-        if (!hasAnyRole(order.assetToken, ASSETTOKEN_ROLE)) revert UnsupportedToken();
-        if (!hasAnyRole(order.paymentToken, PAYMENTTOKEN_ROLE)) revert UnsupportedToken();
+        _checkRole(ASSETTOKEN_ROLE, order.assetToken);
+        _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
         bytes32 orderId = getOrderIdFromLimitOrder(order, salt);
         if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
         (uint256 collection, uint256 orderValue) =
-            getFeesForOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
+            getFeesForLimitOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
         paymentTokenEscrowed = 0;
         if (!order.sell) {
             paymentTokenEscrowed = orderValue + collection;

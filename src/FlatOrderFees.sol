@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.18;
 
-import "solady/auth/Ownable.sol";
+import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import "prb-math/Common.sol" as PrbMath;
 import "./IOrderFees.sol";
 
 /// @notice Manages fee calculations for orders.
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/OrderFees.sol)
-contract FlatOrderFees is Ownable, IOrderFees {
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/FlatOrderFees.sol)
+contract FlatOrderFees is Ownable2Step, IOrderFees {
     error FeeTooLarge();
 
     event FeeSet(uint64 fee);
@@ -17,7 +17,7 @@ contract FlatOrderFees is Ownable, IOrderFees {
     uint64 public fee;
 
     constructor(address owner, uint64 _fee) {
-        _initializeOwner(owner);
+        _transferOwnership(owner);
 
         fee = _fee;
     }

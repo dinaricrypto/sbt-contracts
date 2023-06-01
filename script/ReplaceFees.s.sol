@@ -3,9 +3,9 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import {FlatOrderFees, IOrderFees} from "../src/FlatOrderFees.sol";
-import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
-import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
+import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
+import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 
 contract ReplaceFeesScript is Script {

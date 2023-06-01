@@ -2,14 +2,14 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "../src/Messager.sol";
-import "../src/TransferRestrictor.sol";
-import "../src/BridgedTokenFactory.sol";
-import "../src/FlatOrderFees.sol";
-import {SwapOrderIssuer} from "../src/SwapOrderIssuer.sol";
-import {DirectBuyIssuer} from "../src/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/LimitOrderIssuer.sol";
-import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
+import {Messager} from "../src/Messager.sol";
+import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import {BridgedTokenFactory} from "../src/BridgedTokenFactory.sol";
+import {FlatOrderFees, IOrderFees} from "../src/FlatOrderFees.sol";
+import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
+import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
     function run() external {
@@ -25,7 +25,7 @@ contract DeployAllScript is Script {
         new Messager();
 
         // deploy transfer restrictor
-        new TransferRestrictor();
+        new TransferRestrictor(deployer);
 
         // deploy token factory
         new BridgedTokenFactory();
@@ -36,17 +36,17 @@ contract DeployAllScript is Script {
         // deploy SwapOrderIssuer implementation
         SwapOrderIssuer issuerImpl = new SwapOrderIssuer();
         // deploy proxy for SwapOrderIssuer and set implementation
-        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(SwapOrderIssuer.initialize, (deployer, treasuryAddress, orderFees)));
+        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (deployer, treasuryAddress, orderFees)));
 
         // deploy DirectBuyIssuer implementation
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
         // deploy proxy for DirectBuyIssuer and set implementation
-        new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(DirectBuyIssuer.initialize, (deployer, treasuryAddress, orderFees)));
+        new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasuryAddress, orderFees)));
 
         // deploy LimitOrderIssuer implementation
         LimitOrderIssuer limitIssuer = new LimitOrderIssuer();
         // deploy proxy for LimitOrderIssuer and set implementation
-        new ERC1967Proxy(address(limitIssuer), abi.encodeCall(LimitOrderIssuer.initialize, (deployer, treasuryAddress, orderFees)));
+        new ERC1967Proxy(address(limitIssuer), abi.encodeCall(limitIssuer.initialize, (deployer, treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
     }

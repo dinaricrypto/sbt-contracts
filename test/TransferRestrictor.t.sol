@@ -13,7 +13,7 @@ contract TransferRestrictorTest is Test {
     TransferRestrictor public restrictor;
 
     function setUp() public {
-        restrictor = new TransferRestrictor();
+        restrictor = new TransferRestrictor(address(this));
     }
 
     function testSetResetKyc(address account, uint8 kycInt) public {
