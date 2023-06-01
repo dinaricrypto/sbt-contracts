@@ -21,9 +21,11 @@ contract DummyOrderScript is Script {
             quantityIn: 100
         });
 
+        // increase payment token allowance for bridge
         MockERC20 paymentToken = MockERC20(paymentTokenAddress);
         paymentToken.increaseAllowance(bridgeAddress, 100);
 
+        // request order
         SwapOrderIssuer issuer = SwapOrderIssuer(bridgeAddress);
         issuer.requestOrder(order, keccak256(abi.encode(block.number)));
 

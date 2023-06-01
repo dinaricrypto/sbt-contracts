@@ -18,13 +18,19 @@ contract UpgradeIssuerScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
+        // deploy new implementation
         SwapOrderIssuer issuerImpl = new SwapOrderIssuer();
+        // upgrade proxy to new implementation
         UUPSUpgradeable(swapIssuer).upgradeTo(address(issuerImpl));
 
+        // deploy new implementation
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
+        // upgrade proxy to new implementation
         UUPSUpgradeable(directIssuer).upgradeTo(address(directIssuerImpl));
 
+        // deploy new implementation
         LimitOrderIssuer limitIssuerImpl = new LimitOrderIssuer();
+        // upgrade proxy to new implementation
         UUPSUpgradeable(limitIssuer).upgradeTo(address(limitIssuerImpl));
 
         vm.stopBroadcast();

@@ -13,6 +13,7 @@ contract ErrorsScript is Script {
     event ErrorCode(bytes4 indexed code, string name);
 
     function run() external {
+        // print error codes as events
         vm.startBroadcast();
 
         emit ErrorCode(SwapOrderIssuer.ZeroValue.selector, "ZeroValue");
