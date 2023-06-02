@@ -445,9 +445,9 @@ contract SwapOrderIssuerTest is Test {
         assertEq(token.balanceOf(address(issuer)), 0);
         assertEq(paymentToken.balanceOf(address(issuer)), 0);
         if (sell) {
-            assertEq(token.balanceOf(user), orderAmount - fillAmount-fillFees);
+            assertEq(token.balanceOf(user), orderAmount - fillAmount - fillFees);
         } else {
-            assertEq(paymentToken.balanceOf(user), orderAmount - fillAmount-fillFees);
+            assertEq(paymentToken.balanceOf(user), orderAmount - fillAmount - fillFees);
         }
     }
 
