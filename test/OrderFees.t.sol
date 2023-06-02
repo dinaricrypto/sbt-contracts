@@ -11,10 +11,12 @@ contract OrderFeesTest is Test {
 
     OrderFees orderFees;
     MockERC20 token;
+    MockERC20 usdc;
 
     function setUp() public {
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
         token = new MockERC20("Test Token", "TEST", 18);
+        usdc = new MockERC20("USD Coin", "USDC", 6);
     }
 
     function perOrderFeeAdjust(uint8 decimals, uint256 fee) internal pure returns (uint256) {
@@ -57,5 +59,10 @@ contract OrderFeesTest is Test {
                 uint256(perOrderFee) + PrbMath.mulDiv18(value, percentageFee)
             );
         }
+    }
+
+    function testUSDC() public {
+        // 1 USDC flat fee
+        assertEq(orderFees.feesForOrder(address(usdc), false, 0), 1e6);
     }
 }

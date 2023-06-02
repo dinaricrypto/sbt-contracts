@@ -193,19 +193,22 @@ contract SwapOrderIssuerTest is Test {
             tif: IOrderBridge.TIF.DAY,
             fee: fees
         });
+        uint256 orderSize = 0;
+        if (quantityIn > fees) {
+            orderSize = quantityIn - fees;
+        }
 
         if (sell) {
-            bridgeOrderData.assetTokenQuantity = quantityIn - fees;
+            bridgeOrderData.assetTokenQuantity = orderSize;
             token.mint(user, quantityIn);
             vm.prank(user);
             token.increaseAllowance(address(issuer), quantityIn);
         } else {
-            bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
+            bridgeOrderData.paymentTokenQuantity = orderSize;
             paymentToken.mint(user, quantityIn);
             vm.prank(user);
             paymentToken.increaseAllowance(address(issuer), quantityIn);
         }
-        assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
 
         if (quantityIn == 0) {
             vm.expectRevert(SwapOrderIssuer.ZeroValue.selector);
@@ -223,6 +226,7 @@ contract SwapOrderIssuerTest is Test {
             assertTrue(issuer.isOrderActive(orderId));
             assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
             assertEq(issuer.numOpenOrders(), 1);
+            assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
         }
     }
 
@@ -275,10 +279,10 @@ contract SwapOrderIssuerTest is Test {
     }
 
     function testRequestOrderCollisionReverts() public {
-        paymentToken.mint(user, 10000);
+        paymentToken.mint(user, dummyOrder.quantityIn);
 
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), 10000);
+        paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
@@ -322,6 +326,7 @@ contract SwapOrderIssuerTest is Test {
         order.sell = sell;
         order.quantityIn = orderAmount;
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
+        vm.assume(fees <= orderAmount);
 
         bytes32 orderId = issuer.getOrderIdFromSwapOrder(order, salt);
 
@@ -411,6 +416,7 @@ contract SwapOrderIssuerTest is Test {
         SwapOrderIssuer.SwapOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
+        vm.assume(fees < orderAmount);
         vm.assume(fillAmount < orderAmount - fees);
 
         paymentToken.mint(user, orderAmount);
@@ -443,6 +449,7 @@ contract SwapOrderIssuerTest is Test {
 
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
+        // assertEq(paymentToken.balanceOf(user), )
 
         vm.prank(operator);
         issuer.cancelOrder(dummyOrder, salt, "");

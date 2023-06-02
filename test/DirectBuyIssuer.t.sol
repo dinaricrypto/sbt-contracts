@@ -165,8 +165,10 @@ contract DirectBuyIssuerTest is Test {
             tif: IOrderBridge.TIF.GTC,
             fee: fees
         });
-        bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
-        assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
+        bridgeOrderData.paymentTokenQuantity = 0;
+        if (quantityIn > fees) {
+            bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
+        }
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -188,6 +190,7 @@ contract DirectBuyIssuerTest is Test {
             assertTrue(issuer.isOrderActive(orderId));
             assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
             assertEq(issuer.numOpenOrders(), 1);
+            assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
         }
     }
 
@@ -240,10 +243,10 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testRequestOrderCollisionReverts() public {
-        paymentToken.mint(user, 10000);
+        paymentToken.mint(user, dummyOrder.quantityIn);
 
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), 10000);
+        paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
@@ -286,6 +289,7 @@ contract DirectBuyIssuerTest is Test {
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
         uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        vm.assume(fees <= orderAmount);
 
         bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
 
@@ -321,6 +325,7 @@ contract DirectBuyIssuerTest is Test {
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
         uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        vm.assume(fees <= orderAmount);
         vm.assume(takeAmount <= orderAmount - fees);
 
         bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
@@ -404,6 +409,7 @@ contract DirectBuyIssuerTest is Test {
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
         uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        vm.assume(fees < orderAmount);
         vm.assume(fillAmount < orderAmount - fees);
 
         paymentToken.mint(user, orderAmount);
