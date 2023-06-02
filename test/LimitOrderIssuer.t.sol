@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/LimitOrderIssuer.sol";
-import {FlatOrderFees} from "../src/FlatOrderFees.sol";
+import {OrderFees} from "../src/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract LimitOrderIssuerTest is Test {
@@ -21,7 +21,7 @@ contract LimitOrderIssuerTest is Test {
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
     BridgedERC20 token;
-    FlatOrderFees orderFees;
+    OrderFees orderFees;
     LimitOrderIssuer bridge;
     MockERC20 paymentToken;
     SigUtils paymentTokenSigUtils;
@@ -36,6 +36,7 @@ contract LimitOrderIssuerTest is Test {
     bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
     LimitOrderIssuer.LimitOrder dummyOrder;
     IOrderBridge.Order dummyOrderBridgeData;
+    uint256 dummyOrderPaymentAmount;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -46,7 +47,7 @@ contract LimitOrderIssuerTest is Test {
         paymentTokenSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         assetTokenSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        orderFees = new FlatOrderFees(address(this), 0.005 ether);
+        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         LimitOrderIssuer bridgeImpl = new LimitOrderIssuer();
         bridge = LimitOrderIssuer(
@@ -70,9 +71,10 @@ contract LimitOrderIssuerTest is Test {
             assetTokenQuantity: 100,
             price: 10 ether
         });
-        (uint256 fees,) = bridge.getFeesForLimitOrder(
+        (uint256 fees, uint256 orderAmount) = bridge.getFeesForLimitOrder(
             dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price
         );
+        dummyOrderPaymentAmount = fees + orderAmount;
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
@@ -258,10 +260,10 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestOrderCollisionReverts() public {
-        paymentToken.mint(user, 10000);
+        paymentToken.mint(user, dummyOrderPaymentAmount);
 
         vm.prank(user);
-        paymentToken.increaseAllowance(address(bridge), 10000);
+        paymentToken.increaseAllowance(address(bridge), dummyOrderPaymentAmount);
 
         vm.prank(user);
         bridge.requestOrder(dummyOrder, salt);
