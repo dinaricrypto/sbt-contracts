@@ -36,6 +36,7 @@ contract LimitOrderIssuerTest is Test {
     bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
     LimitOrderIssuer.LimitOrder dummyOrder;
     IOrderBridge.Order dummyOrderBridgeData;
+    uint256 dummyOrderPaymentAmount;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -70,9 +71,10 @@ contract LimitOrderIssuerTest is Test {
             assetTokenQuantity: 100,
             price: 10 ether
         });
-        (uint256 fees,) = bridge.getFeesForLimitOrder(
+        (uint256 fees, uint256 orderAmount) = bridge.getFeesForLimitOrder(
             dummyOrder.assetToken, dummyOrder.sell, dummyOrder.assetTokenQuantity, dummyOrder.price
         );
+        dummyOrderPaymentAmount = fees + orderAmount;
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
@@ -258,10 +260,10 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestOrderCollisionReverts() public {
-        paymentToken.mint(user, 10000);
+        paymentToken.mint(user, dummyOrderPaymentAmount);
 
         vm.prank(user);
-        paymentToken.increaseAllowance(address(bridge), 10000);
+        paymentToken.increaseAllowance(address(bridge), dummyOrderPaymentAmount);
 
         vm.prank(user);
         bridge.requestOrder(dummyOrder, salt);

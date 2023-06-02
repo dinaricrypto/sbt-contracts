@@ -178,7 +178,7 @@ contract SwapOrderIssuer is Issuer {
 
         // Return Escrow
         IERC20(order.sell ? order.assetToken : order.paymentToken).safeTransfer(
-            order.recipient, orderState.remainingOrder
+            order.recipient, orderState.remainingOrder + orderState.remainingFees
         );
     }
 
