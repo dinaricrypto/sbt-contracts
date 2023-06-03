@@ -34,13 +34,12 @@ contract SwapOrderIssuer is Issuer {
     error NotRecipient();
     error OrderNotFound();
     error DuplicateOrder();
-    error Paused();
     error FillTooLarge();
     error OrderTooSmall();
 
-    // keccak256(OrderTicket(bytes32 salt, ...))
-    // ... address recipient,address assetToken,address paymentToken,bool sell,uint256 quantityIn
-    bytes32 private constant ORDERTICKET_TYPE_HASH = 0x96afe6b4a56935119c43c29fad54b6b65405604883803328f56826662a554433;
+    bytes32 private constant SWAPORDER_TYPE_HASH = keccak256(
+        "SwapOrder(bytes32 salt,address recipient,address assetToken,address paymentToken,bool sell,uint256 quantityIn"
+    );
 
     /// @dev unfilled orders
     mapping(bytes32 => OrderState) private _orders;
@@ -48,7 +47,7 @@ contract SwapOrderIssuer is Issuer {
     function getOrderIdFromSwapOrder(SwapOrder memory order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                ORDERTICKET_TYPE_HASH,
+                SWAPORDER_TYPE_HASH,
                 salt,
                 order.recipient,
                 order.assetToken,
@@ -182,8 +181,7 @@ contract SwapOrderIssuer is Issuer {
         );
     }
 
-    function _requestOrderAccounting(SwapOrder calldata order, bytes32 salt) internal {
-        if (ordersPaused) revert Paused();
+    function _requestOrderAccounting(SwapOrder calldata order, bytes32 salt) internal whenOrdersNotPaused {
         if (order.quantityIn == 0) revert ZeroValue();
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);

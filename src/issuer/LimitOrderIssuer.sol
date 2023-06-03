@@ -35,7 +35,6 @@ contract LimitOrderIssuer is Issuer {
     error NotRecipient();
     error OrderNotFound();
     error DuplicateOrder();
-    error Paused();
     error FillTooLarge();
     error OrderTooSmall();
 
@@ -103,8 +102,6 @@ contract LimitOrderIssuer is Issuer {
     }
 
     function requestOrder(LimitOrder calldata order, bytes32 salt) public {
-        if (ordersPaused) revert Paused();
-
         uint256 paymentTokenEscrowed = _requestOrderAccounting(order, salt);
 
         // Escrow
@@ -124,8 +121,6 @@ contract LimitOrderIssuer is Issuer {
         bytes32 r,
         bytes32 s
     ) external {
-        if (ordersPaused) revert Paused();
-
         uint256 paymentTokenEscrowed = _requestOrderAccounting(order, salt);
 
         // Escrow
@@ -238,6 +233,7 @@ contract LimitOrderIssuer is Issuer {
 
     function _requestOrderAccounting(LimitOrder calldata order, bytes32 salt)
         internal
+        whenOrdersNotPaused
         returns (uint256 paymentTokenEscrowed)
     {
         if (order.assetTokenQuantity == 0) revert ZeroValue();

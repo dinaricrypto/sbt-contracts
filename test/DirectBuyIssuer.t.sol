@@ -197,7 +197,7 @@ contract DirectBuyIssuerTest is Test {
     function testRequestOrderPausedReverts() public {
         issuer.setOrdersPaused(true);
 
-        vm.expectRevert(DirectBuyIssuer.Paused.selector);
+        vm.expectRevert(Issuer.Paused.selector);
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
     }

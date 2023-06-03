@@ -15,7 +15,6 @@ contract ErrorsScript is Script {
         emit ErrorCode(SwapOrderIssuer.NotRecipient.selector, "NotRecipient");
         emit ErrorCode(SwapOrderIssuer.OrderNotFound.selector, "OrderNotFound");
         emit ErrorCode(SwapOrderIssuer.DuplicateOrder.selector, "DuplicateOrder");
-        emit ErrorCode(SwapOrderIssuer.Paused.selector, "Paused");
         emit ErrorCode(SwapOrderIssuer.FillTooLarge.selector, "FillTooLarge");
         emit ErrorCode(SwapOrderIssuer.OrderTooSmall.selector, "OrderTooSmall");
 

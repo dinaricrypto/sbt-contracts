@@ -36,7 +36,6 @@ contract DirectBuyIssuer is Issuer {
     error AmountTooLarge();
     error OrderNotFound();
     error DuplicateOrder();
-    error Paused();
     error OrderTooSmall();
 
     event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
@@ -184,8 +183,7 @@ contract DirectBuyIssuer is Issuer {
         IERC20(order.paymentToken).safeTransfer(order.recipient, orderState.remainingEscrow);
     }
 
-    function _requestOrderAccounting(BuyOrder calldata order, bytes32 salt) internal {
-        if (ordersPaused) revert Paused();
+    function _requestOrderAccounting(BuyOrder calldata order, bytes32 salt) internal whenOrdersNotPaused {
         if (order.quantityIn == 0) revert ZeroValue();
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);

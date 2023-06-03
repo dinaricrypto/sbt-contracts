@@ -19,6 +19,7 @@ abstract contract Issuer is
     IOrderBridge
 {
     error ZeroAddress();
+    error Paused();
 
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
@@ -48,6 +49,11 @@ abstract contract Issuer is
     }
 
     function _authorizeUpgrade(address newImplementation) internal virtual override onlyRole(DEFAULT_ADMIN_ROLE) {}
+
+    modifier whenOrdersNotPaused() {
+        if (ordersPaused) revert Paused();
+        _;
+    }
 
     function setTreasury(address account) external onlyRole(ADMIN_ROLE) {
         if (account == address(0)) revert ZeroAddress();

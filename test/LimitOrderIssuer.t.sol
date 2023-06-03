@@ -214,7 +214,7 @@ contract LimitOrderIssuerTest is Test {
     function testRequestOrderPausedReverts() public {
         bridge.setOrdersPaused(true);
 
-        vm.expectRevert(LimitOrderIssuer.Paused.selector);
+        vm.expectRevert(Issuer.Paused.selector);
         vm.prank(user);
         bridge.requestOrder(dummyOrder, salt);
     }

@@ -238,7 +238,7 @@ contract SwapOrderIssuerTest is Test {
     function testRequestOrderPausedReverts() public {
         issuer.setOrdersPaused(true);
 
-        vm.expectRevert(SwapOrderIssuer.Paused.selector);
+        vm.expectRevert(Issuer.Paused.selector);
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
     }
@@ -443,7 +443,7 @@ contract SwapOrderIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(order, salt);
 
-        uint256 fillFees = issuer.getFeesForOrder(order.assetToken, order.sell, fillAmount);
+        // uint256 fillFees = issuer.getFeesForOrder(order.assetToken, order.sell, fillAmount);
         vm.prank(operator);
         issuer.fillOrder(order, salt, fillAmount, 100);
 
