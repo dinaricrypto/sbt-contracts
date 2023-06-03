@@ -6,7 +6,7 @@ pragma solidity ^0.8.18;
 interface IOrderFees {
     /// @notice Returns the fees for an order.
     /// @param token The token to pay the fees in.
-    /// @param sell Whether the order is a sell order.
+    /// @param maker Whether the order is a maker order.
     /// @param value The token value of the order.
-    function feesForOrder(address token, bool sell, uint256 value) external view returns (uint256);
+    function feesForOrder(address token, bool maker, uint256 value) external view returns (uint256);
 }

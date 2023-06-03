@@ -87,13 +87,13 @@ contract LimitOrderIssuer is Issuer {
         return _orders[id].paymentTokenEscrowed;
     }
 
-    function getFeesForLimitOrder(address assetToken, bool sell, uint256 assetTokenQuantity, uint256 price)
+    function getFeesForLimitOrder(address assetToken, uint256 assetTokenQuantity, uint256 price)
         public
         view
         returns (uint256, uint256)
     {
         uint256 orderValue = PrbMath.mulDiv18(assetTokenQuantity, price);
-        uint256 collection = getFeesForOrder(assetToken, sell, orderValue);
+        uint256 collection = getFeesForOrder(assetToken, true, orderValue);
         return (collection, orderValue);
     }
 
@@ -151,7 +151,7 @@ contract LimitOrderIssuer is Issuer {
         uint256 remainingUnfilled = orderState.unfilled - fillAmount;
         if (order.sell) {
             // Get fees
-            (collection, proceedsToUser) = getFeesForLimitOrder(order.assetToken, order.sell, fillAmount, order.price);
+            (collection, proceedsToUser) = getFeesForLimitOrder(order.assetToken, fillAmount, order.price);
             if (collection > proceedsToUser) {
                 collection = proceedsToUser;
             }
@@ -243,7 +243,7 @@ contract LimitOrderIssuer is Issuer {
         if (_orders[orderId].unfilled > 0) revert DuplicateOrder();
 
         (uint256 collection, uint256 orderValue) =
-            getFeesForLimitOrder(order.assetToken, order.sell, order.assetTokenQuantity, order.price);
+            getFeesForLimitOrder(order.assetToken, order.assetTokenQuantity, order.price);
         paymentTokenEscrowed = 0;
         if (!order.sell) {
             paymentTokenEscrowed = orderValue + collection;

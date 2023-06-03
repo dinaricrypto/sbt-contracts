@@ -72,7 +72,7 @@ abstract contract Issuer is
         emit OrdersPaused(pause);
     }
 
-    function getFeesForOrder(address assetToken, bool sell, uint256 amount) public view returns (uint256) {
-        return address(orderFees) == address(0) ? 0 : orderFees.feesForOrder(assetToken, sell, amount);
+    function getFeesForOrder(address assetToken, bool maker, uint256 amount) public view returns (uint256) {
+        return address(orderFees) == address(0) ? 0 : orderFees.feesForOrder(assetToken, maker, amount);
     }
 }

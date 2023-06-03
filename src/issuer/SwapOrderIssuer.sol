@@ -188,7 +188,11 @@ contract SwapOrderIssuer is Issuer {
         bytes32 orderId = getOrderIdFromSwapOrder(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-        uint256 collection = getFeesForOrder(order.assetToken, order.sell, order.quantityIn);
+        // example buy fees calc
+        // take flat fee
+
+
+        uint256 collection = getFeesForOrder(order.assetToken, false, order.quantityIn);
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
         uint256 orderAmount = order.quantityIn - collection;
