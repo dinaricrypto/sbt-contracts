@@ -3,11 +3,7 @@ src = "src"
 out = "out"
 libs = ["node_modules", "lib"]
 remappings = [
-  "forge-std/=lib/forge-std/src/",
-  "solady=lib/solady/src/",
   "solady-test=lib/solady/test/",
-  "openzeppelin=lib/openzeppelin-contracts/contracts/",
-  "prb-math=lib/prb-math/src/",
 ]
 
 [fuzz]

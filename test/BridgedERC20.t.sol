@@ -2,9 +2,8 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "solady/auth/Ownable.sol";
-import "../src/BridgedERC20.sol";
-import "../src/TransferRestrictor.sol";
+import {BridgedERC20} from "../src/BridgedERC20.sol";
+import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
 
 contract BridgedERC20Test is Test {
     event NameSet(string name);
@@ -16,7 +15,7 @@ contract BridgedERC20Test is Test {
     BridgedERC20 public token;
 
     function setUp() public {
-        restrictor = new TransferRestrictor();
+        restrictor = new TransferRestrictor(address(this));
         token = new BridgedERC20(
             address(this),
             "Dinari Token",
@@ -24,10 +23,6 @@ contract BridgedERC20Test is Test {
             "example.com",
             restrictor
         );
-    }
-
-    function testInvariants() public {
-        assertEq(token.minterRole(), uint256(1 << 1));
     }
 
     function testSetName(string calldata name) public {
@@ -59,21 +54,21 @@ contract BridgedERC20Test is Test {
     }
 
     function testMint() public {
-        token.grantRoles(address(this), token.minterRole());
+        token.setMinter(address(this), true);
         token.mint(address(1), 1e18);
         assertEq(token.totalSupply(), 1e18);
         assertEq(token.balanceOf(address(1)), 1e18);
     }
 
     function testMintUnauthorizedReverts() public {
-        vm.expectRevert(Ownable.Unauthorized.selector);
+        vm.expectRevert(BridgedERC20.Unauthorized.selector);
         token.mint(address(1), 1e18);
     }
 
     function testBurn() public {
-        token.grantRoles(address(this), token.minterRole());
+        token.setMinter(address(this), true);
         token.mint(address(1), 1e18);
-        token.grantRoles(address(1), token.minterRole());
+        token.setMinter(address(1), true);
 
         vm.prank(address(1));
         token.burn(0.9e18);
@@ -82,16 +77,16 @@ contract BridgedERC20Test is Test {
     }
 
     function testBurnUnauthorizedReverts() public {
-        token.grantRoles(address(this), token.minterRole());
+        token.setMinter(address(this), true);
         token.mint(address(1), 1e18);
 
-        vm.expectRevert(Ownable.Unauthorized.selector);
+        vm.expectRevert(BridgedERC20.Unauthorized.selector);
         vm.prank(address(1));
         token.burn(0.9e18);
     }
 
     function testTransfer() public {
-        token.grantRoles(address(this), token.minterRole());
+        token.setMinter(address(this), true);
         token.mint(address(this), 1e18);
 
         assertTrue(token.transfer(address(1), 1e18));
@@ -102,7 +97,7 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransferBannedToReverts() public {
-        token.grantRoles(address(this), token.minterRole());
+        token.setMinter(address(this), true);
         token.mint(address(this), 1e18);
         restrictor.ban(address(1));
 
@@ -111,7 +106,7 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransferBannedFromReverts() public {
-        token.grantRoles(address(this), token.minterRole());
+        token.setMinter(address(this), true);
         token.mint(address(this), 1e18);
         restrictor.ban(address(this));
 
@@ -120,7 +115,7 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransferRestrictedToReverts() public {
-        token.grantRoles(address(this), token.minterRole());
+        token.setMinter(address(this), true);
         token.mint(address(this), 1e18);
         restrictor.setKyc(address(1), ITransferRestrictor.KycType.DOMESTIC);
 

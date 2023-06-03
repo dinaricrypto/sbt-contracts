@@ -14,12 +14,17 @@
     "pretty": "forge fmt",
     "build": "forge build",
     "test": "forge test -vvv",
+    "test:contract": "forge test -vvv --match-contract",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "snapshot": "forge snapshot",
     "keccak": "cast keccak",
     "deployall:testnet": "./script/deployall-testnet.sh",
+    "upgrade:testnet": "./script/upgrade-testnet.sh",
     "deploy:tokenlist:testnet": "./script/deploytokenlist-testnet.sh",
     "deploy:mockpayment:testnet": "./script/deploy-mockpayment-testnet.sh",
+    "addtokens:testnet": "./script/addtokens-testnet.sh",
+    "operators:testnet": "./script/addoperators-testnet.sh",
+    "replacefees:testnet": "./script/replacefees-testnet.sh",
     "dummyorder:testnet": "./script/dummyorder-testnet.sh",
     "mint:testnet": "./script/mint-testnet.sh",
     "errorcodes": "forge script script/Errors.s.sol:ErrorsScript -vvvv",
@@ -48,8 +53,6 @@
     "ethers": "^5.7.2"
   },
   "pre-commit": [
-    "pretty",
-    "snapshot",
-    "build:d2"
+    "pretty"
   ]
 }
