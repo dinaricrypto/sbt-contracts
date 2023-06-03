@@ -71,9 +71,8 @@ contract LimitOrderIssuerTest is Test {
             assetTokenQuantity: 100,
             price: 10 ether
         });
-        (uint256 fees, uint256 orderAmount) = bridge.getFeesForLimitOrder(
-            dummyOrder.assetToken, dummyOrder.assetTokenQuantity, dummyOrder.price
-        );
+        (uint256 fees, uint256 orderAmount) =
+            bridge.getFeesForLimitOrder(dummyOrder.assetToken, dummyOrder.assetTokenQuantity, dummyOrder.price);
         dummyOrderPaymentAmount = fees + orderAmount;
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
@@ -400,9 +399,8 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestCancel() public {
-        (uint256 fees, uint256 value) = bridge.getFeesForLimitOrder(
-            dummyOrder.assetToken, dummyOrder.assetTokenQuantity, dummyOrder.price
-        );
+        (uint256 fees, uint256 value) =
+            bridge.getFeesForLimitOrder(dummyOrder.assetToken, dummyOrder.assetTokenQuantity, dummyOrder.price);
         uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);
@@ -419,9 +417,8 @@ contract LimitOrderIssuerTest is Test {
     }
 
     function testRequestCancelNotRecipientReverts() public {
-        (uint256 fees, uint256 value) = bridge.getFeesForLimitOrder(
-            dummyOrder.assetToken, dummyOrder.assetTokenQuantity, dummyOrder.price
-        );
+        (uint256 fees, uint256 value) =
+            bridge.getFeesForLimitOrder(dummyOrder.assetToken, dummyOrder.assetTokenQuantity, dummyOrder.price);
         uint256 totalPayment = fees + value;
         paymentToken.mint(user, totalPayment);
         vm.prank(user);

@@ -191,7 +191,6 @@ contract SwapOrderIssuer is Issuer {
         // example buy fees calc
         // take flat fee
 
-
         uint256 collection = getFeesForOrder(order.assetToken, false, order.quantityIn);
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
