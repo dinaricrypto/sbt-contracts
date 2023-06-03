@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/LimitOrderIssuer.sol";
-import {OrderFees} from "../src/OrderFees.sol";
+import {OrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract LimitOrderIssuerTest is Test {

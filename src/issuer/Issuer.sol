@@ -7,7 +7,7 @@ import {AccessControlDefaultAdminRulesUpgradeable} from
     "openzeppelin-contracts-upgradeable/contracts/access/AccessControlDefaultAdminRulesUpgradeable.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import "./IOrderBridge.sol";
-import "../IOrderFees.sol";
+import "./IOrderFees.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/Issuer.sol)
@@ -72,7 +72,11 @@ abstract contract Issuer is
         emit OrdersPaused(pause);
     }
 
-    function getFeesForOrder(address assetToken, bool maker, uint256 amount) public view returns (uint256) {
-        return address(orderFees) == address(0) ? 0 : orderFees.feesForOrder(assetToken, maker, amount);
+    function getFeesForOrder(address assetToken, uint256 amount) public view returns (uint256) {
+        if (address(orderFees) == address(0)) {
+            return 0;
+        }
+        (uint256 flatFee, uint256 percentageFee) = orderFees.feesForOrderUpfront(assetToken, amount);
+        return flatFee + percentageFee;
     }
 }

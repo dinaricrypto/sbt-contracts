@@ -93,7 +93,7 @@ contract LimitOrderIssuer is Issuer {
         returns (uint256, uint256)
     {
         uint256 orderValue = PrbMath.mulDiv18(assetTokenQuantity, price);
-        uint256 collection = getFeesForOrder(assetToken, true, orderValue);
+        uint256 collection = getFeesForOrder(assetToken, orderValue);
         return (collection, orderValue);
     }
 

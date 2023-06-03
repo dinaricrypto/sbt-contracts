@@ -190,7 +190,7 @@ contract DirectBuyIssuer is Issuer {
         bytes32 orderId = getOrderIdFromBuyOrder(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-        uint256 collection = getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 collection = getFeesForOrder(order.assetToken, order.quantityIn);
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
         uint256 orderAmount = order.quantityIn - collection;

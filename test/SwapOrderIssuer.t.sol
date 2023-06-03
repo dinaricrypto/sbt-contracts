@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/SwapOrderIssuer.sol";
-import {OrderFees} from "../src/OrderFees.sol";
+import {OrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract SwapOrderIssuerTest is Test {
@@ -68,7 +68,7 @@ contract SwapOrderIssuerTest is Test {
             sell: false,
             quantityIn: 100 ether
         });
-        dummyOrderFees = issuer.getFeesForOrder(dummyOrder.assetToken, false, dummyOrder.quantityIn);
+        dummyOrderFees = issuer.getFeesForOrder(dummyOrder.assetToken, dummyOrder.quantityIn);
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
@@ -153,7 +153,7 @@ contract SwapOrderIssuerTest is Test {
             sell: sell,
             quantityIn: quantityIn
         });
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         vm.assume(fees < quantityIn);
 
         if (sell) {
@@ -180,7 +180,7 @@ contract SwapOrderIssuerTest is Test {
         });
         bytes32 orderId = issuer.getOrderIdFromSwapOrder(order, salt);
 
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
             recipient: order.recipient,
             assetToken: order.assetToken,
@@ -331,7 +331,7 @@ contract SwapOrderIssuerTest is Test {
         SwapOrderIssuer.SwapOrder memory order = dummyOrder;
         order.sell = sell;
         order.quantityIn = orderAmount;
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         vm.assume(fees <= orderAmount);
 
         bytes32 orderId = issuer.getOrderIdFromSwapOrder(order, salt);
@@ -422,7 +422,7 @@ contract SwapOrderIssuerTest is Test {
         SwapOrderIssuer.SwapOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
         order.sell = sell;
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         vm.assume(fees < orderAmount);
         vm.assume(fillAmount < orderAmount - fees);
 
@@ -443,7 +443,7 @@ contract SwapOrderIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(order, salt);
 
-        // uint256 fillFees = issuer.getFeesForOrder(order.assetToken, false, fillAmount);
+        // uint256 fillFees = issuer.getFeesForOrder(order.assetToken, fillAmount);
         vm.prank(operator);
         issuer.fillOrder(order, salt, fillAmount, 100);
 

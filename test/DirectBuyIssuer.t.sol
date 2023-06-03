@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/DirectBuyIssuer.sol";
-import {OrderFees} from "../src/OrderFees.sol";
+import {OrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract DirectBuyIssuerTest is Test {
@@ -68,7 +68,7 @@ contract DirectBuyIssuerTest is Test {
             paymentToken: address(paymentToken),
             quantityIn: 100 ether
         });
-        dummyOrderFees = issuer.getFeesForOrder(dummyOrder.assetToken, false, dummyOrder.quantityIn);
+        dummyOrderFees = issuer.getFeesForOrder(dummyOrder.assetToken, dummyOrder.quantityIn);
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
@@ -152,7 +152,7 @@ contract DirectBuyIssuerTest is Test {
         });
         bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
 
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
             recipient: order.recipient,
             assetToken: order.assetToken,
@@ -288,7 +288,7 @@ contract DirectBuyIssuerTest is Test {
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         vm.assume(fees <= orderAmount);
 
         bytes32 orderId = issuer.getOrderIdFromBuyOrder(order, salt);
@@ -324,7 +324,7 @@ contract DirectBuyIssuerTest is Test {
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         vm.assume(fees <= orderAmount);
         vm.assume(takeAmount <= orderAmount - fees);
 
@@ -408,7 +408,7 @@ contract DirectBuyIssuerTest is Test {
 
         DirectBuyIssuer.BuyOrder memory order = dummyOrder;
         order.quantityIn = orderAmount;
-        uint256 fees = issuer.getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         vm.assume(fees < orderAmount);
         vm.assume(fillAmount < orderAmount - fees);
 

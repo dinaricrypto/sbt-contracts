@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {OrderFees, IOrderFees} from "../src/OrderFees.sol";
+import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";

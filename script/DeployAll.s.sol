@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {Messager} from "../src/Messager.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {BridgedTokenFactory} from "../src/BridgedTokenFactory.sol";
-import {OrderFees, IOrderFees} from "../src/OrderFees.sol";
+import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";

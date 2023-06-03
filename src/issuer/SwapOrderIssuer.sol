@@ -30,6 +30,9 @@ contract SwapOrderIssuer is Issuer {
         uint256 totalReceived;
     }
 
+    // uint256 flatFee;
+    // uint256 percentageFee;
+
     error ZeroValue();
     error NotRecipient();
     error OrderNotFound();
@@ -188,10 +191,7 @@ contract SwapOrderIssuer is Issuer {
         bytes32 orderId = getOrderIdFromSwapOrder(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-        // example buy fees calc
-        // take flat fee
-
-        uint256 collection = getFeesForOrder(order.assetToken, false, order.quantityIn);
+        uint256 collection = getFeesForOrder(order.assetToken, order.quantityIn);
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
         uint256 orderAmount = order.quantityIn - collection;
