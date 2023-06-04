@@ -79,4 +79,6 @@ abstract contract Issuer is
         (uint256 flatFee, uint256 percentageFee) = orderFees.feesForOrderUpfront(assetToken, amount);
         return flatFee + percentageFee;
     }
+
+    // TODO: generic totalQuantityForOrder
 }

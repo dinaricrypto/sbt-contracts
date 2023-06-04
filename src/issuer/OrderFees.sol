@@ -50,32 +50,38 @@ contract OrderFees is Ownable, IOrderFees {
         }
     }
 
-    /// @inheritdoc IOrderFees
-    function feesForOrderUpfront(address token, uint256 value)
-        external
-        view
-        returns (uint256 flatFee, uint256 percentageFee)
-    {
-        flatFee = flatFeeForOrder(token);
+    /// @dev Calculates fees as if fee was added to order value
+    function percentageFeeOnRemainingValue(uint256 value) public view returns (uint256) {
         // apply percentage fee
         uint64 _percentageFeeRate = percentageFeeRate;
-        if (_percentageFeeRate != 0 && value > flatFee) {
+        if (_percentageFeeRate != 0) {
             // apply fee to order value, not input value
-            percentageFee = PrbMath.mulDiv(value - flatFee, _percentageFeeRate, ONEHUNDRED_PERCENT + _percentageFeeRate);
+            return PrbMath.mulDiv(value, _percentageFeeRate, ONEHUNDRED_PERCENT + _percentageFeeRate);
         }
+        return 0;
     }
 
-    function feesOnProceeds(address token, uint256 value)
+    function percentageFeeForValue(uint256 value) external view returns (uint256) {
+        // apply percentage fee
+        uint64 _percentageFeeRate = percentageFeeRate;
+        if (_percentageFeeRate != 0) {
+            // apply fee to input value
+            return PrbMath.mulDiv18(value, _percentageFeeRate);
+        }
+        return 0;
+    }
+
+    /// @inheritdoc IOrderFees
+    function feesForOrderUpfront(address token, uint256 inputValue)
         external
         view
         returns (uint256 flatFee, uint256 percentageFee)
     {
         flatFee = flatFeeForOrder(token);
-        // apply percentage fee
-        uint64 _percentageFeeRate = percentageFeeRate;
-        if (_percentageFeeRate != 0 && value > flatFee) {
-            // apply fee to remaining input value
-            percentageFee = PrbMath.mulDiv18(value - flatFee, _percentageFeeRate);
+        if (inputValue > flatFee) {
+            percentageFee = percentageFeeOnRemainingValue(inputValue - flatFee);
+        } else {
+            percentageFee = 0;
         }
     }
 

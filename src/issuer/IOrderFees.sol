@@ -4,18 +4,22 @@ pragma solidity ^0.8.18;
 /// @notice
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/IOrderFees.sol)
 interface IOrderFees {
-    function flatFeeForOrder(address token) external view returns (uint256 flatFee);
+    function flatFeeForOrder(address token) external view returns (uint256);
 
-    /// @notice Returns the fees for an order.
+    function percentageFeeOnRemainingValue(uint256 value) external view returns (uint256);
+
+    function percentageFeeForValue(uint256 value) external view returns (uint256);
+
+    /// @notice Returns the fees for an order as if fees were added to order value.
     /// @param token The token to pay the fees in.
-    /// @param value The token value of the order.
-    function feesForOrderUpfront(address token, uint256 value)
+    /// @param inputValue The token value of the order.
+    function feesForOrderUpfront(address token, uint256 inputValue)
         external
         view
         returns (uint256 flatFee, uint256 percentageFee);
 
-    function feesOnProceeds(address token, uint256 value)
+    function inputValueForOrderValueUpfrontFees(address token, uint256 orderValue)
         external
         view
-        returns (uint256 flatFee, uint256 percentageFee);
+        returns (uint256 inputValue);
 }
