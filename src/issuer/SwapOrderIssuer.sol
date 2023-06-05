@@ -87,6 +87,14 @@ contract SwapOrderIssuer is Issuer {
         return _orders[id].totalReceived;
     }
 
+    function getFeesForOrder(address token, uint256 amount) public view returns (uint256) {
+        if (address(orderFees) == address(0)) {
+            return 0;
+        }
+        (uint256 flatFee, uint256 percentageFee) = orderFees.feesForOrderUpfront(token, amount);
+        return flatFee + percentageFee;
+    }
+
     function requestOrder(SwapOrder calldata order, bytes32 salt) public {
         _requestOrderAccounting(order, salt);
 
@@ -191,7 +199,7 @@ contract SwapOrderIssuer is Issuer {
         bytes32 orderId = getOrderIdFromSwapOrder(order, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-        uint256 collection = getFeesForOrder(order.assetToken, order.quantityIn);
+        uint256 collection = getFeesForOrder(order.paymentToken, order.quantityIn);
         if (collection >= order.quantityIn) revert OrderTooSmall();
 
         uint256 orderAmount = order.quantityIn - collection;

@@ -72,13 +72,5 @@ abstract contract Issuer is
         emit OrdersPaused(pause);
     }
 
-    function getFeesForOrder(address assetToken, uint256 amount) public view returns (uint256) {
-        if (address(orderFees) == address(0)) {
-            return 0;
-        }
-        (uint256 flatFee, uint256 percentageFee) = orderFees.feesForOrderUpfront(assetToken, amount);
-        return flatFee + percentageFee;
-    }
-
     // TODO: generic totalQuantityForOrder
 }

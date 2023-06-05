@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
@@ -14,7 +13,6 @@ contract UpgradeIssuerScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         SwapOrderIssuer swapIssuer = SwapOrderIssuer(vm.envAddress("SWAP_ISSUER"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
-        LimitOrderIssuer limitIssuer = LimitOrderIssuer(vm.envAddress("LIMIT_ISSUER"));
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -27,11 +25,6 @@ contract UpgradeIssuerScript is Script {
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
         // upgrade proxy to new implementation
         UUPSUpgradeable(directIssuer).upgradeTo(address(directIssuerImpl));
-
-        // deploy new implementation
-        LimitOrderIssuer limitIssuerImpl = new LimitOrderIssuer();
-        // upgrade proxy to new implementation
-        UUPSUpgradeable(limitIssuer).upgradeTo(address(limitIssuerImpl));
 
         vm.stopBroadcast();
     }

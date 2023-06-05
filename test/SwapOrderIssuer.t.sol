@@ -332,7 +332,7 @@ contract SwapOrderIssuerTest is Test {
         order.sell = sell;
         order.quantityIn = orderAmount;
         uint256 fees = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
-        vm.assume(fees <= orderAmount);
+        vm.assume(fees < orderAmount);
 
         bytes32 orderId = issuer.getOrderIdFromSwapOrder(order, salt);
 

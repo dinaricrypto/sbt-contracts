@@ -5,7 +5,6 @@ import "forge-std/Script.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 
 contract ReplaceFeesScript is Script {
@@ -16,7 +15,6 @@ contract ReplaceFeesScript is Script {
         address deployer = vm.addr(deployerPrivateKey);
         SwapOrderIssuer swapIssuer = SwapOrderIssuer(vm.envAddress("SWAP_ISSUER"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
-        LimitOrderIssuer limitIssuer = LimitOrderIssuer(vm.envAddress("LIMIT_ISSUER"));
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -24,7 +22,6 @@ contract ReplaceFeesScript is Script {
 
         swapIssuer.setOrderFees(orderFees);
         directIssuer.setOrderFees(orderFees);
-        limitIssuer.setOrderFees(orderFees);
 
         vm.stopBroadcast();
     }

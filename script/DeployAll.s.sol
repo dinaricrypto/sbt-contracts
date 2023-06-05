@@ -8,7 +8,6 @@ import {BridgedTokenFactory} from "../src/BridgedTokenFactory.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
@@ -42,11 +41,6 @@ contract DeployAllScript is Script {
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
         // deploy proxy for DirectBuyIssuer and set implementation
         new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasuryAddress, orderFees)));
-
-        // deploy LimitOrderIssuer implementation
-        LimitOrderIssuer limitIssuer = new LimitOrderIssuer();
-        // deploy proxy for LimitOrderIssuer and set implementation
-        new ERC1967Proxy(address(limitIssuer), abi.encodeCall(limitIssuer.initialize, (deployer, treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
     }
