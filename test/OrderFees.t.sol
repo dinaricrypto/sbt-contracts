@@ -10,16 +10,14 @@ contract OrderFeesTest is Test {
     event FeeSet(uint64 perOrderFee, uint64 percentageFee);
 
     OrderFees orderFees;
-    MockERC20 token;
     MockERC20 usdc;
 
     function setUp() public {
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
-        token = new MockERC20("Test Token", "TEST", 18);
         usdc = new MockERC20("USD Coin", "USDC", 6);
     }
 
-    function perOrderFeeAdjust(uint8 decimals, uint256 fee) internal pure returns (uint256) {
+    function decimalAdjust(uint8 decimals, uint256 fee) internal pure returns (uint256) {
         uint256 adjFee = fee;
         if (decimals < 18) {
             adjFee /= 10 ** (18 - decimals);
@@ -29,50 +27,41 @@ contract OrderFeesTest is Test {
         return adjFee;
     }
 
-    // function testValueFromRemainingValue(uint256 remainingValue) public {
-    //     // FIXME: make fee rounding correct
-    //     uint256 inputValue = orderFees.recoverInputValueFromValue(remainingValue);
-    //     uint256 percentageFee = orderFees.percentageFeeForValue(inputValue);
-    //     assertEq(remainingValue + percentageFee, inputValue);
-    //     uint256 percentageFeeOnRemaining = orderFees.percentageFeeOnRemainingValue(inputValue);
-    //     assertEq(percentageFee, percentageFeeOnRemaining);
-    // }
-
-    // function testInit(uint8 tokenDecimals, bool sell, uint128 value) public {
-    //     MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
-    //     if (tokenDecimals > 18) {
-    //         vm.expectRevert(OrderFees.DecimalsTooLarge.selector);
-    //         orderFees.feesForOrder(address(newToken), sell, value);
-    //     } else {
-    //         assertEq(orderFees.perOrderFee(), 1 ether);
-    //         assertEq(orderFees.percentageFee(), 0.005 ether);
-    //         assertEq(
-    //             orderFees.feesForOrder(address(newToken), sell, value),
-    //             perOrderFeeAdjust(tokenDecimals, 1 ether) + PrbMath.mulDiv18(value, 0.005 ether)
-    //         );
-    //     }
-    // }
-
-    // function testSetFee(uint64 perOrderFee, uint64 percentageFee, bool sell, uint128 value) public {
-    //     if (percentageFee > 1 ether) {
-    //         vm.expectRevert(OrderFees.FeeTooLarge.selector);
-    //         orderFees.setFees(perOrderFee, percentageFee);
-    //     } else {
-    //         vm.expectEmit(true, true, true, true);
-    //         emit FeeSet(perOrderFee, percentageFee);
-    //         orderFees.setFees(perOrderFee, percentageFee);
-    //         assertEq(orderFees.perOrderFee(), perOrderFee);
-    //         assertEq(orderFees.percentageFee(), percentageFee);
-    //         assertEq(
-    //             orderFees.feesForOrder(address(token), sell, value),
-    //             uint256(perOrderFee) + PrbMath.mulDiv18(value, percentageFee)
-    //         );
-    //     }
-    // }
+    function testSetFee(uint64 perOrderFee, uint64 percentageFee, uint8 tokenDecimals, uint128 value) public {
+        if (percentageFee > 1 ether) {
+            vm.expectRevert(OrderFees.FeeTooLarge.selector);
+            orderFees.setFees(perOrderFee, percentageFee);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit FeeSet(perOrderFee, percentageFee);
+            orderFees.setFees(perOrderFee, percentageFee);
+            assertEq(orderFees.perOrderFee(), perOrderFee);
+            assertEq(orderFees.percentageFeeRate(), percentageFee);
+            assertEq(orderFees.percentageFeeForValue(value), PrbMath.mulDiv18(value, percentageFee));
+            MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
+            if (tokenDecimals > 18) {
+                vm.expectRevert(OrderFees.DecimalsTooLarge.selector);
+                orderFees.flatFeeForOrder(address(newToken));
+            } else {
+                assertEq(orderFees.flatFeeForOrder(address(newToken)), decimalAdjust(newToken.decimals(), perOrderFee));
+            }
+        }
+    }
 
     function testUSDC() public {
         // 1 USDC flat fee
         uint256 flatFee = orderFees.flatFeeForOrder(address(usdc));
         assertEq(flatFee, 1e6);
+    }
+
+    function testRecoverInputValueFromFeeOnRemaining(uint64 percentageFeeRate, uint128 remainingValue) public {
+        vm.assume(percentageFeeRate <= 1 ether);
+        orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
+
+        uint256 inputValue = orderFees.recoverInputValueFromFeeOnRemaining(remainingValue);
+        uint256 percentageFee = orderFees.percentageFeeForValue(remainingValue);
+        assertEq(remainingValue + percentageFee, inputValue);
+        uint256 percentageFeeOnRemaining = orderFees.percentageFeeOnRemainingValue(inputValue);
+        assertEq(percentageFee, percentageFeeOnRemaining);
     }
 }

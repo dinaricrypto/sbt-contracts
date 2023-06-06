@@ -9,6 +9,7 @@ import "./IOrderFees.sol";
 /// @notice Manages fee calculations for orders.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/OrderFees.sol)
 contract OrderFees is Ownable, IOrderFees {
+    // TODO: calcs fail for type(uint256).max. Can the effective range be increased by moving to bips?
     error FeeTooLarge();
     error DecimalsTooLarge();
 
@@ -52,7 +53,8 @@ contract OrderFees is Ownable, IOrderFees {
 
     /// @dev Calculates fees as if fee was added to order value
     function percentageFeeOnRemainingValue(uint256 value) public view returns (uint256) {
-        // apply percentage fee
+        // inputValue - percentageFee = remainingValue
+        // percentageFee = percentageFeeRate * remainingValue
         uint64 _percentageFeeRate = percentageFeeRate;
         if (_percentageFeeRate != 0) {
             // apply fee to order value, not input value
@@ -71,7 +73,9 @@ contract OrderFees is Ownable, IOrderFees {
         return 0;
     }
 
-    function recoverInputValueFromValue(uint256 remainingValue) external view returns (uint256) {
+    function recoverInputValueFromFeeOnRemaining(uint256 remainingValue) external view returns (uint256) {
+        // inputValue = percentageFee + remainingValue
+        // inputValue = remainingValue * (1 + percentageFeeRate)
         uint64 _percentageFeeRate = percentageFeeRate;
         if (_percentageFeeRate == 0) {
             return remainingValue;

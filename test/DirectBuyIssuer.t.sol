@@ -43,6 +43,7 @@ contract DirectBuyIssuerTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockBridgedERC20();
+        // TODO: test with 6 decimals
         paymentToken = new MockERC20("Money", "$", 18);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
