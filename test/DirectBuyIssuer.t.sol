@@ -43,8 +43,7 @@ contract DirectBuyIssuerTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockBridgedERC20();
-        // TODO: test with 6 decimals
-        paymentToken = new MockERC20("Money", "$", 18);
+        paymentToken = new MockERC20("Money", "$", 6);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
@@ -69,7 +68,7 @@ contract DirectBuyIssuerTest is Test {
             paymentToken: address(paymentToken),
             quantityIn: 100 ether
         });
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(dummyOrder.assetToken, dummyOrder.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
         dummyOrderFees = flatFee + percentageFee;
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
@@ -154,7 +153,7 @@ contract DirectBuyIssuerTest is Test {
         });
         bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
 
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
         IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
             recipient: order.recipient,
@@ -291,7 +290,7 @@ contract DirectBuyIssuerTest is Test {
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < orderAmount);
 
@@ -328,7 +327,7 @@ contract DirectBuyIssuerTest is Test {
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees <= orderAmount);
         vm.assume(takeAmount <= orderAmount - fees);

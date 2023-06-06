@@ -28,7 +28,7 @@ contract OrderFeesTest is Test {
     }
 
     function testSetFee(uint64 perOrderFee, uint64 percentageFee, uint8 tokenDecimals, uint128 value) public {
-        if (percentageFee > 1 ether) {
+        if (percentageFee >= 1 ether) {
             vm.expectRevert(OrderFees.FeeTooLarge.selector);
             orderFees.setFees(perOrderFee, percentageFee);
         } else {
@@ -54,8 +54,17 @@ contract OrderFeesTest is Test {
         assertEq(flatFee, 1e6);
     }
 
+    function testRecoverInputValueFromFee(uint64 percentageFeeRate, uint128 remainingValue) public {
+        vm.assume(percentageFeeRate < 1 ether);
+        orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
+
+        uint256 inputValue = orderFees.recoverInputValueFromFee(remainingValue);
+        uint256 percentageFee = orderFees.percentageFeeForValue(inputValue);
+        assertEq(remainingValue + percentageFee, inputValue);
+    }
+
     function testRecoverInputValueFromFeeOnRemaining(uint64 percentageFeeRate, uint128 remainingValue) public {
-        vm.assume(percentageFeeRate <= 1 ether);
+        vm.assume(percentageFeeRate < 1 ether);
         orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
 
         uint256 inputValue = orderFees.recoverInputValueFromFeeOnRemaining(remainingValue);

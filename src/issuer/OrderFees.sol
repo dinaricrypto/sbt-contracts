@@ -26,7 +26,7 @@ contract OrderFees is Ownable, IOrderFees {
     constructor(address owner, uint64 _perOrderFee, uint64 _percentageFeeRate) {
         _initializeOwner(owner);
 
-        if (_percentageFeeRate > ONEHUNDRED_PERCENT) revert FeeTooLarge();
+        if (_percentageFeeRate >= ONEHUNDRED_PERCENT) revert FeeTooLarge();
 
         perOrderFee = _perOrderFee;
         percentageFeeRate = _percentageFeeRate;
@@ -34,7 +34,7 @@ contract OrderFees is Ownable, IOrderFees {
 
     /// @dev Sets the base and percentage fees.
     function setFees(uint64 _perOrderFee, uint64 _percentageFeeRate) external onlyOwner {
-        if (_percentageFeeRate > ONEHUNDRED_PERCENT) revert FeeTooLarge();
+        if (_percentageFeeRate >= ONEHUNDRED_PERCENT) revert FeeTooLarge();
 
         perOrderFee = _perOrderFee;
         percentageFeeRate = _percentageFeeRate;
@@ -71,6 +71,16 @@ contract OrderFees is Ownable, IOrderFees {
             return PrbMath.mulDiv18(value, _percentageFeeRate);
         }
         return 0;
+    }
+
+    function recoverInputValueFromFee(uint256 remainingValue) external view returns (uint256) {
+        // inputValue = percentageFee + remainingValue
+        // inputValue = remainingValue / (1 - percentageFeeRate)
+        uint64 _percentageFeeRate = percentageFeeRate;
+        if (_percentageFeeRate == 0) {
+            return remainingValue;
+        }
+        return PrbMath.mulDiv(remainingValue, ONEHUNDRED_PERCENT, ONEHUNDRED_PERCENT - _percentageFeeRate);
     }
 
     function recoverInputValueFromFeeOnRemaining(uint256 remainingValue) external view returns (uint256) {
