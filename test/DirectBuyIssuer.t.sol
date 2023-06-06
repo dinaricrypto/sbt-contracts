@@ -68,7 +68,8 @@ contract DirectBuyIssuerTest is Test {
             paymentToken: address(paymentToken),
             quantityIn: 100 ether
         });
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
         dummyOrderFees = flatFee + percentageFee;
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
