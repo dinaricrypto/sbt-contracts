@@ -38,7 +38,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     function returnEscrow(OrderRequest calldata order, bytes32 salt, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         if (amount == 0) revert ZeroValue();
         bytes32 orderId = getOrderIdFromOrderRequest(order, salt);
-        uint256 remainingOrder = getRemainingOrder(orderId);
+        uint256 remainingOrder = _orders[orderId].remainingOrder;
         uint256 escrow = getOrderEscrow[orderId];
         // Can only return unused amount
         if (escrow + amount > remainingOrder) revert AmountTooLarge();
@@ -55,7 +55,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         override
     {
         super._requestOrderAccounting(order, salt, orderId);
-        getOrderEscrow[orderId] = getRemainingOrder(orderId);
+        getOrderEscrow[orderId] = _orders[orderId].remainingOrder;
     }
 
     function _fillOrderAccounting(
@@ -72,15 +72,14 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         super._fillOrderAccounting(order, orderId, orderState, fillAmount, receivedAmount, 0);
     }
 
-    function _cancelOrderAccounting(
-        OrderRequest calldata order,
-        bytes32 orderId,
-        OrderState memory orderState,
-        string calldata reason
-    ) internal virtual override {
+    function _cancelOrderAccounting(OrderRequest calldata order, bytes32 orderId, OrderState memory orderState)
+        internal
+        virtual
+        override
+    {
         uint256 escrow = getOrderEscrow[orderId];
         if (orderState.remainingOrder != escrow) revert UnreturnedEscrow();
 
-        super._cancelOrderAccounting(order, orderId, orderState, reason);
+        super._cancelOrderAccounting(order, orderId, orderState);
     }
 }

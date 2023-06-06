@@ -2,7 +2,6 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 
@@ -10,7 +9,6 @@ contract AddTokensScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        SwapOrderIssuer swapIssuer = SwapOrderIssuer(vm.envAddress("SWAP_ISSUER"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
 
         address[1] memory paymentTokens = [
@@ -33,18 +31,13 @@ contract AddTokensScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // assumes all issuers have the same role
-        bytes32 paymentTokenRole = swapIssuer.PAYMENTTOKEN_ROLE();
         for (uint256 i = 0; i < paymentTokens.length; i++) {
-            swapIssuer.grantRole(paymentTokenRole, paymentTokens[i]);
-            directIssuer.grantRole(paymentTokenRole, paymentTokens[i]);
+            directIssuer.grantRole(directIssuer.PAYMENTTOKEN_ROLE(), paymentTokens[i]);
         }
 
         // assumes all issuers have the same role
-        bytes32 assetTokenRole = swapIssuer.ASSETTOKEN_ROLE();
         for (uint256 i = 0; i < assetTokens.length; i++) {
-            swapIssuer.grantRole(assetTokenRole, assetTokens[i]);
-            directIssuer.grantRole(assetTokenRole, assetTokens[i]);
-            BridgedERC20(assetTokens[i]).setMinter(address(swapIssuer), true);
+            directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), assetTokens[i]);
             BridgedERC20(assetTokens[i]).setMinter(address(directIssuer), true);
         }
 

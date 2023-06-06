@@ -71,29 +71,11 @@ contract OrderFees is Ownable, IOrderFees {
         return 0;
     }
 
-    /// @inheritdoc IOrderFees
-    function feesForOrderUpfront(address token, uint256 inputValue)
-        external
-        view
-        returns (uint256 flatFee, uint256 percentageFee)
-    {
-        flatFee = flatFeeForOrder(token);
-        if (inputValue > flatFee) {
-            percentageFee = percentageFeeOnRemainingValue(inputValue - flatFee);
-        } else {
-            percentageFee = 0;
-        }
-    }
-
-    function inputValueForOrderValueUpfrontFees(address token, uint256 orderValue)
-        external
-        view
-        returns (uint256 inputValue)
-    {
-        inputValue = flatFeeForOrder(token);
+    function recoverInputValueFromValue(uint256 remainingValue) external view returns (uint256) {
         uint64 _percentageFeeRate = percentageFeeRate;
-        if (_percentageFeeRate != 0) {
-            inputValue += PrbMath.mulDiv18(orderValue, ONEHUNDRED_PERCENT + _percentageFeeRate);
+        if (_percentageFeeRate == 0) {
+            return remainingValue;
         }
+        return PrbMath.mulDiv18(remainingValue, ONEHUNDRED_PERCENT + _percentageFeeRate);
     }
 }

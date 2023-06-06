@@ -34,7 +34,7 @@ contract DirectBuyIssuerTest is Test {
     address constant treasury = address(4);
 
     bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    BuyOrderIssuer.OrderRequest dummyOrder;
+    OrderProcessor.OrderRequest dummyOrder;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrderBridgeData;
 
@@ -62,7 +62,7 @@ contract DirectBuyIssuerTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        dummyOrder = BuyOrderIssuer.OrderRequest({
+        dummyOrder = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -93,7 +93,7 @@ contract DirectBuyIssuerTest is Test {
 
             new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
         } else if (newTreasury == address(0)) {
-            vm.expectRevert(Issuer.ZeroAddress.selector);
+            vm.expectRevert(OrderProcessor.ZeroAddress.selector);
 
             new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
         } else {
@@ -120,7 +120,7 @@ contract DirectBuyIssuerTest is Test {
 
     function testSetTreasury(address account) public {
         if (account == address(0)) {
-            vm.expectRevert(Issuer.ZeroAddress.selector);
+            vm.expectRevert(OrderProcessor.ZeroAddress.selector);
             issuer.setTreasury(account);
         } else {
             vm.expectEmit(true, true, true, true);
@@ -145,7 +145,7 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testRequestOrder(uint128 quantityIn) public {
-        BuyOrderIssuer.OrderRequest memory order = BuyOrderIssuer.OrderRequest({
+        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -177,7 +177,7 @@ contract DirectBuyIssuerTest is Test {
         paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         if (quantityIn == 0) {
-            vm.expectRevert(BuyOrderIssuer.ZeroValue.selector);
+            vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(user);
             issuer.requestOrder(order, salt);
         } else if (fees >= quantityIn) {
@@ -199,7 +199,7 @@ contract DirectBuyIssuerTest is Test {
     function testRequestOrderPausedReverts() public {
         issuer.setOrdersPaused(true);
 
-        vm.expectRevert(Issuer.Paused.selector);
+        vm.expectRevert(OrderProcessor.Paused.selector);
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
     }
@@ -207,7 +207,7 @@ contract DirectBuyIssuerTest is Test {
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
         vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
 
-        BuyOrderIssuer.OrderRequest memory order = dummyOrder;
+        OrderProcessor.OrderRequest memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
         vm.expectRevert(
@@ -227,7 +227,7 @@ contract DirectBuyIssuerTest is Test {
     function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
         vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), tryAssetToken));
 
-        BuyOrderIssuer.OrderRequest memory order = dummyOrder;
+        OrderProcessor.OrderRequest memory order = dummyOrder;
         order.assetToken = tryAssetToken;
 
         vm.expectRevert(
@@ -253,7 +253,7 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
 
-        vm.expectRevert(BuyOrderIssuer.DuplicateOrder.selector);
+        vm.expectRevert(OrderProcessor.DuplicateOrder.selector);
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
     }
@@ -277,7 +277,7 @@ contract DirectBuyIssuerTest is Test {
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(orderId, user, dummyOrderBridgeData, salt);
         vm.prank(user);
-        issuer.requestOrderWithPermit(dummyOrder, salt, permit.value, permit.deadline, v, r, s);
+        issuer.requestOrderWithPermit(dummyOrder, salt, address(paymentToken), permit.value, permit.deadline, v, r, s);
         assertEq(paymentToken.nonces(user), 1);
         assertEq(paymentToken.allowance(user, address(issuer)), 0);
         assertTrue(issuer.isOrderActive(orderId));
@@ -288,7 +288,7 @@ contract DirectBuyIssuerTest is Test {
     function testTakeEscrow(uint128 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
 
-        BuyOrderIssuer.OrderRequest memory order = dummyOrder;
+        OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
@@ -303,11 +303,11 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(order, salt);
         if (takeAmount == 0) {
-            vm.expectRevert(BuyOrderIssuer.ZeroValue.selector);
+            vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
             issuer.takeEscrow(order, salt, takeAmount);
         } else if (takeAmount > orderAmount - fees) {
-            vm.expectRevert(BuyOrderIssuer.AmountTooLarge.selector);
+            vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.takeEscrow(order, salt, takeAmount);
         } else {
@@ -325,7 +325,7 @@ contract DirectBuyIssuerTest is Test {
     {
         vm.assume(takeAmount > 0);
 
-        BuyOrderIssuer.OrderRequest memory order = dummyOrder;
+        OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
@@ -345,11 +345,11 @@ contract DirectBuyIssuerTest is Test {
         issuer.takeEscrow(order, salt, takeAmount);
 
         if (fillAmount == 0) {
-            vm.expectRevert(BuyOrderIssuer.ZeroValue.selector);
+            vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
         } else if (fillAmount > orderAmount - fees || fillAmount > takeAmount) {
-            vm.expectRevert(BuyOrderIssuer.AmountTooLarge.selector);
+            vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
         } else {
@@ -368,7 +368,7 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testFillorderNoOrderReverts() public {
-        vm.expectRevert(BuyOrderIssuer.OrderNotFound.selector);
+        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
         vm.prank(operator);
         issuer.fillOrder(dummyOrder, salt, 100, 100);
     }
@@ -396,12 +396,12 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
 
-        vm.expectRevert(BuyOrderIssuer.NotRecipient.selector);
+        vm.expectRevert(OrderProcessor.NotRecipient.selector);
         issuer.requestCancel(dummyOrder, salt);
     }
 
     function testRequestCancelNotFoundReverts() public {
-        vm.expectRevert(BuyOrderIssuer.OrderNotFound.selector);
+        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
         vm.prank(user);
         issuer.requestCancel(dummyOrder, salt);
     }
@@ -410,7 +410,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount > 0);
 
-        BuyOrderIssuer.OrderRequest memory order = dummyOrder;
+        OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
@@ -438,7 +438,7 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testCancelOrderNotFoundReverts() public {
-        vm.expectRevert(BuyOrderIssuer.OrderNotFound.selector);
+        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
         vm.prank(operator);
         issuer.cancelOrder(dummyOrder, salt, "msg");
     }
