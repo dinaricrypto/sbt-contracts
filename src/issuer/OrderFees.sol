@@ -41,7 +41,7 @@ contract OrderFees is Ownable, IOrderFees {
         emit FeeSet(_perOrderFee, _percentageFeeRate);
     }
 
-    function flatFeeForOrder(address token) public view returns (uint256 flatFee) {
+    function flatFeeForOrder(address token) external view returns (uint256 flatFee) {
         uint8 decimals = IERC20Metadata(token).decimals();
         if (decimals > 18) revert DecimalsTooLarge();
         flatFee = perOrderFee;
@@ -52,7 +52,7 @@ contract OrderFees is Ownable, IOrderFees {
     }
 
     /// @dev Calculates fees as if fee was added to order value
-    function percentageFeeOnRemainingValue(uint256 value) public view returns (uint256) {
+    function percentageFeeOnRemainingValue(uint256 value) external view returns (uint256) {
         // inputValue - percentageFee = remainingValue
         // percentageFee = percentageFeeRate * remainingValue
         uint64 _percentageFeeRate = percentageFeeRate;

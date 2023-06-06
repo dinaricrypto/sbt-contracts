@@ -9,4 +9,8 @@ interface IOrderFees {
     function percentageFeeOnRemainingValue(uint256 value) external view returns (uint256);
 
     function percentageFeeForValue(uint256 value) external view returns (uint256);
+
+    function recoverInputValueFromFee(uint256 remainingValue) external view returns (uint256);
+
+    function recoverInputValueFromFeeOnRemaining(uint256 remainingValue) external view returns (uint256);
 }
