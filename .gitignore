@@ -18,6 +18,9 @@ cache_hardhat/
 # slither
 /crytic_export
 
+# metrics
+metrics.html
+
 # env
 .env
 .env-*
