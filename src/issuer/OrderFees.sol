@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.18;
 
-import "solady/auth/Ownable.sol";
+import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "./IOrderFees.sol";
 
 /// @notice Manages fee calculations for orders.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/OrderFees.sol)
-contract OrderFees is Ownable, IOrderFees {
+contract OrderFees is Ownable2Step, IOrderFees {
     // TODO: calcs fail for type(uint256).max. Can the effective range be increased by moving to bips?
     error FeeTooLarge();
     error DecimalsTooLarge();
@@ -24,7 +24,7 @@ contract OrderFees is Ownable, IOrderFees {
     uint64 public percentageFeeRate;
 
     constructor(address owner, uint64 _perOrderFee, uint64 _percentageFeeRate) {
-        _initializeOwner(owner);
+        _transferOwnership(owner);
 
         if (_percentageFeeRate >= ONEHUNDRED_PERCENT) revert FeeTooLarge();
 

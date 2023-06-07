@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
-import "solady/auth/Ownable.sol";
 import "../src/issuer/OrderFees.sol";
 
 contract OrderFeesTest is Test {
