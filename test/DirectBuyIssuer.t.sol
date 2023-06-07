@@ -456,7 +456,6 @@ contract DirectBuyIssuerTest is Test {
 
     function testCancelOrder(uint128 orderAmount, uint128 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
-        vm.assume(fillAmount > 0);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
@@ -472,11 +471,13 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(order, salt);
 
-        vm.prank(operator);
-        issuer.takeEscrow(order, salt, fillAmount);
+        if (fillAmount > 0) {
+            vm.prank(operator);
+            issuer.takeEscrow(order, salt, fillAmount);
 
-        vm.prank(operator);
-        issuer.fillOrder(order, salt, fillAmount, 100);
+            vm.prank(operator);
+            issuer.fillOrder(order, salt, fillAmount, 100);
+        }
 
         bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
         vm.expectEmit(true, true, true, true);

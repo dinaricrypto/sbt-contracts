@@ -124,9 +124,7 @@ contract SellOrderProcessorTest is Test {
         }
     }
 
-    function testFillOrder(uint128 orderAmount, uint128 fillAmount, uint256 receivedAmount)
-        public
-    {
+    function testFillOrder(uint128 orderAmount, uint128 fillAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
