@@ -7,7 +7,12 @@ import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 
-contract AddTokensScript is Script {
+interface IAssetToken {
+    // solady roles
+    function grantRoles(address user, uint256 roles) external payable;
+}
+
+contract AddTokensOldScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -20,11 +25,11 @@ contract AddTokensScript is Script {
         ];
 
         address[5] memory assetTokens = [
-            0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D,
-            0x1128E84D3Feae1FAb65c36508bCA6E1FA55a7172,
-            0xd75870ab648E5158E07Fe0A3141AbcBd4Ac329aa,
-            0x54c0f59d9a8CF63423A7137e6bcD8e9bA169216e,
-            0x0c55e03b976a57B13Bf7Faa592e5df367c57f1F1
+            0x47FAB66a84aCE0A1DB2234257d98C7CcE7Fd0634,
+            0xa4218E64F4A1bD5E7eBf1226e4351F969d8f8139,
+            0x98bcaebBfd4b26d90b93E71840c519e088fEDC01,
+            0xb93998bB94d524ee138b8984f9869E5cdA72083E,
+            0xbD1C52c2C622541C01D23412550e0D8B0eCF3882
         ];
 
         vm.startBroadcast(deployerPrivateKey);
@@ -40,10 +45,11 @@ contract AddTokensScript is Script {
             sellProcessor.grantRole(sellProcessor.ASSETTOKEN_ROLE(), assetTokens[i]);
             directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), assetTokens[i]);
 
-            BridgedERC20 assetToken = BridgedERC20(assetTokens[i]);
-            assetToken.grantRole(assetToken.MINTER_ROLE(), address(buyIssuer));
-            assetToken.grantRole(assetToken.BURNER_ROLE(), address(sellProcessor));
-            assetToken.grantRole(assetToken.MINTER_ROLE(), address(directIssuer));
+            IAssetToken assetToken = IAssetToken(assetTokens[i]);
+            uint256 role = 1 << 1;
+            assetToken.grantRoles(address(buyIssuer), role);
+            assetToken.grantRoles(address(sellProcessor), role);
+            assetToken.grantRoles(address(directIssuer), role);
         }
 
         vm.stopBroadcast();
