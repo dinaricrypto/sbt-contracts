@@ -24,7 +24,7 @@ contract SellOrderProcessor is OrderProcessor {
             recipient: order.recipient,
             assetToken: order.assetToken,
             paymentToken: order.paymentToken,
-            quantityIn: order.paymentTokenQuantity
+            quantityIn: order.assetTokenQuantity
         });
     }
 
@@ -97,7 +97,7 @@ contract SellOrderProcessor is OrderProcessor {
         // Burn asset
         IMintBurn(order.assetToken).burn(fillAmount);
         // Move money
-        IERC20(order.paymentToken).safeTransfer(msg.sender, receivedAmount);
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
         // Distribute
         if (remainingOrder == 0) {
             _distributeProceeds(order.paymentToken, order.recipient, totalReceived, feesEarned);
