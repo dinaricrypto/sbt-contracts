@@ -3,24 +3,23 @@ pragma solidity ^0.8.18;
 
 // solady ERC20 allows EIP-2612 domain separator with `name` changes
 import "solady/tokens/ERC20.sol";
-import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {AccessControlDefaultAdminRules} from
+    "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
 import "./ITransferRestrictor.sol";
 
 /// @notice ERC20 with minter and blacklist.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
-contract BridgedERC20 is ERC20, Ownable2Step {
-    error Unauthorized();
-
-    event MinterSet(address indexed account, bool enabled);
+contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     event NameSet(string name);
     event SymbolSet(string symbol);
     event DisclosuresSet(string disclosures);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
+    bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
+
     string internal _name;
     string internal _symbol;
-
-    mapping(address => bool) public isMinter;
 
     /// @dev URI to information
     string public disclosures;
@@ -32,18 +31,11 @@ contract BridgedERC20 is ERC20, Ownable2Step {
         string memory symbol_,
         string memory disclosures_,
         ITransferRestrictor transferRestrictor_
-    ) {
-        _transferOwnership(owner);
-
+    ) AccessControlDefaultAdminRules(0, owner) {
         _name = name_;
         _symbol = symbol_;
         disclosures = disclosures_;
         transferRestrictor = transferRestrictor_;
-    }
-
-    modifier onlyMinter() {
-        if (!isMinter[msg.sender]) revert Unauthorized();
-        _;
     }
 
     function name() public view virtual override returns (string memory) {
@@ -54,36 +46,31 @@ contract BridgedERC20 is ERC20, Ownable2Step {
         return _symbol;
     }
 
-    function setMinter(address minter, bool enabled) external onlyOwner {
-        isMinter[minter] = enabled;
-        emit MinterSet(minter, enabled);
-    }
-
-    function setName(string calldata name_) external onlyOwner {
+    function setName(string calldata name_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _name = name_;
         emit NameSet(name_);
     }
 
-    function setSymbol(string calldata symbol_) external onlyOwner {
+    function setSymbol(string calldata symbol_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _symbol = symbol_;
         emit SymbolSet(symbol_);
     }
 
-    function setDisclosures(string calldata disclosures_) external onlyOwner {
+    function setDisclosures(string calldata disclosures_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         disclosures = disclosures_;
         emit DisclosuresSet(disclosures_);
     }
 
-    function setTransferRestrictor(ITransferRestrictor restrictor) external onlyOwner {
+    function setTransferRestrictor(ITransferRestrictor restrictor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         transferRestrictor = restrictor;
         emit TransferRestrictorSet(restrictor);
     }
 
-    function mint(address to, uint256 value) public virtual onlyMinter {
+    function mint(address to, uint256 value) public virtual onlyRole(MINTER_ROLE) {
         _mint(to, value);
     }
 
-    function burn(uint256 value) public virtual onlyMinter {
+    function burn(uint256 value) public virtual onlyRole(BURNER_ROLE) {
         _burn(msg.sender, value);
     }
 
