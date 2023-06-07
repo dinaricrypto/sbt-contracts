@@ -57,8 +57,8 @@ contract DirectBuyIssuerTest is Test {
             )
         );
 
-        token.setMinter(address(this), true);
-        token.setMinter(address(issuer), true);
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));

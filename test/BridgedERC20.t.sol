@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BridgedERC20Test is Test {
     event NameSet(string name);
@@ -54,21 +55,30 @@ contract BridgedERC20Test is Test {
     }
 
     function testMint() public {
-        token.setMinter(address(this), true);
+        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);
         assertEq(token.totalSupply(), 1e18);
         assertEq(token.balanceOf(address(1)), 1e18);
     }
 
     function testMintUnauthorizedReverts() public {
-        vm.expectRevert(BridgedERC20.Unauthorized.selector);
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(address(this)),
+                    " is missing role ",
+                    Strings.toHexString(uint256(token.MINTER_ROLE()), 32)
+                )
+            )
+        );
         token.mint(address(1), 1e18);
     }
 
     function testBurn() public {
-        token.setMinter(address(this), true);
+        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);
-        token.setMinter(address(1), true);
+        token.grantRole(token.BURNER_ROLE(), address(1));
 
         vm.prank(address(1));
         token.burn(0.9e18);
@@ -77,16 +87,25 @@ contract BridgedERC20Test is Test {
     }
 
     function testBurnUnauthorizedReverts() public {
-        token.setMinter(address(this), true);
+        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);
 
-        vm.expectRevert(BridgedERC20.Unauthorized.selector);
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(address(1)),
+                    " is missing role ",
+                    Strings.toHexString(uint256(token.BURNER_ROLE()), 32)
+                )
+            )
+        );
         vm.prank(address(1));
         token.burn(0.9e18);
     }
 
     function testTransfer() public {
-        token.setMinter(address(this), true);
+        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
 
         assertTrue(token.transfer(address(1), 1e18));
@@ -97,7 +116,7 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransferBannedToReverts() public {
-        token.setMinter(address(this), true);
+        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
         restrictor.ban(address(1));
 
@@ -106,7 +125,7 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransferBannedFromReverts() public {
-        token.setMinter(address(this), true);
+        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
         restrictor.ban(address(this));
 
@@ -115,7 +134,7 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransferRestrictedToReverts() public {
-        token.setMinter(address(this), true);
+        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
         restrictor.setKyc(address(1), ITransferRestrictor.KycType.DOMESTIC);
 
