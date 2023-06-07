@@ -5,10 +5,8 @@ import "forge-std/Script.sol";
 import {Messager} from "../src/Messager.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {BridgedTokenFactory} from "../src/BridgedTokenFactory.sol";
-import {OrderFees, IOrderFees} from "../src/OrderFees.sol";
-import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
+import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
@@ -33,20 +31,10 @@ contract DeployAllScript is Script {
         // deploy fee manager
         IOrderFees orderFees = new OrderFees(deployer, 1 ether, 0.005 ether);
 
-        // deploy SwapOrderIssuer implementation
-        SwapOrderIssuer issuerImpl = new SwapOrderIssuer();
-        // deploy proxy for SwapOrderIssuer and set implementation
-        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (deployer, treasuryAddress, orderFees)));
-
         // deploy DirectBuyIssuer implementation
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
         // deploy proxy for DirectBuyIssuer and set implementation
         new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasuryAddress, orderFees)));
-
-        // deploy LimitOrderIssuer implementation
-        LimitOrderIssuer limitIssuer = new LimitOrderIssuer();
-        // deploy proxy for LimitOrderIssuer and set implementation
-        new ERC1967Proxy(address(limitIssuer), abi.encodeCall(limitIssuer.initialize, (deployer, treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
     }

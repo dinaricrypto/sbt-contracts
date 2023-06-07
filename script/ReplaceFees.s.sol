@@ -2,10 +2,8 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {OrderFees, IOrderFees} from "../src/OrderFees.sol";
-import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
+import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 
 contract ReplaceFeesScript is Script {
@@ -14,17 +12,13 @@ contract ReplaceFeesScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        SwapOrderIssuer swapIssuer = SwapOrderIssuer(vm.envAddress("SWAP_ISSUER"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
-        LimitOrderIssuer limitIssuer = LimitOrderIssuer(vm.envAddress("LIMIT_ISSUER"));
 
         vm.startBroadcast(deployerPrivateKey);
 
         IOrderFees orderFees = new OrderFees(deployer, 1 ether, 0.005 ether);
 
-        swapIssuer.setOrderFees(orderFees);
         directIssuer.setOrderFees(orderFees);
-        limitIssuer.setOrderFees(orderFees);
 
         vm.stopBroadcast();
     }

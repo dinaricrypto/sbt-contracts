@@ -4,9 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
-import {SwapOrderIssuer} from "../src/issuer/SwapOrderIssuer.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import {LimitOrderIssuer} from "../src/issuer/LimitOrderIssuer.sol";
 
 contract DeployTokenListScript is Script {
     function run() external {
@@ -15,9 +13,7 @@ contract DeployTokenListScript is Script {
         address deployerAddress = vm.addr(deployerPrivateKey);
 
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
-        SwapOrderIssuer swapIssuer = SwapOrderIssuer(vm.envAddress("SWAP_ISSUER"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
-        LimitOrderIssuer limitIssuer = LimitOrderIssuer(vm.envAddress("LIMIT_ISSUER"));
 
         // start
         vm.startBroadcast(deployerPrivateKey);
@@ -37,14 +33,10 @@ contract DeployTokenListScript is Script {
             BridgedERC20 token = new BridgedERC20(deployerAddress, names[i], symbols[i], "example.com", restrictor);
 
             // allow issuers to mint and burn
-            token.setMinter(address(swapIssuer), true);
             token.setMinter(address(directIssuer), true);
-            token.setMinter(address(limitIssuer), true);
 
             // allow orders for token on issuers
-            swapIssuer.grantRole(swapIssuer.ASSETTOKEN_ROLE(), address(token));
             directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), address(token));
-            limitIssuer.grantRole(limitIssuer.ASSETTOKEN_ROLE(), address(token));
         }
 
         vm.stopBroadcast();
