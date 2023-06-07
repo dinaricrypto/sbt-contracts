@@ -11,7 +11,9 @@ import {OrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract DirectBuyIssuerTest is Test {
-    event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
+    event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
+    event EscrowReturned(bytes32 indexed orderId, address indexed recipient, uint256 amount);
+
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
     event OrdersPaused(bool paused);
@@ -194,6 +196,8 @@ contract DirectBuyIssuerTest is Test {
             assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
             assertEq(issuer.numOpenOrders(), 1);
             assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
+            assertEq(issuer.getOrderEscrow(orderId), quantityIn - fees);
+            assertEq(paymentToken.balanceOf(address(issuer)), quantityIn);
         }
     }
 
@@ -313,11 +317,54 @@ contract DirectBuyIssuerTest is Test {
             issuer.takeEscrow(order, salt, takeAmount);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit OrderTaken(orderId, user, takeAmount);
+            emit EscrowTaken(orderId, user, takeAmount);
             vm.prank(operator);
             issuer.takeEscrow(order, salt, takeAmount);
             assertEq(paymentToken.balanceOf(operator), takeAmount);
             assertEq(issuer.getOrderEscrow(orderId), orderAmount - fees - takeAmount);
+        }
+    }
+
+    function testReturnEscrow(uint128 orderAmount, uint256 returnAmount) public {
+        vm.assume(orderAmount > 0);
+
+        OrderProcessor.OrderRequest memory order = dummyOrder;
+        order.quantityIn = orderAmount;
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
+        uint256 fees = flatFee + percentageFee;
+        vm.assume(fees < orderAmount);
+
+        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+
+        paymentToken.mint(user, orderAmount);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), orderAmount);
+
+        vm.prank(user);
+        issuer.requestOrder(order, salt);
+
+        uint256 takeAmount = orderAmount - fees;
+        vm.prank(operator);
+        issuer.takeEscrow(order, salt, takeAmount);
+
+        vm.prank(operator);
+        paymentToken.increaseAllowance(address(issuer), returnAmount);
+
+        if (returnAmount == 0) {
+            vm.expectRevert(OrderProcessor.ZeroValue.selector);
+            vm.prank(operator);
+            issuer.returnEscrow(order, salt, returnAmount);
+        } else if (returnAmount > takeAmount) {
+            vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
+            vm.prank(operator);
+            issuer.returnEscrow(order, salt, returnAmount);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit EscrowReturned(orderId, user, returnAmount);
+            vm.prank(operator);
+            issuer.returnEscrow(order, salt, returnAmount);
+            assertEq(issuer.getOrderEscrow(orderId), returnAmount);
+            assertEq(paymentToken.balanceOf(address(issuer)), fees + returnAmount);
         }
     }
 

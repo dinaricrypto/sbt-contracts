@@ -17,7 +17,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     error UnreturnedEscrow();
 
-    event OrderTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
+    event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
     event EscrowReturned(bytes32 indexed orderId, address indexed recipient, uint256 amount);
 
     mapping(bytes32 => uint256) public getOrderEscrow;
@@ -29,7 +29,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         if (amount > escrow) revert AmountTooLarge();
 
         getOrderEscrow[orderId] = escrow - amount;
-        emit OrderTaken(orderId, order.recipient, amount);
+        emit EscrowTaken(orderId, order.recipient, amount);
 
         // Claim payment
         IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
