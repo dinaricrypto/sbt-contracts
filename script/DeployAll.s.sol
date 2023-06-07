@@ -6,6 +6,8 @@ import {Messager} from "../src/Messager.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {BridgedTokenFactory} from "../src/BridgedTokenFactory.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
+import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -31,9 +33,19 @@ contract DeployAllScript is Script {
         // deploy fee manager
         IOrderFees orderFees = new OrderFees(deployer, 1 ether, 0.005 ether);
 
-        // deploy DirectBuyIssuer implementation
+        // deploy implementation
+        BuyOrderIssuer buyImpl = new BuyOrderIssuer();
+        // deploy proxy and set implementation
+        new ERC1967Proxy(address(buyImpl), abi.encodeCall(buyImpl.initialize, (deployer, treasuryAddress, orderFees)));
+
+        // deploy implementation
+        SellOrderProcessor sellImpl = new SellOrderProcessor();
+        // deploy proxy and set implementation
+        new ERC1967Proxy(address(sellImpl), abi.encodeCall(sellImpl.initialize, (deployer, treasuryAddress, orderFees)));
+
+        // deploy implementation
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
-        // deploy proxy for DirectBuyIssuer and set implementation
+        // deploy proxy and set implementation
         new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasuryAddress, orderFees)));
 
         vm.stopBroadcast();
