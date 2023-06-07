@@ -52,6 +52,15 @@ contract BuyOrderIssuer is OrderProcessor {
         }
     }
 
+    function getInputValueForOrderValue(address token, uint256 orderValue) external view returns (uint256) {
+        if (address(orderFees) == address(0)) {
+            return orderValue;
+        }
+        uint256 flatFee = orderFees.flatFeeForOrder(token);
+        uint256 recoveredValue = orderFees.recoverInputValueFromFeeOnRemaining(orderValue);
+        return recoveredValue + flatFee;
+    }
+
     function _requestOrderAccounting(OrderRequest calldata order, bytes32 salt, bytes32 orderId)
         internal
         virtual
