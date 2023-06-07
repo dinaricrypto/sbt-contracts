@@ -147,6 +147,12 @@ contract DirectBuyIssuerTest is Test {
         assertEq(issuer.ordersPaused(), pause);
     }
 
+    function testGetInputValue(uint128 orderValue) public {
+        uint256 inputValue = issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), inputValue);
+        assertEq(inputValue - flatFee - percentageFee, orderValue);
+    }
+
     function testRequestOrder(uint128 quantityIn) public {
         OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,
