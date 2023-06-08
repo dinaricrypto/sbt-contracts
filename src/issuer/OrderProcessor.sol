@@ -65,6 +65,11 @@ abstract contract OrderProcessor is
     /// @dev active orders
     mapping(bytes32 => OrderState) internal _orders;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
         __AccessControlDefaultAdminRules_init_unchained(0, owner);
         _grantRole(ADMIN_ROLE, owner);
