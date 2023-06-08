@@ -20,46 +20,66 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
     event EscrowReturned(bytes32 indexed orderId, address indexed recipient, uint256 amount);
 
+    // orderId => escrow
     mapping(bytes32 => uint256) public getOrderEscrow;
 
-    function takeEscrow(OrderRequest calldata order, bytes32 salt, uint256 amount) external onlyRole(OPERATOR_ROLE) {
+    /// @notice Take escrowed payment for an order
+    /// @param orderRequest Order request
+    /// @param salt Salt used to generate unique order ID
+    /// @param amount Amount of escrowed payment token to take
+    /// @dev Only callable by operator
+    function takeEscrow(OrderRequest calldata orderRequest, bytes32 salt, uint256 amount)
+        external
+        onlyRole(OPERATOR_ROLE)
+    {
         if (amount == 0) revert ZeroValue();
-        bytes32 orderId = getOrderIdFromOrderRequest(order, salt);
+        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         uint256 escrow = getOrderEscrow[orderId];
         if (amount > escrow) revert AmountTooLarge();
 
         getOrderEscrow[orderId] = escrow - amount;
-        emit EscrowTaken(orderId, order.recipient, amount);
+        emit EscrowTaken(orderId, orderRequest.recipient, amount);
 
         // Claim payment
-        IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
+        IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, amount);
     }
 
-    function returnEscrow(OrderRequest calldata order, bytes32 salt, uint256 amount) external onlyRole(OPERATOR_ROLE) {
+    /// @notice Return unused escrowed payment for an order
+    /// @param orderRequest Order request
+    /// @param salt Salt used to generate unique order ID
+    /// @param amount Amount of payment token to return to escrow
+    /// @dev Only callable by operator
+    function returnEscrow(OrderRequest calldata orderRequest, bytes32 salt, uint256 amount)
+        external
+        onlyRole(OPERATOR_ROLE)
+    {
         if (amount == 0) revert ZeroValue();
-        bytes32 orderId = getOrderIdFromOrderRequest(order, salt);
-        uint256 remainingOrder = _orders[orderId].remainingOrder;
+        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+        uint256 remainingOrder = getRemainingOrder(orderId);
         uint256 escrow = getOrderEscrow[orderId];
         // Can only return unused amount
         if (escrow + amount > remainingOrder) revert AmountTooLarge();
 
         getOrderEscrow[orderId] = escrow + amount;
-        emit EscrowReturned(orderId, order.recipient, amount);
+        emit EscrowReturned(orderId, orderRequest.recipient, amount);
 
-        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
-    function _requestOrderAccounting(OrderRequest calldata order, bytes32 salt, bytes32 orderId)
+    /// @inheritdoc OrderProcessor
+    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
         internal
         virtual
         override
+        returns (Order memory order)
     {
-        super._requestOrderAccounting(order, salt, orderId);
-        getOrderEscrow[orderId] = _orders[orderId].remainingOrder;
+        order = super._requestOrderAccounting(orderRequest, orderId);
+        getOrderEscrow[orderId] = order.paymentTokenQuantity;
     }
 
+    /// @inheritdoc OrderProcessor
     function _fillOrderAccounting(
-        OrderRequest calldata order,
+        OrderRequest calldata orderRequest,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
@@ -69,9 +89,10 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         uint256 escrow = getOrderEscrow[orderId];
         if (orderState.remainingOrder - fillAmount < escrow) revert AmountTooLarge();
 
-        super._fillOrderAccounting(order, orderId, orderState, fillAmount, receivedAmount, 0);
+        super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount, 0);
     }
 
+    /// @inheritdoc OrderProcessor
     function _cancelOrderAccounting(OrderRequest calldata order, bytes32 orderId, OrderState memory orderState)
         internal
         virtual

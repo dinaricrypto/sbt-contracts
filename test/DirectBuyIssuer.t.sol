@@ -7,7 +7,8 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/DirectBuyIssuer.sol";
-import {OrderFees} from "../src/issuer/OrderFees.sol";
+import "../src/issuer/IOrderBridge.sol";
+import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract DirectBuyIssuerTest is Test {
@@ -442,7 +443,7 @@ contract DirectBuyIssuerTest is Test {
         issuer.requestCancel(dummyOrder, salt);
     }
 
-    function testRequestCancelNotRecipientReverts() public {
+    function testRequestCancelNotRequesterReverts() public {
         paymentToken.mint(user, dummyOrder.quantityIn);
         vm.prank(user);
         paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
@@ -450,7 +451,7 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
 
-        vm.expectRevert(OrderProcessor.NotRecipient.selector);
+        vm.expectRevert(OrderProcessor.NotRequester.selector);
         issuer.requestCancel(dummyOrder, salt);
     }
 
