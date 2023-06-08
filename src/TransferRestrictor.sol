@@ -8,7 +8,7 @@ import "./ITransferRestrictor.sol";
 // each location can have transfer rules
 // deploy a transfer restrictor per location
 
-/// @notice Enforces jurisdictional restrictions
+/// @notice Enforces transfer restrictions
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 /// @author Modified from OpenEden (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
@@ -60,6 +60,7 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
         user = userList[account];
     }
 
+    /// @inheritdoc ITransferRestrictor
     function requireNotRestricted(address from, address to) external view virtual {
         if (userList[from].isBanned) revert AccountBanned();
         if (userList[to].isBanned) revert AccountBanned();
@@ -70,10 +71,12 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
         }
     }
 
+    /// @inheritdoc ITransferRestrictor
     function isBanned(address account) external view returns (bool) {
         return userList[account].isBanned;
     }
 
+    /// @inheritdoc ITransferRestrictor
     function isKyc(address account) external view returns (bool) {
         return KycType.NONE != userList[account].kycType;
     }
