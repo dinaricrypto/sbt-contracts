@@ -10,23 +10,33 @@ interface IOrderBridge {
     }
 
     enum TIF {
-        DAY,
-        GTC,
-        IOC,
-        FOK
+        DAY, // Open until end of day
+        GTC, // Good until cancelled
+        IOC, // Immediate or cancel
+        FOK // Fill or kill
     }
 
+    // Emitted order data for off-chain order fulfillment
     struct Order {
+        // Recipient of order fills
         address recipient;
+        // Bridged asset token
         address assetToken;
+        // Payment token
         address paymentToken;
+        // Buy or sell
         bool sell;
+        // Market or limit
         OrderType orderType;
+        // Amount of asset token to be used for fills
         uint256 assetTokenQuantity;
+        // Amount of payment token to be used for fills
         uint256 paymentTokenQuantity;
+        // Price for limit orders
         uint256 price;
         // Time in force
         TIF tif;
+        // Fee held in escrow for order
         uint256 fee;
     }
 
@@ -36,11 +46,19 @@ interface IOrderBridge {
     event CancelRequested(bytes32 indexed id, address indexed recipient);
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
+    /// @notice Generate Order ID deterministically from order and salt
+    /// @param order Order to get ID for
+    /// @param salt Salt used to generate unique order ID
     function getOrderId(Order calldata order, bytes32 salt) external view returns (bytes32);
 
+    /// @notice Active status of order
+    /// @param id Order ID to check
     function isOrderActive(bytes32 id) external view returns (bool);
 
+    /// @notice Get remaining order quantity to fill
+    /// @param id Order ID to check
     function getRemainingOrder(bytes32 id) external view returns (uint256);
 
+    /// @notice Total number of open orders
     function numOpenOrders() external view returns (uint256);
 }

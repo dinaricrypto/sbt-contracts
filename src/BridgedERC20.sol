@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.19;
 
 // solady ERC20 allows EIP-2612 domain separator with `name` changes
 import {ERC20} from "solady/tokens/ERC20.sol";
@@ -23,6 +23,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
 
     /// @dev URI to disclosure information
     string public disclosures;
+    /// @dev Contract to restrict transfers
     ITransferRestrictor public transferRestrictor;
 
     constructor(
@@ -66,18 +67,23 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         emit TransferRestrictorSet(restrictor);
     }
 
+    /// @notice Mint tokens
+    /// @param to Address to mint tokens to
+    /// @param value Amount of tokens to mint
+    /// @dev Only callable by approved minter
     function mint(address to, uint256 value) public virtual onlyRole(MINTER_ROLE) {
         _mint(to, value);
     }
 
+    /// @notice Burn tokens
+    /// @param value Amount of tokens to burn
+    /// @dev Only callable by approved burner
     function burn(uint256 value) public virtual onlyRole(BURNER_ROLE) {
         _burn(msg.sender, value);
     }
 
     function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
-        /* _mint() or _burn() will set one of to address(0)
-         *  no need to limit for these scenarios
-         */
+        // restrictions ignored for minting and burning
         if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
             return;
         }

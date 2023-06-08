@@ -53,6 +53,7 @@ contract OrderFeesTest is Test {
         assertEq(flatFee, 1e6);
     }
 
+    // TODO: can this be used to determine input value for integer final value?
     function testRecoverInputValueFromRemaining(uint64 percentageFeeRate, uint128 remainingValue) public {
         vm.assume(percentageFeeRate < 1 ether);
         orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);

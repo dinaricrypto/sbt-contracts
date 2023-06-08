@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.19;
 
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import "./ITransferRestrictor.sol";
@@ -8,7 +8,7 @@ import "./ITransferRestrictor.sol";
 // each location can have transfer rules
 // deploy a transfer restrictor per location
 
-/// @notice Enforces jurisdictional restrictions
+/// @notice Enforces transfer restrictions
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 /// @author Modified from OpenEden (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/KycManager.sol)
 contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
@@ -20,7 +20,8 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     event Banned(address indexed account);
     event UnBanned(address indexed account);
 
-    mapping(address => User) userList;
+    /// @dev User information
+    mapping(address => User) private userList;
 
     constructor(address owner) {
         _transferOwnership(owner);
@@ -59,6 +60,7 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
         user = userList[account];
     }
 
+    /// @inheritdoc ITransferRestrictor
     function requireNotRestricted(address from, address to) external view virtual {
         if (userList[from].isBanned) revert AccountBanned();
         if (userList[to].isBanned) revert AccountBanned();
@@ -69,10 +71,12 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
         }
     }
 
+    /// @inheritdoc ITransferRestrictor
     function isBanned(address account) external view returns (bool) {
         return userList[account].isBanned;
     }
 
+    /// @inheritdoc ITransferRestrictor
     function isKyc(address account) external view returns (bool) {
         return KycType.NONE != userList[account].kycType;
     }
