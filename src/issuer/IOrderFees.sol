@@ -6,11 +6,7 @@ pragma solidity ^0.8.18;
 interface IOrderFees {
     function flatFeeForOrder(address token) external view returns (uint256);
 
-    function percentageFeeOnRemainingValue(uint256 value) external view returns (uint256);
-
     function percentageFeeForValue(uint256 value) external view returns (uint256);
 
-    function recoverInputValueFromFee(uint256 remainingValue) external view returns (uint256);
-
-    function recoverInputValueFromFeeOnRemaining(uint256 remainingValue) external view returns (uint256);
+    function recoverInputValueFromRemaining(uint256 remainingValue) external view returns (uint256);
 }

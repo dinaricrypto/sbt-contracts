@@ -46,19 +46,24 @@ contract BuyOrderIssuer is OrderProcessor {
 
         flatFee = orderFees.flatFeeForOrder(token);
         if (amount > flatFee) {
-            percentageFee = orderFees.percentageFeeOnRemainingValue(amount - flatFee);
+            percentageFee = orderFees.percentageFeeForValue(amount - flatFee);
         } else {
             percentageFee = 0;
         }
     }
 
-    function getInputValueForOrderValue(address token, uint256 orderValue) external view returns (uint256) {
+    function getInputValueForOrderValue(address token, uint256 orderValue)
+        external
+        view
+        returns (uint256 inputValue, uint256 flatFee, uint256 percentageFee)
+    {
         if (address(orderFees) == address(0)) {
-            return orderValue;
+            return (orderValue, 0, 0);
         }
-        uint256 flatFee = orderFees.flatFeeForOrder(token);
-        uint256 recoveredValue = orderFees.recoverInputValueFromFeeOnRemaining(orderValue);
-        return recoveredValue + flatFee;
+        uint256 recoveredValue = orderFees.recoverInputValueFromRemaining(orderValue);
+        percentageFee = orderFees.percentageFeeForValue(recoveredValue);
+        flatFee = orderFees.flatFeeForOrder(token);
+        inputValue = recoveredValue + flatFee;
     }
 
     function _requestOrderAccounting(OrderRequest calldata order, bytes32 salt, bytes32 orderId)

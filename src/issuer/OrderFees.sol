@@ -51,18 +51,6 @@ contract OrderFees is Ownable2Step, IOrderFees {
         }
     }
 
-    /// @dev Calculates fees as if fee was added to order value
-    function percentageFeeOnRemainingValue(uint256 value) external view returns (uint256) {
-        // inputValue - percentageFee = remainingValue
-        // percentageFee = percentageFeeRate * remainingValue
-        uint64 _percentageFeeRate = percentageFeeRate;
-        if (_percentageFeeRate != 0) {
-            // apply fee to order value, not input value
-            return PrbMath.mulDiv(value, _percentageFeeRate, ONEHUNDRED_PERCENT + _percentageFeeRate);
-        }
-        return 0;
-    }
-
     function percentageFeeForValue(uint256 value) external view returns (uint256) {
         // apply percentage fee
         uint64 _percentageFeeRate = percentageFeeRate;
@@ -73,7 +61,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
         return 0;
     }
 
-    function recoverInputValueFromFee(uint256 remainingValue) external view returns (uint256) {
+    function recoverInputValueFromRemaining(uint256 remainingValue) external view returns (uint256) {
         // inputValue = percentageFee + remainingValue
         // inputValue = remainingValue / (1 - percentageFeeRate)
         uint64 _percentageFeeRate = percentageFeeRate;
@@ -81,15 +69,5 @@ contract OrderFees is Ownable2Step, IOrderFees {
             return remainingValue;
         }
         return PrbMath.mulDiv(remainingValue, ONEHUNDRED_PERCENT, ONEHUNDRED_PERCENT - _percentageFeeRate);
-    }
-
-    function recoverInputValueFromFeeOnRemaining(uint256 remainingValue) external view returns (uint256) {
-        // inputValue = percentageFee + remainingValue
-        // inputValue = remainingValue * (1 + percentageFeeRate)
-        uint64 _percentageFeeRate = percentageFeeRate;
-        if (_percentageFeeRate == 0) {
-            return remainingValue;
-        }
-        return PrbMath.mulDiv18(remainingValue, ONEHUNDRED_PERCENT + _percentageFeeRate);
     }
 }
