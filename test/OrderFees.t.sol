@@ -54,23 +54,12 @@ contract OrderFeesTest is Test {
     }
 
     // TODO: can this be used to determine input value for integer final value?
-    function testRecoverInputValueFromFee(uint64 percentageFeeRate, uint128 remainingValue) public {
+    function testRecoverInputValueFromRemaining(uint64 percentageFeeRate, uint128 remainingValue) public {
         vm.assume(percentageFeeRate < 1 ether);
         orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
 
-        uint256 inputValue = orderFees.recoverInputValueFromFee(remainingValue);
+        uint256 inputValue = orderFees.recoverInputValueFromRemaining(remainingValue);
         uint256 percentageFee = orderFees.percentageFeeForValue(inputValue);
-        assertEq(remainingValue + percentageFee, inputValue);
-    }
-
-    function testRecoverInputValueFromFeeOnRemaining(uint64 percentageFeeRate, uint128 remainingValue) public {
-        vm.assume(percentageFeeRate < 1 ether);
-        orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
-
-        uint256 inputValue = orderFees.recoverInputValueFromFeeOnRemaining(remainingValue);
-        uint256 percentageFee = orderFees.percentageFeeForValue(remainingValue);
-        assertEq(remainingValue + percentageFee, inputValue);
-        uint256 percentageFeeOnRemaining = orderFees.percentageFeeOnRemainingValue(inputValue);
-        assertEq(percentageFee, percentageFeeOnRemaining);
+        assertEq(remainingValue, inputValue - percentageFee);
     }
 }

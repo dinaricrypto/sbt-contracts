@@ -149,9 +149,12 @@ contract DirectBuyIssuerTest is Test {
     }
 
     function testGetInputValue(uint128 orderValue) public {
-        uint256 inputValue = issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), inputValue);
+        (uint256 inputValue, uint256 flatFee, uint256 percentageFee) =
+            issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
         assertEq(inputValue - flatFee - percentageFee, orderValue);
+        (uint256 flatFee2, uint256 percentageFee2) = issuer.getFeesForOrder(address(paymentToken), inputValue);
+        assertEq(flatFee, flatFee2);
+        assertEq(percentageFee, percentageFee2);
     }
 
     function testRequestOrder(uint128 quantityIn) public {

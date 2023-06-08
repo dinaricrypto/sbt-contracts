@@ -55,7 +55,7 @@ contract BuyOrderIssuer is OrderProcessor {
 
         flatFee = orderFees.flatFeeForOrder(token);
         if (inputValue > flatFee) {
-            percentageFee = orderFees.percentageFeeOnRemainingValue(inputValue - flatFee);
+            percentageFee = orderFees.percentageFeeForValue(inputValue - flatFee);
         } else {
             percentageFee = 0;
         }
@@ -64,13 +64,18 @@ contract BuyOrderIssuer is OrderProcessor {
     /// @notice Get the raw input value for a final order value
     /// @param token Payment token for order
     /// @param orderValue Final order value
-    function getInputValueForOrderValue(address token, uint256 orderValue) external view returns (uint256) {
+    function getInputValueForOrderValue(address token, uint256 orderValue)
+        external
+        view
+        returns (uint256 inputValue, uint256 flatFee, uint256 percentageFee)
+    {
         if (address(orderFees) == address(0)) {
-            return orderValue;
+            return (orderValue, 0, 0);
         }
-        uint256 flatFee = orderFees.flatFeeForOrder(token);
-        uint256 recoveredValue = orderFees.recoverInputValueFromFeeOnRemaining(orderValue);
-        return recoveredValue + flatFee;
+        uint256 recoveredValue = orderFees.recoverInputValueFromRemaining(orderValue);
+        percentageFee = orderFees.percentageFeeForValue(recoveredValue);
+        flatFee = orderFees.flatFeeForOrder(token);
+        inputValue = recoveredValue + flatFee;
     }
 
     /// @inheritdoc OrderProcessor
