@@ -52,6 +52,7 @@ abstract contract OrderProcessor is
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant PAYMENTTOKEN_ROLE = keccak256("PAYMENTTOKEN_ROLE");
+    /// @dev Tokens with decimals > 18 are not supported by current OrderFees implementation
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
 
     address public treasury;
