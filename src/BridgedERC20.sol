@@ -2,10 +2,10 @@
 pragma solidity ^0.8.18;
 
 // solady ERC20 allows EIP-2612 domain separator with `name` changes
-import "solady/tokens/ERC20.sol";
+import {ERC20} from "solady/tokens/ERC20.sol";
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
-import "./ITransferRestrictor.sol";
+import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /// @notice ERC20 with minter and blacklist.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
@@ -21,7 +21,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     string internal _name;
     string internal _symbol;
 
-    /// @dev URI to information
+    /// @dev URI to disclosure information
     string public disclosures;
     ITransferRestrictor public transferRestrictor;
 
