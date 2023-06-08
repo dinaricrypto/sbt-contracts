@@ -3,8 +3,8 @@ pragma solidity ^0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
-import "./OrderProcessor.sol";
-import "../IMintBurn.sol";
+import {OrderProcessor} from "./OrderProcessor.sol";
+import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing swap market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/OrderRequestIssuer.sol)
@@ -18,14 +18,20 @@ contract BuyOrderIssuer is OrderProcessor {
     // Fees are transfered when an order is closed (fulfilled or cancelled)
 
     struct FeeState {
+        // Percentage fees are calculated upfront and accumulated as order is filled
         uint256 remainingPercentageFees;
+        // Total fees earned including flat fee
         uint256 feesEarned;
     }
 
     error OrderTooSmall();
 
+    // orderId => FeeState
     mapping(bytes32 => FeeState) private _feeState;
 
+    /// @notice Get corresponding OrderRequest for an Order
+    /// @param order Order to get OrderRequest for
+    /// @return OrderRequest for Order
     function getOrderRequestForOrder(Order calldata order) public pure override returns (OrderRequest memory) {
         return OrderRequest({
             recipient: order.recipient,
@@ -35,6 +41,11 @@ contract BuyOrderIssuer is OrderProcessor {
         });
     }
 
+    /// @notice Get fees for an order
+    /// @param token Payment token for order
+    /// @param amount Amount of payment token for order
+    /// @return flatFee Flat fee for order
+    /// @return percentageFee Percentage fee for order
     function getFeesForOrder(address token, uint256 amount)
         public
         view
@@ -52,6 +63,9 @@ contract BuyOrderIssuer is OrderProcessor {
         }
     }
 
+    /// @notice Get the raw input value for a final order value
+    /// @param token Payment token for order
+    /// @param orderValue Final order value
     function getInputValueForOrderValue(address token, uint256 orderValue) external view returns (uint256) {
         if (address(orderFees) == address(0)) {
             return orderValue;
@@ -61,24 +75,23 @@ contract BuyOrderIssuer is OrderProcessor {
         return recoveredValue + flatFee;
     }
 
-    function _requestOrderAccounting(OrderRequest calldata order, bytes32 salt, bytes32 orderId)
+    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 salt, bytes32 orderId)
         internal
         virtual
         override
+        returns (uint256 orderAmount)
     {
         // Determine fees as if fees were added to order value
-        (uint256 flatFee, uint256 percentageFee) = getFeesForOrder(order.paymentToken, order.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) = getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 totalFees = flatFee + percentageFee;
-        if (totalFees >= order.quantityIn) revert OrderTooSmall();
+        if (totalFees >= orderRequest.quantityIn) revert OrderTooSmall();
 
         _feeState[orderId] = FeeState({remainingPercentageFees: percentageFee, feesEarned: flatFee});
-        uint256 orderAmount = order.quantityIn - totalFees;
-        _orders[orderId] = OrderState({remainingOrder: orderAmount, received: 0});
-        numOpenOrders++;
+        orderAmount = orderRequest.quantityIn - totalFees;
         Order memory bridgeOrderData = Order({
-            recipient: order.recipient,
-            assetToken: order.assetToken,
-            paymentToken: order.paymentToken,
+            recipient: orderRequest.recipient,
+            assetToken: orderRequest.assetToken,
+            paymentToken: orderRequest.paymentToken,
             sell: false,
             orderType: OrderType.MARKET,
             assetTokenQuantity: 0,
@@ -87,14 +100,14 @@ contract BuyOrderIssuer is OrderProcessor {
             tif: TIF.GTC,
             fee: totalFees
         });
-        emit OrderRequested(orderId, order.recipient, bridgeOrderData, salt);
+        emit OrderRequested(orderId, orderRequest.recipient, bridgeOrderData, salt);
 
         // Escrow
-        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), order.quantityIn);
+        IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
     function _fillOrderAccounting(
-        OrderRequest calldata order,
+        OrderRequest calldata orderRequest,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
@@ -104,12 +117,8 @@ contract BuyOrderIssuer is OrderProcessor {
         FeeState memory feeState = _feeState[orderId];
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         if (remainingOrder == 0) {
-            emit OrderFulfilled(orderId, order.recipient);
-            _deleteOrder(orderId);
-            _closeOrder(orderId, order.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
+            _closeOrder(orderId, orderRequest.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
         } else {
-            _orders[orderId].remainingOrder = remainingOrder;
-            _orders[orderId].received = orderState.received + receivedAmount;
             uint256 collection = 0;
             if (feeState.remainingPercentageFees > 0) {
                 collection = PrbMath.mulDiv(feeState.remainingPercentageFees, fillAmount, orderState.remainingOrder);
@@ -122,14 +131,14 @@ contract BuyOrderIssuer is OrderProcessor {
         }
 
         // Mint asset
-        IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
+        IMintBurn(orderRequest.assetToken).mint(orderRequest.recipient, receivedAmount);
         // Claim payment
         if (claimPaymentAmount > 0) {
-            IERC20(order.paymentToken).safeTransfer(msg.sender, claimPaymentAmount);
+            IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, claimPaymentAmount);
         }
     }
 
-    function _cancelOrderAccounting(OrderRequest calldata order, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
         internal
         virtual
         override
@@ -137,15 +146,15 @@ contract BuyOrderIssuer is OrderProcessor {
         // if no fills, then full refund
         FeeState memory feeState = _feeState[orderId];
         uint256 refund = orderState.remainingOrder + feeState.remainingPercentageFees;
-        if (refund + feeState.feesEarned == order.quantityIn) {
-            _closeOrder(orderId, order.paymentToken, 0);
-            refund = order.quantityIn;
+        if (refund + feeState.feesEarned == orderRequest.quantityIn) {
+            _closeOrder(orderId, orderRequest.paymentToken, 0);
+            refund = orderRequest.quantityIn;
         } else {
-            _closeOrder(orderId, order.paymentToken, feeState.feesEarned);
+            _closeOrder(orderId, orderRequest.paymentToken, feeState.feesEarned);
         }
 
         // Return Escrow
-        IERC20(order.paymentToken).safeTransfer(order.recipient, refund);
+        IERC20(orderRequest.paymentToken).safeTransfer(orderRequest.recipient, refund);
     }
 
     function _closeOrder(bytes32 orderId, address paymentToken, uint256 feesEarned) internal virtual {
