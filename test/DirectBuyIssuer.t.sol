@@ -443,7 +443,7 @@ contract DirectBuyIssuerTest is Test {
         issuer.requestCancel(dummyOrder, salt);
     }
 
-    function testRequestCancelNotRecipientReverts() public {
+    function testRequestCancelNotRequesterReverts() public {
         paymentToken.mint(user, dummyOrder.quantityIn);
         vm.prank(user);
         paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
@@ -451,7 +451,7 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
 
-        vm.expectRevert(OrderProcessor.NotRecipient.selector);
+        vm.expectRevert(OrderProcessor.NotRequester.selector);
         issuer.requestCancel(dummyOrder, salt);
     }
 

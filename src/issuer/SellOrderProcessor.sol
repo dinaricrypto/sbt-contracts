@@ -7,7 +7,7 @@ import "./OrderProcessor.sol";
 import "../IMintBurn.sol";
 
 /// @notice Contract managing swap market purchase orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/SellOrderProcessor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/SellOrderProcessor.sol)
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
     // This contract handles the submission and fulfillment of orders
@@ -17,8 +17,10 @@ contract SellOrderProcessor is OrderProcessor {
 
     // Fees are transfered when an order is closed (fulfilled or cancelled)
 
+    /// @dev orderId => feesEarned
     mapping(bytes32 => uint256) private _feesEarned;
 
+    /// @inheritdoc OrderProcessor
     function getOrderRequestForOrder(Order calldata order) public pure override returns (OrderRequest memory) {
         return OrderRequest({
             recipient: order.recipient,
@@ -28,28 +30,32 @@ contract SellOrderProcessor is OrderProcessor {
         });
     }
 
+    /// @notice Get flat fee for an order
+    /// @param token Payment token for order
     function getFlatFeeForOrder(address token) public view returns (uint256) {
         if (address(orderFees) == address(0)) return 0;
         return orderFees.flatFeeForOrder(token);
     }
 
+    /// @notice Get percentage fee for an order
+    /// @param value Value of order subject to percentage fee
     function getPercentageFeeForOrder(uint256 value) public view returns (uint256) {
         if (address(orderFees) == address(0)) return 0;
         return orderFees.percentageFeeForValue(value);
     }
 
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 salt, bytes32 orderId)
+    /// @inheritdoc OrderProcessor
+    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
         internal
         virtual
         override
-        returns (uint256 orderAmount)
+        returns (Order memory order)
     {
-        // Determine fees as if fees were added to order value
+        // Accumulate initial flat fee
         uint256 flatFee = getFlatFeeForOrder(orderRequest.paymentToken);
-
         _feesEarned[orderId] = flatFee;
-        orderAmount = orderRequest.quantityIn;
-        Order memory bridgeOrderData = Order({
+
+        order = Order({
             recipient: orderRequest.recipient,
             assetToken: orderRequest.assetToken,
             paymentToken: orderRequest.paymentToken,
@@ -61,12 +67,12 @@ contract SellOrderProcessor is OrderProcessor {
             tif: TIF.GTC,
             fee: 0
         });
-        emit OrderRequested(orderId, orderRequest.recipient, bridgeOrderData, salt);
 
         // Escrow
         IERC20(orderRequest.assetToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
+    /// @inheritdoc OrderProcessor
     function _fillOrderAccounting(
         OrderRequest calldata orderRequest,
         bytes32 orderId,
@@ -101,6 +107,7 @@ contract SellOrderProcessor is OrderProcessor {
         }
     }
 
+    /// @inheritdoc OrderProcessor
     function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
         internal
         virtual
@@ -122,9 +129,9 @@ contract SellOrderProcessor is OrderProcessor {
         IERC20(orderRequest.assetToken).safeTransfer(orderRequest.recipient, refund);
     }
 
+    /// @dev Distribute proceeds to recipient and treasury
     function _distributeProceeds(address paymentToken, address recipient, uint256 totalReceived, uint256 feesEarned)
-        internal
-        virtual
+        private
     {
         uint256 proceeds = 0;
         uint256 collection = 0;

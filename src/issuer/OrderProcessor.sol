@@ -49,7 +49,7 @@ abstract contract OrderProcessor is
     error ZeroAddress();
     error Paused();
     error ZeroValue();
-    error NotRecipient();
+    error NotRequester();
     error OrderNotFound();
     error DuplicateOrder();
     error AmountTooLarge();
@@ -163,7 +163,7 @@ abstract contract OrderProcessor is
         return _orders[id].received;
     }
 
-    /// @notice Get the OrderRequest for an Order
+    /// @notice Get corresponding OrderRequest for an Order
     function getOrderRequestForOrder(Order calldata order) public pure virtual returns (OrderRequest memory);
 
     /// @notice Request an order
@@ -174,10 +174,9 @@ abstract contract OrderProcessor is
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-        uint256 orderAmount = _requestOrderAccounting(orderRequest, salt, orderId);
+        Order memory order = _requestOrderAccounting(orderRequest, orderId);
 
-        _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
-        _numOpenOrders++;
+        _createOrder(order, salt, orderId);
     }
 
     /// @notice Request an order with token permit
@@ -205,16 +204,24 @@ abstract contract OrderProcessor is
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
         IERC20Permit(permitToken).safePermit(msg.sender, address(this), value, deadline, v, r, s);
-        uint256 orderAmount = _requestOrderAccounting(orderRequest, salt, orderId);
+        Order memory order = _requestOrderAccounting(orderRequest, orderId);
 
-        _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
-        _numOpenOrders++;
+        _createOrder(order, salt, orderId);
     }
 
     function _validateRequest(OrderRequest calldata orderRequest) private view {
+        // if (msg.sender == address(0)) revert ZeroAddress();
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         _checkRole(ASSETTOKEN_ROLE, orderRequest.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, orderRequest.paymentToken);
+    }
+
+    function _createOrder(Order memory order, bytes32 salt, bytes32 orderId) private {
+        emit OrderRequested(orderId, order.recipient, order, salt);
+
+        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
+        _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
+        _numOpenOrders++;
     }
 
     /// @notice Fill an order
@@ -222,6 +229,7 @@ abstract contract OrderProcessor is
     /// @param salt Salt used to generate unique order ID
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
+    /// @dev Only callable by operator
     function fillOrder(OrderRequest calldata orderRequest, bytes32 salt, uint256 fillAmount, uint256 receivedAmount)
         external
         nonReentrant
@@ -230,7 +238,7 @@ abstract contract OrderProcessor is
         if (fillAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         OrderState memory orderState = _orders[orderId];
-        if (orderState.remainingOrder == 0) revert OrderNotFound();
+        if (orderState.requester == address(0)) revert OrderNotFound();
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
 
         emit OrderFill(orderId, orderRequest.recipient, fillAmount, receivedAmount);
@@ -250,15 +258,21 @@ abstract contract OrderProcessor is
     /// @notice Request to cancel an order
     /// @param orderRequest Order request to cancel
     /// @param salt Salt used to generate unique order ID
+    /// @dev Only callable by order requester
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
-        if (orderRequest.recipient != msg.sender) revert NotRecipient();
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        uint256 remainingOrder = _orders[orderId].remainingOrder;
-        if (remainingOrder == 0) revert OrderNotFound();
+        address requester = _orders[orderId].requester;
+        if (requester == address(0)) revert OrderNotFound();
+        if (requester != msg.sender) revert NotRequester();
 
         emit CancelRequested(orderId, orderRequest.recipient);
     }
 
+    /// @notice Cancel an order
+    /// @param orderRequest Order request to cancel
+    /// @param salt Salt used to generate unique order ID
+    /// @param reason Reason for cancellation
+    /// @dev Only callable by operator
     function cancelOrder(OrderRequest calldata orderRequest, bytes32 salt, string calldata reason)
         external
         nonReentrant
@@ -266,7 +280,7 @@ abstract contract OrderProcessor is
     {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         OrderState memory orderState = _orders[orderId];
-        if (orderState.remainingOrder == 0) revert OrderNotFound();
+        if (orderState.requester == address(0)) revert OrderNotFound();
 
         emit OrderCancelled(orderId, orderRequest.recipient, reason);
         delete _orders[orderId];
@@ -275,11 +289,22 @@ abstract contract OrderProcessor is
         _cancelOrderAccounting(orderRequest, orderId, orderState);
     }
 
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 salt, bytes32 orderId)
+    /// @notice Process an order request including fees, escrow, and calculating order amount to fill
+    /// @param orderRequest Order request to process
+    /// @param orderId Order ID
+    /// @return order Order to send to bridge
+    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
         internal
         virtual
-        returns (uint256 orderAmount);
+        returns (Order memory order);
 
+    /// @notice Process an order fill including fees and escrow
+    /// @param orderRequest Order request to fill
+    /// @param orderId Order ID
+    /// @param orderState Order state
+    /// @param fillAmount Amount of order token filled
+    /// @param receivedAmount Amount of received token
+    /// @param claimPaymentAmount Amount of payment token to claim
     function _fillOrderAccounting(
         OrderRequest calldata orderRequest,
         bytes32 orderId,
@@ -290,6 +315,10 @@ abstract contract OrderProcessor is
         uint256 claimPaymentAmount
     ) internal virtual;
 
+    /// @notice Process an order cancellation including fees and escrow
+    /// @param orderRequest Order request to cancel
+    /// @param orderId Order ID
+    /// @param orderState Order state
     function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
         internal
         virtual;
