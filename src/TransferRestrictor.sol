@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.19;
 
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import "./ITransferRestrictor.sol";
@@ -20,7 +20,8 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     event Banned(address indexed account);
     event UnBanned(address indexed account);
 
-    mapping(address => User) userList;
+    /// @dev User information
+    mapping(address => User) private userList;
 
     constructor(address owner) {
         _transferOwnership(owner);

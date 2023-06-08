@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.19;
 
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import "prb-math/Common.sol" as PrbMath;
@@ -44,8 +44,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
         emit FeeSet(_perOrderFee, _percentageFeeRate);
     }
 
-    /// @notice Calculates flat fee for an order
-    /// @param token Token for order
+    /// @inheritdoc IOrderFees
     function flatFeeForOrder(address token) external view returns (uint256 flatFee) {
         uint8 decimals = IERC20Metadata(token).decimals();
         if (decimals > 18) revert DecimalsTooLarge();
@@ -56,8 +55,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
         }
     }
 
-    /// @notice Calculates percentage fee for an order
-    /// @param value Value of order subject to percentage fee
+    /// @inheritdoc IOrderFees
     function percentageFeeForValue(uint256 value) external view returns (uint256) {
         // apply percentage fee
         uint64 _percentageFeeRate = percentageFeeRate;
@@ -68,8 +66,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
         return 0;
     }
 
-    /// @notice Calculates percentage fee for an order as if fee was added to order value
-    /// @param value Value of order subject to percentage fee
+    /// @inheritdoc IOrderFees
     function percentageFeeOnRemainingValue(uint256 value) external view returns (uint256) {
         // inputValue - percentageFee = remainingValue
         // percentageFee = percentageFeeRate * remainingValue
@@ -81,8 +78,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
         return 0;
     }
 
-    /// @notice Recovers input value needed to achieve a given remaining value after fees
-    /// @param remainingValue Remaining value after fees
+    /// @inheritdoc IOrderFees
     function recoverInputValueFromFee(uint256 remainingValue) external view returns (uint256) {
         // inputValue = percentageFee + remainingValue
         // inputValue = remainingValue / (1 - percentageFeeRate)
@@ -93,8 +89,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
         return PrbMath.mulDiv(remainingValue, ONEHUNDRED_PERCENT, ONEHUNDRED_PERCENT - _percentageFeeRate);
     }
 
-    /// @notice Recovers input value needed to achieve a given remaining value as if fee was added to order value
-    /// @param remainingValue Remaining value after fees
+    /// @inheritdoc IOrderFees
     function recoverInputValueFromFeeOnRemaining(uint256 remainingValue) external view returns (uint256) {
         // inputValue = percentageFee + remainingValue
         // inputValue = remainingValue * (1 + percentageFeeRate)
