@@ -6,7 +6,7 @@ import "../src/IMintBurn.sol";
 
 contract MintScript is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("TESTNET_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         address[1] memory testWallets = [

@@ -19,6 +19,7 @@
     "snapshot": "forge snapshot",
     "keccak": "cast keccak",
     "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
+    "deployall:arb": "./script/deployall-arb-noverify.sh",
     "deployall:testnet": "./script/deployall-testnet.sh",
     "upgrade:testnet": "./script/upgrade-testnet.sh",
     "deploy:tokenlist:testnet": "./script/deploytokenlist-testnet.sh",
