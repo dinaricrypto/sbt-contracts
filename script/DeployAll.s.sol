@@ -20,6 +20,9 @@ contract DeployAllScript is Script {
         address operator = vm.envAddress("OPERATOR");
         address usdc = vm.envAddress("USDC");
 
+        console.log("deployer: %s", deployer);
+        console.log("owner: %s", owner);
+
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
@@ -67,19 +70,19 @@ contract DeployAllScript is Script {
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), usdc);
 
         // transfer ownership
-        buyOrderIssuer.beginDefaultAdminTransfer(owner);
-        sellOrderProcessor.beginDefaultAdminTransfer(owner);
-        directBuyIssuer.beginDefaultAdminTransfer(owner);
+        // buyOrderIssuer.beginDefaultAdminTransfer(owner);
+        // sellOrderProcessor.beginDefaultAdminTransfer(owner);
+        // directBuyIssuer.beginDefaultAdminTransfer(owner);
 
         vm.stopBroadcast();
 
-        // accept ownership transfer
-        vm.startBroadcast(owner);
+        // // accept ownership transfer
+        // vm.startBroadcast(owner);
 
-        buyOrderIssuer.acceptDefaultAdminTransfer();
-        sellOrderProcessor.acceptDefaultAdminTransfer();
-        directBuyIssuer.acceptDefaultAdminTransfer();
+        // buyOrderIssuer.acceptDefaultAdminTransfer();
+        // sellOrderProcessor.acceptDefaultAdminTransfer();
+        // directBuyIssuer.acceptDefaultAdminTransfer();
 
-        vm.stopBroadcast();
+        // vm.stopBroadcast();
     }
 }
