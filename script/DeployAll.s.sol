@@ -14,8 +14,9 @@ contract DeployAllScript is Script {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         address deployer = vm.addr(deployerPrivateKey);
+        uint256 ownerKey = vm.envUint("OWNER_KEY");
+        address owner = vm.addr(ownerKey);
         address treasury = vm.envAddress("TREASURY");
-        address owner = vm.envAddress("OWNER");
         address operator = vm.envAddress("OPERATOR");
         address usdc = vm.envAddress("USDC");
 
@@ -32,21 +33,27 @@ contract DeployAllScript is Script {
         BuyOrderIssuer buyImpl = new BuyOrderIssuer();
         // deploy proxy and set implementation
         BuyOrderIssuer buyOrderIssuer = BuyOrderIssuer(
-            new ERC1967Proxy(address(buyImpl), abi.encodeCall(buyImpl.initialize, (deployer, treasury, orderFees)))
+            address(
+                new ERC1967Proxy(address(buyImpl), abi.encodeCall(buyImpl.initialize, (deployer, treasury, orderFees)))
+            )
         );
 
         // deploy implementation
         SellOrderProcessor sellImpl = new SellOrderProcessor();
         // deploy proxy and set implementation
         SellOrderProcessor sellOrderProcessor = SellOrderProcessor(
-            new ERC1967Proxy(address(sellImpl), abi.encodeCall(sellImpl.initialize, (deployer, treasury, orderFees)))
+            address(
+                new ERC1967Proxy(address(sellImpl), abi.encodeCall(sellImpl.initialize, (deployer, treasury, orderFees)))
+            )
         );
 
         // deploy implementation
         DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
         // deploy proxy and set implementation
         DirectBuyIssuer directBuyIssuer = DirectBuyIssuer(
-            new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasury, orderFees)))
+            address(
+                new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasury, orderFees)))
+            )
         );
 
         // config operator
@@ -60,9 +67,18 @@ contract DeployAllScript is Script {
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), usdc);
 
         // transfer ownership
-        buyOrderIssuer.transferOwnership(owner);
-        sellOrderProcessor.transferOwnership(owner);
-        directBuyIssuer.transferOwnership(owner);
+        buyOrderIssuer.beginDefaultAdminTransfer(owner);
+        sellOrderProcessor.beginDefaultAdminTransfer(owner);
+        directBuyIssuer.beginDefaultAdminTransfer(owner);
+
+        vm.stopBroadcast();
+
+        // accept ownership transfer
+        vm.startBroadcast(owner);
+
+        buyOrderIssuer.acceptDefaultAdminTransfer();
+        sellOrderProcessor.acceptDefaultAdminTransfer();
+        directBuyIssuer.acceptDefaultAdminTransfer();
 
         vm.stopBroadcast();
     }
