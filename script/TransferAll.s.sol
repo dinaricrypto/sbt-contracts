@@ -15,7 +15,7 @@ contract TransferAllScript is Script {
 
         uint256 balance = vm.addr(senderKey).balance;
         console.log("balance: %s", balance);
-        (bool success, ) = payable(to).call{value: balance - txCost}("");
+        (bool success,) = payable(to).call{value: balance - txCost}("");
         console.log("success: %s", success);
         // console.log("data: %s", data);
 
