@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { ContractTransaction, ContractReceipt, Wallet, ethers } from 'ethers';
+import { Wallet } from 'ethers';
 
 export function getWalletsFromMnemonic(mnemonic: string, n: number, account = 0) {
     const wallets: Wallet[] = new Array(n);
@@ -10,7 +10,7 @@ export function getWalletsFromMnemonic(mnemonic: string, n: number, account = 0)
 }
 
 async function main() {
-    const mnemonic = process.env['MNEMONIC_TEST'];
+    const mnemonic = process.env['PRINT_MNEMONIC'];
     if (!mnemonic) throw new Error('empty mnemonic');
     console.log('');
     console.log('Mnemonic');
