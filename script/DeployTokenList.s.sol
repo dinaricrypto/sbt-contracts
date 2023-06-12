@@ -11,7 +11,7 @@ import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 contract DeployTokenListScript is Script {
     function run() external {
         // load config
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         address deployerAddress = vm.addr(deployerPrivateKey);
 
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
@@ -22,15 +22,43 @@ contract DeployTokenListScript is Script {
         // start
         vm.startBroadcast(deployerPrivateKey);
 
-        string[5] memory names = [
-            "Decentralized Apple",
-            "Decentralized Tesla",
-            "Decentralized Amazon",
-            "Decentralized Microsoft",
-            "Decentralized Alphabet"
+        string[13] memory names = [
+            "Tesla, Inc.",
+            "Nvidia",
+            "Microsoft",
+            "Meta Platforms",
+            "Netflix",
+            "Apple Inc.",
+            "Alphabet Inc. (Class A)",
+            "Amazon",
+            "PayPal",
+            "Pfizer",
+            "Disney",
+            "SPDR S&P 500 ETF Trust",
+            "WisdomTree Floating Rate Treasury Fund"
         ];
+        for (uint256 i = 0; i < names.length; i++) {
+        }
 
-        string[5] memory symbols = ["dAAPL", "dTSLA", "dAMZN", "dMSFT", "dGOOGL"];
+        string[13] memory symbols = [
+            "TSLA",
+            "NVDA",
+            "MSFT",
+            "META",
+            "NFLX",
+            "AAPL",
+            "GOOGL",
+            "AMZN",
+            "PYPL",
+            "PFE",
+            "DIS",
+            "SPY",
+            "USFR"
+        ];
+        for (uint256 i = 0; i < names.length; i++) {
+            names[i] = string.concat(names[i], " - Dinari");
+            symbols[i] = string.concat(symbols[i], ".D");
+        }
 
         for (uint256 i = 0; i < 5; i++) {
             // deploy token
