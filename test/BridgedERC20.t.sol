@@ -115,28 +115,19 @@ contract BridgedERC20Test is Test {
         assertEq(token.balanceOf(address(1)), 1e18);
     }
 
-    function testTransferBannedToReverts() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
-        restrictor.ban(address(1));
-
-        vm.expectRevert(TransferRestrictor.AccountBanned.selector);
-        token.transfer(address(1), 1e18);
-    }
-
-    function testTransferBannedFromReverts() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
-        restrictor.ban(address(this));
-
-        vm.expectRevert(TransferRestrictor.AccountBanned.selector);
-        token.transfer(address(1), 1e18);
-    }
-
     function testTransferRestrictedToReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
-        restrictor.setKyc(address(1), ITransferRestrictor.KycType.DOMESTIC);
+        restrictor.restrict(address(1));
+
+        vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
+        token.transfer(address(1), 1e18);
+    }
+
+    function testTransferRestrictedFromReverts() public {
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(address(this), 1e18);
+        restrictor.restrict(address(this));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         token.transfer(address(1), 1e18);
