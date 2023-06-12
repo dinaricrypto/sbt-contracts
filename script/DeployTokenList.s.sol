@@ -37,24 +37,10 @@ contract DeployTokenListScript is Script {
             "SPDR S&P 500 ETF Trust",
             "WisdomTree Floating Rate Treasury Fund"
         ];
-        for (uint256 i = 0; i < names.length; i++) {
-        }
+        for (uint256 i = 0; i < names.length; i++) {}
 
-        string[13] memory symbols = [
-            "TSLA",
-            "NVDA",
-            "MSFT",
-            "META",
-            "NFLX",
-            "AAPL",
-            "GOOGL",
-            "AMZN",
-            "PYPL",
-            "PFE",
-            "DIS",
-            "SPY",
-            "USFR"
-        ];
+        string[13] memory symbols =
+            ["TSLA", "NVDA", "MSFT", "META", "NFLX", "AAPL", "GOOGL", "AMZN", "PYPL", "PFE", "DIS", "SPY", "USFR"];
         for (uint256 i = 0; i < names.length; i++) {
             names[i] = string.concat(names[i], " - Dinari");
             symbols[i] = string.concat(symbols[i], ".D");
