@@ -26,7 +26,7 @@ contract DeployTokenListScript is Script {
 
         // start
         vm.startBroadcast(deployerPrivateKey);
-        
+
         uint256 n = 13;
         string[n] memory names = [
             "Tesla, Inc.",
