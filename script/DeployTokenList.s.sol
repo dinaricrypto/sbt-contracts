@@ -9,32 +9,52 @@ import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 
 contract DeployTokenListScript is Script {
+    uint256 constant n = 13;
+
     function run() external {
         // load config
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployerAddress = vm.addr(deployerPrivateKey);
+        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
+        address deployer = vm.addr(deployerPrivateKey);
+        // uint256 ownerKey = vm.envUint("OWNER_KEY");
+        // address owner = vm.addr(ownerKey);
 
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
         BuyOrderIssuer buyIssuer = BuyOrderIssuer(vm.envAddress("BUY_ISSUER"));
         SellOrderProcessor sellProcessor = SellOrderProcessor(vm.envAddress("SELL_PROCESSOR"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
 
+        console.log("deployer: %s", deployer);
+        // console.log("owner: %s", owner);
+
         // start
         vm.startBroadcast(deployerPrivateKey);
 
-        string[5] memory names = [
-            "Decentralized Apple",
-            "Decentralized Tesla",
-            "Decentralized Amazon",
-            "Decentralized Microsoft",
-            "Decentralized Alphabet"
+        string[n] memory names = [
+            "Tesla, Inc.",
+            "Nvidia",
+            "Microsoft",
+            "Meta Platforms",
+            "Netflix",
+            "Apple Inc.",
+            "Alphabet Inc. (Class A)",
+            "Amazon",
+            "PayPal",
+            "Pfizer",
+            "Disney",
+            "SPDR S&P 500 ETF Trust",
+            "WisdomTree Floating Rate Treasury Fund"
         ];
 
-        string[5] memory symbols = ["dAAPL", "dTSLA", "dAMZN", "dMSFT", "dGOOGL"];
+        string[n] memory symbols =
+            ["TSLA", "NVDA", "MSFT", "META", "NFLX", "AAPL", "GOOGL", "AMZN", "PYPL", "PFE", "DIS", "SPY", "USFR"];
+        for (uint256 i = 0; i < n; i++) {
+            names[i] = string.concat(names[i], " - Dinari");
+            symbols[i] = string.concat(symbols[i], ".D");
+        }
 
-        for (uint256 i = 0; i < 5; i++) {
+        for (uint256 i = 0; i < n; i++) {
             // deploy token
-            BridgedERC20 token = new BridgedERC20(deployerAddress, names[i], symbols[i], "", restrictor);
+            BridgedERC20 token = new BridgedERC20(deployer, names[i], symbols[i], "", restrictor);
 
             // allow issuers to mint and burn
             token.grantRole(token.MINTER_ROLE(), address(buyIssuer));
