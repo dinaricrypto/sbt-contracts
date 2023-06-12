@@ -9,6 +9,8 @@ import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 
 contract DeployTokenListScript is Script {
+    uint256 constant n = 13;
+
     function run() external {
         // load config
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
@@ -27,7 +29,6 @@ contract DeployTokenListScript is Script {
         // start
         vm.startBroadcast(deployerPrivateKey);
 
-        uint256 n = 13;
         string[n] memory names = [
             "Tesla, Inc.",
             "Nvidia",
