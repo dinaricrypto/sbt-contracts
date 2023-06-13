@@ -40,3 +40,13 @@ __pycache__/
 
 # dist
 dist/
+
+# latex
+*.aux
+*.toc
+*.bbl
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+latex/*.pdf
