@@ -5,19 +5,13 @@ import "forge-std/Test.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
-import "./utils/SigUtils.sol";
 import "../src/issuer/DirectBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract DirectBuyIssuerTest is Test {
     event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
     event EscrowReturned(bytes32 indexed orderId, address indexed recipient, uint256 amount);
-
-    event TreasurySet(address indexed treasury);
-    event OrderFeesSet(IOrderFees orderFees);
-    event OrdersPaused(bool paused);
 
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
@@ -28,7 +22,6 @@ contract DirectBuyIssuerTest is Test {
     OrderFees orderFees;
     DirectBuyIssuer issuer;
     MockERC20 paymentToken;
-    SigUtils sigUtils;
 
     uint256 userPrivateKey;
     address user;
@@ -36,7 +29,7 @@ contract DirectBuyIssuerTest is Test {
     address constant operator = address(3);
     address constant treasury = address(4);
 
-    bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+    bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
     OrderProcessor.OrderRequest dummyOrder;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrderBridgeData;
@@ -47,7 +40,6 @@ contract DirectBuyIssuerTest is Test {
 
         token = new MockBridgedERC20();
         paymentToken = new MockERC20("Money", "$", 6);
-        sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
@@ -243,5 +235,31 @@ contract DirectBuyIssuerTest is Test {
         emit OrderCancelled(orderId, user, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, salt, reason);
+    }
+
+    function testCancelOrderUnreturnedEscrowReverts(uint128 orderAmount, uint128 takeAmount) public {
+        vm.assume(orderAmount > 0);
+        vm.assume(takeAmount > 0);
+
+        OrderProcessor.OrderRequest memory order = dummyOrder;
+        order.quantityIn = orderAmount;
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        uint256 fees = flatFee + percentageFee;
+        vm.assume(fees < orderAmount);
+        vm.assume(takeAmount < orderAmount - fees);
+
+        paymentToken.mint(user, orderAmount);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), orderAmount);
+
+        vm.prank(user);
+        issuer.requestOrder(order, salt);
+
+        vm.prank(operator);
+        issuer.takeEscrow(order, salt, takeAmount);
+
+        vm.expectRevert(DirectBuyIssuer.UnreturnedEscrow.selector);
+        vm.prank(operator);
+        issuer.cancelOrder(order, salt, "");
     }
 }
