@@ -46,6 +46,9 @@ interface IOrderBridge {
     event CancelRequested(bytes32 indexed id, address indexed recipient);
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
+    /// @notice Total number of open orders
+    function numOpenOrders() external view returns (uint256);
+
     /// @notice Generate Order ID deterministically from order and salt
     /// @param order Order to get ID for
     /// @param salt Salt used to generate unique order ID
@@ -59,6 +62,7 @@ interface IOrderBridge {
     /// @param id Order ID to check
     function getRemainingOrder(bytes32 id) external view returns (uint256);
 
-    /// @notice Total number of open orders
-    function numOpenOrders() external view returns (uint256);
+    /// @notice Get total received for order
+    /// @param id Order ID to check
+    function getTotalReceived(bytes32 id) external view returns (uint256);
 }

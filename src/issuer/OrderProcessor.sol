@@ -9,8 +9,8 @@ import {ReentrancyGuardUpgradeable} from
     "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SafeERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./IOrderBridge.sol";
-import "./IOrderFees.sol";
+import {IOrderBridge} from "./IOrderBridge.sol";
+import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -22,7 +22,10 @@ abstract contract OrderProcessor is
     Multicall,
     IOrderBridge
 {
+    // Handle permit for tokens safely
     using SafeERC20 for IERC20Permit;
+
+    /// ------------------ Types ------------------ ///
 
     // Specification for an order
     struct OrderRequest {
@@ -46,6 +49,7 @@ abstract contract OrderProcessor is
         uint256 received;
     }
 
+    // Error messages
     error ZeroAddress();
     error Paused();
     error ZeroValue();
@@ -54,33 +58,46 @@ abstract contract OrderProcessor is
     error DuplicateOrder();
     error AmountTooLarge();
 
+    // Events
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees orderFees);
     event OrdersPaused(bool paused);
 
+    /// ------------------ Constants ------------------ ///
+
+    /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
     bytes32 private constant ORDERREQUEST_TYPE_HASH = keccak256(
         "OrderRequest(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn"
     );
 
+    /// @notice Admin role for managing treasury, fees, and paused state
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
+    /// @notice Operator role for filling and cancelling orders
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+    /// @notice Payment token role for whitelisting payment tokens
     bytes32 public constant PAYMENTTOKEN_ROLE = keccak256("PAYMENTTOKEN_ROLE");
+    /// @notice Asset token role for whitelisting asset tokens
     /// @dev Tokens with decimals > 18 are not supported by current OrderFees implementation
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
 
-    /// @dev Address to receive fees
+    /// ------------------ Storage ------------------ ///
+
+    /// @notice Address to receive fees
     address public treasury;
 
-    /// @dev Fee specification contract
+    /// @notice Fee specification contract
     IOrderFees public orderFees;
 
     /// @dev Are orders paused?
     bool public ordersPaused;
 
+    /// @dev Total number of active orders. Onchain enumeration not supported.
     uint256 private _numOpenOrders;
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
+
+    /// ------------------ Initialization ------------------ ///
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -88,38 +105,60 @@ abstract contract OrderProcessor is
     }
 
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
-        __AccessControlDefaultAdminRules_init_unchained(0, owner);
-        _grantRole(ADMIN_ROLE, owner);
-
+        // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
 
+        // Initialize super contracts
+        __UUPSUpgradeable_init_unchained();
+        __AccessControlDefaultAdminRules_init_unchained(0, owner);
+        __ReentrancyGuard_init_unchained();
+
+        // Initialize treasury and order fees
         treasury = treasury_;
         orderFees = orderFees_;
+
+        // Grant admin role to owner
+        _grantRole(ADMIN_ROLE, owner);
     }
 
-    function _authorizeUpgrade(address newImplementation) internal virtual override onlyRole(DEFAULT_ADMIN_ROLE) {}
+    // Restrict upgrades to owner
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+
+    /// ------------------ Administration ------------------ ///
 
     modifier whenOrdersNotPaused() {
         if (ordersPaused) revert Paused();
         _;
     }
 
+    /// @notice Set treasury address
+    /// @param account Address to receive fees
+    /// @dev Only callable by admin
     function setTreasury(address account) external onlyRole(ADMIN_ROLE) {
+        // Don't send fees to zero address
         if (account == address(0)) revert ZeroAddress();
 
         treasury = account;
         emit TreasurySet(account);
     }
 
+    /// @notice Set order fees contract
+    /// @param fees Order fees contract
+    /// @dev Only callable by admin
     function setOrderFees(IOrderFees fees) external onlyRole(ADMIN_ROLE) {
         orderFees = fees;
         emit OrderFeesSet(fees);
     }
 
+    /// @notice Pause/unpause orders
+    /// @param pause Pause orders if true, unpause if false
+    /// @dev Only callable by admin
     function setOrdersPaused(bool pause) external onlyRole(ADMIN_ROLE) {
         ordersPaused = pause;
         emit OrdersPaused(pause);
     }
+
+    /// ------------------ Getters ------------------ ///
 
     /// @inheritdoc IOrderBridge
     function numOpenOrders() external view returns (uint256) {
@@ -129,6 +168,7 @@ abstract contract OrderProcessor is
     /// @notice Get order ID deterministically from order request and salt
     /// @param orderRequest Order request to get ID for
     /// @param salt Salt used to generate unique order ID
+    /// @dev Compliant with EIP-712 for convenient offchain computation
     function getOrderIdFromOrderRequest(OrderRequest memory orderRequest, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
@@ -157,14 +197,12 @@ abstract contract OrderProcessor is
         return _orders[id].remainingOrder;
     }
 
-    /// @notice Get total received for order
-    /// @param id Order ID to check
+    /// @inheritdoc IOrderBridge
     function getTotalReceived(bytes32 id) public view returns (uint256) {
         return _orders[id].received;
     }
 
-    /// @notice Get corresponding OrderRequest for an Order
-    function getOrderRequestForOrder(Order calldata order) public pure virtual returns (OrderRequest memory);
+    /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Request an order
     /// @param orderRequest Order request to submit
@@ -172,10 +210,13 @@ abstract contract OrderProcessor is
     function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
         _validateRequest(orderRequest);
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+        // Order must not already exist
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
+        // Get order from request and move tokens
         Order memory order = _requestOrderAccounting(orderRequest, orderId);
 
+        // Initialize accounting
         _createOrder(order, salt, orderId);
     }
 
@@ -201,24 +242,33 @@ abstract contract OrderProcessor is
     ) external nonReentrant whenOrdersNotPaused {
         _validateRequest(orderRequest);
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+        // Order must not already exist
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
+        // Approve incoming tokens
         IERC20Permit(permitToken).safePermit(msg.sender, address(this), value, deadline, v, r, s);
+        // Get order from request and move tokens
         Order memory order = _requestOrderAccounting(orderRequest, orderId);
 
+        // Initialize accounting
         _createOrder(order, salt, orderId);
     }
 
+    /// @dev Basic validity check on order request
     function _validateRequest(OrderRequest calldata orderRequest) private view {
-        // if (msg.sender == address(0)) revert ZeroAddress();
+        // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
+        // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, orderRequest.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, orderRequest.paymentToken);
     }
 
+    /// @dev Send order to bridge and initialize accounting
     function _createOrder(Order memory order, bytes32 salt, bytes32 orderId) private {
+        // Send order to bridge
         emit OrderRequested(orderId, order.recipient, order, salt);
 
+        // Initialize order state
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
         _numOpenOrders++;
@@ -235,13 +285,19 @@ abstract contract OrderProcessor is
         nonReentrant
         onlyRole(OPERATOR_ROLE)
     {
+        // No nonsense
         if (fillAmount == 0) revert ZeroValue();
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         OrderState memory orderState = _orders[orderId];
+        // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
+        // Fill cannot exceed remaining order
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
 
+        // Notify order filled
         emit OrderFill(orderId, orderRequest.recipient, fillAmount, receivedAmount);
+
+        // Update order state
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         if (remainingOrder == 0) {
             emit OrderFulfilled(orderId, orderRequest.recipient);
@@ -252,6 +308,7 @@ abstract contract OrderProcessor is
             _orders[orderId].received = orderState.received + receivedAmount;
         }
 
+        // Move tokens
         _fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount, fillAmount);
     }
 
@@ -262,9 +319,12 @@ abstract contract OrderProcessor is
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
+        // Order must exist
         if (requester == address(0)) revert OrderNotFound();
+        // Only requester can cancel
         if (requester != msg.sender) revert NotRequester();
 
+        // Send cancel request to bridge
         emit CancelRequested(orderId, orderRequest.recipient);
     }
 
@@ -280,25 +340,37 @@ abstract contract OrderProcessor is
     {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         OrderState memory orderState = _orders[orderId];
+        // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
 
+        // Notify order cancelled
         emit OrderCancelled(orderId, orderRequest.recipient, reason);
+
+        // Clear order state
         delete _orders[orderId];
         _numOpenOrders--;
 
+        // Move tokens
         _cancelOrderAccounting(orderRequest, orderId, orderState);
     }
 
-    /// @notice Process an order request including fees, escrow, and calculating order amount to fill
+    /// ------------------ Virtuals ------------------ ///
+
+    /// @notice Get corresponding OrderRequest for an Order
+    /// @dev Declared pure to be calculable for hypothetical orders
+    function getOrderRequestForOrder(Order calldata order) public pure virtual returns (OrderRequest memory);
+
+    /// @notice Compile order from request and move tokens including fees, escrow, and amount to fill
     /// @param orderRequest Order request to process
     /// @param orderId Order ID
     /// @return order Order to send to bridge
+    /// @dev Result used to initialize order accounting
     function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
         internal
         virtual
         returns (Order memory order);
 
-    /// @notice Process an order fill including fees and escrow
+    /// @notice Move tokens for order fill including fees and escrow
     /// @param orderRequest Order request to fill
     /// @param orderId Order ID
     /// @param orderState Order state
@@ -315,7 +387,7 @@ abstract contract OrderProcessor is
         uint256 claimPaymentAmount
     ) internal virtual;
 
-    /// @notice Process an order cancellation including fees and escrow
+    /// @notice Move tokens for order cancellation including fees and escrow
     /// @param orderRequest Order request to cancel
     /// @param orderId Order ID
     /// @param orderState Order state
