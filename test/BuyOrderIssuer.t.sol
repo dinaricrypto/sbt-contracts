@@ -364,11 +364,11 @@ contract BuyOrderIssuerTest is Test {
                 assertEq(issuer.getTotalReceived(orderId), 0);
             } else {
                 assertEq(issuer.getTotalReceived(orderId), receivedAmount);
+                // balances after
+                assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
+                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
+                assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
             }
-            // balances after
-            assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-            assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
-            assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
         }
     }
 
