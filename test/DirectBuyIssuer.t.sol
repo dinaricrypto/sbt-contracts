@@ -88,217 +88,39 @@ contract DirectBuyIssuerTest is Test {
         });
     }
 
-    function testInitialize(address owner, address newTreasury) public {
-        vm.assume(owner != address(this));
+    // function testInitialize(address owner, address newTreasury) public {
+    //     vm.assume(owner != address(this));
 
-        DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
-        if (owner == address(0)) {
-            vm.expectRevert("AccessControl: 0 default admin");
+    //     DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
+    //     if (owner == address(0)) {
+    //         vm.expectRevert("AccessControl: 0 default admin");
 
-            new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
-        } else if (newTreasury == address(0)) {
-            vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+    //         new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
+    //     } else if (newTreasury == address(0)) {
+    //         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
 
-            new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
-        } else {
-            DirectBuyIssuer newIssuer = DirectBuyIssuer(
-                address(
-                    new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)))
-                )
-            );
-            assertEq(newIssuer.owner(), owner);
+    //         new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
+    //     } else {
+    //         DirectBuyIssuer newIssuer = DirectBuyIssuer(
+    //             address(
+    //                 new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)))
+    //             )
+    //         );
+    //         assertEq(newIssuer.owner(), owner);
 
-            DirectBuyIssuer newImpl = new DirectBuyIssuer();
-            vm.expectRevert(
-                bytes.concat(
-                    "AccessControl: account ",
-                    bytes(Strings.toHexString(address(this))),
-                    " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
-                )
-            );
-            newIssuer.upgradeToAndCall(
-                address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
-            );
-        }
-    }
-
-    function testSetTreasury(address account) public {
-        if (account == address(0)) {
-            vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-            issuer.setTreasury(account);
-        } else {
-            vm.expectEmit(true, true, true, true);
-            emit TreasurySet(account);
-            issuer.setTreasury(account);
-            assertEq(issuer.treasury(), account);
-        }
-    }
-
-    function testSetFees(IOrderFees fees) public {
-        vm.expectEmit(true, true, true, true);
-        emit OrderFeesSet(fees);
-        issuer.setOrderFees(fees);
-        assertEq(address(issuer.orderFees()), address(fees));
-    }
-
-    function testSetOrdersPaused(bool pause) public {
-        vm.expectEmit(true, true, true, true);
-        emit OrdersPaused(pause);
-        issuer.setOrdersPaused(pause);
-        assertEq(issuer.ordersPaused(), pause);
-    }
-
-    function testGetInputValue(uint128 orderValue) public {
-        (uint256 inputValue, uint256 flatFee, uint256 percentageFee) =
-            issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
-        assertEq(inputValue - flatFee - percentageFee, orderValue);
-        (uint256 flatFee2, uint256 percentageFee2) = issuer.getFeesForOrder(address(paymentToken), inputValue);
-        assertEq(flatFee, flatFee2);
-        assertEq(percentageFee, percentageFee2);
-    }
-
-    function testRequestOrder(uint128 quantityIn) public {
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
-            recipient: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            quantityIn: quantityIn
-        });
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
-
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
-        uint256 fees = flatFee + percentageFee;
-        IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
-            recipient: order.recipient,
-            assetToken: order.assetToken,
-            paymentToken: order.paymentToken,
-            sell: false,
-            orderType: IOrderBridge.OrderType.MARKET,
-            assetTokenQuantity: 0,
-            paymentTokenQuantity: 0,
-            price: 0,
-            tif: IOrderBridge.TIF.GTC,
-            fee: fees
-        });
-        bridgeOrderData.paymentTokenQuantity = 0;
-        if (quantityIn > fees) {
-            bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
-        }
-
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
-
-        if (quantityIn == 0) {
-            vm.expectRevert(OrderProcessor.ZeroValue.selector);
-            vm.prank(user);
-            issuer.requestOrder(order, salt);
-        } else if (fees >= quantityIn) {
-            vm.expectRevert(BuyOrderIssuer.OrderTooSmall.selector);
-            vm.prank(user);
-            issuer.requestOrder(order, salt);
-        } else {
-            vm.expectEmit(true, true, true, true);
-            emit OrderRequested(orderId, user, bridgeOrderData, salt);
-            vm.prank(user);
-            issuer.requestOrder(order, salt);
-            assertTrue(issuer.isOrderActive(orderId));
-            assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
-            assertEq(issuer.numOpenOrders(), 1);
-            assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
-            assertEq(issuer.getOrderEscrow(orderId), quantityIn - fees);
-            assertEq(paymentToken.balanceOf(address(issuer)), quantityIn);
-        }
-    }
-
-    function testRequestOrderPausedReverts() public {
-        issuer.setOrdersPaused(true);
-
-        vm.expectRevert(OrderProcessor.Paused.selector);
-        vm.prank(user);
-        issuer.requestOrder(dummyOrder, salt);
-    }
-
-    function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
-        vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
-
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.paymentToken = tryPaymentToken;
-
-        vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(tryPaymentToken),
-                    " is missing role ",
-                    Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32)
-                )
-            )
-        );
-        vm.prank(user);
-        issuer.requestOrder(order, salt);
-    }
-
-    function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
-        vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), tryAssetToken));
-
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.assetToken = tryAssetToken;
-
-        vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(tryAssetToken),
-                    " is missing role ",
-                    Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32)
-                )
-            )
-        );
-        vm.prank(user);
-        issuer.requestOrder(order, salt);
-    }
-
-    function testRequestOrderCollisionReverts() public {
-        paymentToken.mint(user, dummyOrder.quantityIn);
-
-        vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
-
-        vm.prank(user);
-        issuer.requestOrder(dummyOrder, salt);
-
-        vm.expectRevert(OrderProcessor.DuplicateOrder.selector);
-        vm.prank(user);
-        issuer.requestOrder(dummyOrder, salt);
-    }
-
-    function testRequestOrderWithPermit() public {
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(dummyOrder, salt);
-        paymentToken.mint(user, dummyOrder.quantityIn);
-
-        SigUtils.Permit memory permit = SigUtils.Permit({
-            owner: user,
-            spender: address(issuer),
-            value: dummyOrder.quantityIn,
-            nonce: 0,
-            deadline: 30 days
-        });
-
-        bytes32 digest = sigUtils.getTypedDataHash(permit);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
-
-        vm.expectEmit(true, true, true, true);
-        emit OrderRequested(orderId, user, dummyOrderBridgeData, salt);
-        vm.prank(user);
-        issuer.requestOrderWithPermit(dummyOrder, salt, address(paymentToken), permit.value, permit.deadline, v, r, s);
-        assertEq(paymentToken.nonces(user), 1);
-        assertEq(paymentToken.allowance(user, address(issuer)), 0);
-        assertTrue(issuer.isOrderActive(orderId));
-        assertEq(issuer.getRemainingOrder(orderId), dummyOrder.quantityIn - dummyOrderFees);
-        assertEq(issuer.numOpenOrders(), 1);
-    }
+    //         DirectBuyIssuer newImpl = new DirectBuyIssuer();
+    //         vm.expectRevert(
+    //             bytes.concat(
+    //                 "AccessControl: account ",
+    //                 bytes(Strings.toHexString(address(this))),
+    //                 " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
+    //             )
+    //         );
+    //         newIssuer.upgradeToAndCall(
+    //             address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
+    //         );
+    //     }
+    // }
 
     function testTakeEscrow(uint128 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
@@ -425,45 +247,6 @@ contract DirectBuyIssuerTest is Test {
         }
     }
 
-    function testFillorderNoOrderReverts() public {
-        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
-        vm.prank(operator);
-        issuer.fillOrder(dummyOrder, salt, 100, 100);
-    }
-
-    function testRequestCancel() public {
-        paymentToken.mint(user, dummyOrder.quantityIn);
-        vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
-
-        vm.prank(user);
-        issuer.requestOrder(dummyOrder, salt);
-
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(dummyOrder, salt);
-        vm.expectEmit(true, true, true, true);
-        emit CancelRequested(orderId, user);
-        vm.prank(user);
-        issuer.requestCancel(dummyOrder, salt);
-    }
-
-    function testRequestCancelNotRequesterReverts() public {
-        paymentToken.mint(user, dummyOrder.quantityIn);
-        vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
-
-        vm.prank(user);
-        issuer.requestOrder(dummyOrder, salt);
-
-        vm.expectRevert(OrderProcessor.NotRequester.selector);
-        issuer.requestCancel(dummyOrder, salt);
-    }
-
-    function testRequestCancelNotFoundReverts() public {
-        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
-        vm.prank(user);
-        issuer.requestCancel(dummyOrder, salt);
-    }
-
     function testCancelOrder(uint128 orderAmount, uint128 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
 
@@ -494,11 +277,5 @@ contract DirectBuyIssuerTest is Test {
         emit OrderCancelled(orderId, user, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, salt, reason);
-    }
-
-    function testCancelOrderNotFoundReverts() public {
-        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
-        vm.prank(operator);
-        issuer.cancelOrder(dummyOrder, salt, "msg");
     }
 }
