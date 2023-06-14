@@ -87,49 +87,55 @@ contract BuyOrderIssuerTest is Test {
     }
 
     function testInitialize(address owner, address newTreasury) public {
-        vm.assume(owner != address(this));
+        vm.assume(owner != address(this) && owner != address(0));
+        vm.assume(newTreasury != address(0));
 
         BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
-        if (owner == address(0)) {
-            vm.expectRevert("AccessControl: 0 default admin");
+        BuyOrderIssuer newIssuer = BuyOrderIssuer(
+            address(
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)))
+            )
+        );
+        assertEq(newIssuer.owner(), owner);
 
-            new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
-        } else if (newTreasury == address(0)) {
-            vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        // revert if already initialized
+        BuyOrderIssuer newImpl = new BuyOrderIssuer();
+        vm.expectRevert(
+            bytes.concat(
+                "AccessControl: account ",
+                bytes(Strings.toHexString(address(this))),
+                " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
+            )
+        );
+        newIssuer.upgradeToAndCall(
+            address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
+        );
+    }
 
-            new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
-        } else {
-            BuyOrderIssuer newIssuer = BuyOrderIssuer(
-                address(
-                    new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)))
-                )
-            );
-            assertEq(newIssuer.owner(), owner);
+    function testInitializeZeroOwnerReverts() public {
+        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
+        vm.expectRevert("AccessControl: 0 default admin");
+        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(0), treasury, orderFees)));
+    }
 
-            BuyOrderIssuer newImpl = new BuyOrderIssuer();
-            vm.expectRevert(
-                bytes.concat(
-                    "AccessControl: account ",
-                    bytes(Strings.toHexString(address(this))),
-                    " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
-                )
-            );
-            newIssuer.upgradeToAndCall(
-                address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
-            );
-        }
+    function testInitializeZeroTreasuryReverts() public {
+        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), address(0), orderFees)));
     }
 
     function testSetTreasury(address account) public {
-        if (account == address(0)) {
-            vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-            issuer.setTreasury(account);
-        } else {
-            vm.expectEmit(true, true, true, true);
-            emit TreasurySet(account);
-            issuer.setTreasury(account);
-            assertEq(issuer.treasury(), account);
-        }
+        vm.assume(account != address(0));
+
+        vm.expectEmit(true, true, true, true);
+        emit TreasurySet(account);
+        issuer.setTreasury(account);
+        assertEq(issuer.treasury(), account);
+    }
+
+    function testSetTreasuryZeroReverts() public {
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        issuer.setTreasury(address(0));
     }
 
     function testSetFees(IOrderFees fees) public {
@@ -323,6 +329,29 @@ contract BuyOrderIssuerTest is Test {
         // balances after
         assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - dummyOrder.quantityIn);
         assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + dummyOrder.quantityIn);
+    }
+
+    function testRequestOrderWithPermitCollisionReverts() public {
+        paymentToken.mint(user, dummyOrder.quantityIn);
+
+        SigUtils.Permit memory permit = SigUtils.Permit({
+            owner: user,
+            spender: address(issuer),
+            value: dummyOrder.quantityIn,
+            nonce: 0,
+            deadline: 30 days
+        });
+
+        bytes32 digest = sigUtils.getTypedDataHash(permit);
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
+
+        vm.prank(user);
+        issuer.requestOrderWithPermit(dummyOrder, salt, address(paymentToken), permit.value, permit.deadline, v, r, s);
+
+        vm.expectRevert(OrderProcessor.DuplicateOrder.selector);
+        vm.prank(user);
+        issuer.requestOrderWithPermit(dummyOrder, salt, address(paymentToken), permit.value, permit.deadline, v, r, s);
     }
 
     function testFillOrder(uint128 orderAmount, uint128 fillAmount, uint256 receivedAmount) public {
