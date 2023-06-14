@@ -88,40 +88,6 @@ contract DirectBuyIssuerTest is Test {
         });
     }
 
-    // function testInitialize(address owner, address newTreasury) public {
-    //     vm.assume(owner != address(this));
-
-    //     DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
-    //     if (owner == address(0)) {
-    //         vm.expectRevert("AccessControl: 0 default admin");
-
-    //         new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
-    //     } else if (newTreasury == address(0)) {
-    //         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-
-    //         new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)));
-    //     } else {
-    //         DirectBuyIssuer newIssuer = DirectBuyIssuer(
-    //             address(
-    //                 new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)))
-    //             )
-    //         );
-    //         assertEq(newIssuer.owner(), owner);
-
-    //         DirectBuyIssuer newImpl = new DirectBuyIssuer();
-    //         vm.expectRevert(
-    //             bytes.concat(
-    //                 "AccessControl: account ",
-    //                 bytes(Strings.toHexString(address(this))),
-    //                 " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
-    //             )
-    //         );
-    //         newIssuer.upgradeToAndCall(
-    //             address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
-    //         );
-    //     }
-    // }
-
     function testTakeEscrow(uint128 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
 
