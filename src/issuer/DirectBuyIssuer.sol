@@ -100,15 +100,14 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256
+        uint256 receivedAmount
     ) internal virtual override {
         // Can't fill more than payment previously taken
         uint256 escrow = getOrderEscrow[orderId];
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
 
-        // Standard buy order accounting
-        super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount, 0);
+        // Buy order accounting
+        _fillBuyOrder(orderRequest, orderId, orderState, fillAmount, receivedAmount);
     }
 
     /// @inheritdoc OrderProcessor
