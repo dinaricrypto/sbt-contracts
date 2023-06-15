@@ -1,19 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-/// @notice Bridge interface managing orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IOrderBridge.sol)
+/// @notice Interface for contracts processing orders for bridged assets
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/IOrderBridge.sol)
+/// This interface provides a standard Order type and order lifecycle events
+/// Orders are requested on-chain, processed off-chain, then fulfillment is submitted for on-chain settlement
 interface IOrderBridge {
+    /// ------------------ Types ------------------ ///
+
+    // Market or limit order
     enum OrderType {
         MARKET,
         LIMIT
     }
 
-    enum TIF {
-        DAY, // Open until end of day
-        GTC, // Good until cancelled
-        IOC, // Immediate or cancel
-        FOK // Fill or kill
+    // Time in force
+    enum TIF
+    // Good until end of day
+    {
+        DAY,
+        // Good until cancelled
+        GTC,
+        // Immediate or cancel
+        IOC,
+        // Fill or kill
+        FOK
     }
 
     // Emitted order data for off-chain order fulfillment
@@ -45,6 +56,8 @@ interface IOrderBridge {
     event OrderFulfilled(bytes32 indexed id, address indexed recipient);
     event CancelRequested(bytes32 indexed id, address indexed recipient);
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
+
+    /// ------------------ Getters ------------------ ///
 
     /// @notice Total number of open orders
     function numOpenOrders() external view returns (uint256);
