@@ -25,7 +25,7 @@ contract BuyOrderIssuer is OrderProcessor {
 
     /// ------------------ State ------------------ ///
 
-    // orderId => FeeState
+    /// @dev orderId => FeeState
     mapping(bytes32 => FeeState) private _feeState;
 
     /// ------------------ Getters ------------------ ///
@@ -124,7 +124,7 @@ contract BuyOrderIssuer is OrderProcessor {
             fee: totalFees
         });
 
-        // Escrow payment
+        // Escrow payment for purchase
         IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
@@ -179,7 +179,7 @@ contract BuyOrderIssuer is OrderProcessor {
             _closeOrder(orderId, orderRequest.paymentToken, feeState.feesEarned);
         }
 
-        // Return Escrow
+        // Return escrow
         IERC20(orderRequest.paymentToken).safeTransfer(orderRequest.recipient, refund);
     }
 

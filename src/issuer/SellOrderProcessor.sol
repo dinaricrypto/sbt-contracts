@@ -3,22 +3,20 @@ pragma solidity ^0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
-import "./OrderProcessor.sol";
-import "../IMintBurn.sol";
+import {OrderProcessor} from "./OrderProcessor.sol";
+import {IMintBurn} from "../IMintBurn.sol";
 
-/// @notice Contract managing swap market purchase orders for bridged assets
+/// @notice Contract managing market sell orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/SellOrderProcessor.sol)
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
-    // This contract handles the submission and fulfillment of orders
 
-    // 1. Order submitted and payment/asset escrowed
-    // 2. Order fulfilled, escrow claimed, assets minted/burned
-
-    // Fees are transfered when an order is closed (fulfilled or cancelled)
+    /// ------------------ State ------------------ ///
 
     /// @dev orderId => feesEarned
     mapping(bytes32 => uint256) private _feesEarned;
+
+    /// ------------------ Getters ------------------ ///
 
     /// @inheritdoc OrderProcessor
     function getOrderRequestForOrder(Order calldata order) public pure override returns (OrderRequest memory) {
@@ -32,17 +30,25 @@ contract SellOrderProcessor is OrderProcessor {
 
     /// @notice Get flat fee for an order
     /// @param token Payment token for order
+    /// @dev Fee zero if no orderFees contract is set
     function getFlatFeeForOrder(address token) public view returns (uint256) {
+        // Check if fee contract is set
         if (address(orderFees) == address(0)) return 0;
+        // Calculate fees
         return orderFees.flatFeeForOrder(token);
     }
 
     /// @notice Get percentage fee for an order
     /// @param value Value of order subject to percentage fee
+    /// @dev Fee zero if no orderFees contract is set
     function getPercentageFeeForOrder(uint256 value) public view returns (uint256) {
+        // Check if fee contract is set
         if (address(orderFees) == address(0)) return 0;
+        // Calculate fees
         return orderFees.percentageFeeForValue(value);
     }
+
+    /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
     function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
@@ -55,6 +61,7 @@ contract SellOrderProcessor is OrderProcessor {
         uint256 flatFee = getFlatFeeForOrder(orderRequest.paymentToken);
         _feesEarned[orderId] = flatFee;
 
+        // Construct order
         order = Order({
             recipient: orderRequest.recipient,
             assetToken: orderRequest.assetToken,
@@ -68,7 +75,7 @@ contract SellOrderProcessor is OrderProcessor {
             fee: 0
         });
 
-        // Escrow
+        // Escrow asset for sale
         IERC20(orderRequest.assetToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
@@ -81,10 +88,10 @@ contract SellOrderProcessor is OrderProcessor {
         uint256 receivedAmount,
         uint256
     ) internal virtual override {
-        // accum fees each order then take all at end
+        // Accumulate fees at each sill then take all at end
         uint256 collection = getPercentageFeeForOrder(receivedAmount);
         uint256 feesEarned = _feesEarned[orderId] + collection;
-        //
+        // If order completely filled, clear fee data
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         if (remainingOrder == 0) {
             delete _feesEarned[orderId];
@@ -97,9 +104,9 @@ contract SellOrderProcessor is OrderProcessor {
 
         // Burn asset
         IMintBurn(orderRequest.assetToken).burn(fillAmount);
-        // Move money
+        // Transfer raw proceeds of sale here
         IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
-        // Distribute
+        // Distribute if order completely filled
         if (remainingOrder == 0) {
             _distributeProceeds(
                 orderRequest.paymentToken, orderRequest.recipient, orderState.received + receivedAmount, feesEarned
@@ -113,7 +120,7 @@ contract SellOrderProcessor is OrderProcessor {
         virtual
         override
     {
-        // if no fills, then full refund
+        // If no fills, then full refund
         uint256 refund;
         if (orderState.remainingOrder == orderRequest.quantityIn) {
             refund = orderRequest.quantityIn;
@@ -123,16 +130,19 @@ contract SellOrderProcessor is OrderProcessor {
             );
             refund = orderState.remainingOrder;
         }
+
+        // Clear fee data
         delete _feesEarned[orderId];
 
-        // Return Escrow
+        // Return escrow
         IERC20(orderRequest.assetToken).safeTransfer(orderRequest.recipient, refund);
     }
 
-    /// @dev Distribute proceeds to recipient and treasury
+    /// @dev Distribute proceeds and fees
     function _distributeProceeds(address paymentToken, address recipient, uint256 totalReceived, uint256 feesEarned)
         private
     {
+        // If fees larger than total received, then no proceeds to recipient
         uint256 proceeds = 0;
         uint256 collection = 0;
         if (totalReceived > feesEarned) {
@@ -142,9 +152,11 @@ contract SellOrderProcessor is OrderProcessor {
             collection = totalReceived;
         }
 
+        // Transfer proceeds to recipient
         if (proceeds > 0) {
             IERC20(paymentToken).safeTransfer(recipient, proceeds);
         }
+        // Transfer fees to treasury
         if (collection > 0) {
             IERC20(paymentToken).safeTransfer(treasury, collection);
         }
