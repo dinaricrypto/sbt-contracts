@@ -18,8 +18,11 @@ import {IOrderFees} from "./IOrderFees.sol";
 /// Handling of fees is left to the inheriting contract
 /// Each inheritor can craft a unique order processing flow
 /// It is recommended that implementations offer a single process for all orders
-/// This maintains clarity for users and for interpreting contract token balances
-/// TODO: Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
+///   This maintains clarity for users and for interpreting contract token balances
+/// Specifies a generic order request struct such that 
+///   inheriting contracts must implement unique request methods to handle multiple order processes simultaneously
+/// TODO: Design - Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
+///   or should fee handling primitives be specified here?
 abstract contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
