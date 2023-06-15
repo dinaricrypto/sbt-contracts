@@ -15,6 +15,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     /// ------------------ Types ------------------ ///
 
+    /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
 
     /// @dev Emitted when `amount` of escrowed payment is taken for `orderId`

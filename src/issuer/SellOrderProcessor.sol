@@ -95,9 +95,10 @@ contract SellOrderProcessor is OrderProcessor {
         // If order completely filled, clear fee data
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         if (remainingOrder == 0) {
+            // Clear fee state
             delete _feesEarned[orderId];
         } else {
-            // Collect fees
+            // Update fee state with earned fees
             if (collection > 0) {
                 _feesEarned[orderId] = feesEarned;
             }
@@ -124,11 +125,13 @@ contract SellOrderProcessor is OrderProcessor {
         // If no fills, then full refund
         uint256 refund;
         if (orderState.remainingOrder == orderRequest.quantityIn) {
+            // Full refund
             refund = orderRequest.quantityIn;
         } else {
             _distributeProceeds(
                 orderRequest.paymentToken, orderRequest.recipient, orderState.received, _feesEarned[orderId]
             );
+            // Partial refund
             refund = orderState.remainingOrder;
         }
 
@@ -147,6 +150,7 @@ contract SellOrderProcessor is OrderProcessor {
         uint256 proceeds = 0;
         uint256 collection = 0;
         if (totalReceived > feesEarned) {
+            // Take fees from total received
             proceeds = totalReceived - feesEarned;
             collection = feesEarned;
         } else {

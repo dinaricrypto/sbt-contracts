@@ -22,6 +22,7 @@ contract BuyOrderIssuer is OrderProcessor {
         uint256 feesEarned;
     }
 
+    /// @dev Order is too small to pay fees
     error OrderTooSmall();
 
     /// ------------------ State ------------------ ///
@@ -147,9 +148,10 @@ contract BuyOrderIssuer is OrderProcessor {
             // Calculate fees
             uint256 collection = 0;
             if (feeState.remainingPercentageFees > 0) {
+                // fee = remainingPercentageFees * fillAmount / remainingOrder
                 collection = PrbMath.mulDiv(feeState.remainingPercentageFees, fillAmount, orderState.remainingOrder);
             }
-            // Collect fees
+            // Update fee state
             if (collection > 0) {
                 _feeState[orderId].remainingPercentageFees = feeState.remainingPercentageFees - collection;
                 _feeState[orderId].feesEarned = feeState.feesEarned + collection;
@@ -170,11 +172,15 @@ contract BuyOrderIssuer is OrderProcessor {
         virtual
         override
     {
-        // If no fills, then full refund
         FeeState memory feeState = _feeState[orderId];
+        // If no fills, then full refund
+        // This addition is required to check for any fills
         uint256 refund = orderState.remainingOrder + feeState.remainingPercentageFees;
+        // If any fills, then orderState.remainingOrder would not be large enough to satisfy this condition
+        // feesEarned is always needed to recover flat fee
         if (refund + feeState.feesEarned == orderRequest.quantityIn) {
             _closeOrder(orderId, orderRequest.paymentToken, 0);
+            // Refund full payment
             refund = orderRequest.quantityIn;
         } else {
             _closeOrder(orderId, orderRequest.paymentToken, feeState.feesEarned);
@@ -189,7 +195,7 @@ contract BuyOrderIssuer is OrderProcessor {
         // Clear fee state
         delete _feeState[orderId];
 
-        // Transfer fees
+        // Transfer earneds fees to treasury
         if (feesEarned > 0) {
             IERC20(paymentToken).safeTransfer(treasury, feesEarned);
         }

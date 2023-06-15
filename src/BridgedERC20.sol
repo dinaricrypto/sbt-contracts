@@ -6,9 +6,10 @@ import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
-/// @notice ERC20 with minter, burner, and blacklist.
+/// @notice Core token contract for bridged assets.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
-/// Solady ERC20 allows EIP-2612 domain separator with `name` changes
+/// ERC20 with minter, burner, and blacklist
+/// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
 contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// ------------------ Events ------------------ ///
 
@@ -23,13 +24,17 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
 
     /// ------------------ Constants ------------------ ///
 
+    /// @notice Role for approved minters
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    /// @notice Role for approved burners
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
     /// ------------------ State ------------------ ///
 
-    string internal _name;
-    string internal _symbol;
+    /// @dev Token name
+    string private _name;
+    /// @dev Token symbol
+    string private _symbol;
 
     /// @notice URI to disclosure information
     string public disclosures;

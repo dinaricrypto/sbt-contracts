@@ -16,6 +16,8 @@ import {IOrderFees} from "./IOrderFees.sol";
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
 /// Orders are submitted by users and filled by operators
 /// Handling of fees is left to the inheriting contract
+/// Each inheritor can craft a unique order processing flow
+/// TODO: Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
 abstract contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
@@ -51,13 +53,19 @@ abstract contract OrderProcessor is
         uint256 received;
     }
 
-    // Error messages
+    /// @dev Zero address
     error ZeroAddress();
+    /// @dev Orders are paused
     error Paused();
+    /// @dev Zero value
     error ZeroValue();
+    /// @dev msg.sender is not order requester
     error NotRequester();
+    /// @dev Order does not exist
     error OrderNotFound();
+    /// @dev Order already exists
     error DuplicateOrder();
+    /// @dev Amount too large
     error AmountTooLarge();
 
     /// @dev Emitted when `treasury` is set
@@ -130,6 +138,7 @@ abstract contract OrderProcessor is
 
     /// ------------------ Administration ------------------ ///
 
+    /// @dev Check if orders are paused
     modifier whenOrdersNotPaused() {
         if (ordersPaused) revert Paused();
         _;
@@ -303,11 +312,15 @@ abstract contract OrderProcessor is
 
         // Update order state
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
+        // If order is completely filled then clear order state
         if (remainingOrder == 0) {
+            // Notify order fulfilled
             emit OrderFulfilled(orderId, orderRequest.recipient);
+            // Clear order state
             delete _orders[orderId];
             _numOpenOrders--;
         } else {
+            // Update order state
             _orders[orderId].remainingOrder = remainingOrder;
             _orders[orderId].received = orderState.received + receivedAmount;
         }
@@ -319,13 +332,13 @@ abstract contract OrderProcessor is
     /// @notice Request to cancel an order
     /// @param orderRequest Order request to cancel
     /// @param salt Salt used to generate unique order ID
-    /// @dev Only callable by order requester
+    /// @dev Only callable by initial order requester
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
-        // Only requester can cancel
+        // Only requester can request cancellation
         if (requester != msg.sender) revert NotRequester();
 
         // Send cancel request to bridge
