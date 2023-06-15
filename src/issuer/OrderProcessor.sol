@@ -14,6 +14,8 @@ import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
+/// Orders are submitted by users and filled by operators
+/// Handling of fees is left to the inheriting contract
 abstract contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
@@ -22,7 +24,7 @@ abstract contract OrderProcessor is
     Multicall,
     IOrderBridge
 {
-    // Handle permit for tokens safely
+    // Handle token permit safely
     using SafeERC20 for IERC20Permit;
 
     /// ------------------ Types ------------------ ///
@@ -63,7 +65,7 @@ abstract contract OrderProcessor is
     event OrderFeesSet(IOrderFees orderFees);
     event OrdersPaused(bool paused);
 
-    /// ------------------ Constants ------------------ ///
+    /// ------------------ Immutable ------------------ ///
 
     /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
     bytes32 private constant ORDERREQUEST_TYPE_HASH = keccak256(
@@ -80,7 +82,7 @@ abstract contract OrderProcessor is
     /// @dev Tokens with decimals > 18 are not supported by current OrderFees implementation
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
 
-    /// ------------------ Storage ------------------ ///
+    /// ------------------ State ------------------ ///
 
     /// @notice Address to receive fees
     address public treasury;
