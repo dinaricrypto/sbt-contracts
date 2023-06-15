@@ -131,14 +131,29 @@ contract BuyOrderIssuer is OrderProcessor {
     }
 
     /// @inheritdoc OrderProcessor
+    // slither-disable-next-line dead-code
     function _fillOrderAccounting(
         OrderRequest calldata orderRequest,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256 claimPaymentAmount
+        uint256 receivedAmount
     ) internal virtual override {
+        // Calculate fees and mint asset
+        _fillBuyOrder(orderRequest, orderId, orderState, fillAmount, receivedAmount);
+
+        // Claim payment
+        IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, fillAmount);
+    }
+
+    /// @dev Fill buy order accounting and mint asset
+    function _fillBuyOrder(
+        OrderRequest calldata orderRequest,
+        bytes32 orderId,
+        OrderState memory orderState,
+        uint256 fillAmount,
+        uint256 receivedAmount
+    ) internal virtual {
         FeeState memory feeState = _feeState[orderId];
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         // If order is done, close order and transfer fees
@@ -160,10 +175,6 @@ contract BuyOrderIssuer is OrderProcessor {
 
         // Mint asset
         IMintBurn(orderRequest.assetToken).mint(orderRequest.recipient, receivedAmount);
-        // Claim payment
-        if (claimPaymentAmount > 0) {
-            IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, claimPaymentAmount);
-        }
     }
 
     /// @inheritdoc OrderProcessor

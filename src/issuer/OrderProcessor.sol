@@ -18,8 +18,11 @@ import {IOrderFees} from "./IOrderFees.sol";
 /// Handling of fees is left to the inheriting contract
 /// Each inheritor can craft a unique order processing flow
 /// It is recommended that implementations offer a single process for all orders
-/// This maintains clarity for users and for interpreting contract token balances
-/// TODO: Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
+///   This maintains clarity for users and for interpreting contract token balances
+/// Specifies a generic order request struct such that
+///   inheriting contracts must implement unique request methods to handle multiple order processes simultaneously
+/// TODO: Design - Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
+///   or should fee handling primitives be specified here?
 abstract contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
@@ -328,7 +331,7 @@ abstract contract OrderProcessor is
         }
 
         // Move tokens
-        _fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount, fillAmount);
+        _fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
     }
 
     /// @notice Request to cancel an order
@@ -395,15 +398,12 @@ abstract contract OrderProcessor is
     /// @param orderState Order state
     /// @param fillAmount Amount of order token filled
     /// @param receivedAmount Amount of received token
-    /// @param claimPaymentAmount Amount of payment token to claim
     function _fillOrderAccounting(
         OrderRequest calldata orderRequest,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
-        uint256 receivedAmount,
-        // TODO: remove claimpayment amount - only used for certain buy processors
-        uint256 claimPaymentAmount
+        uint256 receivedAmount
     ) internal virtual;
 
     /// @notice Move tokens for order cancellation including fees and escrow

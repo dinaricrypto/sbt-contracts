@@ -86,8 +86,7 @@ contract SellOrderProcessor is OrderProcessor {
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256
+        uint256 receivedAmount
     ) internal virtual override {
         // Accumulate fees at each sill then take all at end
         uint256 collection = getPercentageFeeForOrder(receivedAmount);

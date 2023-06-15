@@ -9,8 +9,6 @@ import {IOrderFees} from "./IOrderFees.sol";
 /// @notice Manages fee calculations for orders.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderFees.sol)
 contract OrderFees is Ownable2Step, IOrderFees {
-    // TODO: calcs fail for type(uint256).max. Can the effective range be increased by moving to bips?
-
     /// ------------------ Types ------------------ ///
 
     /// @dev Fee is too large

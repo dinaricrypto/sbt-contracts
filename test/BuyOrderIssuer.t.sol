@@ -145,7 +145,7 @@ contract BuyOrderIssuerTest is Test {
         assertEq(address(issuer.orderFees()), address(fees));
     }
 
-    function testNoFees(uint128 value) public {
+    function testNoFees(uint256 value) public {
         issuer.setOrderFees(IOrderFees(address(0)));
 
         (uint256 inputValue, uint256 flatFee, uint256 percentageFee) =
@@ -159,6 +159,7 @@ contract BuyOrderIssuerTest is Test {
     }
 
     function testGetInputValue(uint64 perOrderFee, uint64 percentageFeeRate, uint128 orderValue) public {
+        // uint128 used to avoid overflow when calculating larger raw input value
         vm.assume(percentageFeeRate < 1 ether);
         OrderFees fees = new OrderFees(address(this), perOrderFee, percentageFeeRate);
         issuer.setOrderFees(fees);
@@ -178,7 +179,7 @@ contract BuyOrderIssuerTest is Test {
         assertEq(issuer.ordersPaused(), pause);
     }
 
-    function testRequestOrder(uint128 quantityIn) public {
+    function testRequestOrder(uint256 quantityIn) public {
         OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token),
@@ -354,7 +355,7 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrderWithPermit(dummyOrder, salt, address(paymentToken), permit.value, permit.deadline, v, r, s);
     }
 
-    function testFillOrder(uint128 orderAmount, uint128 fillAmount, uint256 receivedAmount) public {
+    function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
@@ -401,7 +402,7 @@ contract BuyOrderIssuerTest is Test {
         }
     }
 
-    function testFulfillOrder(uint128 orderAmount, uint256 receivedAmount) public {
+    function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
@@ -476,7 +477,7 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestCancel(dummyOrder, salt);
     }
 
-    function testCancelOrder(uint128 inputAmount, uint128 fillAmount, string calldata reason) public {
+    function testCancelOrder(uint256 inputAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(inputAmount > 0);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;

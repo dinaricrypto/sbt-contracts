@@ -26,7 +26,7 @@ contract OrderFeesTest is Test {
         return adjFee;
     }
 
-    function testSetFee(uint64 perOrderFee, uint64 percentageFee, uint8 tokenDecimals, uint128 value) public {
+    function testSetFee(uint64 perOrderFee, uint64 percentageFee, uint8 tokenDecimals, uint256 value) public {
         if (percentageFee >= 1 ether) {
             vm.expectRevert(OrderFees.FeeTooLarge.selector);
             orderFees.setFees(perOrderFee, percentageFee);
@@ -53,8 +53,8 @@ contract OrderFeesTest is Test {
         assertEq(flatFee, 1e6);
     }
 
-    // TODO: can this be used to determine input value for integer final value?
     function testRecoverInputValueFromRemaining(uint64 percentageFeeRate, uint128 remainingValue) public {
+        // uint128 used to avoid overflow when calculating larger raw input value
         vm.assume(percentageFeeRate < 1 ether);
         orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
 
