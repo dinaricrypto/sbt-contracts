@@ -65,7 +65,7 @@ abstract contract OrderProcessor is
     event OrderFeesSet(IOrderFees orderFees);
     event OrdersPaused(bool paused);
 
-    /// ------------------ Immutable ------------------ ///
+    /// ------------------ Constants ------------------ ///
 
     /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
     bytes32 private constant ORDERREQUEST_TYPE_HASH = keccak256(

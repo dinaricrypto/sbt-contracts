@@ -18,7 +18,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
 
     event FeeSet(uint64 perOrderFee, uint64 percentageFeeRate);
 
-    /// ------------------ Immutable ------------------ ///
+    /// ------------------ Constants ------------------ ///
 
     /// @dev 1 ether == 100%
     uint64 private constant ONEHUNDRED_PERCENT = 1 ether;
