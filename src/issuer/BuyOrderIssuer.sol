@@ -8,6 +8,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BuyOrderIssuer.sol)
+/// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
 contract BuyOrderIssuer is OrderProcessor {
     // Handle token transfers safely
     using SafeERC20 for IERC20;

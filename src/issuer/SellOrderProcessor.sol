@@ -8,6 +8,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/SellOrderProcessor.sol)
+/// Implicitly assumes that asset tokens are BridgedERC20 and can be burned
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
 

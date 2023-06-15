@@ -9,6 +9,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
 /// The escrowed payment is taken by the operator before the order is filled
 /// The operator can return unused escrowed payment to the user
+/// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
 contract DirectBuyIssuer is BuyOrderIssuer {
     using SafeERC20 for IERC20;
 
