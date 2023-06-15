@@ -60,9 +60,11 @@ abstract contract OrderProcessor is
     error DuplicateOrder();
     error AmountTooLarge();
 
-    // Events
+    /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
-    event OrderFeesSet(IOrderFees orderFees);
+    /// @dev Emitted when `orderFees` is set
+    event OrderFeesSet(IOrderFees indexed orderFees);
+    /// @dev Emitted when orders are paused/unpaused
     event OrdersPaused(bool paused);
 
     /// ------------------ Constants ------------------ ///

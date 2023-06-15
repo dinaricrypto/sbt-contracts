@@ -16,6 +16,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
     error FeeTooLarge();
     error DecimalsTooLarge();
 
+    /// @dev Emitted when `perOrderFee` and `percentageFeeRate` are set
     event FeeSet(uint64 perOrderFee, uint64 percentageFeeRate);
 
     /// ------------------ Constants ------------------ ///

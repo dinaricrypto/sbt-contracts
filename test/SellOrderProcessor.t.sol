@@ -7,7 +7,8 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/SellOrderProcessor.sol";
-import {OrderFees} from "../src/issuer/OrderFees.sol";
+import "../src/issuer/IOrderBridge.sol";
+import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract SellOrderProcessorTest is Test {

@@ -17,7 +17,9 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     error UnreturnedEscrow();
 
+    /// @dev Emitted when `amount` of escrowed payment is taken for `orderId`
     event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
+    /// @dev Emitted when `amount` of escrowed payment is returned for `orderId`
     event EscrowReturned(bytes32 indexed orderId, address indexed recipient, uint256 amount);
 
     /// ------------------ State ------------------ ///
