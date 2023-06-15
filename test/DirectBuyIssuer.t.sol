@@ -80,7 +80,7 @@ contract DirectBuyIssuerTest is Test {
         });
     }
 
-    function testTakeEscrow(uint128 orderAmount, uint256 takeAmount) public {
+    function testTakeEscrow(uint256 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
@@ -115,7 +115,7 @@ contract DirectBuyIssuerTest is Test {
         }
     }
 
-    function testReturnEscrow(uint128 orderAmount, uint256 returnAmount) public {
+    function testReturnEscrow(uint256 orderAmount, uint256 returnAmount) public {
         vm.assume(orderAmount > 0);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
@@ -158,7 +158,7 @@ contract DirectBuyIssuerTest is Test {
         }
     }
 
-    function testFillOrder(uint128 orderAmount, uint128 takeAmount, uint128 fillAmount, uint256 receivedAmount)
+    function testFillOrder(uint256 orderAmount, uint256 takeAmount, uint256 fillAmount, uint256 receivedAmount)
         public
     {
         vm.assume(takeAmount > 0);
@@ -205,7 +205,7 @@ contract DirectBuyIssuerTest is Test {
         }
     }
 
-    function testCancelOrder(uint128 orderAmount, uint128 fillAmount, string calldata reason) public {
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
@@ -237,7 +237,7 @@ contract DirectBuyIssuerTest is Test {
         issuer.cancelOrder(order, salt, reason);
     }
 
-    function testCancelOrderUnreturnedEscrowReverts(uint128 orderAmount, uint128 takeAmount) public {
+    function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
         vm.assume(takeAmount > 0);
 

@@ -76,7 +76,7 @@ contract SellOrderProcessorTest is Test {
         });
     }
 
-    function testNoFees(uint128 value) public {
+    function testNoFees(uint256 value) public {
         issuer.setOrderFees(IOrderFees(address(0)));
 
         uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
@@ -85,7 +85,7 @@ contract SellOrderProcessorTest is Test {
         assertEq(percentageFee, 0);
     }
 
-    function testRequestOrder(uint128 quantityIn) public {
+    function testRequestOrder(uint256 quantityIn) public {
         OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token),
@@ -134,7 +134,7 @@ contract SellOrderProcessorTest is Test {
         }
     }
 
-    function testFillOrder(uint128 orderAmount, uint128 fillAmount, uint256 receivedAmount) public {
+    function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
@@ -184,7 +184,7 @@ contract SellOrderProcessorTest is Test {
         }
     }
 
-    function testFulfillOrder(uint128 orderAmount, uint256 receivedAmount) public {
+    function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
@@ -228,7 +228,7 @@ contract SellOrderProcessorTest is Test {
         assertEq(paymentToken.balanceOf(treasury), treasuryPaymentBefore + fees);
     }
 
-    function testCancelOrder(uint128 orderAmount, uint128 fillAmount, uint128 receivedAmount, string calldata reason)
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, string calldata reason)
         public
     {
         vm.assume(orderAmount > 0);
