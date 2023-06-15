@@ -131,6 +131,7 @@ contract BuyOrderIssuer is OrderProcessor {
     }
 
     /// @inheritdoc OrderProcessor
+    // slither-disable-next-line dead-code
     function _fillOrderAccounting(
         OrderRequest calldata orderRequest,
         bytes32 orderId,
