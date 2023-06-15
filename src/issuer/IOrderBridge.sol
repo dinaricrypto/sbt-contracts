@@ -51,10 +51,15 @@ interface IOrderBridge {
         uint256 fee;
     }
 
+    /// @dev Fully specifies order details and salt used to generate order ID
     event OrderRequested(bytes32 indexed id, address indexed recipient, Order order, bytes32 salt);
+    /// @dev Emitted for each fill
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
+    /// @dev Emitted when order is completely filled, terminal
     event OrderFulfilled(bytes32 indexed id, address indexed recipient);
+    /// @dev Emitted when order cancellation is requested
     event CancelRequested(bytes32 indexed id, address indexed recipient);
+    /// @dev Emitted when order is cancelled, terminal
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
 
     /// ------------------ Getters ------------------ ///
