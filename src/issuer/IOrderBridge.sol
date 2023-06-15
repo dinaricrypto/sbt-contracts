@@ -5,6 +5,7 @@ pragma solidity ^0.8.19;
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/IOrderBridge.sol)
 /// This interface provides a standard Order type and order lifecycle events
 /// Orders are requested on-chain, processed off-chain, then fulfillment is submitted for on-chain settlement
+/// Bridge operators have a consistent interface for processing orders and submitting fulfillment
 interface IOrderBridge {
     /// ------------------ Types ------------------ ///
 

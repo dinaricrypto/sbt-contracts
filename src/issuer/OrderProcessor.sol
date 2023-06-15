@@ -17,6 +17,8 @@ import {IOrderFees} from "./IOrderFees.sol";
 /// Orders are submitted by users and filled by operators
 /// Handling of fees is left to the inheriting contract
 /// Each inheritor can craft a unique order processing flow
+/// It is recommended that implementations offer a single process for all orders
+/// This maintains clarity for users and for interpreting contract token balances
 /// TODO: Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
 abstract contract OrderProcessor is
     Initializable,
