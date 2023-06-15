@@ -1,30 +1,47 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// solady ERC20 allows EIP-2612 domain separator with `name` changes
 import {ERC20} from "solady/tokens/ERC20.sol";
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
-/// @notice ERC20 with minter and blacklist.
+/// @notice Core token contract for bridged assets.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
+/// ERC20 with minter, burner, and blacklist
+/// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
 contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
+    /// ------------------ Events ------------------ ///
+
+    /// @dev Emitted when `name` is set
     event NameSet(string name);
+    /// @dev Emitted when `symbol` is set
     event SymbolSet(string symbol);
+    /// @dev Emitted when `disclosures` URI is set
     event DisclosuresSet(string disclosures);
+    /// @dev Emitted when transfer restrictor contract is set
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
+    /// ------------------ Constants ------------------ ///
+
+    /// @notice Role for approved minters
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    /// @notice Role for approved burners
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
-    string internal _name;
-    string internal _symbol;
+    /// ------------------ State ------------------ ///
 
-    /// @dev URI to disclosure information
+    /// @dev Token name
+    string private _name;
+    /// @dev Token symbol
+    string private _symbol;
+
+    /// @notice URI to disclosure information
     string public disclosures;
-    /// @dev Contract to restrict transfers
+    /// @notice Contract to restrict transfers
     ITransferRestrictor public transferRestrictor;
+
+    /// ------------------ Initialization ------------------ ///
 
     constructor(
         address owner,
@@ -39,33 +56,49 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         transferRestrictor = transferRestrictor_;
     }
 
+    /// ------------------ Getters ------------------ ///
+
+    /// @notice Returns the name of the token
     function name() public view virtual override returns (string memory) {
         return _name;
     }
 
+    /// @notice Returns the symbol of the token
     function symbol() public view virtual override returns (string memory) {
         return _symbol;
     }
 
+    /// ------------------ Setters ------------------ ///
+
+    /// @notice Set token name
+    /// @dev Only callable by owner
     function setName(string calldata name_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _name = name_;
         emit NameSet(name_);
     }
 
+    /// @notice Set token symbol
+    /// @dev Only callable by owner
     function setSymbol(string calldata symbol_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _symbol = symbol_;
         emit SymbolSet(symbol_);
     }
 
+    /// @notice Set disclosures URI
+    /// @dev Only callable by owner
     function setDisclosures(string calldata disclosures_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         disclosures = disclosures_;
         emit DisclosuresSet(disclosures_);
     }
 
+    /// @notice Set transfer restrictor contract
+    /// @dev Only callable by owner
     function setTransferRestrictor(ITransferRestrictor restrictor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         transferRestrictor = restrictor;
         emit TransferRestrictorSet(restrictor);
     }
+
+    /// ------------------ Minting and Burning ------------------ ///
 
     /// @notice Mint tokens
     /// @param to Address to mint tokens to
@@ -82,12 +115,16 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         _burn(msg.sender, value);
     }
 
+    /// ------------------ Transfers ------------------ ///
+
+    /// @inheritdoc ERC20
     function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
-        // restrictions ignored for minting and burning
+        // Restrictions ignored for minting and burning
         if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
             return;
         }
 
+        // Check transfer restrictions
         transferRestrictor.requireNotRestricted(from, to);
     }
 }

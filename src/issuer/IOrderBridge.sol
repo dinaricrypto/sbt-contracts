@@ -1,19 +1,31 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-/// @notice Bridge interface managing orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IOrderBridge.sol)
+/// @notice Interface for contracts processing orders for bridged assets
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/IOrderBridge.sol)
+/// This interface provides a standard Order type and order lifecycle events
+/// Orders are requested on-chain, processed off-chain, then fulfillment is submitted for on-chain settlement
+/// Bridge operators have a consistent interface for processing orders and submitting fulfillment
 interface IOrderBridge {
+    /// ------------------ Types ------------------ ///
+
+    // Market or limit order
     enum OrderType {
         MARKET,
         LIMIT
     }
 
-    enum TIF {
-        DAY, // Open until end of day
-        GTC, // Good until cancelled
-        IOC, // Immediate or cancel
-        FOK // Fill or kill
+    // Time in force
+    enum TIF
+    // Good until end of day
+    {
+        DAY,
+        // Good until cancelled
+        GTC,
+        // Immediate or cancel
+        IOC,
+        // Fill or kill
+        FOK
     }
 
     // Emitted order data for off-chain order fulfillment
@@ -40,11 +52,21 @@ interface IOrderBridge {
         uint256 fee;
     }
 
+    /// @dev Fully specifies order details and salt used to generate order ID
     event OrderRequested(bytes32 indexed id, address indexed recipient, Order order, bytes32 salt);
+    /// @dev Emitted for each fill
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
+    /// @dev Emitted when order is completely filled, terminal
     event OrderFulfilled(bytes32 indexed id, address indexed recipient);
+    /// @dev Emitted when order cancellation is requested
     event CancelRequested(bytes32 indexed id, address indexed recipient);
+    /// @dev Emitted when order is cancelled, terminal
     event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
+
+    /// ------------------ Getters ------------------ ///
+
+    /// @notice Total number of open orders
+    function numOpenOrders() external view returns (uint256);
 
     /// @notice Generate Order ID deterministically from order and salt
     /// @param order Order to get ID for
@@ -59,6 +81,7 @@ interface IOrderBridge {
     /// @param id Order ID to check
     function getRemainingOrder(bytes32 id) external view returns (uint256);
 
-    /// @notice Total number of open orders
-    function numOpenOrders() external view returns (uint256);
+    /// @notice Get total received for order
+    /// @param id Order ID to check
+    function getTotalReceived(bytes32 id) external view returns (uint256);
 }

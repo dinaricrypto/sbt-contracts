@@ -13,7 +13,7 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BuyOrderIssuerTest is Test {
     event TreasurySet(address indexed treasury);
-    event OrderFeesSet(IOrderFees orderFees);
+    event OrderFeesSet(IOrderFees indexed orderFees);
     event OrdersPaused(bool paused);
 
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
