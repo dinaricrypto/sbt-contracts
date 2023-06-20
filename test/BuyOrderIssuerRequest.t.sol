@@ -78,7 +78,12 @@ contract BuyOrderIssuerRequestTest is Test {
             paymentToken: address(paymentToken),
             quantityIn: quantityIn
         });
+        bytes[] memory calls = new bytes[](2);
+        calls[0] = abi.encodeWithSelector(
+            issuer.selfPermit.selector, address(paymentToken), type(uint256).max, 30 days, v, r, s
+        );
+        calls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, order, salt);
         vm.prank(user);
-        issuer.requestOrderWithPermit(order, salt, address(paymentToken), type(uint256).max, 30 days, v, r, s);
+        issuer.multicall(calls);
     }
 }

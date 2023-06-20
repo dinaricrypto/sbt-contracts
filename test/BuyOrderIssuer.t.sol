@@ -315,13 +315,19 @@ contract BuyOrderIssuerTest is Test {
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
 
+        bytes[] memory calls = new bytes[](2);
+        calls[0] = abi.encodeWithSelector(
+            issuer.selfPermit.selector, address(paymentToken), permit.value, permit.deadline, v, r, s
+        );
+        calls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder, salt);
+
         // balances before
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(orderId, user, dummyOrderBridgeData, salt);
         vm.prank(user);
-        issuer.requestOrderWithPermit(dummyOrder, salt, address(paymentToken), permit.value, permit.deadline, v, r, s);
+        issuer.multicall(calls);
         assertEq(paymentToken.nonces(user), 1);
         assertEq(paymentToken.allowance(user, address(issuer)), 0);
         assertTrue(issuer.isOrderActive(orderId));
@@ -330,29 +336,6 @@ contract BuyOrderIssuerTest is Test {
         // balances after
         assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - dummyOrder.quantityIn);
         assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + dummyOrder.quantityIn);
-    }
-
-    function testRequestOrderWithPermitCollisionReverts() public {
-        paymentToken.mint(user, dummyOrder.quantityIn);
-
-        SigUtils.Permit memory permit = SigUtils.Permit({
-            owner: user,
-            spender: address(issuer),
-            value: dummyOrder.quantityIn,
-            nonce: 0,
-            deadline: 30 days
-        });
-
-        bytes32 digest = sigUtils.getTypedDataHash(permit);
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
-
-        vm.prank(user);
-        issuer.requestOrderWithPermit(dummyOrder, salt, address(paymentToken), permit.value, permit.deadline, v, r, s);
-
-        vm.expectRevert(OrderProcessor.DuplicateOrder.selector);
-        vm.prank(user);
-        issuer.requestOrderWithPermit(dummyOrder, salt, address(paymentToken), permit.value, permit.deadline, v, r, s);
     }
 
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
