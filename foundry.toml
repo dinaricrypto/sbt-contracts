@@ -4,6 +4,7 @@ out = "out"
 libs = ["node_modules", "lib"]
 remappings = [
   "solady-test=lib/solady/test/",
+  "gsnV3/=lib/gsn/packages/"
 ]
 
 [fuzz]
