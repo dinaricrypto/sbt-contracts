@@ -7,7 +7,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Manages fee calculations for orders.
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderFees.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderFees.sol)
 contract OrderFees is Ownable2Step, IOrderFees {
     /// ------------------ Types ------------------ ///
 

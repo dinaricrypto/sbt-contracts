@@ -5,7 +5,7 @@ import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /// @notice Enforces transfer restrictions
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/TransferRestrictor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/TransferRestrictor.sol)
 /// Maintains a single `owner` who can add or remove accounts from `blacklist`
 contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     /// ------------------ Types ------------------ ///

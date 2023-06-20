@@ -7,7 +7,7 @@ import {AccessControlDefaultAdminRules} from
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /// @notice Core token contract for bridged assets.
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/BridgedERC20.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BridgedERC20.sol)
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
 contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {

@@ -8,12 +8,12 @@ import {AccessControlDefaultAdminRulesUpgradeable} from
 import {ReentrancyGuardUpgradeable} from
     "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
-import {SafeERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Base contract managing orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
 /// Orders are submitted by users and filled by operators
 /// Handling of fees is left to the inheriting contract
 /// Each inheritor can craft a unique order processing flow
@@ -29,11 +29,9 @@ abstract contract OrderProcessor is
     AccessControlDefaultAdminRulesUpgradeable,
     ReentrancyGuardUpgradeable,
     Multicall,
+    SelfPermit,
     IOrderBridge
 {
-    // Handle token permit safely
-    using SafeERC20 for IERC20Permit;
-
     /// ------------------ Types ------------------ ///
 
     // Specification for an order
@@ -226,63 +224,18 @@ abstract contract OrderProcessor is
     /// @param orderRequest Order request to submit
     /// @param salt Salt used to generate unique order ID
     function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
-        _validateRequest(orderRequest);
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        // Order must not already exist
-        if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
-
-        // Get order from request and move tokens
-        Order memory order = _requestOrderAccounting(orderRequest, orderId);
-
-        // Initialize accounting
-        _createOrder(order, salt, orderId);
-    }
-
-    /// @notice Request an order with token permit
-    /// @param orderRequest Order request to submit
-    /// @param salt Salt used to generate unique order ID
-    /// @param permitToken Token to permit
-    /// @param value Amount of token to permit
-    /// @param deadline Expiration for permit
-    /// @param v Signature v
-    /// @param r Signature r
-    /// @param s Signature s
-    // slither-disable-next-line reentrancy-no-eth,reentrancy-benign
-    function requestOrderWithPermit(
-        OrderRequest calldata orderRequest,
-        bytes32 salt,
-        address permitToken,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external nonReentrant whenOrdersNotPaused {
-        _validateRequest(orderRequest);
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        // Order must not already exist
-        if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
-
-        // Approve incoming tokens
-        IERC20Permit(permitToken).safePermit(msg.sender, address(this), value, deadline, v, r, s);
-        // Get order from request and move tokens
-        Order memory order = _requestOrderAccounting(orderRequest, orderId);
-
-        // Initialize accounting
-        _createOrder(order, salt, orderId);
-    }
-
-    /// @dev Basic validity check on order request
-    function _validateRequest(OrderRequest calldata orderRequest) private view {
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, orderRequest.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, orderRequest.paymentToken);
-    }
+        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+        // Order must not already exist
+        if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-    /// @dev Send order to bridge and initialize accounting
-    function _createOrder(Order memory order, bytes32 salt, bytes32 orderId) private {
+        // Get order from request and move tokens
+        Order memory order = _requestOrderAccounting(orderRequest, orderId);
+
         // Send order to bridge
         emit OrderRequested(orderId, order.recipient, order, salt);
 
