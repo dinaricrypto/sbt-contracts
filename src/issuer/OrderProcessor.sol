@@ -13,7 +13,7 @@ import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Base contract managing orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
 /// Orders are submitted by users and filled by operators
 /// Handling of fees is left to the inheriting contract
 /// Each inheritor can craft a unique order processing flow

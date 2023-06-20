@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 /// @notice Interface for contracts specifying fees for orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/IOrderFees.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/IOrderFees.sol)
 interface IOrderFees {
     /// @notice Calculates flat fee for an order
     /// @param token Token for order

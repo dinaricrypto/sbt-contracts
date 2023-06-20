@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 /// @notice Interface for token minting and burning
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/IMintBurn.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IMintBurn.sol)
 /// Implemented by BridgedERC20
 interface IMintBurn {
     /// @notice Mint new tokens
