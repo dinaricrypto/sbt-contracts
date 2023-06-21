@@ -1,0 +1,25 @@
+| Name                         | Type                                                         | Slot | Offset | Bytes | Contract                                     |
+|------------------------------|--------------------------------------------------------------|------|--------|-------|----------------------------------------------|
+| _initialized                 | uint8                                                        | 0    | 0      | 1     | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _initializing                | bool                                                         | 0    | 1      | 1     | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| __gap                        | uint256[50]                                                  | 1    | 0      | 1600  | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| __gap                        | uint256[50]                                                  | 51   | 0      | 1600  | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| __gap                        | uint256[50]                                                  | 101  | 0      | 1600  | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| __gap                        | uint256[50]                                                  | 151  | 0      | 1600  | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _roles                       | mapping(bytes32 => struct AccessControlUpgradeable.RoleData) | 201  | 0      | 32    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| __gap                        | uint256[49]                                                  | 202  | 0      | 1568  | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _pendingDefaultAdmin         | address                                                      | 251  | 0      | 20    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _pendingDefaultAdminSchedule | uint48                                                       | 251  | 20     | 6     | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _currentDelay                | uint48                                                       | 251  | 26     | 6     | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _currentDefaultAdmin         | address                                                      | 252  | 0      | 20    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _pendingDelay                | uint48                                                       | 252  | 20     | 6     | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _pendingDelaySchedule        | uint48                                                       | 252  | 26     | 6     | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| __gap                        | uint256[48]                                                  | 253  | 0      | 1536  | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _status                      | uint256                                                      | 301  | 0      | 32    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| __gap                        | uint256[49]                                                  | 302  | 0      | 1568  | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| treasury                     | address                                                      | 351  | 0      | 20    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| orderFees                    | contract IOrderFees                                          | 352  | 0      | 20    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| ordersPaused                 | bool                                                         | 352  | 20     | 1     | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _numOpenOrders               | uint256                                                      | 353  | 0      | 32    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _orders                      | mapping(bytes32 => struct OrderProcessor.OrderState)         | 354  | 0      | 32    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |
+| _feeState                    | mapping(bytes32 => struct BuyOrderIssuer.FeeState)           | 355  | 0      | 32    | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer |

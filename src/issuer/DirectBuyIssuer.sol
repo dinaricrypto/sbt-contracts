@@ -1,27 +1,34 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import "./BuyOrderIssuer.sol";
-import "../IMintBurn.sol";
+import {BuyOrderIssuer, OrderProcessor} from "./BuyOrderIssuer.sol";
+import {IMintBurn} from "../IMintBurn.sol";
 
-/// @notice Contract managing direct market buy swap orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
+/// @notice Contract managing market purchase orders for bridged assets with direct payment
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
+/// The escrowed payment is taken by the operator before the order is filled
+/// The operator can return unused escrowed payment to the user
+/// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
 contract DirectBuyIssuer is BuyOrderIssuer {
     using SafeERC20 for IERC20;
-    // This contract handles the submission and fulfillment of orders
 
-    // 1. Order submitted and payment escrowed
-    // 2. Payment taken
-    // 3. Order fulfilled, fees claimed, assets minted
+    /// ------------------ Types ------------------ ///
 
+    /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
 
+    /// @dev Emitted when `amount` of escrowed payment is taken for `orderId`
     event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
+    /// @dev Emitted when `amount` of escrowed payment is returned for `orderId`
     event EscrowReturned(bytes32 indexed orderId, address indexed recipient, uint256 amount);
+
+    /// ------------------ State ------------------ ///
 
     // orderId => escrow
     mapping(bytes32 => uint256) public getOrderEscrow;
+
+    /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Take escrowed payment for an order
     /// @param orderRequest Order request
@@ -32,15 +39,19 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         external
         onlyRole(OPERATOR_ROLE)
     {
+        // No nonsense
         if (amount == 0) revert ZeroValue();
+        // Can't take more than escrowed
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         uint256 escrow = getOrderEscrow[orderId];
         if (amount > escrow) revert AmountTooLarge();
 
+        // Update escrow tracking
         getOrderEscrow[orderId] = escrow - amount;
+        // Notify escrow taken
         emit EscrowTaken(orderId, orderRequest.recipient, amount);
 
-        // Claim payment
+        // Take escrowed payment
         IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, amount);
     }
 
@@ -53,16 +64,20 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         external
         onlyRole(OPERATOR_ROLE)
     {
+        // No nonsense
         if (amount == 0) revert ZeroValue();
+        // Can only return unused amount
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         uint256 remainingOrder = getRemainingOrder(orderId);
         uint256 escrow = getOrderEscrow[orderId];
-        // Can only return unused amount
         if (escrow + amount > remainingOrder) revert AmountTooLarge();
 
+        // Update escrow tracking
         getOrderEscrow[orderId] = escrow + amount;
+        // Notify escrow returned
         emit EscrowReturned(orderId, orderRequest.recipient, amount);
 
+        // Return payment to escrow
         IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
@@ -73,7 +88,9 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         override
         returns (Order memory order)
     {
+        // Compile standard buy order
         order = super._requestOrderAccounting(orderRequest, orderId);
+        // Initialize escrow tracking for order
         getOrderEscrow[orderId] = order.paymentTokenQuantity;
     }
 
@@ -83,13 +100,14 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256
+        uint256 receivedAmount
     ) internal virtual override {
+        // Can't fill more than payment previously taken
         uint256 escrow = getOrderEscrow[orderId];
-        if (orderState.remainingOrder - fillAmount < escrow) revert AmountTooLarge();
+        if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
 
-        super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount, 0);
+        // Buy order accounting
+        _fillBuyOrder(orderRequest, orderId, orderState, fillAmount, receivedAmount);
     }
 
     /// @inheritdoc OrderProcessor
@@ -98,9 +116,11 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         virtual
         override
     {
+        // Can't cancel if escrowed payment has been taken
         uint256 escrow = getOrderEscrow[orderId];
         if (orderState.remainingOrder != escrow) revert UnreturnedEscrow();
 
+        // Standard buy order accounting
         super._cancelOrderAccounting(order, orderId, orderState);
     }
 }
