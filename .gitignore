@@ -49,4 +49,5 @@ dist/
 *.fls
 *.out
 *.synctex.gz
+*.synctex(busy)
 latex/*.pdf
