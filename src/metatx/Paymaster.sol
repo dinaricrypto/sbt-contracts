@@ -32,9 +32,9 @@ contract Paymaster is IPaymaster, Ownable {
     // Mappings
     mapping(address => uint256) public userNonces;
 
-    // error
+    // errors
+    error UserHasNotSigned(string reason);
     error InvalidNonce();
-    error UserHasNotSigned();
 
     constructor(address orderProcessorAddress, address relayHubAddress, address _trustedForwarder) {
         orderProcessor = IOrderProcessor(orderProcessorAddress);
@@ -113,27 +113,15 @@ contract Paymaster is IPaymaster, Ownable {
         uint256 maxPossibleGas
     ) external view returns (bytes memory context, bool rejectOnRecipientRevert) {
         address user = relayRequest.request.from;
-
         // Extract v, r, s from signature
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
-
-        bytes memory signatureMemory = new bytes(signature.length);
-        assembly {
-            calldatacopy(add(signatureMemory, 32), add(signature.offset, 32), signature.length)
-            r := mload(add(signatureMemory, 32))
-            s := mload(add(signatureMemory, 64))
-            v := byte(0, mload(add(signatureMemory, 96)))
-        }
-
+        (bytes32 r, bytes32 s, uint8 v) = abi.decode(signature, (bytes32, bytes32, uint8));
         // Logic to check if user has signed, assuming approvalData is correctly encoded
         if (userHasSigned(user, v, r, s, approvalData)) {
             // Pass data through the context to postRelayedCall if needed
             // For example, you can pass the data necessary for executing the order
-            return (approvalData, false);
+            return (approvalData, true);
         } else {
-            revert UserHasNotSigned();
+            revert UserHasNotSigned("User has not provided a valid signature.");
         }
     }
 
