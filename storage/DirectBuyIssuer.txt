@@ -1,0 +1,26 @@
+| Name                         | Type                                                         | Slot | Offset | Bytes | Contract                                       |
+|------------------------------|--------------------------------------------------------------|------|--------|-------|------------------------------------------------|
+| _initialized                 | uint8                                                        | 0    | 0      | 1     | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _initializing                | bool                                                         | 0    | 1      | 1     | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| __gap                        | uint256[50]                                                  | 1    | 0      | 1600  | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| __gap                        | uint256[50]                                                  | 51   | 0      | 1600  | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| __gap                        | uint256[50]                                                  | 101  | 0      | 1600  | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| __gap                        | uint256[50]                                                  | 151  | 0      | 1600  | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _roles                       | mapping(bytes32 => struct AccessControlUpgradeable.RoleData) | 201  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| __gap                        | uint256[49]                                                  | 202  | 0      | 1568  | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _pendingDefaultAdmin         | address                                                      | 251  | 0      | 20    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _pendingDefaultAdminSchedule | uint48                                                       | 251  | 20     | 6     | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _currentDelay                | uint48                                                       | 251  | 26     | 6     | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _currentDefaultAdmin         | address                                                      | 252  | 0      | 20    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _pendingDelay                | uint48                                                       | 252  | 20     | 6     | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _pendingDelaySchedule        | uint48                                                       | 252  | 26     | 6     | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| __gap                        | uint256[48]                                                  | 253  | 0      | 1536  | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _status                      | uint256                                                      | 301  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| __gap                        | uint256[49]                                                  | 302  | 0      | 1568  | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| treasury                     | address                                                      | 351  | 0      | 20    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| orderFees                    | contract IOrderFees                                          | 352  | 0      | 20    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| ordersPaused                 | bool                                                         | 352  | 20     | 1     | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _numOpenOrders               | uint256                                                      | 353  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _orders                      | mapping(bytes32 => struct OrderProcessor.OrderState)         | 354  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _feeState                    | mapping(bytes32 => struct BuyOrderIssuer.FeeState)           | 355  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| getOrderEscrow               | mapping(bytes32 => uint256)                                  | 356  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |

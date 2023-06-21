@@ -17,6 +17,7 @@
     "test:contract": "forge test -vvv --match-contract",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "snapshot": "forge snapshot",
+    "storage": "./script/storage.sh",
     "keccak": "cast keccak",
     "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
     "deployall:arb": "./script/deployall-arb-noverify.sh",
@@ -56,6 +57,8 @@
     "ethers": "^5.7.2"
   },
   "pre-commit": [
-    "pretty"
+    "pretty",
+    "storage",
+    "snapshot"
   ]
 }
