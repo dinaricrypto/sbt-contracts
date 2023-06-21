@@ -36,6 +36,12 @@ contract Paymaster is IPaymaster, Ownable {
     error UserHasNotSigned(string reason);
     error InvalidNonce();
 
+    // events
+    event OrderRequested(
+        address indexed recipient, address assetToken, address paymentToken, uint256 quantityIn, bytes32 orderId
+    );
+    event OrderCancelled(address indexed recipient, bytes32 orderId);
+
     constructor(address orderProcessorAddress, address relayHubAddress, address _trustedForwarder) {
         orderProcessor = IOrderProcessor(orderProcessorAddress);
         relayHub = relayHubAddress;
@@ -138,23 +144,29 @@ contract Paymaster is IPaymaster, Ownable {
         GsnTypes.RelayData calldata relayData
     ) external {
         if (success) {
-            // Decode the context to get the parameters for the order
-            // Assuming context was encoded with the required data
-            (address assetToken, address paymentToken, uint256 quantityIn) =
-                abi.decode(context, (address, address, uint256));
+            // Decode the context to get the action (create or cancel) and parameters for the order
+            (string memory action, address assetToken, address paymentToken, uint256 quantityIn, bytes32 orderId) =
+                abi.decode(context, (string, address, address, uint256, bytes32));
 
-            // Construct the OrderRequest struct
-            IOrderProcessor.OrderRequest memory orderRequest = IOrderProcessor.OrderRequest({
-                recipient: _msgSender(),
-                assetToken: assetToken,
-                paymentToken: paymentToken,
-                quantityIn: quantityIn
-            });
+            if (keccak256(bytes(action)) == keccak256(bytes("create"))) {
+                // Construct the OrderRequest struct
+                IOrderProcessor.OrderRequest memory orderRequest = IOrderProcessor.OrderRequest({
+                    recipient: _msgSender(),
+                    assetToken: assetToken,
+                    paymentToken: paymentToken,
+                    quantityIn: quantityIn
+                });
 
-            // Call the requestOrder function through the IOrderProcessor interface
-            bytes32 orderId = orderProcessor.requestOrder(orderRequest);
+                // Call the requestOrder function through the IOrderProcessor interface
+                bytes32 newOrderId = orderProcessor.requestOrder(orderRequest);
+                emit OrderRequested(_msgSender(), assetToken, paymentToken, quantityIn, newOrderId);
 
-            // Do something with the orderId if needed
+                // Do something with the newOrderId if needed
+            } else if (keccak256(bytes(action)) == keccak256(bytes("cancel"))) {
+                // Call the requestCancel function through the IOrderProcessor interface to cancel the order
+                orderProcessor.requestCancel(orderId);
+                emit OrderCancelled(_msgSender(), orderId);
+            }
         }
     }
 
