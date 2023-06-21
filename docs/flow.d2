@@ -1,0 +1,25 @@
+direction: down
+
+clearing: Clearing Service
+protocol: Order Processor
+pool: USDC/USD Pool
+bot: Operator
+treasury: Treasury
+users: Users
+
+clearing -- pool: USD {
+  style: {
+    stroke-dash: 3
+  }
+}
+pool -- bot: USDC {
+  style: {
+    stroke-dash: 3
+  }
+}
+bot -- protocol: USDC
+protocol -- users: dShares/USDC
+protocol -> treasury: USDC Fees
+bot -> clearing: Orders
+users -> protocol: Orders
+bot -> protocol: Fills

@@ -10,11 +10,11 @@
 
 %% packages
 \usepackage{amsmath}
-\usepackage{pgfplots}
+% \usepackage{pgfplots}
 \usepackage{subcaption}
 \usepackage{commath}
 \usepackage[utf8]{inputenc}
-\usetikzlibrary{positioning, arrows.meta, shapes, calc}
+% \usetikzlibrary{positioning, arrows.meta, shapes, calc}
 %% \usepackage{tikz}
 \usepackage{graphicx}
 \graphicspath{ {../docs/} }
@@ -31,27 +31,15 @@
 %% \pagestyle{plain}
 \settopmatter{printfolios=true}
 
-\numberwithin{equation}{section}
+% \numberwithin{equation}{section}
 
-\theoremstyle{definition}
-\newtheorem{definition}{Definition}
+% \theoremstyle{definition}
+% \newtheorem{definition}{Definition}
 
-\theoremstyle{remark}
-\newtheorem*{remark}{Remark}
-
-\captionsetup[subfigure]{
-    labelfont=bf,
-    textfont=normalfont,
-}
-\renewcommand{\thesubfigure}{\Roman{subfigure}}
+% \theoremstyle{remark}
+% \newtheorem*{remark}{Remark}
 
 \newcommand{\dshares}{\textsc{Dinari} d\textsc{Shares} }
-
-\definecolor{rowA}{gray}{0.9}
-\definecolor{rowB}{gray}{0.8}
-
-\newcommand{\rplus}{\mathbb{R}_{\geq 0}}
-\newcommand{\rpos}{\mathbb{R}_{>0}}
 
 \begin{document}
 \title{Dinari Securities Backed Tokens (dShares) v1 [Draft]}
@@ -74,6 +62,8 @@
 
 In order to realize the vision of blockchain technology enabling a more accessible, transparent, and secure system for the world’s quadrillions of dollars in derivatives and spot trading, a trusted bridge from the existing to the new platforms is required. We at Dinari built the Securities Backed Token (dShares) platform to be that trusted bridge. The dShares platform is a set of tokens backed 1-to-1 by existing publicly traded equities and a set of issuer smart contracts that process primary purchases and sales of those tokens. As orders are submitted, Dinari automatically rebalances it’s equities vaults, working with multiple clearing services, to maintain at least 100\% backing of the outstanding tokens.
 
+These tokens are redeemable for the value of the underlying shares held by Dinari.
+
 \end{abstract}
 
 \maketitle
@@ -89,6 +79,8 @@ We at Dinari have designed the Securities Backed Tokens to maximize interoperabi
 
 \subsection{Transfer Restrictions}
 
+The certificate tokens have a transfer blacklist feature for enforcing AML and other account security requirements. A blacklisted account will not be able to send or receive tokens.
+
 Dinari deploys one TransferRestrictor contract per issuing jurisdiction. All tokens backed by assets issued in one jurisdiction share a transfer restrictor. Tokens backed by assets issued in another jurisdiction may have different security requirements.
 
 \subsection{Voting}
@@ -103,10 +95,12 @@ Since the underlying securities are held by the Dinari Vault, the entire block o
 
 \subsection{Proof of Reserves}
 
-\dshares tokens are backed 1-to-1 by the underlying security. Dinari maintains 1-to-1 backing in real time by determining if any security purchases are necessary and executing those purchases for every order request. When a request is received, if the current reserves are not sufficient to maintain at least 100\% backing, purchases of the the underlying security are initiated. Dinari publishes the latest order activity in real time and current vault balances at regular intervals. Dinari vault accounts are held by a custodian and audited at random times by a third party. 
+\dshares tokens are backed 1-to-1 by the underlying security. Dinari maintains 1-to-1 backing in real time by determining if any security purchases are necessary and executing those purchases for every order request. When a request is received, if the current reserves are not sufficient to maintain at least 100\% backing, purchases of the the underlying security are initiated. Dinari publishes the latest order activity in real time and current vault balances at regular intervals. Dinari vault accounts are held by a custodian and audited at random times by a third party to verify the integrity of the accounting. 
 
 \section{Order Processors}
 \label{sec:Processors}
+
+The Brokerage takes market and limit orders submitted from accounts via Dinari smart contracts and executes those orders, minting or burning the appropriate amount of certificates upon order fulfillment. This gives users the flexibility to automate order submission.
 
 The \dshares protocol operates like a bridge. Calls to official contracts inheriting from OrderProcessor emit orders. These orders are picked up by Dinari's fulfillment service, which executes an order through a clearing service. The clearing service then settles the order and notifies the fulfillment service. The fulfillment service then notifies the OrderProcessor contract that the order has been filled and dShares are minted or burned to the order recipient. Different order processing logic can be implemented. The IOrderBridge interface Order specification supports market and liimit orders.
 
@@ -117,17 +111,16 @@ The \dshares protocol operates like a bridge. Calls to official contracts inheri
     \item An escrow unlocked market buy processor
 \end{itemize}
 
-\afterpage{%
+An example order processing sequence diagram is shown in Figure~\ref{fig:order-processing}.
+
 \begin{figure}
-    \label{fig:order-processing}
-    \centering
-    \includegraphics[width = \textwidth]{order-lifecycle.d2}
-    \caption{Example Order Processing Sequence Diagram}
-  \end{figure}
-  \clearpage
-  }
-  
-Orders specify an asset token (the dShare) and a payment token (e.g. USDC). A buy order takes payment token and gives dShares. A sell order takes dShares and gives payment token. 
+\centering
+\includegraphics[width = 0.5\textwidth]{flow.d2}
+\caption{Order and Asset Flow}
+\label{fig:flow}
+\end{figure}
+
+Figure~\ref{fig:flow} shows the flow of orders and assets through the system. Asset flow is bidirectional. Orders specify an asset token (the dShare) and a payment token (e.g. USDC). A buy order takes payment token and gives dShares. A sell order takes dShares and gives payment token. dShares are minted or burned by the order processor as the order is filled. Order processor operators are responsible for managing their payment token and fiat liquidity to ensure that orders can be filled.
 
 \subsection{Fees}
 
@@ -136,12 +129,21 @@ Order processor fees include a flat per-order fee and a percentage fee rate on t
 \section{Summary}
 In summary, \dshares is a non-custodial, non-upgradeable, and permissionless AMM protocol. It builds upon the concentrated liquidity model introduced in \textsc{Dinari v3} with customizable pools through hooks. Complementary to hooks are other architectural changes like the singleton contract which holds all pool state in one contract, and flash accounting which enforces pool solvency across each pool efficiently. Some other improvements are native ETH support, ERC-1155 balance accounting, new fee mechanisms, and the ability to donate to in-range liquidity providers.
 
-\bibliographystyle{ACM-Reference-Format}
-\bibliography{whitepaper}
+% \bibliographystyle{ACM-Reference-Format}
+% \bibliography{whitepaper}
+
+\afterpage{%
+\begin{figure}
+    \centering
+    \includegraphics[width = \textwidth]{order-lifecycle.d2}
+    \caption{Order Processing Example}
+    \label{fig:order-processing}
+  \end{figure}
+  \clearpage
+  }
 
 \section*{Disclaimer}
 
 This paper is for general information purposes only. It does not constitute investment advice or a recommendation or solicitation to buy or sell any investment and should not be used in the evaluation of the merits of making any investment decision. It should not be relied upon for accounting, legal or tax advice or investment recommendations.  This paper reflects current opinions of the authors. The opinions reflected herein are subject to change without being updated. 
 
 \end{document}
-\endinput
