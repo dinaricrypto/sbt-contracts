@@ -16,6 +16,9 @@
 \usepackage[utf8]{inputenc}
 \usetikzlibrary{positioning, arrows.meta, shapes, calc}
 %% \usepackage{tikz}
+\usepackage{graphicx}
+\graphicspath{ {../docs/} }
+\usepackage{afterpage}
 
 \pagenumbering{arabic}
 
@@ -42,6 +45,8 @@
 }
 \renewcommand{\thesubfigure}{\Roman{subfigure}}
 
+\newcommand{\dshares}{\textsc{Dinari} d\textsc{Shares} }
+
 \definecolor{rowA}{gray}{0.9}
 \definecolor{rowB}{gray}{0.8}
 
@@ -49,7 +54,7 @@
 \newcommand{\rpos}{\mathbb{R}_{>0}}
 
 \begin{document}
-\title{Dinari Securities Backed Tokens (SBT) v1 [Draft]}
+\title{Dinari Securities Backed Tokens (dShares) v1 [Draft]}
 \subtitle{June 2023}
 \date{June 2023}
 
@@ -67,181 +72,75 @@
 
 \begin{abstract}
 
-\textsc{Dinari SBT} is a non-custodial automated market maker implemented for the Ethereum Virtual Machine. \textsc{Dinari SBT} offers customizability via arbitrary code hooks, allowing developers to augment the concentrated liquidity model introduced in \textsc{Dinari v3} with new functionality. In \textsc{Dinari SBT}, anyone can create a new pool with a specified hook, which can run before or after pre-determined pool actions. Hooks can be used to implement features that were previously built into the protocol, like oracles, as well as new features that previously would have required independent implementations of the protocol. \textsc{Dinari SBT} also offers improved gas efficiency and developer experience through a singleton implementation, flash accounting, and support for native ETH.
+In order to realize the vision of blockchain technology enabling a more accessible, transparent, and secure system for the world’s quadrillions of dollars in derivatives and spot trading, a trusted bridge from the existing to the new platforms is required. We at Dinari built the Securities Backed Token (dShares) platform to be that trusted bridge. The dShares platform is a set of tokens backed 1-to-1 by existing publicly traded equities and a set of issuer smart contracts that process primary purchases and sales of those tokens. As orders are submitted, Dinari automatically rebalances it’s equities vaults, working with multiple clearing services, to maintain at least 100\% backing of the outstanding tokens.
+
 \end{abstract}
 
 \maketitle
 
 \section{Introduction} \label{sec:introduction}
 
+The Securities Backed Tokens are ERC-20 compliant and compatible with the full range of decentralized financial applications. The dShares platform is the first building block that we are releasing, with more on the way.
 
-The following sections provide in-depth explanations of these changes and the architectural changes that help make them possible.
+\section{The Tokens} 
+\label{sec:Tokens}
 
-\section{Hooks} 
-\label{sec:Hooks}
+We at Dinari have designed the Securities Backed Tokens to maximize interoperability with decentralized finance while maintaining security.
 
-\emph{Hooks} are externally deployed contracts that execute some developer-defined logic at a specified point in a pool’s execution. These hooks allow integrators to create a concentrated liquidity pool with flexible and customizable execution.
+\subsection{Transfer Restrictions}
 
-Hooks can modify pool parameters, or add new features and functionality. Example functionalities that could be implemented with hooks include: 
+Dinari deploys one TransferRestrictor contract per issuing jurisdiction. All tokens backed by assets issued in one jurisdiction share a transfer restrictor. Tokens backed by assets issued in another jurisdiction may have different security requirements.
+
+\subsection{Voting}
+
+In order for the Security Backed Tokens to trade freely without onerous transfer restrictions, Dinari holds back shareholder voting rights from tokenholders.
+
+Since the underlying securities are held by the Dinari Vault, the entire block of shares would need to vote together. In order to prevent unknown actors from accumulating voting power, tokenholders would register in order to cast their vote. We expect that for any shareholder vote, a small percentage of the overall token supply would register, complete a KYC process, and participate in voting. This would result in a small amount of tokens directing a potentially large block of voting power. For the time being, we have decided not to have token holders direct the Vault’s shareholder voting decisions.
+
+\subsection{Dividends and Distributions}
+
+SBT holders can earn dividends by registering. When dividends are announced for the underlying equity, token holdings are snapshot at the block corresponding to the designated distribution time. Distributions are deposited into a claim contract in USDC where accounts can withdraw up to their distribution amount.
+
+\subsection{Proof of Reserves}
+
+\section{Order Processors}
+\label{sec:Processors}
+
+The \dshares protocol operates like a bridge. Calls to official contracts inheriting from OrderProcessor emit orders. These orders are picked up by Dinari's fulfillment service, which executes an order through a clearing service. The clearing service then settles the order and notifies the fulfillment service. The fulfillment service then notifies the OrderProcessor contract that the order has been filled and dShares are minted or burned to the order recipient. Different order processing logic can be implemented. The IOrderBridge interface Order specification supports market and liimit orders.
+
+\dshares v1 has implemented
 \begin{itemize}
-\item Executing large orders over time through TWAMM 
-\item Onchain limit orders that fill at tick prices
-\item Volatility-shifting dynamic fees
-\item Mechanisms to internalize MEV for liquidity providers
-\item Median, truncated, or other custom oracle implementations
+    \item An escrow locked market buy processor
+    \item An escrow locked market sell processor
+    \item An escrow unlocked market buy processor
 \end{itemize}
 
-We envision that future independent whitepapers will be drafted for selected hook designs, as many will be as complex as protocols themselves.
-
-\begin{figure*}[ht!]
+% TODO: simplify sequence diagram
+\afterpage{%
+\begin{figure}
+    \label{fig:order-processing}
     \centering
-    \scalebox{.7225}{
-    \begin{tikzpicture}[
-            every node/.style = {inner sep = 2ex},
-            flow/.style = {thick, arrows = {-To[scale=2]}},
-            decision/.style = {
-                draw,
-                rectangle split,
-                rectangle split horizontal,
-                rectangle split parts = 2,
-                rectangle split draw splits = false,
-                align = left,
-                rounded corners = 3ex
-            },
-            block/.style = {
-                draw,
-                rectangle split,
-                rectangle split horizontal,
-                rectangle split parts = 2,
-                rectangle split draw splits = false,
-                align = left
-            },
-            universal/.style = {draw, diamond, inner sep = .5ex},
-        ]
+    \includegraphics[width = \textwidth]{brokerage-order.d2}
+    \caption{Order Processing Sequence Diagram}
+  \end{figure}
+  \clearpage
+  }
+  
+Orders specify an asset token (the dShare) and a payment token (e.g. USDC). A buy order takes payment token and gives dShares. A sell order takes dShares and gives payment token. 
 
-        \node (start) [universal] at (0,0) {Start swap};
+\subsection{Fees}
 
-        \node [decision, below=3em of start] (S0) {
-            S0.
-            \nodepart{two}
-            Check beforeSwap flag
-        };
-
-        \node (H1) [block, right=4em of S0] {
-            H1.
-            \nodepart{two}
-            Run beforeSwap Hook
-        };
-
-        \node [block, below=3em of S0] (S1) {
-            S1.
-            \nodepart{two}
-            Execute swap
-        };
-
-        \node (S2) [decision, below=3em of S1] {
-            S2.
-            \nodepart{two}
-            Check afterSwap flag
-        };
-
-        \node (H2) [block, right=4em of S2] {
-            H2.
-            \nodepart{two}
-            Run afterSwap Hook
-        };
-
-        \node (stop) [universal, below=3em of S2] {
-            End swap
-        };
-
-        \draw [flow] (start) -- (S0);
-        \draw [flow] (S0) -- node[midway, above] {True} (H1);
-        \draw [flow] (S0) -- node[midway, right] {False} (S1);
-        \draw [flow] (H1) .. controls + (0,-2) .. node[near end, above] {Return} (S1);
-        \draw [flow] (S1) -- (S2);
-        \draw [flow] (S2) -- node[midway, above] {True} (H2);
-        \draw [flow] (S2) -- node[midway, right] {False} (stop);
-        \draw [flow] (H2) .. controls + (0,-2.5) .. node[near end, above] {Return} (stop);
-    \end{tikzpicture}
-    }
-    \caption{Swap Hook Flow}
-    \label{fig:swapflow}
-\end{figure*}
-
-\subsection{Action Hooks} \label{actionhooks}
-
-When someone creates a pool on \textsc{Dinari SBT}, they can specify a hook contract. This hook contract implements custom logic that the pool will call out to during its execution. 
-\textsc{Dinari SBT} currently supports eight such hook callbacks:
-
-\begin{itemize}
-\item beforeInitialize/afterInitialize
-\item beforeModifyPosition/afterModifyPosition
-\item beforeSwap/afterSwap
-\item beforeDonate/afterDonate
-\end{itemize}
-
-The address of the hook contract determines which of these hook callbacks are executed. This creates a gas efficient and expressive methodology for determining the desired callbacks to execute, and ensures that even upgradeable hooks obey certain invariants. There are minimal requirements for creating a working hook. In Figure \ref{fig:swapflow}, we describe how the beforeSwap and afterSwap hooks work as part of swap execution flow.
-
-\subsection{Hook-managed fees} \label{hookfees}
-
-\textsc{Dinari SBT} allows fees to be taken on both swapping and withdrawing liquidity. 
-
-Swap fees can be either static, or dynamically managed by a hook contract. The hook contract can also choose to allocate a percentage of the swap fees to itself. Withdrawal fees cannot be set natively in the pool. To set a withdrawal fee, pool creators must set a hook contract to manage that fee, and the collected withdrawal fees go to the hook contract. Fees that accrue to hook contracts can be allocated arbitrarily by the hook’s code, including to liquidity providers, swappers, hook creators, or any other party. 
-
-The capabilities of the hook are limited by immutable flags chosen when the pool is created. The fee settings a pool creator can choose are:
-\begin{itemize}
-    \item Whether a pool has a static fee (and what that fee is) or dynamic fees
-    \item Permission for a hook to take a percentage of swap fees 
-    \item Permission for a hook to take withdrawal fees
-\end{itemize}
-
-Governance also can take a capped percentage of swap or withdrawal fees, as discussed below in the Governance section. 
-
-\section{Singleton and Flash Accounting} \label{flashaccounting}
-
-Previous versions of the \textsc{Dinari Protocol} use the factory/pool pattern, where the factory creates separate contracts for new token pairs. \textsc{Dinari SBT} uses a \emph{singleton} design pattern where all pools are managed by a single contract, making pool deployment ~99\% cheaper. 
-
-The singleton design complements another architectural change in \textsc{v4}: \emph{flash accounting}. In previous versions of the \textsc{Dinari Protocol}, each operation (such as swapping or adding liquidity to a pool) ended by transferring tokens. In \textsc{v4}, each operation updates an internal net balance, known as a \verb|delta|, only making external transfers at the end of the lock. The new \verb|take()| and  \verb|settle()| functions can be used to borrow or deposit funds to the pool, respectively. By requiring that no tokens are owed to the pool manager or to the caller by the end of the call, the pool's solvency is enforced. 
-
-Flash accounting simplifies complex pool operations, such as atomic swapping and adding. When combined with the singleton model, it also simplifies multi-hop trades.
-
-In the current execution environment, the flash accounting architecture is expensive because it requires storage updates at every balance change. Even though the contract guarantees that internal accounting data is never actually serialized to storage, users will still pay those same costs once the storage refund cap is exceeded \cite{Buterin2021}. But, because balances must be 0 by the end of the transaction, accounting for these balances can be implemented with transient storage, as specified by EIP-1153 \cite{Akhunov2018}.
-
-Together, singleton and flash accounting enable more efficient routing across multiple \textsc{v4} pools, reducing the cost of liquidity fragmentation. This is especially useful given the introduction of hooks, which will greatly increase the number of pools. 
-
-\section{Native ETH} 
-\label{nativeeth}
-
-\textsc{Dinari SBT} is bringing back native ETH in trading pairs. While \textsc{Dinari v1} was strictly ETH paired against ERC-20 tokens, native ETH pairs were removed in \textsc{Dinari v2} due to implementation complexity and concerns of liquidity fragmentation across WETH and ETH pairs. Singleton and flash accounting mitigate these problems, so \textsc{Dinari SBT} allows for both WETH and ETH pairs.
-
-Native ETH transfers are about half the gas cost of ERC-20 transfers (21k gas for ETH and around 40k gas for ERC-20s). Currently \textsc{Dinari v2} and \textsc{v3} require the vast majority of users to wrap (unwrap) their ETH to (from) WETH before (after) trading on the Dinari Protocol, requiring extra gas. 
-
-\section{Other Notable Features} 
-\label{other}
-
-\subsection{ERC1155 Accounting} 
-\textsc{Dinari SBT} will support the minting/burning of singleton-implemented ERC-1155 tokens for additional token accounting. Users can now keep tokens within the singleton and avoid ERC-20 transfers to and from the contract. This will be especially valuable for users and hooks who continually use the same tokens over multiple blocks or transactions, like frequent swappers or liquidity providers. 
-
-\subsection{Governance updates} 
-\textsc{Dinari SBT} has two separate governance fee mechanisms, swap fees and withdrawal fees, each with different mechanisms. First, similar to \textsc{Dinari v3}, governance can elect to take  up to a capped percentage of the swap fee on a particular pool. With \textsc{v4}, if hooks initially choose to turn on withdrawal fees for a pool, governance also has the ability to take up to a capped percentage of that withdrawal fee.
-Unlike in \textsc{Dinari v3}, governance does not control the permissible fee tiers or tick spacings.
-
-\subsection{Gas reductions}
-As discussed above, \textsc{Dinari SBT} introduces meaningful gas optimizations through flash accounting, the singleton model, and support for native ETH. Additionally, the introduction of hooks makes the protocol-enshrined price oracle that was included in \textsc{Dinari v2} and \textsc{Dinari v3} unnecessary, which also means some pools could forgo the oracle altogether and save around 15k gas on the first swap on a pool in each block. 
-
-\subsection{donate()}
-\verb|donate()| allows users, integrators, and hooks to directly pay in-range liquidity providers in either or both of the tokens of the pool. This functionality relies on the fee accounting system to facilitate efficient payments. The fee payment system can only support either of the tokens in the token pair for the pool. Potential use-cases could be tipping in-range liquidity providers on TWAMM orders or new types of fee systems.
+Order processor fees include a flat per-order fee and a percentage fee rate on the order amount. These fees are taken from the payment token, from the payment amount for buy orders, or from the raw proceeds of the sale for sell orders.
 
 \section{Summary}
-In summary, \textsc{Dinari SBT} is a non-custodial, non-upgradeable, and permissionless AMM protocol. It builds upon the concentrated liquidity model introduced in \textsc{Dinari v3} with customizable pools through hooks. Complementary to hooks are other architectural changes like the singleton contract which holds all pool state in one contract, and flash accounting which enforces pool solvency across each pool efficiently. Some other improvements are native ETH support, ERC-1155 balance accounting, new fee mechanisms, and the ability to donate to in-range liquidity providers.
+In summary, \dshares is a non-custodial, non-upgradeable, and permissionless AMM protocol. It builds upon the concentrated liquidity model introduced in \textsc{Dinari v3} with customizable pools through hooks. Complementary to hooks are other architectural changes like the singleton contract which holds all pool state in one contract, and flash accounting which enforces pool solvency across each pool efficiently. Some other improvements are native ETH support, ERC-1155 balance accounting, new fee mechanisms, and the ability to donate to in-range liquidity providers.
 
 \bibliographystyle{ACM-Reference-Format}
 \bibliography{whitepaper}
 
 \section*{Disclaimer}
 
-This paper is for general information purposes only. It does not constitute investment advice or a recommendation or solicitation to buy or sell any investment and should not be used in the evaluation of the merits of making any investment decision. It should not be relied upon for accounting, legal or tax advice or investment recommendations.  This paper reflects current opinions of the authors and is not made on behalf of Dinari Labs, Paradigm, or their affiliates and does not necessarily reflect the opinions of Dinari Labs, Paradigm, their affiliates or individuals associated with them. The opinions reflected herein are subject to change without being updated. 
+This paper is for general information purposes only. It does not constitute investment advice or a recommendation or solicitation to buy or sell any investment and should not be used in the evaluation of the merits of making any investment decision. It should not be relied upon for accounting, legal or tax advice or investment recommendations.  This paper reflects current opinions of the authors. The opinions reflected herein are subject to change without being updated. 
 
 \end{document}
 \endinput
