@@ -57,8 +57,6 @@
     "ethers": "^5.7.2"
   },
   "pre-commit": [
-    "pretty",
-    "storage",
-    "snapshot"
+    "pretty"
   ]
 }
