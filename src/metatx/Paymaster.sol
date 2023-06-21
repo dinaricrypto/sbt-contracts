@@ -9,23 +9,54 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /// @notice Contract for paying gas fees for users
 contract Paymaster is IPaymaster, Ownable {
-    mapping(address => bool) public isUserOptedIn;
-    IOrderProcessor public orderProcessor;
+    // Addresses
     address public relayHub;
     address public trustedForwarder;
+    IOrderProcessor public orderProcessor;
 
+    // Struct
     GasAndDataLimits public gasAndDataLimits;
+
+    // Constants
+    string private constant PERMISSION_TYPE = "Permission(address user,uint256 nonce)";
+    string private constant EIP712_DOMAIN =
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
+
+    // Domain separator
+    bytes32 private domainSeparator;
+
+    // Typehashes
+    bytes32 private constant EIP712_DOMAIN_TYPEHASH = keccak256(abi.encodePacked(EIP712_DOMAIN));
+    bytes32 private constant PERMISSION_TYPEHASH = keccak256(abi.encodePacked(PERMISSION_TYPE));
+
+    // Mappings
+    mapping(address => uint256) public userNonces;
+
+    // error
+    error InvalidNonce();
+    error UserHasNotSigned();
 
     constructor(address orderProcessorAddress, address relayHubAddress, address _trustedForwarder) {
         orderProcessor = IOrderProcessor(orderProcessorAddress);
         relayHub = relayHubAddress;
         trustedForwarder = _trustedForwarder;
+        domainSeparator = keccak256(
+            abi.encode(
+                EIP712_DOMAIN_TYPEHASH,
+                keccak256("Paymaster"),
+                keccak256("1"), // version
+                getChainId(),
+                address(this)
+            )
+        );
     }
 
-    function setUserOptInStatus(bool optIn) external {
-        isUserOptedIn[msg.sender] = optIn;
-    }
-
+    /**
+     * @param acceptanceBudget Maximum amount of gas the paymaster is willing to pay for the transaction
+     * @param preRelayedCallGasLimit Maximum amount of gas that can be used by the preRelayedCall function
+     * @param postRelayedCallGasLimit Maximum amount of gas that can be used by the postRelayedCall function
+     * @param calldataSizeLimit Maximum size of the calldata that the paymaster is willing to accept
+     */
     function setGasAndDataLimits(
         uint256 acceptanceBudget,
         uint256 preRelayedCallGasLimit,
@@ -40,69 +71,144 @@ contract Paymaster is IPaymaster, Ownable {
         });
     }
 
+    /**
+     * @dev Returns the current gas and data limits set by the Paymaster.
+     * @return limits A struct containing the acceptance budget,
+     * gas limits for preRelayedCall and postRelayedCall, and calldata size limit.
+     */
     function getGasAndDataLimits() external view override returns (GasAndDataLimits memory limits) {
         return gasAndDataLimits;
     }
 
+    /**
+     * @dev Returns the address of the RelayHub contract that this Paymaster is using.
+     * @return The address of the RelayHub contract.
+     */
     function getHubAddr() external view override returns (address) {
         return relayHub;
     }
 
+    /**
+     * @dev Returns the deposit balance of the Paymaster in the RelayHub contract.
+     * This function should interact with the RelayHub contract to return the deposit balance of the Paymaster.
+     * @return The deposit balance of the Paymaster in the RelayHub contract.
+     */
     function getRelayHubDeposit() external view override returns (uint256) {
         // Return the deposit balance of the Paymaster from the RelayHub contract
     }
 
+    /**
+     * @param relayRequest The relay request containing details of the relayed call.
+     * @param signature The signature of the user who is requesting the relayed call.
+     * @param approvalData Data that can be used for off-chain approvals or additional information.
+     * @param maxPossibleGas The maximum amount of gas that can be used for executing the relayed call.
+     * @return context The data to be passed to the postRelayedCall function.
+     * @return rejectOnRecipientRevert Boolean flag indicating whether
+     * the relayed call should be rejected if the recipient reverts.
+     */
     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
-    ) external view override returns (bytes memory context, bool rejectOnRecipientRevert) {
-        if (userHasOptedInOrSigned(relayRequest.request.from)) {
-            // Pass the amount or any other relevant data through the context
-            // For example, let's assume that the approvalData contains the amount
-            return (approvalData, false); // allow the call to proceed
+    ) external view returns (bytes memory context, bool rejectOnRecipientRevert) {
+        address user = relayRequest.request.from;
+
+        // Extract v, r, s from signature
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        bytes memory signatureMemory = new bytes(signature.length);
+        assembly {
+            calldatacopy(add(signatureMemory, 32), add(signature.offset, 32), signature.length)
+            r := mload(add(signatureMemory, 32))
+            s := mload(add(signatureMemory, 64))
+            v := byte(0, mload(add(signatureMemory, 96)))
+        }
+
+        // Logic to check if user has signed, assuming approvalData is correctly encoded
+        if (userHasSigned(user, v, r, s, approvalData)) {
+            // Pass data through the context to postRelayedCall if needed
+            // For example, you can pass the data necessary for executing the order
+            return (approvalData, false);
         } else {
-            revert("User did not opt-in for sponsorship");
+            revert UserHasNotSigned();
         }
     }
 
+    /**
+     * @param context Data passed from the preRelayedCall function
+     * @param success A boolean indicating whether the relayed call was successful.
+     * @param gasUseWithoutPost The amount of gas used by the relayed call excluding the gas used by postRelayedCall.
+     * @param relayData Additional data about the relay request.
+     */
     function postRelayedCall(
         bytes calldata context,
         bool success,
         uint256 gasUseWithoutPost,
         GsnTypes.RelayData calldata relayData
-    ) external override {
+    ) external {
         if (success) {
-            // Extract data from the context passed from preRelayedCall and execute the order
-            uint256 amount = abi.decode(context, (uint256));
-            executeRequestOrder(amount);
+            // Decode the context to get the parameters for the order
+            // Assuming context was encoded with the required data
+            (address assetToken, address paymentToken, uint256 quantityIn) =
+                abi.decode(context, (address, address, uint256));
+
+            // Construct the OrderRequest struct
+            IOrderProcessor.OrderRequest memory orderRequest = IOrderProcessor.OrderRequest({
+                recipient: _msgSender(),
+                assetToken: assetToken,
+                paymentToken: paymentToken,
+                quantityIn: quantityIn
+            });
+
+            // Call the requestOrder function through the IOrderProcessor interface
+            bytes32 orderId = orderProcessor.requestOrder(orderRequest);
+
+            // Do something with the orderId if needed
         }
     }
 
-    function executeRequestOrder(uint256 amount) internal {
-        IOrderProcessor.OrderRequest memory orderRequest = IOrderProcessor.OrderRequest({
-            recipient: _msgSender(),
-            assetToken: address(0), // This should be properly set
-            paymentToken: address(0), // This should be properly set
-            quantityIn: amount
-        });
+    /**
+     * @param user The address of the user that should have signed the data.
+     * @param v The recovery ID, a part of the signature (27 or 28).
+     * @param r The r value of the signature.
+     * @param s The s value of the signature.
+     * @param approvalData The additional data that needs to be checked against the signature.
+     * @return A boolean indicating whether the signature is valid and from the provided user address.
+     */
+    function userHasSigned(address user, uint8 v, bytes32 r, bytes32 s, bytes memory approvalData)
+        internal
+        view
+        returns (bool)
+    {
+        uint256 nonce;
 
-        orderProcessor.requestOrder(orderRequest);
+        // Extract nonce from approvalData or any other data if necessary
+        assembly {
+            nonce := mload(add(approvalData, 32))
+        }
+
+        // Ensure the nonce is valid
+        if (nonce != userNonces[user]) {
+            revert InvalidNonce();
+        }
+
+        bytes32 structHash = keccak256(abi.encode(PERMISSION_TYPEHASH, user, nonce));
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+
+        return ecrecover(digest, v, r, s) == user;
     }
 
-    // function _msgSender() internal override  view returns (address) {
-    //     if (msg.sender == trustedForwarder) {
-    //         return address(bytes20(msg.data[msg.data.length - 20: msg.data.length]));
-    //     }
-    //     return msg.sender;
-    // }
-
-    function userHasOptedInOrSigned(address user) internal view returns (bool) {
-        // Implement logic here to check if the user has opted in or signed
+    function getChainId() internal view returns (uint256 chainId) {
+        assembly {
+            chainId := chainid()
+        }
     }
 
-    function versionPaymaster() external view override returns (string memory) {
+    function versionPaymaster() external pure override returns (string memory) {
         return "1.0";
     }
 }
