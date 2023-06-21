@@ -99,9 +99,11 @@ Since the underlying securities are held by the Dinari Vault, the entire block o
 
 \subsection{Dividends and Distributions}
 
-SBT holders can earn dividends by registering. When dividends are announced for the underlying equity, token holdings are snapshot at the block corresponding to the designated distribution time. Distributions are deposited into a claim contract in USDC where accounts can withdraw up to their distribution amount.
+\dshares holders can earn dividends by registering. When dividends are announced for the underlying equity, token holdings are snapshot at the block corresponding to the designated distribution time. Distributions are deposited into a claim contract in USDC where accounts can withdraw up to their distribution amount.
 
 \subsection{Proof of Reserves}
+
+\dshares tokens are backed 1-to-1 by the underlying security. Dinari maintains 1-to-1 backing in real time by determining if any security purchases are necessary and executing those purchases for every order request. When a request is received, if the current reserves are not sufficient to maintain at least 100\% backing, purchases of the the underlying security are initiated. Dinari publishes the latest order activity in real time and current vault balances at regular intervals. Dinari vault accounts are held by a custodian and audited at random times by a third party. 
 
 \section{Order Processors}
 \label{sec:Processors}
@@ -115,13 +117,12 @@ The \dshares protocol operates like a bridge. Calls to official contracts inheri
     \item An escrow unlocked market buy processor
 \end{itemize}
 
-% TODO: simplify sequence diagram
 \afterpage{%
 \begin{figure}
     \label{fig:order-processing}
     \centering
-    \includegraphics[width = \textwidth]{brokerage-order.d2}
-    \caption{Order Processing Sequence Diagram}
+    \includegraphics[width = \textwidth]{order-lifecycle.d2}
+    \caption{Example Order Processing Sequence Diagram}
   \end{figure}
   \clearpage
   }
