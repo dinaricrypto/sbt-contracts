@@ -148,6 +148,10 @@ contract Paymaster is IPaymaster, Ownable {
             (string memory action, address assetToken, address paymentToken, uint256 quantityIn, bytes32 orderId) =
                 abi.decode(context, (string, address, address, uint256, bytes32));
 
+            //todo estimate gas used by postRelayedCall approve fees token and transfer to paymaster
+            uint256 gasPrice = tx.gasprice;
+            uint256 totalGasUsed = gasUseWithoutPost * gasPrice;
+
             if (keccak256(bytes(action)) == keccak256(bytes("create"))) {
                 // Construct the OrderRequest struct
                 IOrderProcessor.OrderRequest memory orderRequest = IOrderProcessor.OrderRequest({
@@ -156,6 +160,8 @@ contract Paymaster is IPaymaster, Ownable {
                     paymentToken: paymentToken,
                     quantityIn: quantityIn
                 });
+
+                // todo Check if the order is too small to pay fees
 
                 // Call the requestOrder function through the IOrderProcessor interface
                 bytes32 newOrderId = orderProcessor.requestOrder(orderRequest);
@@ -171,6 +177,7 @@ contract Paymaster is IPaymaster, Ownable {
     }
 
     /**
+     * @dev check if user has signed the data.
      * @param user The address of the user that should have signed the data.
      * @param v The recovery ID, a part of the signature (27 or 28).
      * @param r The r value of the signature.
