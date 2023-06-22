@@ -2,6 +2,6 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import {Paymaster} from "../src/metatx/Paymaster.sol";
+import {Forwarder} from "../src/metatx/Forwarder.sol";
 
-contract PaymasterTest is Test {}
+contract ForwarderTest is Test {}
