@@ -9,7 +9,7 @@ contract ForwarderTest is Test {
     address public relayer = address(0x1);
 
     function setUp() public {
-        forwarder = new Forwarder(relayer);
+        forwarder = new Forwarder(relayer, 30 seconds);
     }
 
     function test_addProcessor() public {

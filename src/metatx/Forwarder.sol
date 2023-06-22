@@ -52,7 +52,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer {
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
     /// @param _relayer The address of the relayer authorized to submit meta transactions.
-    constructor(address _relayer) {
+    constructor(address _relayer, uint256 _priceRecencyThreshold) PriceAttestationConsumer(_priceRecencyThreshold) {
         uint256 chainId;
         assembly {
             chainId := chainid()
