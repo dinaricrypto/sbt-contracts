@@ -2,10 +2,11 @@
 pragma solidity ^0.8.19;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 /// @title Forwarder
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
+
 contract Forwarder is Ownable {
     address public relayer;
 
@@ -73,6 +74,7 @@ contract Forwarder is Ownable {
     /// @param s ECDSA signature parameter s.
     function forwardFunctionCall(
         address user,
+        address paymentToken,
         address to,
         bytes calldata data,
         uint256 nonce,
@@ -80,7 +82,8 @@ contract Forwarder is Ownable {
         bytes32 r,
         bytes32 s
     ) external onlyRelayer {
-        require(validProcessors[to], "Invalid Order Processor");
+        uint256 gasStart = gasleft(); // Get the remaining gas at the beginning of execution
+        if (!validProcessors[to]) revert IsNotValidProcessor();
         if (nonces[user] != nonce) revert InvalidNonces();
 
         bytes32 digest = keccak256(
@@ -98,5 +101,28 @@ contract Forwarder is Ownable {
 
         (bool success,) = to.call(data);
         require(success, "Forwarded call failed");
+
+        // Calculate the total gas used by this transaction
+        uint256 gasUsed = gasStart - gasleft();
+
+        // TODO: Convert the total gas used to the equivalent payment in the user's chosen 
+        // ERC20 token using pricing feeds or oracle.
+        // For this example, let's assume that a function `convertGasToTokenAmount` exists that performs this conversion
+        uint256 paymentAmount = convertGasToTokenAmount(gasUsed, paymentToken);
+
+        // Transfer the payment for gas fees
+        IERC20(paymentToken).transferFrom(user, relayer, paymentAmount);
+    }
+
+    /**
+     * @notice This function should use an off-chain service to provide pricing information.
+     * @dev Converts the gas used by the transaction into the equivalent amount in the user's chosen ERC20 token.
+     * @param gasUsed The total gas used by the transaction.
+     * @param token The address of the ERC20 token in which the user wants to make the payment.
+     * @return amount The equivalent amount in the chosen ERC20 token.
+     */
+    function convertGasToTokenAmount(uint256 gasUsed, address token) internal pure returns (uint256 amount) {
+        // Conversion logic here, using an off-chain service for pricing information.
+        return amount;
     }
 }
