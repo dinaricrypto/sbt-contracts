@@ -8,8 +8,9 @@
     "registry": "https://sbt-dev-875886734390.d.codeartifact.us-west-2.amazonaws.com/npm/sbt/"
   },
   "scripts": {
-    "install:d2": "curl -fsSL https://d2lang.com/install.sh | sh -s --",
-    "build:d2": "find . -type f  -name '*.d2' -exec d2 --theme 104 '{}' \\;",
+    "install:d2": "curl -fsSL https://d2lang.com/install.sh | sh -s -- --tala",
+    "d2": "D2_LAYOUT=tala find . -type f -name '*.d2' -exec d2 --theme 3 '{}' '{}.svg' \\;",
+    "d2:png": "D2_LAYOUT=tala find . -type f -name '*.d2' -exec d2 --theme 3 '{}' '{}.png' \\;",
     "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
     "pretty": "forge fmt",
     "build": "forge build",

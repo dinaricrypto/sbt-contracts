@@ -1,0 +1,36 @@
+Buy/Sell Process Accross System: {
+  shape: sequence_diagram
+
+  user: User
+  app: Client App
+  contracts: Bridge Smart Contracts
+  bot: Operator
+  clearing: Clearing House
+
+  Retrieve Info: {
+    app -> contracts: payToken.balanceOf(user)
+    app -> contracts: payToken.allowance(user, bridge)
+    app -> contracts: bridge.getFeesForOrder(...)
+  }
+  Sign Permit Approval: {
+    user -> app: Approve use of payToken
+    app -> user: Request to sign permit
+    user -> user: Sign permit
+  }
+  Order Request: {
+    user -> app: Submit order request (with permit signature)
+    app -> user: Request to sign order transaction
+    user -> user: Sign order request
+    user -> contracts: bridge.requestOrderWithPermit
+    user -> contracts: Payment token escrowed
+    contracts -> bot: Emit Order details
+  }
+  Order Fulfillment: {
+    bot -> clearing: Brokerage order
+    clearing -> bot: Brokerage order fulfillment
+    bot -> contracts: bridge.fillOrder
+    contracts -> contracts: Fees taken
+    contracts -> bot: Payment withdrawn
+    contracts -> user: Mint/Burn dAsset tokens
+  }
+}

@@ -1,0 +1,22 @@
+Example Order Lifecycle: {
+  shape: sequence_diagram
+
+  user: User
+  processor: Order Processor
+  bot: Operator (Offchain)
+  clearing: Clearing Service (Offchain)
+
+  Order Request (requestOrder): {
+    user -> processor: Submit order request
+    user -> processor: Input token escrowed
+    processor -> bot: Order emitted
+  }
+  bot -> clearing: Brokerage order submitted
+  clearing -> bot: Brokerage order fulfilled
+  Order Fulfillment (fillOrder): {
+    bot -> processor: Submit order fill
+    processor -> processor: Fees taken when filled
+    processor -> bot: Payment withdrawn
+    processor -> user: Mint/Burn dShares
+  }
+}
