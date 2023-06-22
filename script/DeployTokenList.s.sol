@@ -31,16 +31,16 @@ contract DeployTokenListScript is Script {
 
         string[n] memory names = [
             "Tesla, Inc.",
-            "Nvidia",
-            "Microsoft",
-            "Meta Platforms",
-            "Netflix",
+            "NVIDIA Corporation",
+            "Microsoft Corporation",
+            "Meta Platforms, Inc.",
+            "Netflix, Inc.",
             "Apple Inc.",
             "Alphabet Inc. (Class A)",
-            "Amazon",
-            "PayPal",
-            "Pfizer",
-            "Disney",
+            "Amazon.com, Inc.",
+            "PayPal Holdings, Inc.",
+            "Pfizer, Inc.",
+            "Walt Disney Company",
             "SPDR S&P 500 ETF Trust",
             "WisdomTree Floating Rate Treasury Fund"
         ];
