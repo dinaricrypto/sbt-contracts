@@ -102,16 +102,7 @@ contract Forwarder is Ownable {
         (bool success,) = to.call(data);
         require(success, "Forwarded call failed");
 
-        // Calculate the total gas used by this transaction
-        uint256 gasUsed = gasStart - gasleft();
-
-        // TODO: Convert the total gas used to the equivalent payment in the user's chosen 
-        // ERC20 token using pricing feeds or oracle.
-        // For this example, let's assume that a function `convertGasToTokenAmount` exists that performs this conversion
-        uint256 paymentAmount = convertGasToTokenAmount(gasUsed, paymentToken);
-
-        // Transfer the payment for gas fees
-        IERC20(paymentToken).transferFrom(user, relayer, paymentAmount);
+        _handlePayment(user, paymentToken, gasStart);
     }
 
     /**
@@ -124,5 +115,18 @@ contract Forwarder is Ownable {
     function convertGasToTokenAmount(uint256 gasUsed, address token) internal pure returns (uint256 amount) {
         // Conversion logic here, using an off-chain service for pricing information.
         return amount;
+    }
+
+    function _handlePayment(address user, address paymentToken, uint256 gasStart) internal {
+        // Calculate the total gas used by this transaction
+        uint256 gasUsed = gasStart - gasleft();
+
+        // TODO: Convert the total gas used to the equivalent payment in the user's chosen
+        // ERC20 token using pricing feeds or oracle.
+        // For this example, let's assume that a function `convertGasToTokenAmount` exists that performs this conversion
+        uint256 paymentAmount = convertGasToTokenAmount(gasUsed, paymentToken);
+
+        // Transfer the payment for gas fees
+        IERC20(paymentToken).transferFrom(user, relayer, paymentAmount);
     }
 }
