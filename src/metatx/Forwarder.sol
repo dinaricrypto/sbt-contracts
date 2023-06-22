@@ -3,11 +3,12 @@ pragma solidity ^0.8.19;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
+
 /// @title Forwarder
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
-
-contract Forwarder is Ownable {
+contract Forwarder is Ownable, PriceAttestationConsumer {
     address public relayer;
 
     mapping(address => bool) public validProcessors;
@@ -30,7 +31,6 @@ contract Forwarder is Ownable {
             // through the meta-transaction.
         uint256 nonce; // A nonce to prevent replay attacks. It must be unique
             // for each meta-transaction made by the user.
-        uint256 paymentTokenPrice; // The price of the payment token
         uint8 v; // ECDSA signature parameter v.
         bytes32 r; // ECDSA signature parameter r.
         bytes32 s; // ECDSA signature parameter s.
@@ -40,6 +40,7 @@ contract Forwarder is Ownable {
     error IsNotValidProcessor();
     error InvalidNonces();
     error InvalidSigner();
+    error WrongTokenPrice();
 
     modifier onlyRelayer() {
         if (msg.sender != relayer) {
@@ -51,7 +52,7 @@ contract Forwarder is Ownable {
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
     /// @param _relayer The address of the relayer authorized to submit meta transactions.
-    constructor(address _relayer) {
+    constructor(address _relayer, uint256 _priceRecencyThreshold) PriceAttestationConsumer(_priceRecencyThreshold) {
         uint256 chainId;
         assembly {
             chainId := chainid()
@@ -81,10 +82,15 @@ contract Forwarder is Ownable {
     /// The relayer's address is used for EIP-712 compliant signature verification.
     /// This function should only be called by the authorized relayer.
 
-    function forwardFunctionCall(MetaTransaction memory metaTx) external onlyRelayer {
+    function forwardFunctionCall(MetaTransaction memory metaTx, PriceAttestation memory oraclePrice)
+        external
+        onlyRelayer
+    {
         uint256 gasStart = gasleft(); // Get the remaining gas at the beginning of execution
         if (!validProcessors[metaTx.to]) revert IsNotValidProcessor();
         if (nonces[metaTx.user] != metaTx.nonce) revert InvalidNonces();
+        if (oraclePrice.token != metaTx.paymentToken) revert WrongTokenPrice();
+        _verifyPriceAttestation(oraclePrice);
 
         bytes32 digest = keccak256(
             abi.encodePacked(
@@ -113,7 +119,7 @@ contract Forwarder is Ownable {
         (bool success,) = metaTx.to.call(metaTx.data);
         require(success, "Forwarded call failed");
 
-        _handlePayment(metaTx.user, metaTx.paymentToken, metaTx.paymentTokenPrice, gasStart);
+        _handlePayment(metaTx.user, metaTx.paymentToken, oraclePrice.price, gasStart);
     }
 
     /**
