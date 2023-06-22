@@ -20,6 +20,21 @@ contract Forwarder is Ownable {
 
     bytes32 public DOMAIN_SEPARATOR;
 
+    struct MetaTransaction {
+        address user; // The address of the user initiating the meta-transaction.
+        address to; // The address of the target contract (e.g., OrderProcessor)
+            // to which the meta-transaction should be forwarded.
+        bytes data; // Encoded function call that the user wants to execute
+            // through the meta-transaction.
+        uint256 nonce; // A nonce to prevent replay attacks. It must be unique
+            // for each meta-transaction made by the user.
+        uint8 v; // ECDSA signature parameter v.
+        bytes32 r; // ECDSA signature parameter r.
+        bytes32 s; // ECDSA signature parameter s.
+        address paymentToken; // The address of the ERC20 token that the user wants to
+            // use for paying the transaction fees.
+    }
+
     error UserNotRelayer();
     error IsNotValidProcessor();
     error InvalidNonces();
@@ -64,45 +79,40 @@ contract Forwarder is Ownable {
     /// @dev Validates the meta transaction signature, then forwards the call to the target OrderProcessor.
     /// The relayer's address is used for EIP-712 compliant signature verification.
     /// This function should only be called by the authorized relayer.
-    /// @param user The address of the user that signed the MetaTx. This address is used to validate the signature
-    /// and ensure that the transaction is being initiated by the intended user.
-    /// @param to The address of the OrderProcessor contract where the transaction should be forwarded to.
-    /// @param data The encoded function call that the user would like to execute.
-    /// @param nonce The nonce for the user's account. This is used to prevent replay attacks.
-    /// @param v ECDSA signature parameter v.
-    /// @param r ECDSA signature parameter r.
-    /// @param s ECDSA signature parameter s.
-    function forwardFunctionCall(
-        address user,
-        address paymentToken,
-        address to,
-        bytes calldata data,
-        uint256 nonce,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external onlyRelayer {
+
+    function forwardFunctionCall(MetaTransaction memory metaTx) external onlyRelayer {
         uint256 gasStart = gasleft(); // Get the remaining gas at the beginning of execution
-        if (!validProcessors[to]) revert IsNotValidProcessor();
-        if (nonces[user] != nonce) revert InvalidNonces();
+        if (!validProcessors[metaTx.to]) revert IsNotValidProcessor();
+        if (nonces[metaTx.user] != metaTx.nonce) revert InvalidNonces();
 
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
                 DOMAIN_SEPARATOR,
-                keccak256(abi.encode(FUNCTION_CALL_TYPEHASH, user, to, keccak256(data), nonce, v, r, s))
+                keccak256(
+                    abi.encode(
+                        FUNCTION_CALL_TYPEHASH,
+                        metaTx.user,
+                        metaTx.to,
+                        keccak256(metaTx.data),
+                        metaTx.nonce,
+                        metaTx.v,
+                        metaTx.r,
+                        metaTx.s
+                    )
+                )
             )
         );
 
-        address signer = ecrecover(digest, v, r, s);
-        if (signer != user) revert InvalidSigner();
+        address signer = ecrecover(digest, metaTx.v, metaTx.r, metaTx.s);
+        if (signer != metaTx.user) revert InvalidSigner();
 
-        nonces[user]++; // increment nonce after successful forward
+        nonces[metaTx.user]++; // increment nonce after successful forward
 
-        (bool success,) = to.call(data);
+        (bool success,) = metaTx.to.call(metaTx.data);
         require(success, "Forwarded call failed");
 
-        _handlePayment(user, paymentToken, gasStart);
+        _handlePayment(metaTx.user, metaTx.paymentToken, gasStart);
     }
 
     /**
