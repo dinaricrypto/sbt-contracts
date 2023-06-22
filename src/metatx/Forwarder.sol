@@ -82,7 +82,10 @@ contract Forwarder is Ownable, PriceAttestationConsumer {
     /// The relayer's address is used for EIP-712 compliant signature verification.
     /// This function should only be called by the authorized relayer.
 
-    function forwardFunctionCall(MetaTransaction memory metaTx, PriceAttestation memory oraclePrice) external onlyRelayer {
+    function forwardFunctionCall(MetaTransaction memory metaTx, PriceAttestation memory oraclePrice)
+        external
+        onlyRelayer
+    {
         uint256 gasStart = gasleft(); // Get the remaining gas at the beginning of execution
         if (!validProcessors[metaTx.to]) revert IsNotValidProcessor();
         if (nonces[metaTx.user] != metaTx.nonce) revert InvalidNonces();
