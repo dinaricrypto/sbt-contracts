@@ -5,7 +5,7 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /// @title Forwarder
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
-/// @author YourNameHere
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
 contract Forwarder is Ownable {
     address public relayer;
 
