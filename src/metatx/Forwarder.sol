@@ -117,6 +117,20 @@ contract Forwarder is Ownable {
         return amount;
     }
 
+    /**
+     * @dev Handles the payment of transaction fees in the specified ERC20 token.
+     * Calculates the gas used by the transaction and converts it to an equivalent amount ,
+     * of the specified ERC20 token.
+     * Then, transfers the calculated amount of ERC20 tokens from the user's address to the relayer's
+     * address as a payment for transaction fees.
+     *
+     * Note: The conversion rate between gas and the ERC20 token should be determined ,
+     * by an off-chain oracle or pricing feed.
+     *
+     * @param user The address of the user who is paying the transaction fees.
+     * @param paymentToken The address of the ERC20 token in which the transaction fees are paid.
+     * @param gasStart The amount of gas left at the start of the transaction execution.
+     */
     function _handlePayment(address user, address paymentToken, uint256 gasStart) internal {
         // Calculate the total gas used by this transaction
         uint256 gasUsed = gasStart - gasleft();
