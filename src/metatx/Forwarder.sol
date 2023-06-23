@@ -123,40 +123,34 @@ contract Forwarder is Ownable, PriceAttestationConsumer {
     }
 
     /**
-     * @notice This function should use an off-chain service to provide pricing information.
-     * @dev Converts the gas used by the transaction into the equivalent amount in the user's chosen ERC20 token.
+     * @notice Converts the gas used by the transaction into the equivalent amount in the user's chosen ERC20 token.
      * @param gasUsed The total gas used by the transaction.
-     * @param token The address of the ERC20 token in which the user wants to make the payment.
+     * @param paymentTokenPrice The price of the payment token in wei.
      * @return amount The equivalent amount in the chosen ERC20 token.
      */
-    function convertGasToTokenAmount(uint256 gasUsed, address token) internal pure returns (uint256 amount) {
-        // Conversion logic here, using an off-chain service for pricing information.
-        return amount;
+    function convertGasToTokenAmount(uint256 gasUsed, uint256 paymentTokenPrice)
+        internal
+        view
+        returns (uint256 amount)
+    {
+        uint256 gasCostInWei = gasUsed * tx.gasprice;
+        // Assuming paymentTokenPrice is the price of 1 token in wei.
+        return gasCostInWei / paymentTokenPrice;
     }
 
     /**
      * @dev Handles the payment of transaction fees in the specified ERC20 token.
-     * Calculates the gas used by the transaction and converts it to an equivalent amount ,
-     * of the specified ERC20 token.
-     * Then, transfers the calculated amount of ERC20 tokens from the user's address to the relayer's
-     * address as a payment for transaction fees.
-     *
-     * Note: The conversion rate between gas and the ERC20 token should be determined ,
-     * by an off-chain oracle or pricing feed.
-     *
      * @param user The address of the user who is paying the transaction fees.
      * @param paymentToken The address of the ERC20 token in which the transaction fees are paid.
-     * @param paymentTokenPrice The price of the payment token
+     * @param paymentTokenPrice The price of the payment token in wei.
      * @param gasStart The amount of gas left at the start of the transaction execution.
      */
     function _handlePayment(address user, address paymentToken, uint256 paymentTokenPrice, uint256 gasStart) internal {
         // Calculate the total gas used by this transaction
         uint256 gasUsed = gasStart - gasleft();
 
-        // TODO: Convert the total gas used to the equivalent payment in the user's chosen
-        // ERC20 token using pricing feeds or oracle.
-        // For this example, let's assume that a function `convertGasToTokenAmount` exists that performs this conversion
-        uint256 paymentAmount = convertGasToTokenAmount(gasUsed, paymentToken);
+        // Convert the total gas used to the equivalent payment in the user's chosen ERC20 token
+        uint256 paymentAmount = convertGasToTokenAmount(gasUsed, paymentTokenPrice);
 
         // Transfer the payment for gas fees
         IERC20(paymentToken).transferFrom(user, relayer, paymentAmount);
