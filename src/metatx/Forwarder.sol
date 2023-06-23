@@ -15,12 +15,8 @@ contract Forwarder is Ownable, PriceAttestationConsumer, EIP712("Forwarder", "1"
     mapping(address => bool) public validProcessors;
     mapping(address => uint256) public nonces;
 
-    bytes32 public constant DOMAIN_TYPEHASH =
-        keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
     bytes32 public constant FUNCTION_CALL_TYPEHASH =
         keccak256("FunctionCall(address user,address to,bytes data,uint256 nonce)");
-
-    bytes32 public DOMAIN_SEPARATOR;
 
     struct MetaTransaction {
         address user; // The address of the user initiating the meta-transaction.
