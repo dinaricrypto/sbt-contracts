@@ -67,6 +67,7 @@ contract ForwarderTest is Test {
         vm.prank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(relayer, 3600); // 1 hour for pruce recency threshold
         sigUtils = new SigUtils(forwarder.DOMAIN_SEPARATOR());
+        metaProcessor = new MetaProcessor(sigUtils);
     }
 
     function test_owner() public {
@@ -99,18 +100,25 @@ contract ForwarderTest is Test {
         bytes memory data = abi.encodeWithSelector(functionSignature, order, salt);
         uint256 nonce = 0; // set to the correct nonce for the user
 
+        // prepare MetaTransaction
+        bytes32 hashToSign = metaProcessor.prepareMetaTransaction(address(issuer), address(paymentToken), data, nonce);
+        // user sign transaction
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, hashToSign);
+
+        // the signed transaction could be sent to a relayer. The relayer will submit the transaction to the Forwarder
+
+        // Create MetaTransaction struct with signature
         SigUtils.MetaTransaction memory metaTx = SigUtils.MetaTransaction({
             user: user,
             to: address(issuer),
             paymentToken: address(paymentToken),
             data: data,
             nonce: nonce,
-            v: 0, // These values will be set after signing
-            r: bytes32(0),
-            s: bytes32(0)
+            v: v,
+            r: r,
+            s: s
         });
 
-        bytes32 digest = sigUtils.getTypedDataHashForMetaTransaction(metaTx);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
+    
     }
 }

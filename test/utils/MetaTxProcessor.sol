@@ -16,9 +16,9 @@ contract MetaProcessor {
         returns (bytes32)
     {
         address user = msg.sender;
-        address issuer = _issuer; // Example address
-        address paymentToken = _paymentToken; // Example address
-        bytes memory data = _data; // Example data
+        address issuer = _issuer; // issuer address
+        address paymentToken = _paymentToken; // payment token address
+        bytes memory data = _data; // encoded function call
         uint256 nonce = _nonce;
 
         SigUtils.MetaTransaction memory metaTx = SigUtils.MetaTransaction({
