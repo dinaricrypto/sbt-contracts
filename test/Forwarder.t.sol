@@ -118,7 +118,5 @@ contract ForwarderTest is Test {
             r: r,
             s: s
         });
-
-    
     }
 }

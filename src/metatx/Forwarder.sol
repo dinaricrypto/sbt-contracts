@@ -2,13 +2,14 @@
 pragma solidity ^0.8.19;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
 
 /// @title Forwarder
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
-contract Forwarder is Ownable, PriceAttestationConsumer {
+contract Forwarder is Ownable, PriceAttestationConsumer, EIP712("Forwarder", "1") {
     address public relayer;
 
     mapping(address => bool) public validProcessors;
@@ -53,13 +54,6 @@ contract Forwarder is Ownable, PriceAttestationConsumer {
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
     /// @param _relayer The address of the relayer authorized to submit meta transactions.
     constructor(address _relayer, uint256 _priceRecencyThreshold) PriceAttestationConsumer(_priceRecencyThreshold) {
-        uint256 chainId;
-        assembly {
-            chainId := chainid()
-        }
-        DOMAIN_SEPARATOR = keccak256(
-            abi.encode(DOMAIN_TYPEHASH, keccak256(bytes("Forwarder")), keccak256(bytes("1")), chainId, address(this))
-        );
         relayer = _relayer;
     }
 
@@ -86,35 +80,21 @@ contract Forwarder is Ownable, PriceAttestationConsumer {
         external
         onlyRelayer
     {
-        uint256 gasStart = gasleft(); // Get the remaining gas at the beginning of execution
+        uint256 gasStart = gasleft();
         if (!validProcessors[metaTx.to]) revert IsNotValidProcessor();
         if (nonces[metaTx.user] != metaTx.nonce) revert InvalidNonces();
         if (oraclePrice.token != metaTx.paymentToken) revert WrongTokenPrice();
         _verifyPriceAttestation(oraclePrice);
 
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR,
-                keccak256(
-                    abi.encode(
-                        FUNCTION_CALL_TYPEHASH,
-                        metaTx.user,
-                        metaTx.to,
-                        keccak256(metaTx.data),
-                        metaTx.nonce,
-                        metaTx.v,
-                        metaTx.r,
-                        metaTx.s
-                    )
-                )
-            )
-        );
+        bytes32 structHash =
+            keccak256(abi.encode(FUNCTION_CALL_TYPEHASH, metaTx.user, metaTx.to, keccak256(metaTx.data), metaTx.nonce));
+
+        bytes32 digest = _hashTypedDataV4(structHash);
 
         address signer = ecrecover(digest, metaTx.v, metaTx.r, metaTx.s);
         if (signer != metaTx.user) revert InvalidSigner();
 
-        nonces[metaTx.user]++; // increment nonce after successful forward
+        nonces[metaTx.user]++;
 
         (bool success,) = metaTx.to.call(metaTx.data);
         require(success, "Forwarded call failed");

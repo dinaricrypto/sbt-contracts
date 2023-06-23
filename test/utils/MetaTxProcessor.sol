@@ -28,8 +28,8 @@ contract MetaProcessor {
             data: data,
             nonce: nonce,
             v: 0,
-            r: bytes32(0), 
-            s: bytes32(0) 
+            r: bytes32(0),
+            s: bytes32(0)
         });
 
         bytes32 hashToSign = sigUtils.getHashToSign(metaTx);
