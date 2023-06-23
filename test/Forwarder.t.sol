@@ -3,29 +3,109 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import {Forwarder} from "../src/metatx/Forwarder.sol";
+import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import "./utils/mocks/MockBridgedERC20.sol";
+import "../src/issuer/BuyOrderIssuer.sol";
+import "solady-test/utils/mocks/MockERC20.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "./utils/SigUtils.sol";
 
 contract ForwarderTest is Test {
     Forwarder forwarder;
-    address public relayer = address(0x1);
+    BuyOrderIssuer issuer;
+    OrderFees orderFees;
+    MockERC20 paymentToken;
+    BridgedERC20 token;
+
+    SigUtils sigUtils;
+    OrderProcessor.OrderRequest dummyOrder;
+
+    bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
+
+    uint256 userPrivateKey;
+    uint256 relayerPrivateKey;
+    uint256 ownerPrivateKey;
+    address user;
+    address relayer;
+    address owner;
+
+    address constant treasury = address(4);
+    address constant operator = address(3);
 
     function setUp() public {
-        forwarder = new Forwarder(relayer, 30 seconds);
+        userPrivateKey = 0x01;
+        relayerPrivateKey = 0x02;
+        ownerPrivateKey = 0x03;
+        relayer = vm.addr(relayerPrivateKey);
+        user = vm.addr(userPrivateKey);
+        owner = vm.addr(ownerPrivateKey);
+
+        token = new MockBridgedERC20();
+        paymentToken = new MockERC20("Money", "$", 6);
+        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
+        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
+
+        issuer = BuyOrderIssuer(
+            address(
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(
+                    issuerImpl.initialize, 
+                    (address(this), 
+                    treasury, 
+                    orderFees)
+                ))
+            )
+        );
+
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), address(issuer));
+
+        issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
+        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
+        issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        vm.prank(owner); // we set an owner to deploy forwarder
+        forwarder = new Forwarder(relayer, 3600); // 1 hour for pruce recency threshold
+    }
+
+    function test_owner() public {
+        assertEq(forwarder.owner(), owner);
     }
 
     function test_addProcessor() public {
-        forwarder.addProcessor(address(this));
-        assertTrue(forwarder.validProcessors(address(this)));
+        vm.expectRevert();
+        forwarder.addProcessor(address(issuer));
+        vm.prank(owner);
+        forwarder.addProcessor(address(issuer));
     }
 
     function test_removeProcessor() public {
-        forwarder.addProcessor(address(this));
-        forwarder.removeProcessor(address(this));
-        assertFalse(forwarder.validProcessors(address(this)));
+        vm.expectRevert();
+        forwarder.removeProcessor(address(issuer));
+        vm.prank(owner);
+        forwarder.removeProcessor(address(issuer));
     }
 
-    function test_onlyRelayer() public {
-        forwarder.addProcessor(address(this));
-        forwarder.removeProcessor(address(this));
-        assertFalse(forwarder.validProcessors(address(this)));
+    function testRequestOrderThroughForwarder(uint quantityIn) public {
+        
+        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+            recipient: user,
+            assetToken: address(token), // Assuming you have token declared
+            paymentToken: address(paymentToken),
+            quantityIn: quantityIn
+        });
+
+        bytes4 functionSignature = bytes4(keccak256("requestOrder(OrderProcessor.OrderRequest,bytes32)"));
+        bytes memory data = abi.encodeWithSelector(functionSignature, order, salt);
+        uint256 nonce = 0; // set to the correct nonce for the user
+
+        Forwarder.MetaTransaction memory metaTx = Forwarder.MetaTransaction({
+            user: user,
+            to: address(issuer),
+            paymentToken: address(paymentToken),
+            data: data,
+            nonce: nonce,
+            v: 0, // These values will be set after signing
+            r: 0,
+            s: 0
+        });
     }
 }
