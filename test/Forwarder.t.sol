@@ -9,6 +9,7 @@ import "../src/issuer/BuyOrderIssuer.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/SigUtils.sol";
+import "./utils/MetaTxProcessor.sol";
 
 contract ForwarderTest is Test {
     Forwarder forwarder;
@@ -16,6 +17,7 @@ contract ForwarderTest is Test {
     OrderFees orderFees;
     MockERC20 paymentToken;
     BridgedERC20 token;
+    MetaProcessor metaProcessor;
 
     SigUtils sigUtils;
     OrderProcessor.OrderRequest dummyOrder;

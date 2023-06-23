@@ -44,7 +44,7 @@ contract SigUtils {
         );
     }
 
-    function getHashToSign(MetaTransaction memory _metaTx) internal pure returns (bytes32) {
+    function getHashToSign(MetaTransaction memory _metaTx) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 META_TRANSACTION_TYPEHASH,
