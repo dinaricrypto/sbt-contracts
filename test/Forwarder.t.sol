@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
@@ -64,6 +64,7 @@ contract ForwarderTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         vm.prank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(relayer, 3600); // 1 hour for pruce recency threshold
+        sigUtils = new SigUtils(forwarder.DOMAIN_SEPARATOR());
     }
 
     function test_owner() public {
@@ -84,8 +85,7 @@ contract ForwarderTest is Test {
         forwarder.removeProcessor(address(issuer));
     }
 
-    function testRequestOrderThroughForwarder(uint quantityIn) public {
-        
+    function testRequestOrderThroughForwarder(uint256 quantityIn) public {
         OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token), // Assuming you have token declared
@@ -97,15 +97,18 @@ contract ForwarderTest is Test {
         bytes memory data = abi.encodeWithSelector(functionSignature, order, salt);
         uint256 nonce = 0; // set to the correct nonce for the user
 
-        Forwarder.MetaTransaction memory metaTx = Forwarder.MetaTransaction({
+        SigUtils.MetaTransaction memory metaTx = SigUtils.MetaTransaction({
             user: user,
             to: address(issuer),
             paymentToken: address(paymentToken),
             data: data,
             nonce: nonce,
             v: 0, // These values will be set after signing
-            r: 0,
-            s: 0
+            r: bytes32(0),
+            s: bytes32(0)
         });
+
+        bytes32 digest = sigUtils.getTypedDataHashForMetaTransaction(metaTx);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userPrivateKey, digest);
     }
 }
