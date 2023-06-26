@@ -110,14 +110,14 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @param to Address to mint tokens to
     /// @param value Amount of tokens to mint
     /// @dev Only callable by approved minter
-    function mint(address to, uint256 value) public virtual onlyRole(MINTER_ROLE) {
+    function mint(address to, uint256 value) external virtual onlyRole(MINTER_ROLE) {
         _mint(to, value);
     }
 
     /// @notice Burn tokens
     /// @param value Amount of tokens to burn
     /// @dev Only callable by approved burner
-    function burn(uint256 value) public virtual onlyRole(BURNER_ROLE) {
+    function burn(uint256 value) external virtual onlyRole(BURNER_ROLE) {
         _burn(msg.sender, value);
     }
 
