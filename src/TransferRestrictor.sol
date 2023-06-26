@@ -55,5 +55,6 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
         if (blacklist[from] || blacklist[to]) {
             revert AccountRestricted();
         }
+        // Otherwise, do nothing
     }
 }

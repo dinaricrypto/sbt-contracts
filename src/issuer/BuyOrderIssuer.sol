@@ -166,6 +166,7 @@ contract BuyOrderIssuer is OrderProcessor {
         if (remainingOrder == 0) {
             _closeOrder(orderId, orderRequest.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
         } else {
+            // Otherwise accumulate fees for fill
             // Calculate fees
             uint256 collection = 0;
             if (feeState.remainingPercentageFees > 0) {
@@ -200,6 +201,7 @@ contract BuyOrderIssuer is OrderProcessor {
             // Refund full payment
             refund = orderRequest.quantityIn;
         } else {
+            // Otherwise close order and transfer fees
             _closeOrder(orderId, orderRequest.paymentToken, feeState.feesEarned);
         }
 

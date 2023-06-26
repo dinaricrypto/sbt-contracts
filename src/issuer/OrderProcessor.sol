@@ -284,7 +284,7 @@ abstract contract OrderProcessor is
             delete _orders[orderId];
             _numOpenOrders--;
         } else {
-            // Update order state
+            // Otherwise update order state
             _orders[orderId].remainingOrder = remainingOrder;
             _orders[orderId].received = orderState.received + receivedAmount;
         }
