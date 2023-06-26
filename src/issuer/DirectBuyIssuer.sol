@@ -7,8 +7,11 @@ import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
-/// The escrowed payment is taken by the operator before the order is filled
-/// The operator can return unused escrowed payment to the user
+/// This order processor emits market orders to buy the underlying asset that are good until cancelled
+/// Fees are calculated upfront and held back from the order amount
+/// The payment is taken by the operator before the order is filled
+/// The operator can return unused payment to the user
+/// The operator cannot cancel the order until payment is returned or the order is filled
 /// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
 contract DirectBuyIssuer is BuyOrderIssuer {
     using SafeERC20 for IERC20;

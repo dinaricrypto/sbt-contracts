@@ -8,6 +8,11 @@ import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/SellOrderProcessor.sol)
+/// This order processor emits market orders to sell the underlying asset that are good until cancelled
+/// Fee obligations are accumulated as order is filled
+/// Fees are taken from the proceeds of the sale
+/// The asset token is escrowed until the order is filled or cancelled
+/// The asset token is automatically refunded if the order is cancelled
 /// Implicitly assumes that asset tokens are BridgedERC20 and can be burned
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
