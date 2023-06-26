@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-/// @notice Interface for transfer restriction contract
+/// @notice Enforces transfer restrictions
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/ITransferRestrictor.sol)
 interface ITransferRestrictor {
     /// @notice Checks if the transfer is allowed

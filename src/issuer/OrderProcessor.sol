@@ -119,6 +119,11 @@ abstract contract OrderProcessor is
         _disableInitializers();
     }
 
+    /// @notice Initialize contract
+    /// @param owner Owner of contract
+    /// @param treasury_ Address to receive fees
+    /// @param orderFees_ Fee specification contract
+    /// @dev Treasury cannot be zero address
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
@@ -150,6 +155,7 @@ abstract contract OrderProcessor is
     /// @notice Set treasury address
     /// @param account Address to receive fees
     /// @dev Only callable by admin
+    /// Treasury cannot be zero address
     function setTreasury(address account) external onlyRole(ADMIN_ROLE) {
         // Don't send fees to zero address
         if (account == address(0)) revert ZeroAddress();

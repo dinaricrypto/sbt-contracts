@@ -25,7 +25,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     /// ------------------ State ------------------ ///
 
-    // orderId => escrow
+    /// @dev orderId => escrow
     mapping(bytes32 => uint256) public getOrderEscrow;
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -70,6 +70,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         uint256 remainingOrder = getRemainingOrder(orderId);
         uint256 escrow = getOrderEscrow[orderId];
+        // Unused amount = remaining order - remaining escrow
         if (escrow + amount > remainingOrder) revert AmountTooLarge();
 
         // Update escrow tracking
@@ -102,7 +103,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
-        // Can't fill more than payment previously taken
+        // Can't fill more than payment previously taken from escrow
         uint256 escrow = getOrderEscrow[orderId];
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
 
@@ -116,7 +117,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         virtual
         override
     {
-        // Can't cancel if escrowed payment has been taken
+        // Prohibit cancel if escrowed payment has been taken and not returned or filled
         uint256 escrow = getOrderEscrow[orderId];
         if (orderState.remainingOrder != escrow) revert UnreturnedEscrow();
 

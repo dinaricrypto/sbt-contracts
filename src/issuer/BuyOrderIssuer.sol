@@ -38,6 +38,7 @@ contract BuyOrderIssuer is OrderProcessor {
             recipient: order.recipient,
             assetToken: order.assetToken,
             paymentToken: order.paymentToken,
+            // Add fees back to order quantity to recover total quantityIn
             quantityIn: order.paymentTokenQuantity + order.fee
         });
     }
@@ -68,7 +69,7 @@ contract BuyOrderIssuer is OrderProcessor {
         }
     }
 
-    /// @notice Get the raw input value and fees for a final order value
+    /// @notice Get the raw input value and fees that produce a final order value
     /// @param token Payment token for order
     /// @param orderValue Final order value
     /// @return inputValue Total input value subject to fees
@@ -117,12 +118,17 @@ contract BuyOrderIssuer is OrderProcessor {
             recipient: orderRequest.recipient,
             assetToken: orderRequest.assetToken,
             paymentToken: orderRequest.paymentToken,
+            // Buy order
             sell: false,
+            // Market order
             orderType: OrderType.MARKET,
             assetTokenQuantity: 0,
+            // Hold fees back from order amount
             paymentTokenQuantity: orderRequest.quantityIn - totalFees,
             price: 0,
+            // Good until cancelled
             tif: TIF.GTC,
+            // Emit fees held back from order amount
             fee: totalFees
         });
 

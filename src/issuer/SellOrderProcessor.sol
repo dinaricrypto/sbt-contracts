@@ -67,11 +67,14 @@ contract SellOrderProcessor is OrderProcessor {
             recipient: orderRequest.recipient,
             assetToken: orderRequest.assetToken,
             paymentToken: orderRequest.paymentToken,
+            // Seel order
             sell: true,
+            // Market order
             orderType: OrderType.MARKET,
             assetTokenQuantity: orderRequest.quantityIn,
             paymentTokenQuantity: 0,
             price: 0,
+            // Good until cancelled
             tif: TIF.GTC,
             fee: 0
         });
