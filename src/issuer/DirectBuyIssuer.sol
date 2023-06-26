@@ -13,6 +13,18 @@ import {IMintBurn} from "../IMintBurn.sol";
 /// The operator can return unused payment to the user
 /// The operator cannot cancel the order until payment is returned or the order is filled
 /// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
+/// Order lifecycle (fulfillment):
+///   1. User requests an order (requestOrder)
+///   2. Operator takes escrowed payment (takeEscrow)
+///   3. [Optional] Operator partially fills the order (fillOrder)
+///   4. Operator completely fulfills the order (fillOrder)
+/// Order lifecycle (cancellation):
+///   1. User requests an order (requestOrder)
+///   2. Operator takes escrowed payment (takeEscrow)
+///   3. [Optional] Operator partially fills the order (fillOrder)
+///   4. [Optional] User requests cancellation (requestCancel)
+///   5. Operator returns unused payment to contract (returnEscrow)
+///   6. Operator cancels the order (cancelOrder)
 contract DirectBuyIssuer is BuyOrderIssuer {
     using SafeERC20 for IERC20;
 
