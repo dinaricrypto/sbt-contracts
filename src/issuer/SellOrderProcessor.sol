@@ -71,7 +71,7 @@ contract SellOrderProcessor is OrderProcessor {
             recipient: orderRequest.recipient,
             assetToken: orderRequest.assetToken,
             paymentToken: orderRequest.paymentToken,
-            // Seel order
+            // Sell order
             sell: true,
             // Market order
             orderType: OrderType.MARKET,
