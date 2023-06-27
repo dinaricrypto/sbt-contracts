@@ -34,6 +34,11 @@ contract OrderFees is Ownable2Step, IOrderFees {
 
     /// ------------------ Initialization ------------------ ///
 
+    /// @notice Initialize fees
+    /// @param owner Owner of contract
+    /// @param _perOrderFee Base flat fee per order in ethers decimals
+    /// @param _percentageFeeRate Percentage fee take per order in ethers decimals
+    /// @dev Percentage fee cannot be 100% or more
     constructor(address owner, uint64 _perOrderFee, uint64 _percentageFeeRate) {
         // Check percentage fee is less than 100%
         if (_percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeTooLarge();

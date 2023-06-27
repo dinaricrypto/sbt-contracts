@@ -33,6 +33,7 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
 
     /// @notice Restrict `account` from sending or receiving tokens
     /// @dev Does not check if `account` is restricted
+    /// Can only be called by `owner`
     function restrict(address account) external onlyOwner {
         blacklist[account] = true;
         emit Restricted(account);
@@ -40,6 +41,7 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
 
     /// @notice Unrestrict `account` from sending or receiving tokens
     /// @dev Does not check if `account` is restricted
+    /// Can only be called by `owner`
     function unrestrict(address account) external onlyOwner {
         blacklist[account] = false;
         emit Unrestricted(account);
@@ -53,5 +55,6 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
         if (blacklist[from] || blacklist[to]) {
             revert AccountRestricted();
         }
+        // Otherwise, do nothing
     }
 }

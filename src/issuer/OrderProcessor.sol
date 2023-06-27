@@ -23,6 +23,15 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   inheriting contracts must implement unique request methods to handle multiple order processes simultaneously
 /// TODO: Design - Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
 ///   or should fee handling primitives be specified here?
+/// Order lifecycle (fulfillment):
+///   1. User requests an order (requestOrder)
+///   2. [Optional] Operator partially fills the order (fillOrder)
+///   3. Operator completely fulfills the order (fillOrder)
+/// Order lifecycle (cancellation):
+///   1. User requests an order (requestOrder)
+///   2. [Optional] Operator partially fills the order (fillOrder)
+///   3. [Optional] User requests cancellation (requestCancel)
+///   4. Operator cancels the order (cancelOrder)
 abstract contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
@@ -119,6 +128,11 @@ abstract contract OrderProcessor is
         _disableInitializers();
     }
 
+    /// @notice Initialize contract
+    /// @param owner Owner of contract
+    /// @param treasury_ Address to receive fees
+    /// @param orderFees_ Fee specification contract
+    /// @dev Treasury cannot be zero address
     function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
@@ -150,6 +164,7 @@ abstract contract OrderProcessor is
     /// @notice Set treasury address
     /// @param account Address to receive fees
     /// @dev Only callable by admin
+    /// Treasury cannot be zero address
     function setTreasury(address account) external onlyRole(ADMIN_ROLE) {
         // Don't send fees to zero address
         if (account == address(0)) revert ZeroAddress();
@@ -223,6 +238,7 @@ abstract contract OrderProcessor is
     /// @notice Request an order
     /// @param orderRequest Order request to submit
     /// @param salt Salt used to generate unique order ID
+    /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
     function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
@@ -278,7 +294,7 @@ abstract contract OrderProcessor is
             delete _orders[orderId];
             _numOpenOrders--;
         } else {
-            // Update order state
+            // Otherwise update order state
             _orders[orderId].remainingOrder = remainingOrder;
             _orders[orderId].received = orderState.received + receivedAmount;
         }
@@ -291,6 +307,7 @@ abstract contract OrderProcessor is
     /// @param orderRequest Order request to cancel
     /// @param salt Salt used to generate unique order ID
     /// @dev Only callable by initial order requester
+    /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
