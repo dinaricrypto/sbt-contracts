@@ -2,14 +2,14 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import "solady-test/utils/mocks/MockERC20.sol";
-import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
+import "solady/test/utils/mocks/MockERC20.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/BuyOrderIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
-import "openzeppelin/utils/Strings.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BuyOrderIssuerRequestTest is Test {
     // For gas profiling

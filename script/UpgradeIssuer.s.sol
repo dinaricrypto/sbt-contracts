@@ -6,7 +6,7 @@ import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
-import "openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 
 contract UpgradeIssuerScript is Script {
     // WARNING: This upgrade script does not validate storage changes.

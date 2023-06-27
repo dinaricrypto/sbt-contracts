@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
-import "openzeppelin/utils/Strings.sol";
+import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BridgedERC20Test is Test {
     event NameSet(string name);

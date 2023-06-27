@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-import {Initializable} from "openzeppelin-upgradeable/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "openzeppelin-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlDefaultAdminRulesUpgradeable} from
-    "openzeppelin-upgradeable/access/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "openzeppelin-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-import {Multicall} from "openzeppelin/utils/Multicall.sol";
+    "openzeppelin-contracts-upgradeable/contracts/access/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from
+    "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
