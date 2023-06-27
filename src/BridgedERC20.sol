@@ -2,8 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {ERC20} from "solady/tokens/ERC20.sol";
-import {AccessControlDefaultAdminRules} from
-    "openzeppelin-contracts/access/AccessControlDefaultAdminRules.sol";
+import {AccessControlDefaultAdminRules} from "openzeppelin-contracts/access/AccessControlDefaultAdminRules.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /// @notice Core token contract for bridged assets.

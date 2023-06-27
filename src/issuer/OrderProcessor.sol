@@ -5,8 +5,7 @@ import {Initializable} from "openzeppelin-contracts-upgradeable/proxy/utils/Init
 import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {AccessControlDefaultAdminRulesUpgradeable} from
     "openzeppelin-contracts-upgradeable/access/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "openzeppelin-contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {Multicall} from "openzeppelin-contracts/utils/Multicall.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
