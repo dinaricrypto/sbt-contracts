@@ -7,9 +7,24 @@ import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
-/// The escrowed payment is taken by the operator before the order is filled
-/// The operator can return unused escrowed payment to the user
+/// This order processor emits market orders to buy the underlying asset that are good until cancelled
+/// Fees are calculated upfront and held back from the order amount
+/// The payment is taken by the operator before the order is filled
+/// The operator can return unused payment to the user
+/// The operator cannot cancel the order until payment is returned or the order is filled
 /// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
+/// Order lifecycle (fulfillment):
+///   1. User requests an order (requestOrder)
+///   2. Operator takes escrowed payment (takeEscrow)
+///   3. [Optional] Operator partially fills the order (fillOrder)
+///   4. Operator completely fulfills the order (fillOrder)
+/// Order lifecycle (cancellation):
+///   1. User requests an order (requestOrder)
+///   2. Operator takes escrowed payment (takeEscrow)
+///   3. [Optional] Operator partially fills the order (fillOrder)
+///   4. [Optional] User requests cancellation (requestCancel)
+///   5. Operator returns unused payment to contract (returnEscrow)
+///   6. Operator cancels the order (cancelOrder)
 contract DirectBuyIssuer is BuyOrderIssuer {
     using SafeERC20 for IERC20;
 
@@ -25,7 +40,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     /// ------------------ State ------------------ ///
 
-    // orderId => escrow
+    /// @dev orderId => escrow
     mapping(bytes32 => uint256) public getOrderEscrow;
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -70,6 +85,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         uint256 remainingOrder = getRemainingOrder(orderId);
         uint256 escrow = getOrderEscrow[orderId];
+        // Unused amount = remaining order - remaining escrow
         if (escrow + amount > remainingOrder) revert AmountTooLarge();
 
         // Update escrow tracking
@@ -102,7 +118,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
-        // Can't fill more than payment previously taken
+        // Can't fill more than payment previously taken from escrow
         uint256 escrow = getOrderEscrow[orderId];
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
 
@@ -116,7 +132,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         virtual
         override
     {
-        // Can't cancel if escrowed payment has been taken
+        // Prohibit cancel if escrowed payment has been taken and not returned or filled
         uint256 escrow = getOrderEscrow[orderId];
         if (orderState.remainingOrder != escrow) revert UnreturnedEscrow();
 

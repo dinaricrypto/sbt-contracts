@@ -43,6 +43,12 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
 
     /// ------------------ Initialization ------------------ ///
 
+    /// @notice Initialize token
+    /// @param owner Owner of contract
+    /// @param name_ Token name
+    /// @param symbol_ Token symbol
+    /// @param disclosures_ URI to disclosure information
+    /// @param transferRestrictor_ Contract to restrict transfers
     constructor(
         address owner,
         string memory name_,
@@ -104,14 +110,14 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @param to Address to mint tokens to
     /// @param value Amount of tokens to mint
     /// @dev Only callable by approved minter
-    function mint(address to, uint256 value) public virtual onlyRole(MINTER_ROLE) {
+    function mint(address to, uint256 value) external virtual onlyRole(MINTER_ROLE) {
         _mint(to, value);
     }
 
     /// @notice Burn tokens
     /// @param value Amount of tokens to burn
     /// @dev Only callable by approved burner
-    function burn(uint256 value) public virtual onlyRole(BURNER_ROLE) {
+    function burn(uint256 value) external virtual onlyRole(BURNER_ROLE) {
         _burn(msg.sender, value);
     }
 
@@ -120,6 +126,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @inheritdoc ERC20
     function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
         // Restrictions ignored for minting and burning
+        // If transferRestrictor is not set, no restrictions are applied
         if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
             return;
         }

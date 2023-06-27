@@ -8,6 +8,10 @@ import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BuyOrderIssuer.sol)
+/// This order processor emits market orders to buy the underlying asset that are good until cancelled
+/// Fees are calculated upfront and held back from the order amount
+/// The payment is escrowed until the order is filled or cancelled
+/// Payment is automatically refunded if the order is cancelled
 /// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
 contract BuyOrderIssuer is OrderProcessor {
     // Handle token transfers safely
@@ -38,6 +42,7 @@ contract BuyOrderIssuer is OrderProcessor {
             recipient: order.recipient,
             assetToken: order.assetToken,
             paymentToken: order.paymentToken,
+            // Add fees back to order quantity to recover total quantityIn
             quantityIn: order.paymentTokenQuantity + order.fee
         });
     }
@@ -68,7 +73,7 @@ contract BuyOrderIssuer is OrderProcessor {
         }
     }
 
-    /// @notice Get the raw input value and fees for a final order value
+    /// @notice Get the raw input value and fees that produce a final order value
     /// @param token Payment token for order
     /// @param orderValue Final order value
     /// @return inputValue Total input value subject to fees
@@ -117,12 +122,17 @@ contract BuyOrderIssuer is OrderProcessor {
             recipient: orderRequest.recipient,
             assetToken: orderRequest.assetToken,
             paymentToken: orderRequest.paymentToken,
+            // Buy order
             sell: false,
+            // Market order
             orderType: OrderType.MARKET,
             assetTokenQuantity: 0,
+            // Hold fees back from order amount
             paymentTokenQuantity: orderRequest.quantityIn - totalFees,
             price: 0,
+            // Good until cancelled
             tif: TIF.GTC,
+            // Emit fees held back from order amount
             fee: totalFees
         });
 
@@ -160,6 +170,7 @@ contract BuyOrderIssuer is OrderProcessor {
         if (remainingOrder == 0) {
             _closeOrder(orderId, orderRequest.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
         } else {
+            // Otherwise accumulate fees for fill
             // Calculate fees
             uint256 collection = 0;
             if (feeState.remainingPercentageFees > 0) {
@@ -194,6 +205,7 @@ contract BuyOrderIssuer is OrderProcessor {
             // Refund full payment
             refund = orderRequest.quantityIn;
         } else {
+            // Otherwise close order and transfer fees
             _closeOrder(orderId, orderRequest.paymentToken, feeState.feesEarned);
         }
 

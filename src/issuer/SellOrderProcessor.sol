@@ -8,6 +8,11 @@ import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/SellOrderProcessor.sol)
+/// This order processor emits market orders to sell the underlying asset that are good until cancelled
+/// Fee obligations are accumulated as order is filled
+/// Fees are taken from the proceeds of the sale
+/// The asset token is escrowed until the order is filled or cancelled
+/// The asset token is automatically refunded if the order is cancelled
 /// Implicitly assumes that asset tokens are BridgedERC20 and can be burned
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
@@ -58,20 +63,22 @@ contract SellOrderProcessor is OrderProcessor {
         override
         returns (Order memory order)
     {
-        // Accumulate initial flat fee
-        uint256 flatFee = getFlatFeeForOrder(orderRequest.paymentToken);
-        _feesEarned[orderId] = flatFee;
+        // Accumulate initial flat fee obligation
+        _feesEarned[orderId] = getFlatFeeForOrder(orderRequest.paymentToken);
 
         // Construct order
         order = Order({
             recipient: orderRequest.recipient,
             assetToken: orderRequest.assetToken,
             paymentToken: orderRequest.paymentToken,
+            // Sell order
             sell: true,
+            // Market order
             orderType: OrderType.MARKET,
             assetTokenQuantity: orderRequest.quantityIn,
             paymentTokenQuantity: 0,
             price: 0,
+            // Good until cancelled
             tif: TIF.GTC,
             fee: 0
         });
@@ -88,7 +95,7 @@ contract SellOrderProcessor is OrderProcessor {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
-        // Accumulate fees at each sill then take all at end
+        // Accumulate fee obligations at each sill then take all at end
         uint256 collection = getPercentageFeeForOrder(receivedAmount);
         uint256 feesEarned = _feesEarned[orderId] + collection;
         // If order completely filled, clear fee data
@@ -127,6 +134,7 @@ contract SellOrderProcessor is OrderProcessor {
             // Full refund
             refund = orderRequest.quantityIn;
         } else {
+            // Otherwise distribute proceeds, take accumulated fees, and refund remaining order
             _distributeProceeds(
                 orderRequest.paymentToken, orderRequest.recipient, orderState.received, _feesEarned[orderId]
             );
@@ -145,14 +153,15 @@ contract SellOrderProcessor is OrderProcessor {
     function _distributeProceeds(address paymentToken, address recipient, uint256 totalReceived, uint256 feesEarned)
         private
     {
-        // If fees larger than total received, then no proceeds to recipient
+        // Check if accumulated fees are larger than total received
         uint256 proceeds = 0;
         uint256 collection = 0;
         if (totalReceived > feesEarned) {
-            // Take fees from total received
+            // Take fees from total received before distributing
             proceeds = totalReceived - feesEarned;
             collection = feesEarned;
         } else {
+            // If accumulated fees are larger than total received, then no proceeds go to recipient
             collection = totalReceived;
         }
 
