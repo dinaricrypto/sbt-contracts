@@ -37,7 +37,7 @@ jobs:
     strategy:
       matrix:
         python-version: [3.8]
-        slither-version: [0.9.3]
+        slither-version: [0.9.4]
 
     name: Slither
     runs-on: ubuntu-latest
