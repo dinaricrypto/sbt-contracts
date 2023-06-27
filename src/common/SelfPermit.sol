@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-import {SafeERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20, IERC20Permit} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @notice Functionality to call permit on any EIP-2612-compliant token
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/common/SelfPermit.sol)
