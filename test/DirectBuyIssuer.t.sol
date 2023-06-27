@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "solady-test/utils/mocks/MockERC20.sol";
-import "openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "../src/issuer/DirectBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";

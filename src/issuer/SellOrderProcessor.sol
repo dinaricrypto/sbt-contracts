@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-import {SafeERC20, IERC20} from "openzeppelin-contracts/token/ERC20/utils/SafeERC20.sol";
+import {SafeERC20, IERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor} from "./OrderProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
