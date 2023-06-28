@@ -116,10 +116,10 @@ abstract contract OrderProcessor is
     bool public ordersPaused;
 
     /// @dev Total number of active orders. Onchain enumeration not supported.
-    uint256 private _numOpenOrders;
+    uint256 internal _numOpenOrders;
 
     /// @dev Active orders
-    mapping(bytes32 => OrderState) private _orders;
+    mapping(bytes32 => OrderState) internal _orders;
 
     /// ------------------ Initialization ------------------ ///
 
