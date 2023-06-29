@@ -33,8 +33,6 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
 
-    error PriceTooHigh();
-
     /// @dev Emitted when `amount` of escrowed payment is taken for `orderId`
     event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
     /// @dev Emitted when `amount` of escrowed payment is returned for `orderId`
