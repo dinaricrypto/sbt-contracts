@@ -53,6 +53,8 @@ abstract contract OrderProcessor is
         address paymentToken;
         // Amount of incoming order token to be used for fills
         uint256 quantityIn;
+        // price enquiry for the request
+        uint256 price;
     }
 
     // Order state accounting variables

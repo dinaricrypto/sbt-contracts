@@ -30,7 +30,8 @@ contract SellOrderProcessor is OrderProcessor {
             recipient: order.recipient,
             assetToken: order.assetToken,
             paymentToken: order.paymentToken,
-            quantityIn: order.assetTokenQuantity
+            quantityIn: order.assetTokenQuantity,
+            price: order.price
         });
     }
 
@@ -77,7 +78,7 @@ contract SellOrderProcessor is OrderProcessor {
             orderType: OrderType.MARKET,
             assetTokenQuantity: orderRequest.quantityIn,
             paymentTokenQuantity: 0,
-            price: 0,
+            price: orderRequest.price,
             // Good until cancelled
             tif: TIF.GTC,
             fee: 0

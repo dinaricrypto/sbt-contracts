@@ -76,7 +76,8 @@ contract BuyOrderIssuerRequestTest is Test {
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: quantityIn
+            quantityIn: quantityIn,
+            price: 0
         });
         bytes[] memory calls = new bytes[](2);
         calls[0] = abi.encodeWithSelector(
