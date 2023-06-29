@@ -72,33 +72,6 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, amount);
     }
 
-    function requestOrderWithMaxSlippage(OrderRequest calldata orderRequest, uint256 maxSlippagePrice, bytes32 salt)
-        public
-        nonReentrant
-        whenOrdersNotPaused
-    {
-        if (orderRequest.quantityIn == 0) revert ZeroValue();
-        // Check for whitelisted tokens
-        _checkRole(ASSETTOKEN_ROLE, orderRequest.assetToken);
-        _checkRole(PAYMENTTOKEN_ROLE, orderRequest.paymentToken);
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        // Order must not already exist
-        if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
-
-        // Get order from request and move tokens
-        Order memory order = _requestOrderAccounting(orderRequest, orderId);
-
-        if (order.price < maxSlippagePrice) revert PriceTooHigh();
-
-        // Send order to bridge
-        emit OrderRequested(orderId, order.recipient, order, salt);
-
-        // Initialize order state
-        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
-        _numOpenOrders++;
-    }
-
     /// @notice Return unused escrowed payment for an order
     /// @param orderRequest Order request
     /// @param salt Salt used to generate unique order ID

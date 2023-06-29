@@ -30,7 +30,8 @@ contract SellOrderProcessor is OrderProcessor {
             recipient: order.recipient,
             assetToken: order.assetToken,
             paymentToken: order.paymentToken,
-            quantityIn: order.assetTokenQuantity
+            quantityIn: order.assetTokenQuantity,
+            price: order.price
         });
     }
 

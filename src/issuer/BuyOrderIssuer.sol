@@ -43,7 +43,8 @@ contract BuyOrderIssuer is OrderProcessor {
             assetToken: order.assetToken,
             paymentToken: order.paymentToken,
             // Add fees back to order quantity to recover total quantityIn
-            quantityIn: order.paymentTokenQuantity + order.fee
+            quantityIn: order.paymentTokenQuantity + order.fee,
+            price: order.price
         });
     }
 

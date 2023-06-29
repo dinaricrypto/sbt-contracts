@@ -67,7 +67,8 @@ contract BuyOrderIssuerTest is Test {
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: 100 ether
+            quantityIn: 100 ether,
+            price: 0
         });
         (uint256 flatFee, uint256 percentageFee) =
             issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
@@ -184,7 +185,8 @@ contract BuyOrderIssuerTest is Test {
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: quantityIn
+            quantityIn: quantityIn,
+            price: 0
         });
         bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
 
