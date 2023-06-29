@@ -11,7 +11,7 @@ import "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable
 contract UpgradeIssuerScript is Script {
     // WARNING: This upgrade script does not validate storage changes.
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("TESTNET_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         BuyOrderIssuer buyIssuer = BuyOrderIssuer(vm.envAddress("BUY_ISSUER"));
         SellOrderProcessor sellProcessor = SellOrderProcessor(vm.envAddress("SELL_PROCESSOR"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
