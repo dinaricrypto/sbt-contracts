@@ -78,7 +78,7 @@ contract SellOrderProcessor is OrderProcessor {
             orderType: OrderType.MARKET,
             assetTokenQuantity: orderRequest.quantityIn,
             paymentTokenQuantity: 0,
-            price: 0,
+            price: orderRequest.price,
             // Good until cancelled
             tif: TIF.GTC,
             fee: 0
