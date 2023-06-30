@@ -2,16 +2,10 @@
 src = "src"
 out = "out"
 libs = ["node_modules", "lib"]
+solc_version = '0.8.19'
+optimizer_runs = 1_000
 
 [fuzz]
 runs = 518
-
-[rpc_endpoints]
-sepolia = "${TEST_RPC_URL}"
-arbitrum = "${ARB_URL}"
-
-[etherscan]
-sepolia = { key = "${ETHERSCAN_API_KEY}" }
-arbitrum = { key = "${ARBISCAN_API_KEY}" }
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
