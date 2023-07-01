@@ -11,6 +11,7 @@ import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 
 contract LimitBuyOrderTest is Test {
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
+    event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
 
     BridgedERC20 token;
     OrderFees orderFees;
@@ -52,22 +53,67 @@ contract LimitBuyOrderTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
-    function testRequestOrderLimit() public {
+    function testRequestOrderLimit(uint256 quantityIn) public {
         dummyOrder = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: 100 ether,
+            quantityIn: quantityIn,
             price: 0
         });
+        bytes32 orderId = issuer.getOrderIdFromOrderRequest(dummyOrder, salt);
+
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
+        uint256 fees = flatFee + percentageFee;
+        IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
+            recipient: dummyOrder.recipient,
+            assetToken: dummyOrder.assetToken,
+            paymentToken: dummyOrder.paymentToken,
+            sell: false,
+            orderType: IOrderBridge.OrderType.LIMIT,
+            assetTokenQuantity: 0,
+            paymentTokenQuantity: 0,
+            price: 0,
+            tif: IOrderBridge.TIF.GTC,
+            fee: fees
+        });
+        bridgeOrderData.paymentTokenQuantity = 0;
+        if (quantityIn > fees) {
+            bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
+        }
+
         paymentToken.mint(user, dummyOrder.quantityIn);
         vm.startPrank(user);
         paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
-        vm.expectRevert(LimitBuyOrder.LimitPriceNotSet.selector);
-        issuer.requestOrder(dummyOrder, salt);
-        dummyOrder.price = 1 ether;
-        issuer.requestOrder(dummyOrder, salt);
-        vm.stopPrank();
+
+        if (quantityIn == 0) {
+            vm.expectRevert(OrderProcessor.ZeroValue.selector);
+            vm.prank(user);
+            issuer.requestOrder(dummyOrder, salt);
+        } else if (fees >= quantityIn) {
+            vm.expectRevert(BuyOrderIssuer.OrderTooSmall.selector);
+            vm.prank(user);
+            issuer.requestOrder(dummyOrder, salt);
+        } else {
+            uint256 userBalanceBefore = paymentToken.balanceOf(user);
+            uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
+            vm.expectRevert(LimitBuyOrder.LimitPriceNotSet.selector);
+            issuer.requestOrder(dummyOrder, salt);
+            dummyOrder.price = 1 ether;
+            bridgeOrderData.price = dummyOrder.price;
+            vm.expectEmit(true, true, true, true);
+            emit OrderRequested(orderId, user, bridgeOrderData, salt);
+            vm.prank(user);
+            issuer.requestOrder(dummyOrder, salt);
+            assertTrue(issuer.isOrderActive(orderId));
+            assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
+            assertEq(issuer.numOpenOrders(), 1);
+            assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
+            // balances after
+            assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
+            assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
+        }
     }
 
     function testFillOrderLimit() public {

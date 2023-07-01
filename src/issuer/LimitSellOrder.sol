@@ -37,10 +37,7 @@ contract LimitSellOrder is SellOrderProcessor {
         uint256 receivedAmount
     ) internal virtual override {
         // Ensure that the received amount is greater or equal to limit price * fill amount
-        if (
-            fillAmount * orderRequest.price
-                < receivedAmount * (10 ** IERC20Metadata(orderRequest.paymentToken).decimals())
-        ) revert OrderFillAboveLimitPrice();
+        if (fillAmount * orderRequest.price < receivedAmount) revert OrderFillAboveLimitPrice();
         // Calls the original _fillOrderAccounting from SellOrderProcessor
         super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
     }
