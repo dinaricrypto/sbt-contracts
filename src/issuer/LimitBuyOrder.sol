@@ -36,7 +36,7 @@ contract LimitBuyOrder is BuyOrderIssuer {
         uint256 receivedAmount
     ) internal virtual override {
         // Ensure that the received amount is greater or equal to limit price * fill amount
-        if (fillAmount > orderRequest.price * receivedAmount) revert OrderFillBelowLimitPrice();
+        if (fillAmount > receivedAmount * orderRequest.price) revert OrderFillBelowLimitPrice();
         // Calls the original _fillOrderAccounting from BuyOrderIssuer
         super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
     }
