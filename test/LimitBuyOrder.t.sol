@@ -118,13 +118,14 @@ contract LimitBuyOrderTest is Test {
         }
     }
 
-    function testFillOrderLimit(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
+    function testFillOrderLimit(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 _price) public {
+        vm.assume(_price > 0 && _price < 1e3);
         OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             quantityIn: orderAmount,
-            price: 1 ether
+            price: _price
         });
 
         bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
@@ -153,6 +154,7 @@ contract LimitBuyOrderTest is Test {
             uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
 
+
             // vm.assume(fillAmount > receivedAmount * order.price);
             // vm.expectRevert(LimitBuyOrder.OrderFillBelowLimitPrice.selector);
             // vm.prank(operator);
@@ -161,6 +163,7 @@ contract LimitBuyOrderTest is Test {
             // vm.assume(fillAmount < receivedAmount * order.price);
             // vm.prank(operator);
             // issuer.fillOrder(order, salt, fillAmount, receivedAmount);
+
             // assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
             // if (fillAmount == orderAmount - fees) {
             //     assertEq(issuer.numOpenOrders(), 0);
