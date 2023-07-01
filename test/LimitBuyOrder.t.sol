@@ -118,8 +118,14 @@ contract LimitBuyOrderTest is Test {
         }
     }
 
-    function testFillOrderLimit(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 _price) public {
-        vm.assume(_price > 0 && _price < 1e3);
+    function testFillOrderLimit(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 _price)
+        public
+    {
+        vm.assume(_price > 0 && _price < 2 ** 128 - 1);
+        vm.assume(fillAmount < 2 ** 128 - 1);
+        vm.assume(receivedAmount < 2 ** 128 - 1);
+        vm.assume(orderAmount > 0);
+
         OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token),
@@ -149,32 +155,31 @@ contract LimitBuyOrderTest is Test {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-        } else {
+        } else if (fillAmount <= orderAmount) {
             uint256 userAssetBefore = token.balanceOf(user);
             uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
 
+            vm.assume(fillAmount > receivedAmount * order.price);
+            vm.expectRevert(LimitBuyOrder.OrderFillBelowLimitPrice.selector);
+            vm.prank(operator);
+            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
 
-            // vm.assume(fillAmount > receivedAmount * order.price);
-            // vm.expectRevert(LimitBuyOrder.OrderFillBelowLimitPrice.selector);
-            // vm.prank(operator);
-            // issuer.fillOrder(order, salt, fillAmount, receivedAmount);
+            vm.assume(fillAmount < receivedAmount * order.price);
+            vm.prank(operator);
+            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
 
-            // vm.assume(fillAmount < receivedAmount * order.price);
-            // vm.prank(operator);
-            // issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-
-            // assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
-            // if (fillAmount == orderAmount - fees) {
-            //     assertEq(issuer.numOpenOrders(), 0);
-            //     assertEq(issuer.getTotalReceived(orderId), 0);
-            // } else {
-            //     assertEq(issuer.getTotalReceived(orderId), receivedAmount);
-            //     // balances after
-            //     assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-            //     assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
-            //     assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
-            // }
+            assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
+            if (fillAmount == orderAmount - fees) {
+                assertEq(issuer.numOpenOrders(), 0);
+                assertEq(issuer.getTotalReceived(orderId), 0);
+            } else {
+                assertEq(issuer.getTotalReceived(orderId), receivedAmount);
+                // balances after
+                assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
+                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
+                assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
+            }
         }
     }
 }
