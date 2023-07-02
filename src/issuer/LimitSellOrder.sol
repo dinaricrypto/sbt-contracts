@@ -1,15 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {SellOrderProcessor, OrderProcessor} from "./SellOrderProcessor.sol";
-import {IMintBurn} from "../IMintBurn.sol";
+import {SellOrderProcessor} from "./SellOrderProcessor.sol";
+import "prb-math/Common.sol" as PrbMath;
 
 contract LimitSellOrder is SellOrderProcessor {
-    // Handle token transfers safely
-    using SafeERC20 for IERC20;
-
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();
 
@@ -37,7 +32,7 @@ contract LimitSellOrder is SellOrderProcessor {
         uint256 receivedAmount
     ) internal virtual override {
         // Ensure that the received amount is greater or equal to limit price * fill amount
-        if (receivedAmount < fillAmount * orderRequest.price) revert OrderFillAboveLimitPrice();
+        if (receivedAmount < PrbMath.mulDiv18(fillAmount, orderRequest.price)) revert OrderFillAboveLimitPrice();
         // Calls the original _fillOrderAccounting from SellOrderProcessor
         super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
     }

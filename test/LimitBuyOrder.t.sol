@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
 import "../src/issuer/LimitBuyOrder.sol";
 import "../src/issuer/IOrderBridge.sol";
@@ -118,7 +119,7 @@ contract LimitBuyOrderTest is Test {
         }
     }
 
-    function testFillOrderLimit(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 _price)
+    function testFillBuyOrderLimit(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 _price)
         public
     {
         vm.assume(_price > 0 && _price < 2 ** 128 - 1);
@@ -155,30 +156,32 @@ contract LimitBuyOrderTest is Test {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-        } else if (fillAmount <= orderAmount) {
-            uint256 userAssetBefore = token.balanceOf(user);
-            uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
-            uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
-
-            vm.assume(fillAmount > receivedAmount * order.price);
-            vm.expectRevert(LimitBuyOrder.OrderFillBelowLimitPrice.selector);
-            vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-
-            vm.assume(fillAmount < receivedAmount * order.price);
-            vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-
-            assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
-            if (fillAmount == orderAmount - fees) {
-                assertEq(issuer.numOpenOrders(), 0);
-                assertEq(issuer.getTotalReceived(orderId), 0);
+        } else {
+            if (fillAmount > PrbMath.mulDiv18(receivedAmount, order.price)) {
+                vm.expectRevert(LimitBuyOrder.OrderFillBelowLimitPrice.selector);
+                vm.prank(operator);
+                issuer.fillOrder(order, salt, fillAmount, receivedAmount);
             } else {
-                assertEq(issuer.getTotalReceived(orderId), receivedAmount);
-                // balances after
-                assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
-                assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
+                // balances before
+                vm.assume(fillAmount <= orderAmount);
+                uint256 userAssetBefore = token.balanceOf(user);
+                uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
+                uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
+                vm.expectEmit(true, true, true, true);
+                emit OrderFill(orderId, user, fillAmount, receivedAmount);
+                vm.prank(operator);
+                issuer.fillOrder(order, salt, fillAmount, receivedAmount);
+                assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
+                if (fillAmount == orderAmount - fees) {
+                    assertEq(issuer.numOpenOrders(), 0);
+                    assertEq(issuer.getTotalReceived(orderId), 0);
+                } else {
+                    assertEq(issuer.getTotalReceived(orderId), receivedAmount);
+                    // balances after
+                    assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
+                    assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
+                    assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
+                }
             }
         }
     }
