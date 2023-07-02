@@ -31,7 +31,7 @@ contract LimitBuyOrder is BuyOrderIssuer {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
-        // Ensure that the received amount is greater or equal to limit price * fill amount
+        // Ensure that the received amount is greater or equal to limit price * fill amount , orderRequest price has ether decimals
         if (fillAmount > PrbMath.mulDiv18(receivedAmount, orderRequest.price)) revert OrderFillBelowLimitPrice();
         // Calls the original _fillOrderAccounting from BuyOrderIssuer
         super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);

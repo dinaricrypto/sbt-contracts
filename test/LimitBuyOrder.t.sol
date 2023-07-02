@@ -152,7 +152,7 @@ contract LimitBuyOrderTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-        } else if (fillAmount > orderAmount) {
+        } else if (fillAmount > orderAmount - fees) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
@@ -163,10 +163,10 @@ contract LimitBuyOrderTest is Test {
                 issuer.fillOrder(order, salt, fillAmount, receivedAmount);
             } else {
                 // balances before
-                vm.assume(fillAmount <= orderAmount);
                 uint256 userAssetBefore = token.balanceOf(user);
                 uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
                 uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
+                vm.assume(fillAmount < orderAmount);
                 vm.expectEmit(true, true, true, true);
                 emit OrderFill(orderId, user, fillAmount, receivedAmount);
                 vm.prank(operator);

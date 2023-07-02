@@ -31,7 +31,7 @@ contract LimitSellOrder is SellOrderProcessor {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
-        // Ensure that the received amount is greater or equal to limit price * fill amount
+        // Ensure that the received amount is greater or equal to limit price * fill amount, orderRequest price has ether decimals
         if (receivedAmount < PrbMath.mulDiv18(fillAmount, orderRequest.price)) revert OrderFillAboveLimitPrice();
         // Calls the original _fillOrderAccounting from SellOrderProcessor
         super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
