@@ -4,6 +4,11 @@ pragma solidity ^0.8.19;
 import {BuyOrderIssuer} from "./BuyOrderIssuer.sol";
 import "prb-math/Common.sol" as PrbMath;
 
+/**
+ * @title LimitBuyOrder
+ * @notice Extends BuyOrderIssuer to enable buy orders with a maximum acceptable price.
+ * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitBuyOrder.sol)
+ */
 contract LimitBuyOrder is BuyOrderIssuer {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
