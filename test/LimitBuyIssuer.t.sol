@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
 import "./utils/mocks/MockBridgedERC20.sol";
-import "../src/issuer/LimitBuyOrder.sol";
+import "../src/issuer/LimitBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 
-contract LimitBuyOrderTest is Test {
+contract LimitBuyIssuerTest is Test {
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
 
     BridgedERC20 token;
     OrderFees orderFees;
-    LimitBuyOrder issuer;
+    LimitBuyIssuer issuer;
     MockERC20 paymentToken;
 
     uint256 userPrivateKey;
@@ -39,8 +39,8 @@ contract LimitBuyOrderTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-        LimitBuyOrder issuerImpl = new LimitBuyOrder();
-        issuer = LimitBuyOrder(
+        LimitBuyIssuer issuerImpl = new LimitBuyIssuer();
+        issuer = LimitBuyIssuer(
             address(
                 new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
             )
@@ -100,7 +100,7 @@ contract LimitBuyOrderTest is Test {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
             if (_price == 0) {
-                vm.expectRevert(LimitBuyOrder.LimitPriceNotSet.selector);
+                vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
                 issuer.requestOrder(dummyOrder, salt);
             } else {
                 bridgeOrderData.price = dummyOrder.price;
@@ -158,7 +158,7 @@ contract LimitBuyOrderTest is Test {
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
         } else {
             if (fillAmount > PrbMath.mulDiv18(receivedAmount, order.price)) {
-                vm.expectRevert(LimitBuyOrder.OrderFillBelowLimitPrice.selector);
+                vm.expectRevert(LimitBuyIssuer.OrderFillBelowLimitPrice.selector);
                 vm.prank(operator);
                 issuer.fillOrder(order, salt, fillAmount, receivedAmount);
             } else {
