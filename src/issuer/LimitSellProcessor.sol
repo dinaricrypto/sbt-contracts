@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {SellOrderProcessor} from "./SellOrderProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
 
 /**
- * @title LimitSellOrder
+ * @title LimitSellProcessor
  * @notice Extends SellOrderProcessor to enable sell orders with a minimum acceptable price.
- * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitSellOrder.sol)
+ * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitSellProcessor.sol)
  */
-
-contract LimitSellOrder is SellOrderProcessor {
+contract LimitSellProcessor is SellOrderProcessor {
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();
 
