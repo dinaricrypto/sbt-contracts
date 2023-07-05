@@ -93,7 +93,7 @@ abstract contract OrderProcessor is
 
     /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
     bytes32 private constant ORDERREQUEST_TYPE_HASH = keccak256(
-        "OrderRequest(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn"
+        "OrderRequest(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn)"
     );
 
     /// @notice Admin role for managing treasury, fees, and paused state
