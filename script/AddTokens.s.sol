@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import {BridgedERC20} from "../src/BridgedERC20.sol";
+import {dShare} from "../src/dShare.sol";
 
 contract AddTokensScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
@@ -40,7 +40,7 @@ contract AddTokensScript is Script {
             sellProcessor.grantRole(sellProcessor.ASSETTOKEN_ROLE(), assetTokens[i]);
             directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), assetTokens[i]);
 
-            BridgedERC20 assetToken = BridgedERC20(assetTokens[i]);
+            dShare assetToken = dShare(assetTokens[i]);
             assetToken.grantRole(assetToken.MINTER_ROLE(), address(buyIssuer));
             assetToken.grantRole(assetToken.BURNER_ROLE(), address(sellProcessor));
             assetToken.grantRole(assetToken.MINTER_ROLE(), address(directIssuer));

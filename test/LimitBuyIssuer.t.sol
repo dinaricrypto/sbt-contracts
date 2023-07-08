@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
-import "./utils/mocks/MockBridgedERC20.sol";
+import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/LimitBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
@@ -14,7 +14,7 @@ contract LimitBuyIssuerTest is Test {
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
 
-    BridgedERC20 token;
+    dShare token;
     OrderFees orderFees;
     LimitBuyIssuer issuer;
     MockERC20 paymentToken;
@@ -34,7 +34,7 @@ contract LimitBuyIssuerTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockBridgedERC20();
+        token = new MockdShare();
         paymentToken = new MockERC20("Money", "$", 6);
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);

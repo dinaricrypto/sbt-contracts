@@ -12,7 +12,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 /// The payment is taken by the operator before the order is filled
 /// The operator can return unused payment to the user
 /// The operator cannot cancel the order until payment is returned or the order is filled
-/// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
+/// Implicitly assumes that asset tokens are dShare and can be minted
 /// Order lifecycle (fulfillment):
 ///   1. User requests an order (requestOrder)
 ///   2. Operator takes escrowed payment (takeEscrow)

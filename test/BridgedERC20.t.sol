@@ -2,22 +2,22 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {BridgedERC20} from "../src/BridgedERC20.sol";
+import {dShare} from "../src/dShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
-contract BridgedERC20Test is Test {
+contract dShareTest is Test {
     event NameSet(string name);
     event SymbolSet(string symbol);
     event DisclosuresSet(string disclosures);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     TransferRestrictor public restrictor;
-    BridgedERC20 public token;
+    dShare public token;
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
-        token = new BridgedERC20(
+        token = new dShare(
             address(this),
             "Dinari Token",
             "dTKN",
