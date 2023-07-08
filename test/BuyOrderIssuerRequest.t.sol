@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "./utils/mocks/MockBridgedERC20.sol";
+import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/BuyOrderIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
@@ -14,7 +14,7 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 contract BuyOrderIssuerRequestTest is Test {
     // For gas profiling
 
-    BridgedERC20 token;
+    dShare token;
     OrderFees orderFees;
     BuyOrderIssuer issuer;
     MockERC20 paymentToken;
@@ -34,7 +34,7 @@ contract BuyOrderIssuerRequestTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockBridgedERC20();
+        token = new MockdShare();
         paymentToken = new MockERC20("Money", "$", 6);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 

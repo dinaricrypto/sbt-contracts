@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Script.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import {BridgedERC20} from "../src/BridgedERC20.sol";
+import {dShare} from "../src/dShare.sol";
 
 contract ReplaceFeesScript is Script {
     // This script will deploy a new IORderFees and replace existing fee contract for issuers.

@@ -13,7 +13,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 /// Fees are taken from the proceeds of the sale
 /// The asset token is escrowed until the order is filled or cancelled
 /// The asset token is automatically refunded if the order is cancelled
-/// Implicitly assumes that asset tokens are BridgedERC20 and can be burned
+/// Implicitly assumes that asset tokens are dShare and can be burned
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
 
