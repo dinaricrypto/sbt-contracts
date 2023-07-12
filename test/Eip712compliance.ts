@@ -3,19 +3,11 @@ const { ethers, upgrades } = require("hardhat");
 
 describe("EIP-712 Compliance Test", function() {
     let deployer, user1, treasury, orderFees, token, mockERC20;
-    let BuyOrderIssuerFactory, OrderFeesFactory, TokenFactory, PaymentTokenFactory;
+    let BuyOrderIssuerFactory, OrderFeesFactory;
     let issuerImpl;
 
     before(async function() {
         [deployer, user1, treasury] = await ethers.getSigners();
-
-        // Deploy mock payment token
-        PaymentTokenFactory = await ethers.getContractFactory("mockToken");
-        mockERC20 = await PaymentTokenFactory.deploy("Money", "$", 6);
-
-        // Deploy mock asset token
-        TokenFactory = await ethers.getContractFactory("mockToken");
-        token = await TokenFactory.deploy("Token", "$", 6);
 
         // Deploy OrderFees contract
         OrderFeesFactory = await ethers.getContractFactory("OrderFees");
@@ -39,8 +31,8 @@ describe("EIP-712 Compliance Test", function() {
             "0x0000000000000000000000000000000000000000000000000000000000000001"
         );
         const recipient = user1.address;
-        const assetToken = await token.getAddress();
-        const paymentToken = await mockERC20.getAddress();
+        const assetToken = "0x0000000000000000000000000000000000000000";
+        const paymentToken = "0x0000000000000000000000000000000000000001";
         const quantityIn = ethers.parseEther("1");
         const price = 0;
     
