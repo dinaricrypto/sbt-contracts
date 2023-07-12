@@ -12,7 +12,7 @@
     "d2": "D2_LAYOUT=tala find . -type f -name '*.d2' -exec d2 --theme 3 '{}' '{}.svg' \\;",
     "d2:png": "D2_LAYOUT=tala find . -type f -name '*.d2' -exec d2 --theme 3 '{}' '{}.png' \\;",
     "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
-    "pretty": "forge fmt",
+    "pretty": "forge fmt && yarn lint:fix",
     "build": "forge build",
     "test": "forge test -vvv",
     "test:contract": "forge test -vvv --match-contract",

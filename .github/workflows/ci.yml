@@ -16,8 +16,10 @@ jobs:
   lint:
     strategy:
       fail-fast: true
+      matrix:
+        node-version: ["16.x"]
 
-    name: Pretty Check
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -29,10 +31,26 @@ jobs:
         with:
           version: nightly
 
-      - name: Fmt
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "yarn"
+
+      - name: Enable Node Corepack
+        run: corepack enable
+
+      - name: Install packages
+        run: yarn install
+
+      - name: Sol Fmt
         run: |
           forge fmt --check
 
+      - name: TS Lint
+        run: |
+          yarn lint:ts
+  
   analyze:
     strategy:
       matrix:
@@ -110,3 +128,36 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./lcov.info
+
+  hardhat:
+    strategy:
+      fail-fast: true
+      matrix:
+        node-version: ["16.x"]
+
+    name: Hardhat
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Set up Node
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "yarn"
+
+      - name: Enable Node Corepack
+        run: corepack enable
+
+      - name: Install packages
+        run: yarn install
+
+      - name: Hardhat Build
+        run: |
+          yarn build:hh
+
+      - name: Test
+        run: |
+          yarn test:hh
