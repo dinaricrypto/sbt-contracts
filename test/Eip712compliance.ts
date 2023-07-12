@@ -2,7 +2,7 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("EIP-712 Compliance Test", function() {
-    let deployer, user1, treasury, orderFees, token, mockERC20;
+    let deployer, user1, treasury, orderFees;
     let BuyOrderIssuerFactory, OrderFeesFactory;
     let issuerImpl;
 
