@@ -35,9 +35,6 @@ describe("EIP-712 Compliance Test", function() {
     });
 
     it("Should correctly compute the EIP-712 typed data hash", async function() {
-        const ORDERREQUEST_TYPE_HASH = ethers.id(
-            "OrderRequest(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn)"
-        );
         const salt = ethers.id(
             "0x0000000000000000000000000000000000000000000000000000000000000001"
         );
@@ -46,21 +43,33 @@ describe("EIP-712 Compliance Test", function() {
         const paymentToken = await mockERC20.getAddress();
         const quantityIn = ethers.parseEther("1");
         const price = 0;
-
-        const abi = new ethers.AbiCoder();
-
-        const computeId = ethers.keccak256(
-            abi.encode(
-                ["bytes32", "bytes32", "address", "address", "address", "uint256"],
-                [ORDERREQUEST_TYPE_HASH, salt, recipient, assetToken, paymentToken, quantityIn]
-            )
-        );
-
+    
+        const types = {
+            OrderRequest: [
+                { name: "salt", type: "bytes32" },
+                { name: "recipient", type: "address" },
+                { name: "assetToken", type: "address" },
+                { name: "paymentToken", type: "address" },
+                { name: "quantityIn", type: "uint256" },
+            ]
+        };
+    
+        const value = {
+            salt: salt,
+            recipient: recipient,
+            assetToken: assetToken,
+            paymentToken: paymentToken,
+            quantityIn: quantityIn,
+        };
+    
+        const encoder = ethers.TypedDataEncoder.from(types);
+        const computeId = encoder.hashStruct("OrderRequest", value);
+    
         const contractId = await issuerImpl.getOrderIdFromOrderRequest(
             {recipient, assetToken, paymentToken, quantityIn, price},
             salt
         );
-
+    
         expect(contractId).to.equal(computeId);
     });
 });
