@@ -1,8 +1,10 @@
 import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
 
+import { BuyOrderIssuer__factory } from "../typechain-types";
+
 import type { BuyOrderIssuer } from "../typechain-types";
-import type { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import type { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("EIP-712 Compliance Test", function () {
   let [deployer, user1, treasury]: SignerWithAddress[] = [];
@@ -14,32 +16,31 @@ describe("EIP-712 Compliance Test", function () {
     // Deploy OrderFees contract
     const orderFees = await ethers.deployContract("OrderFees", [
       deployer.address,
-      ethers.parseEther("1"),
-      ethers.parseEther("0.005"),
+      ethers.utils.parseEther("1"),
+      ethers.utils.parseEther("0.005"),
     ]);
 
     // Deploy BuyOrderIssuer contract
-    const issuerFactory = await ethers.getContractFactory("BuyOrderIssuer");
-    issuerImpl = await ethers.getContractAt(
-      "BuyOrderIssuer",
-      await (
+    const issuerFactory = new BuyOrderIssuer__factory(deployer);
+    issuerImpl = issuerFactory.attach(
+      (
         await upgrades.deployProxy(issuerFactory, [
           deployer.address,
           treasury.address,
-          await orderFees.getAddress(),
+          orderFees.address,
         ])
-      ).getAddress(),
+      ).address,
     );
   });
 
   it("Should correctly compute the EIP-712 typed data hash", async function () {
-    const salt = ethers.id(
+    const salt = ethers.utils.id(
       "0x0000000000000000000000000000000000000000000000000000000000000001",
     );
     const recipient = user1.address;
     const assetToken = "0x0000000000000000000000000000000000000002";
     const paymentToken = "0x0000000000000000000000000000000000000003";
-    const quantityIn = ethers.parseEther("4");
+    const quantityIn = ethers.utils.parseEther("4");
     const price = 5;
 
     const types = {
@@ -60,7 +61,7 @@ describe("EIP-712 Compliance Test", function () {
       quantityIn,
     };
 
-    const encoder = ethers.TypedDataEncoder.from(types);
+    const encoder = ethers.utils._TypedDataEncoder.from(types);
     const computeId = encoder.hashStruct("OrderRequest", value);
 
     const contractId = await issuerImpl.getOrderIdFromOrderRequest(

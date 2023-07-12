@@ -23,7 +23,7 @@ module.exports = {
       "@typescript-eslint/prefer-nullish-coalescing": "error",
       camelcase: [
         "error",
-        { allow: ["Conduit__factory", "EIP1271Wallet__factory"] },
+        { allow: ["BuyOrderIssuer__factory"] },
       ],
       "import/order": [
         "error",
