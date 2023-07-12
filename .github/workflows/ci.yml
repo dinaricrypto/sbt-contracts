@@ -47,6 +47,10 @@ jobs:
         run: |
           forge fmt --check
 
+      - name: Hardhat Build
+        run: |
+          yarn build:hh
+  
       - name: TS Lint
         run: |
           yarn lint:ts

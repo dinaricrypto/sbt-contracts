@@ -16,7 +16,7 @@
     "build": "forge build",
     "test": "forge test -vvv",
     "test:contract": "forge test -vvv --match-contract",
-    "build:hh": "hardhat compile",
+    "build:hh": "hardhat compile --force",
     "test:hh": "hardhat test",
     "lint:ts": "eslint . --ext js,ts",
     "lint:fix": "eslint . --ext js,ts --fix",
