@@ -1,4 +1,4 @@
-import {HardhatUserConfig} from "hardhat/config";
+import type { HardhatUserConfig } from "hardhat/config";
 import "@typechain/hardhat";
 import "@nomicfoundation/hardhat-foundry";
 import "@nomicfoundation/hardhat-ethers";

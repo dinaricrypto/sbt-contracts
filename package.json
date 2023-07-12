@@ -19,6 +19,7 @@
     "build:hh": "hardhat compile",
     "test:hh": "hardhat test",
     "lint:ts": "eslint . --ext js,ts",
+    "lint:fix": "eslint . --ext js,ts --fix",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "snapshot": "forge snapshot",
     "storage": "./script/storage.sh",
