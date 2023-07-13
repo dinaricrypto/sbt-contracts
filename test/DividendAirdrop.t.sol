@@ -28,7 +28,7 @@ contract DividendAirdropTest is Test, DataHelper {
         bytes32 hash;
     }
 
-    event Claimed(uint256 airdropId, address indexed account, uint256 amount);
+    event Distributed(uint256 airdropId, address indexed account, uint256 amount);
     event AirdropReclaimed(uint256 airdropId, uint256 totalReclaimed);
 
     function setUp() public {
@@ -77,7 +77,7 @@ contract DividendAirdropTest is Test, DataHelper {
         assertEq(IERC20(address(token)).balanceOf(owner), 0);
     }
 
-    function testClaim() public {
+    function testDistribute() public {
         uint256 _totalDistribution = DataHelper.airdropAmount0 + DataHelper.airdropAmount1 + DataHelper.airdropAmount2;
 
         bytes32[] memory data = generateData(address(airdrop));
@@ -98,24 +98,28 @@ contract DividendAirdropTest is Test, DataHelper {
         vm.prank(owner);
         uint256 airdropId = airdrop.createAirdrop(root, _totalDistribution);
 
-        vm.expectEmit(true, true, true, true);
-        emit Claimed(airdropId, DataHelper.airdropAddress0, DataHelper.airdropAmount0);
+        vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(DataHelper.airdropAddress0);
-        airdrop.claim(airdropId, DataHelper.airdropAmount0, proofForIndex0);
+        airdrop.distribute(airdropId, DataHelper.airdropAddress0, DataHelper.airdropAmount0, proofForIndex0);
+
+        vm.expectEmit(true, true, true, true);
+        emit Distributed(airdropId, DataHelper.airdropAddress0, DataHelper.airdropAmount0);
+        vm.prank(owner);
+        airdrop.distribute(airdropId, DataHelper.airdropAddress0, DataHelper.airdropAmount0, proofForIndex0);
         assertEq(IERC20(address(token)).balanceOf(DataHelper.airdropAddress0), DataHelper.airdropAmount0);
 
         vm.expectRevert(DividendAirdrop.AlreadyClaimed.selector);
-        vm.prank(DataHelper.airdropAddress0);
-        airdrop.claim(airdropId, DataHelper.airdropAmount0, proofForIndex0);
+        vm.prank(owner);
+        airdrop.distribute(airdropId, DataHelper.airdropAddress0, DataHelper.airdropAmount0, proofForIndex0);
 
         vm.expectRevert(DividendAirdrop.InvalidProof.selector);
-        vm.prank(DataHelper.airdropAddress1);
-        airdrop.claim(airdropId, DataHelper.airdropAmount0, proofForIndex1);
+        vm.prank(owner);
+        airdrop.distribute(airdropId, DataHelper.airdropAddress1, DataHelper.airdropAmount0, proofForIndex1);
         (,, uint256 endTime,) = airdrop.airdrops(0);
         vm.warp(endTime + 1);
-        vm.prank(DataHelper.airdropAddress1);
+        vm.prank(owner);
         vm.expectRevert(DividendAirdrop.AirdropEnded.selector);
-        airdrop.claim(airdropId, DataHelper.airdropAmount1, proofForIndex1);
+        airdrop.distribute(airdropId, DataHelper.airdropAddress1, DataHelper.airdropAmount1, proofForIndex1);
     }
 
     function testReclaimed(uint256 _totalDistribution) public {
