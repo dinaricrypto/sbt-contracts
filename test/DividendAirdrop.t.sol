@@ -16,11 +16,9 @@ contract DividendAirdropTest is Test, DataHelper {
     MockERC20 token;
 
     uint256 public userPrivateKey;
-    uint256 public distributorPrivateKey;
     uint256 public ownerPrivateKey;
 
     address public user;
-    address public distributor;
     address public owner;
 
     uint256[] public resultsArray;
@@ -35,62 +33,53 @@ contract DividendAirdropTest is Test, DataHelper {
 
     function setUp() public {
         userPrivateKey = 0x1;
-        distributorPrivateKey = 0x2;
-        ownerPrivateKey = 0x3;
+        ownerPrivateKey = 0x2;
 
         merkle = new Merkle();
 
         token = new MockERC20("Money", "$", 6);
 
         user = vm.addr(userPrivateKey);
-        distributor = vm.addr(distributorPrivateKey);
         owner = vm.addr(ownerPrivateKey);
         vm.prank(owner);
-        airdrop = new DividendAirdrop(address(token), distributor, 1000);
+        airdrop = new DividendAirdrop(address(token), 90 days);
     }
 
-    function testDeployment(address _token, address _distributor, uint256 _claimWindow) public {
+    function testDeployment(address _token, uint256 _claimWindow) public {
         vm.prank(owner);
-        DividendAirdrop newAirdrop = new DividendAirdrop(_token, _distributor, _claimWindow);
+        DividendAirdrop newAirdrop = new DividendAirdrop(_token, _claimWindow);
         assertEq(newAirdrop.token(), _token);
-        assertEq(newAirdrop.distributor(), _distributor);
         assertEq(newAirdrop.claimWindow(), _claimWindow);
         assertEq(newAirdrop.nextAirdropId(), 0);
-        assertEq(newAirdrop.owner(), owner);
 
-        vm.expectRevert("Ownable: caller is not the owner");
-        newAirdrop.setNewDistributor(_distributor);
         vm.expectRevert("Ownable: caller is not the owner");
         newAirdrop.setClaimWindow(_claimWindow);
 
-        vm.startPrank(owner);
-        newAirdrop.setNewDistributor(_distributor);
+        vm.prank(owner);
         newAirdrop.setClaimWindow(_claimWindow);
-        vm.stopPrank();
     }
 
     function testCreateNewAirdrop(bytes32 _merkleRoot, uint256 _totalDistribution) public {
         vm.assume(_totalDistribution < 1e8);
         assertEq(IERC20(address(token)).balanceOf(address(airdrop)), 0);
-        vm.expectRevert(DividendAirdrop.NotDistributor.selector);
+        vm.expectRevert("Ownable: caller is not the owner");
         airdrop.createAirdrop(_merkleRoot, _totalDistribution);
 
-        token.mint(distributor, _totalDistribution);
+        token.mint(owner, _totalDistribution);
 
-        vm.prank(distributor);
+        vm.prank(owner);
         token.approve(address(airdrop), _totalDistribution);
 
-        vm.prank(distributor);
+        vm.prank(owner);
         airdrop.createAirdrop(_merkleRoot, _totalDistribution);
 
         assertEq(IERC20(address(token)).balanceOf(address(airdrop)), _totalDistribution);
-        assertEq(IERC20(address(token)).balanceOf(distributor), 0);
+        assertEq(IERC20(address(token)).balanceOf(owner), 0);
     }
 
-    function testClaim(uint256 _totalDistribution) public {
-        vm.assume(
-            _totalDistribution > DataHelper.airdropAmount0 + DataHelper.airdropAmount1 + DataHelper.airdropAmount2
-        );
+    function testClaim() public {
+        uint256 _totalDistribution = DataHelper.airdropAmount0 + DataHelper.airdropAmount1 + DataHelper.airdropAmount2;
+
         bytes32[] memory data = generateData(address(airdrop));
 
         // Generate the root using the copy
@@ -102,31 +91,31 @@ contract DividendAirdropTest is Test, DataHelper {
         // Generate proof for index 1 using the copy
         bytes32[] memory proofForIndex1 = merkle.getProof(data, 1);
 
-        token.mint(distributor, _totalDistribution);
+        token.mint(owner, _totalDistribution);
 
-        vm.prank(distributor);
+        vm.prank(owner);
         token.approve(address(airdrop), _totalDistribution);
-        vm.prank(distributor);
+        vm.prank(owner);
         uint256 airdropId = airdrop.createAirdrop(root, _totalDistribution);
 
         vm.expectEmit(true, true, true, true);
         emit Claimed(airdropId, DataHelper.airdropAddress0, DataHelper.airdropAmount0);
         vm.prank(DataHelper.airdropAddress0);
-        airdrop.claim(airdropId, DataHelper.airdropAddress0, DataHelper.airdropAmount0, proofForIndex0);
+        airdrop.claim(airdropId, DataHelper.airdropAmount0, proofForIndex0);
         assertEq(IERC20(address(token)).balanceOf(DataHelper.airdropAddress0), DataHelper.airdropAmount0);
 
         vm.expectRevert(DividendAirdrop.AlreadyClaimed.selector);
         vm.prank(DataHelper.airdropAddress0);
-        airdrop.claim(airdropId, DataHelper.airdropAddress0, DataHelper.airdropAmount0, proofForIndex0);
+        airdrop.claim(airdropId, DataHelper.airdropAmount0, proofForIndex0);
 
         vm.expectRevert(DividendAirdrop.InvalidProof.selector);
-        vm.prank(DataHelper.airdropAddress0);
-        airdrop.claim(airdropId, DataHelper.airdropAddress1, DataHelper.airdropAmount0, proofForIndex1);
+        vm.prank(DataHelper.airdropAddress1);
+        airdrop.claim(airdropId, DataHelper.airdropAmount0, proofForIndex1);
         (,, uint256 endTime,) = airdrop.airdrops(0);
         vm.warp(endTime + 1);
         vm.prank(DataHelper.airdropAddress1);
         vm.expectRevert(DividendAirdrop.AirdropEnded.selector);
-        airdrop.claim(airdropId, DataHelper.airdropAddress1, DataHelper.airdropAmount1, proofForIndex1);
+        airdrop.claim(airdropId, DataHelper.airdropAmount1, proofForIndex1);
     }
 
     function testReclaimed(uint256 _totalDistribution) public {
@@ -137,21 +126,21 @@ contract DividendAirdropTest is Test, DataHelper {
         // Generate the root using the copy
         bytes32 root = merkle.getRoot(data);
 
-        token.mint(distributor, _totalDistribution);
+        token.mint(owner, _totalDistribution);
 
-        vm.prank(distributor);
+        vm.prank(owner);
         token.approve(address(airdrop), _totalDistribution);
-        vm.prank(distributor);
+        vm.prank(owner);
         airdrop.createAirdrop(root, _totalDistribution);
         assertEq(IERC20(address(token)).balanceOf(address(airdrop)), _totalDistribution);
-        assertEq(IERC20(address(token)).balanceOf(distributor), 0);
+        assertEq(IERC20(address(token)).balanceOf(owner), 0);
 
-        vm.expectRevert(DividendAirdrop.NotDistributor.selector);
+        vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(user);
         airdrop.reclaimedAirdrop(0);
 
         vm.expectRevert(DividendAirdrop.AirdropStillRunning.selector);
-        vm.prank(distributor);
+        vm.prank(owner);
         airdrop.reclaimedAirdrop(0);
 
         (,, uint256 endTime,) = airdrop.airdrops(0);
@@ -159,10 +148,10 @@ contract DividendAirdropTest is Test, DataHelper {
 
         vm.expectEmit(true, true, true, true);
         emit AirdropReclaimed(0, _totalDistribution);
-        vm.prank(distributor);
+        vm.prank(owner);
         airdrop.reclaimedAirdrop(0);
 
         assertEq(IERC20(address(token)).balanceOf(address(airdrop)), 0);
-        assertEq(IERC20(address(token)).balanceOf(distributor), _totalDistribution);
+        assertEq(IERC20(address(token)).balanceOf(owner), _totalDistribution);
     }
 }
