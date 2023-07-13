@@ -8,7 +8,7 @@ import {MerkleProof} from "openzeppelin-contracts/contracts/utils/cryptography/M
 contract DividendAirdrop is Ownable {
     using SafeERC20 for IERC20;
 
-    /// ------------------- Types ------------------- /// 
+    /// ------------------- Types ------------------- ///
 
     // Struct to store information about each airdrop.
     struct Airdrop {
@@ -85,7 +85,11 @@ contract DividendAirdrop is Ownable {
      * @param _merkleRoot The Merkle root of the airdrop.
      * @param _totalDistribution The total amount of tokens to be distributed.
      */
-    function createAirdrop(bytes32 _merkleRoot, uint256 _totalDistribution) external onlyOwner returns (uint256 airdropId) {
+    function createAirdrop(bytes32 _merkleRoot, uint256 _totalDistribution)
+        external
+        onlyOwner
+        returns (uint256 airdropId)
+    {
         // Load the next airdrop id into memory and increment it for the next time
         airdropId = nextAirdropId++;
 
