@@ -21,5 +21,6 @@
 | orderFees                    | contract IOrderFees                                          | 352  | 0      | 20    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
 | ordersPaused                 | bool                                                         | 352  | 20     | 1     | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
 | _numOpenOrders               | uint256                                                      | 353  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
-| _orders                      | mapping(bytes32 => struct OrderProcessor.OrderState)         | 354  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
-| _feesEarned                  | mapping(bytes32 => uint256)                                  | 355  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
+| _nextOrderIndex              | mapping(address => uint256)                                  | 354  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
+| _orders                      | mapping(bytes32 => struct OrderProcessor.OrderState)         | 355  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
+| _feesEarned                  | mapping(bytes32 => uint256)                                  | 356  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
