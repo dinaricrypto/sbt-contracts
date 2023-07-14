@@ -18,7 +18,7 @@ contract TransferRestrictorTest is Test {
         vm.expectEmit(true, true, true, true);
         emit Restricted(account);
         restrictor.restrict(account);
-        assertEq(restrictor.blacklist(account), true);
+        assertEq(restrictor.isBlacklisted(account), true);
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         restrictor.requireNotRestricted(account, address(0));
@@ -28,7 +28,7 @@ contract TransferRestrictorTest is Test {
         vm.expectEmit(true, true, true, true);
         emit Unrestricted(account);
         restrictor.unrestrict(account);
-        assertEq(restrictor.blacklist(account), false);
+        assertEq(restrictor.isBlacklisted(account), false);
 
         restrictor.requireNotRestricted(account, address(0));
         restrictor.requireNotRestricted(address(0), account);

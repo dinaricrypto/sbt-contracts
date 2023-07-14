@@ -11,5 +11,5 @@ interface ITransferRestrictor {
 
     /// @notice Checks if the transfer is allowed
     /// @param account The address of the account
-    function blacklist(address account) external view returns (bool);
+    function isBlacklisted(address account) external view returns (bool);
 }
