@@ -33,10 +33,10 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
 
-    /// @dev Emitted when `amount` of escrowed payment is taken for `orderId`
-    event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
-    /// @dev Emitted when `amount` of escrowed payment is returned for `orderId`
-    event EscrowReturned(bytes32 indexed orderId, address indexed recipient, uint256 amount);
+    /// @dev Emitted when `amount` of escrowed payment is taken for order
+    event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
+    /// @dev Emitted when `amount` of escrowed payment is returned for order
+    event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
 
     /// ------------------ State ------------------ ///
 
@@ -46,97 +46,89 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Take escrowed payment for an order
-    /// @param orderRequest Order request
-    /// @param salt Salt used to generate unique order ID
+    /// @param order Order
     /// @param amount Amount of escrowed payment token to take
     /// @dev Only callable by operator
-    function takeEscrow(OrderRequest calldata orderRequest, bytes32 salt, uint256 amount)
-        external
-        onlyRole(OPERATOR_ROLE)
-    {
+    function takeEscrow(Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
         // Can't take more than escrowed
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        uint256 escrow = getOrderEscrow[orderId];
+        bytes32 id = getOrderId(order.recipient, order.index);
+        uint256 escrow = getOrderEscrow[id];
         if (amount > escrow) revert AmountTooLarge();
 
         // Update escrow tracking
-        getOrderEscrow[orderId] = escrow - amount;
+        getOrderEscrow[id] = escrow - amount;
         // Notify escrow taken
-        emit EscrowTaken(orderId, orderRequest.recipient, amount);
+        emit EscrowTaken(order.recipient, order.index, amount);
 
         // Take escrowed payment
-        IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, amount);
+        IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
     }
 
     /// @notice Return unused escrowed payment for an order
-    /// @param orderRequest Order request
-    /// @param salt Salt used to generate unique order ID
+    /// @param order Order
     /// @param amount Amount of payment token to return to escrow
     /// @dev Only callable by operator
-    function returnEscrow(OrderRequest calldata orderRequest, bytes32 salt, uint256 amount)
-        external
-        onlyRole(OPERATOR_ROLE)
-    {
+    function returnEscrow(Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
         // Can only return unused amount
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        uint256 remainingOrder = getRemainingOrder(orderId);
-        uint256 escrow = getOrderEscrow[orderId];
+        bytes32 id = getOrderId(order.recipient, order.index);
+        uint256 remainingOrder = getRemainingOrder(id);
+        uint256 escrow = getOrderEscrow[id];
         // Unused amount = remaining order - remaining escrow
         if (escrow + amount > remainingOrder) revert AmountTooLarge();
 
         // Update escrow tracking
-        getOrderEscrow[orderId] = escrow + amount;
+        getOrderEscrow[id] = escrow + amount;
         // Notify escrow returned
-        emit EscrowReturned(orderId, orderRequest.recipient, amount);
+        emit EscrowReturned(order.recipient, order.index, amount);
 
         // Return payment to escrow
-        IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
+    function _requestOrderAccounting(bytes32 id, OrderRequest calldata orderRequest)
         internal
         virtual
         override
-        returns (Order memory order)
+        returns (OrderConfig memory orderConfig)
     {
         // Compile standard buy order
-        order = super._requestOrderAccounting(orderRequest, orderId);
+        orderConfig = super._requestOrderAccounting(id, orderRequest);
         // Initialize escrow tracking for order
-        getOrderEscrow[orderId] = order.paymentTokenQuantity;
+        getOrderEscrow[id] = orderConfig.paymentTokenQuantity;
     }
 
     /// @inheritdoc OrderProcessor
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
-        bytes32 orderId,
+        bytes32 id,
+        Order calldata order,
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
         // Can't fill more than payment previously taken from escrow
-        uint256 escrow = getOrderEscrow[orderId];
+        uint256 escrow = getOrderEscrow[id];
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
 
         // Buy order accounting
-        _fillBuyOrder(orderRequest, orderId, orderState, fillAmount, receivedAmount);
+        _fillBuyOrder(id, order, orderState, fillAmount, receivedAmount);
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(OrderRequest calldata order, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(bytes32 id, Order calldata order, OrderState memory orderState)
         internal
         virtual
         override
     {
         // Prohibit cancel if escrowed payment has been taken and not returned or filled
-        uint256 escrow = getOrderEscrow[orderId];
+        uint256 escrow = getOrderEscrow[id];
         if (orderState.remainingOrder != escrow) revert UnreturnedEscrow();
 
         // Standard buy order accounting
-        super._cancelOrderAccounting(order, orderId, orderState);
+        super._cancelOrderAccounting(id, order, orderState);
     }
 }
