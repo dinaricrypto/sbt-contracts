@@ -106,6 +106,7 @@ contract DividendAirdrop is Ownable {
     /**
      * @notice Allows a user to claim tokens from an airdrop if they are eligible.
      * @param _airdropId The ID of the airdrop.
+     * @param _recipient The address of the user claiming tokens.
      * @param _amount The amount of tokens the user is claiming.
      * @param proof The merkle proof for verification.
      */
