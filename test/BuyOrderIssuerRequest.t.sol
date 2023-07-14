@@ -10,7 +10,6 @@ import "../src/issuer/BuyOrderIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {MockPaymentToken} from "./utils/mocks/MockPaymentToken.sol";
 
 contract BuyOrderIssuerRequestTest is Test {
     // For gas profiling
@@ -18,7 +17,7 @@ contract BuyOrderIssuerRequestTest is Test {
     BridgedERC20 token;
     OrderFees orderFees;
     BuyOrderIssuer issuer;
-    MockPaymentToken paymentToken;
+    MockERC20 paymentToken;
     SigUtils sigUtils;
 
     uint256 userPrivateKey;
@@ -36,7 +35,7 @@ contract BuyOrderIssuerRequestTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockBridgedERC20();
-        paymentToken = new MockPaymentToken();
+        paymentToken = new MockERC20("Money", "$", 6);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);

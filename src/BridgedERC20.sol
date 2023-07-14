@@ -134,4 +134,9 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         // Check transfer restrictions
         transferRestrictor.requireNotRestricted(from, to);
     }
+
+
+    function isBlacklisted(address account) external view returns (bool) {
+        return transferRestrictor.isBlacklisted(account);
+    }
 }

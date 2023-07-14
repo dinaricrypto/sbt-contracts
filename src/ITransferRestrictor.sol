@@ -8,4 +8,8 @@ interface ITransferRestrictor {
     /// @param from The address of the sender
     /// @param to The address of the recipient
     function requireNotRestricted(address from, address to) external view;
+
+    /// @notice Checks if the transfer is allowed
+    /// @param account The address of the account
+    function isBlacklisted(address account) external view returns (bool);
 }

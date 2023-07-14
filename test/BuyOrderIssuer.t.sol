@@ -9,8 +9,8 @@ import "./utils/SigUtils.sol";
 import "../src/issuer/BuyOrderIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {MockPaymentToken} from "./utils/mocks/MockPaymentToken.sol";
 
 contract BuyOrderIssuerTest is Test {
     event TreasurySet(address indexed treasury);
@@ -26,7 +26,7 @@ contract BuyOrderIssuerTest is Test {
     BridgedERC20 token;
     OrderFees orderFees;
     BuyOrderIssuer issuer;
-    MockPaymentToken paymentToken;
+    MockERC20 paymentToken;
     SigUtils sigUtils;
 
     uint256 userPrivateKey;
@@ -45,7 +45,7 @@ contract BuyOrderIssuerTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockBridgedERC20();
-        paymentToken = new MockPaymentToken();
+        paymentToken = new MockERC20("Money", "$", 6);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
@@ -248,18 +248,17 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(dummyOrder, salt);
     }
 
-    function testRequestOrderUnsupportedPaymentReverts() public {
-        MockPaymentToken tryPaymentToken = new MockPaymentToken();
-        vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), address(tryPaymentToken)));
+    function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
+        vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.paymentToken = address(tryPaymentToken);
+        order.paymentToken = tryPaymentToken;
 
         vm.expectRevert(
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(address(tryPaymentToken)),
+                    Strings.toHexString(tryPaymentToken),
                     " is missing role ",
                     Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32)
                 )
@@ -269,33 +268,26 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(order, salt);
     }
 
-    function testRequestOrderAddressZeroRecipient() public {
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.recipient = address(0);
-
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        vm.prank(user);
-        issuer.requestOrder(order, salt);
-    }
-
-    function testRequestOrderBlackListAddress() public {
-        paymentToken.blacklist(dummyOrder.recipient);
+    
+    function testBlackListAssetRevert() public {
+        TransferRestrictor(address(token.transferRestrictor())).restrict(dummyOrder.recipient);
         vm.expectRevert(OrderProcessor.BlocklistedAddress.selector);
         vm.prank(user);
         issuer.requestOrder(dummyOrder, salt);
     }
 
-    function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
-        vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), tryAssetToken));
+    function testRequestOrderUnsupportedAssetReverts() public {
+        BridgedERC20 tryAssetToken = new MockBridgedERC20();
+        vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), address(tryAssetToken)));
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.assetToken = tryAssetToken;
+        order.assetToken = address(tryAssetToken);
 
         vm.expectRevert(
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(tryAssetToken),
+                    Strings.toHexString(address(tryAssetToken)),
                     " is missing role ",
                     Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32)
                 )

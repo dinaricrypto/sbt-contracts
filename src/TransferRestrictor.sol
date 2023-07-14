@@ -28,6 +28,14 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     constructor(address owner) {
         _transferOwnership(owner);
     }
+    
+    /// ------------------ Geeters ------------------ ///
+    
+    /// @notice Check if `account` is restricted
+    /// @param account The account to check
+    function isBlacklisted(address account) external view returns (bool) {
+        return blacklist[account];
+    }
 
     /// ------------------ Setters ------------------ ///
 
