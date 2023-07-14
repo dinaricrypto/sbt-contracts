@@ -22,7 +22,7 @@ contract DividendAirdrop is Ownable {
     event ClaimWindowSet(uint256 newClaimWindow);
 
     // Event emitted when tokens are claimed from an airdrop.
-    event Claimed(uint256 airdropId, address indexed account, uint256 amount);
+    event Distributed(uint256 airdropId, address indexed account, uint256 amount);
 
     event NewAirdropCreated(uint256 airdropId, uint256 totalDistribution, uint256 startDate, uint256 endDate);
 
@@ -106,32 +106,37 @@ contract DividendAirdrop is Ownable {
     /**
      * @notice Allows a user to claim tokens from an airdrop if they are eligible.
      * @param _airdropId The ID of the airdrop.
+     * @param _recipient The address of the user claiming tokens.
      * @param _amount The amount of tokens the user is claiming.
      * @param proof The merkle proof for verification.
      */
-    function claim(uint256 _airdropId, uint256 _amount, bytes32[] memory proof) external {
+    function distribute(uint256 _airdropId, address _recipient, uint256 _amount, bytes32[] memory proof)
+        external
+        onlyOwner
+    {
         // Check if the tokens have already been claimed by this user.
-        if (claimed[_airdropId][msg.sender]) revert AlreadyClaimed();
+        if (claimed[_airdropId][_recipient]) revert AlreadyClaimed();
 
         // Check if the airdrop has ended.
         if (block.timestamp > airdrops[_airdropId].endTime) revert AirdropEnded();
 
         // Compute the leaf node from the user's address and amount.
-        bytes32 valueToProve = hashLeaf(msg.sender, _amount);
+        bytes32 valueToProve = hashLeaf(_recipient, _amount);
+
         // Verify the merkle proof.
         if (!MerkleProof.verify(proof, airdrops[_airdropId].merkleRoot, valueToProve)) revert InvalidProof();
 
         // Mark the tokens as claimed for this user.
-        claimed[_airdropId][msg.sender] = true;
+        claimed[_airdropId][_recipient] = true;
 
         // Update the total claimed tokens for this airdrop.
         airdrops[_airdropId].remainingDistribution -= _amount;
 
         // Emit an event for the claimed tokens.
-        emit Claimed(_airdropId, msg.sender, _amount);
+        emit Distributed(_airdropId, _recipient, _amount);
 
         // Transfer the tokens to the user.
-        IERC20(token).safeTransfer(msg.sender, _amount);
+        IERC20(token).safeTransfer(_recipient, _amount);
     }
 
     /**
