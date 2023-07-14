@@ -442,6 +442,10 @@ contract BuyOrderIssuerTest is Test {
         emit CancelRequested(orderId, user);
         vm.prank(user);
         issuer.requestCancel(dummyOrder, salt);
+
+        vm.expectRevert(OrderProcessor.OrderCancellationAlreadyInitiated.selector);
+        vm.prank(user);
+        issuer.requestCancel(dummyOrder, salt);
     }
 
     function testRequestCancelNotRequesterReverts() public {

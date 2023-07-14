@@ -81,6 +81,8 @@ abstract contract OrderProcessor is
     error DuplicateOrder();
     /// @dev Amount too large
     error AmountTooLarge();
+    /// @dev Custom error when an order cancellation has already been initiated
+    error OrderCancellationAlreadyInitiated();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -122,6 +124,9 @@ abstract contract OrderProcessor is
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
+
+    ///@dev Tracks if a cancellation process has been started for a specific order
+    mapping(bytes32 => bool) private orderCancellationInitiated;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -313,10 +318,13 @@ abstract contract OrderProcessor is
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
+        if (orderCancellationInitiated[orderId]) revert OrderCancellationAlreadyInitiated();
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
         // Only requester can request cancellation
         if (requester != msg.sender) revert NotRequester();
+
+        orderCancellationInitiated[orderId] = true;
 
         // Send cancel request to bridge
         emit CancelRequested(orderId, orderRequest.recipient);
