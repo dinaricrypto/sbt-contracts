@@ -211,7 +211,7 @@ contract BuyOrderIssuer is OrderProcessor {
         }
 
         // Return escrow
-        IERC20(orderRequest.paymentToken).safeTransfer(orderRequest.recipient, refund);
+        IERC20(orderRequest.paymentToken).safeTransfer(orderState.requester, refund);
     }
 
     /// @dev Close order and transfer fees
