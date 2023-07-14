@@ -268,7 +268,6 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(order, salt);
     }
 
-    
     function testBlackListAssetRevert() public {
         TransferRestrictor(address(token.transferRestrictor())).restrict(dummyOrder.recipient);
         vm.expectRevert(OrderProcessor.BlocklistedAddress.selector);
