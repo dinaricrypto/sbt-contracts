@@ -10,6 +10,7 @@ import "../src/issuer/BuyOrderIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {MockPaymentToken} from "./utils/mocks/MockPaymentToken.sol";
 
 contract BuyOrderIssuerTest is Test {
     event TreasurySet(address indexed treasury);
@@ -25,7 +26,7 @@ contract BuyOrderIssuerTest is Test {
     BridgedERC20 token;
     OrderFees orderFees;
     BuyOrderIssuer issuer;
-    MockERC20 paymentToken;
+    MockPaymentToken paymentToken;
     SigUtils sigUtils;
 
     uint256 userPrivateKey;
@@ -44,7 +45,7 @@ contract BuyOrderIssuerTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockBridgedERC20();
-        paymentToken = new MockERC20("Money", "$", 6);
+        paymentToken = new MockPaymentToken();
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
@@ -247,17 +248,18 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(dummyOrder, salt);
     }
 
-    function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
-        vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
+    function testRequestOrderUnsupportedPaymentReverts() public {
+        MockPaymentToken tryPaymentToken = new MockPaymentToken();
+        vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), address(tryPaymentToken)));
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.paymentToken = tryPaymentToken;
+        order.paymentToken = address(tryPaymentToken);
 
         vm.expectRevert(
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(tryPaymentToken),
+                    Strings.toHexString(address(tryPaymentToken)),
                     " is missing role ",
                     Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32)
                 )
@@ -265,6 +267,22 @@ contract BuyOrderIssuerTest is Test {
         );
         vm.prank(user);
         issuer.requestOrder(order, salt);
+    }
+
+    function testRequestOrderAddressZeroRecipient() public {
+        OrderProcessor.OrderRequest memory order = dummyOrder;
+        order.recipient = address(0);
+
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        vm.prank(user);
+        issuer.requestOrder(order, salt);
+    }
+
+    function testRequestOrderBlackListAddress() public {
+        paymentToken.blacklist(dummyOrder.recipient);
+        vm.expectRevert(OrderProcessor.BlocklistedAddress.selector);
+        vm.prank(user);
+        issuer.requestOrder(dummyOrder, salt);
     }
 
     function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {

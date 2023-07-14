@@ -10,6 +10,7 @@ import "../src/issuer/SellOrderProcessor.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {MockPaymentToken} from "./utils/mocks/MockPaymentToken.sol";
 
 contract SellOrderProcessorTest is Test {
     event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
@@ -21,7 +22,7 @@ contract SellOrderProcessorTest is Test {
     BridgedERC20 token;
     OrderFees orderFees;
     SellOrderProcessor issuer;
-    MockERC20 paymentToken;
+    MockPaymentToken paymentToken;
 
     uint256 userPrivateKey;
     address user;
@@ -38,7 +39,7 @@ contract SellOrderProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockBridgedERC20();
-        paymentToken = new MockERC20("Money", "$", 6);
+        paymentToken = new MockPaymentToken();
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
