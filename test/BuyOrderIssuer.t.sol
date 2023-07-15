@@ -9,6 +9,7 @@ import "./utils/SigUtils.sol";
 import "../src/issuer/BuyOrderIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BuyOrderIssuerTest is Test {
@@ -267,17 +268,25 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(order, salt);
     }
 
-    function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
-        vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), tryAssetToken));
+    function testBlackListAssetRevert() public {
+        TransferRestrictor(address(token.transferRestrictor())).restrict(dummyOrder.recipient);
+        vm.expectRevert(OrderProcessor.Blacklist.selector);
+        vm.prank(user);
+        issuer.requestOrder(dummyOrder, salt);
+    }
+
+    function testRequestOrderUnsupportedAssetReverts() public {
+        BridgedERC20 tryAssetToken = new MockBridgedERC20();
+        vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), address(tryAssetToken)));
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.assetToken = tryAssetToken;
+        order.assetToken = address(tryAssetToken);
 
         vm.expectRevert(
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(tryAssetToken),
+                    Strings.toHexString(address(tryAssetToken)),
                     " is missing role ",
                     Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32)
                 )

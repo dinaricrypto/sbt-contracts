@@ -11,6 +11,8 @@ import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
+import {ITransferRestrictor} from "../ITransferRestrictor.sol";
+import {BridgedERC20} from "../BridgedERC20.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -83,6 +85,8 @@ abstract contract OrderProcessor is
     error DuplicateOrder();
     /// @dev Amount too large
     error AmountTooLarge();
+    /// @dev blacklist address
+    error Blacklist();
     /// @dev Custom error when an order cancellation has already been initiated
     error OrderCancellationAlreadyInitiated();
 
@@ -254,6 +258,8 @@ abstract contract OrderProcessor is
     /// @param salt Salt used to generate unique order ID
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
     function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
+        // check blocklisted address
+        if (BridgedERC20(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)) revert Blacklist();
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         // Check for whitelisted tokens
