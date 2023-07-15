@@ -239,6 +239,14 @@ abstract contract OrderProcessor is
         return _orders[id].received;
     }
 
+    /**
+     * @dev Get order cancellation status
+     * @param id Order ID
+     */
+    function cancelRequested(bytes32 id) public view returns (bool) {
+        return _orders[id].cancellationInitiated;
+    }
+
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Request an order
