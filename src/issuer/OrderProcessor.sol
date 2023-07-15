@@ -95,6 +95,8 @@ abstract contract OrderProcessor is
     error NotRequester();
     /// @dev Order does not exist
     error OrderNotFound();
+    /// @dev Invalid order data
+    error InvalidOrderData();
     /// @dev Amount too large
     error AmountTooLarge();
 
@@ -237,6 +239,10 @@ abstract contract OrderProcessor is
         return _orders[id].received;
     }
 
+    function _getOrderHash(bytes32 id) internal view returns (bytes32) {
+        return _orders[id].orderHash;
+    }
+
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Request an order
@@ -302,6 +308,25 @@ abstract contract OrderProcessor is
         );
     }
 
+    /// @notice Hash order data for validation
+    function hashOrderCalldata(Order calldata order) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                order.recipient,
+                order.index,
+                order.quantityIn,
+                order.assetToken,
+                order.paymentToken,
+                order.sell,
+                order.orderType,
+                order.assetTokenQuantity,
+                order.paymentTokenQuantity,
+                order.price,
+                order.tif
+            )
+        );
+    }
+
     /// @notice Fill an order
     /// @param order Order to fill
     /// @param fillAmount Amount of order token to fill
@@ -318,6 +343,8 @@ abstract contract OrderProcessor is
         OrderState memory orderState = _orders[id];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
+        // Verify order data
+        if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
 
@@ -369,6 +396,8 @@ abstract contract OrderProcessor is
         OrderState memory orderState = _orders[id];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
+        // Verify order data
+        if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
 
         // Notify order cancelled
         emit OrderCancelled(order.recipient, order.index, reason);

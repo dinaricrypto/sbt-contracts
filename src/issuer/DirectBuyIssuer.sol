@@ -52,8 +52,11 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     function takeEscrow(Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
-        // Can't take more than escrowed
         bytes32 id = getOrderId(order.recipient, order.index);
+        // Verify order data
+        bytes32 orderHash = _getOrderHash(id);
+        if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
+        // Can't take more than escrowed
         uint256 escrow = getOrderEscrow[id];
         if (amount > escrow) revert AmountTooLarge();
 
@@ -73,8 +76,11 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     function returnEscrow(Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
-        // Can only return unused amount
         bytes32 id = getOrderId(order.recipient, order.index);
+        // Verify order data
+        bytes32 orderHash = _getOrderHash(id);
+        if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
+        // Can only return unused amount
         uint256 remainingOrder = getRemainingOrder(id);
         uint256 escrow = getOrderEscrow[id];
         // Unused amount = remaining order - remaining escrow

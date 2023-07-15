@@ -215,7 +215,8 @@ contract BuyOrderIssuerTest is Test {
             vm.expectEmit(true, true, true, true);
             emit OrderRequested(user, order.index, order);
             vm.prank(user);
-            issuer.requestOrder(orderRequest);
+            uint256 index = issuer.requestOrder(orderRequest);
+            assertEq(index, order.index);
             assertTrue(issuer.isOrderActive(id));
             assertEq(issuer.getRemainingOrder(id), quantityIn - fees);
             assertEq(issuer.numOpenOrders(), 1);
