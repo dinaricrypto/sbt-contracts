@@ -83,8 +83,8 @@ abstract contract OrderProcessor is
     error DuplicateOrder();
     /// @dev Amount too large
     error AmountTooLarge();
-    /// @dev Blocklist address
-    error BlocklistedAddress();
+    /// @dev blacklist address
+    error Blacklist();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -247,7 +247,7 @@ abstract contract OrderProcessor is
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
     function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
         // check blocklisted address
-        if (BridgedERC20(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)) revert BlocklistedAddress();
+        if (BridgedERC20(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)) revert Blacklist();
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         // Check for whitelisted tokens
