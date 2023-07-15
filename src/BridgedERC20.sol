@@ -138,10 +138,11 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /**
      * @param account The address of the account
      * @return Whether the account is blacklisted
-     * @dev Returns true if the account is blacklisted ,if transfer restrictor is not set, if the account is the zero address
+     * @dev Returns true if the account is blacklisted , if the account is the zero address
      */
     function isBlacklisted(address account) external view returns (bool) {
-        if (address(transferRestrictor) == address(0) || account == address(0)) return true;
+        if (account == address(0)) return true;
+        if (address(transferRestrictor) == address(0)) return false;
         return transferRestrictor.isBlacklisted(account);
     }
 }
