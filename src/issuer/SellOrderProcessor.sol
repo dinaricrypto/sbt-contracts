@@ -147,7 +147,7 @@ contract SellOrderProcessor is OrderProcessor {
         delete _feesEarned[orderId];
 
         // Return escrow
-        IERC20(orderRequest.assetToken).safeTransfer(orderRequest.recipient, refund);
+        IERC20(orderRequest.assetToken).safeTransfer(orderState.requester, refund);
     }
 
     /// @dev Distribute proceeds and fees

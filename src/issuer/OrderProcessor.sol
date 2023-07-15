@@ -67,6 +67,8 @@ abstract contract OrderProcessor is
         uint256 remainingOrder;
         // Total amount of received token due to fills
         uint256 received;
+        // Whether a cancellation for this order has been initiated
+        bool cancellationInitiated;
     }
 
     /// @dev Zero address
@@ -85,6 +87,8 @@ abstract contract OrderProcessor is
     error AmountTooLarge();
     /// @dev blacklist address
     error Blacklist();
+    /// @dev Custom error when an order cancellation has already been initiated
+    error OrderCancellationAlreadyInitiated();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -239,6 +243,14 @@ abstract contract OrderProcessor is
         return _orders[id].received;
     }
 
+    /**
+     * @dev Get order cancellation status
+     * @param id Order ID
+     */
+    function cancelRequested(bytes32 id) public view returns (bool) {
+        return _orders[id].cancellationInitiated;
+    }
+
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Request an order
@@ -265,7 +277,8 @@ abstract contract OrderProcessor is
 
         // Initialize order state
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
+        _orders[orderId] =
+            OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0, cancellationInitiated: false});
         _numOpenOrders++;
     }
 
@@ -319,10 +332,13 @@ abstract contract OrderProcessor is
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
+        if (_orders[orderId].cancellationInitiated) revert OrderCancellationAlreadyInitiated();
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
         // Only requester can request cancellation
         if (requester != msg.sender) revert NotRequester();
+
+        _orders[orderId].cancellationInitiated = true;
 
         // Send cancel request to bridge
         emit CancelRequested(orderId, orderRequest.recipient);
