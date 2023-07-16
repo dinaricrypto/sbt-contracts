@@ -140,6 +140,7 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(operator);
         issuer.takeEscrow(order, salt, takeAmount);
     }
+
     function testReturnEscrow(uint256 orderAmount, uint256 returnAmount) public {
         vm.assume(orderAmount > 0);
 
