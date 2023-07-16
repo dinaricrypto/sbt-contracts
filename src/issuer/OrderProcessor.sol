@@ -69,6 +69,8 @@ abstract contract OrderProcessor is
         uint256 received;
         // Whether a cancellation for this order has been initiated
         bool cancellationInitiated;
+        // Whether the order has been completely filled
+        bool filled;
     }
 
     /// @dev Zero address
@@ -88,7 +90,9 @@ abstract contract OrderProcessor is
     /// @dev blacklist address
     error Blacklist();
     /// @dev Custom error when an order cancellation has already been initiated
-    error OrderCancellationAlreadyInitiated();
+    error OrderCancellationInitiated();
+    /// @dev Custom error when an order has already been filled
+    error OrderFilled();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -251,6 +255,14 @@ abstract contract OrderProcessor is
         return _orders[id].cancellationInitiated;
     }
 
+    /**
+     *
+     * @param id Order ID
+     */
+    function getOrderState(bytes32 id) public view returns (OrderState memory) {
+        return _orders[id];
+    }
+
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Request an order
@@ -277,8 +289,13 @@ abstract contract OrderProcessor is
 
         // Initialize order state
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        _orders[orderId] =
-            OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0, cancellationInitiated: false});
+        _orders[orderId] = OrderState({
+            requester: msg.sender,
+            remainingOrder: orderAmount,
+            received: 0,
+            cancellationInitiated: false,
+            filled: false
+        });
         _numOpenOrders++;
     }
 
@@ -301,7 +318,8 @@ abstract contract OrderProcessor is
         if (orderState.requester == address(0)) revert OrderNotFound();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
-
+        // Update order state
+        _orders[orderId].filled = true;
         // Notify order filled
         emit OrderFill(orderId, orderRequest.recipient, fillAmount, receivedAmount);
 
@@ -332,7 +350,7 @@ abstract contract OrderProcessor is
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
-        if (_orders[orderId].cancellationInitiated) revert OrderCancellationAlreadyInitiated();
+        if (_orders[orderId].cancellationInitiated) revert OrderCancellationInitiated();
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
         // Only requester can request cancellation
