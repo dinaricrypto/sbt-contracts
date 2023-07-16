@@ -58,8 +58,8 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         if (amount == 0) revert ZeroValue();
         // Can't take more than escrowed
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        if (getOrderState(orderId).cancellationInitiated) revert OrderCancellationInitiated();
         uint256 escrow = getOrderEscrow[orderId];
+        if (getOrderState(orderId).cancellationInitiated) revert OrderCancellationInitiated();
         if (amount > escrow) revert AmountTooLarge();
 
         // Update escrow tracking
@@ -139,5 +139,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
         // Standard buy order accounting
         super._cancelOrderAccounting(order, orderId, orderState);
+        // Clear the escrow record
+        getOrderEscrow[orderId] = 0;
     }
 }
