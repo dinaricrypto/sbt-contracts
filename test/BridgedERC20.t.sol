@@ -93,6 +93,11 @@ contract BridgedERC20Test is Test {
         vm.expectRevert(BridgedERC20.UnauthorizedOperation.selector);
         vm.prank(address(1));
         token.transfer(address(0), 0.1e18);
+
+        // grant access has burner
+        token.grantRole(token.BURNER_ROLE(), address(1));
+        vm.prank(address(1));
+        token.transfer(address(0), 0.1e18);
     }
 
     function testBurnUnauthorizedReverts() public {
