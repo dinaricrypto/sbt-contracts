@@ -86,6 +86,15 @@ contract BridgedERC20Test is Test {
         assertEq(token.balanceOf(address(1)), 0.1e18);
     }
 
+    function testAttemptToFalsifyTotalsupply() public {
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(address(1), 1e18);
+        token.mint(address(2), 1e18);
+        vm.expectRevert(BridgedERC20.UnauthorizedOperation.selector);
+        vm.prank(address(1));
+        token.transfer(address(0), 0.1e18);
+    }
+
     function testBurnUnauthorizedReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);

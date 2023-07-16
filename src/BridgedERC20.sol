@@ -11,6 +11,7 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
 contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
+    error UnauthorizedOperation();
     /// ------------------ Events ------------------ ///
 
     /// @dev Emitted when `name` is set
@@ -128,6 +129,9 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         // Restrictions ignored for minting and burning
         // If transferRestrictor is not set, no restrictions are applied
         if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
+            if (to == address(0)) {
+                if (!hasRole(BURNER_ROLE, msg.sender)) revert UnauthorizedOperation();
+            }
             return;
         }
 
