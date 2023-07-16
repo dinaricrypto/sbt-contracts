@@ -15,4 +15,7 @@ interface IOrderFees {
     /// @notice Recovers input value needed to achieve a given remaining value after fees
     /// @param remainingValue Remaining value after fees
     function recoverInputValueFromRemaining(uint256 remainingValue) external view returns (uint256);
+
+    /// @notice Return the current percentage fee rate
+    function percentageFeeRate() external view returns (uint64);
 }

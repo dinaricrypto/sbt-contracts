@@ -79,9 +79,10 @@ contract SellOrderProcessorTest is Test {
 
     function testNoFees(uint256 value) public {
         issuer.setOrderFees(IOrderFees(address(0)));
-
         uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-        uint256 percentageFee = issuer.getPercentageFeeForOrder(value);
+        OrderProcessor.OrderRequest memory order = dummyOrder;
+        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        uint256 percentageFee = issuer.getPercentageFeeForOrder(orderId, value);
         assertEq(flatFee, 0);
         assertEq(percentageFee, 0);
     }
@@ -220,7 +221,7 @@ contract SellOrderProcessorTest is Test {
         assertEq(issuer.getTotalReceived(orderId), 0);
         // balances after
         uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-        uint256 percentageFee = issuer.getPercentageFeeForOrder(receivedAmount);
+        uint256 percentageFee = issuer.getPercentageFeeForOrder(orderId, receivedAmount);
         uint256 fees = flatFee + percentageFee;
         if (fees > receivedAmount) fees = receivedAmount;
         assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - fees);
@@ -267,7 +268,7 @@ contract SellOrderProcessorTest is Test {
         // balances after
         if (fillAmount > 0) {
             uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-            uint256 percentageFee = issuer.getPercentageFeeForOrder(receivedAmount);
+            uint256 percentageFee = issuer.getPercentageFeeForOrder(orderId, receivedAmount);
             uint256 fees = percentageFee + flatFee;
             if (fees > receivedAmount) fees = receivedAmount;
             uint256 escrow = orderAmount - fillAmount;
