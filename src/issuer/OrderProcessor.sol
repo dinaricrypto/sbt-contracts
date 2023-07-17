@@ -89,8 +89,6 @@ abstract contract OrderProcessor is
     error Blacklist();
     /// @dev Custom error when an order cancellation has already been initiated
     error OrderCancellationInitiated();
-    /// @dev Check if caller is orderprocessor
-    error NotOrderProcessor();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
