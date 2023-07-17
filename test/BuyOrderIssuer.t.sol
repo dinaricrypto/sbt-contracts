@@ -453,10 +453,9 @@ contract BuyOrderIssuerTest is Test {
         vm.prank(user);
         issuer.requestCancel(dummyOrder, salt);
 
-        vm.expectRevert(OrderProcessor.OrderCancellationAlreadyInitiated.selector);
+        vm.expectRevert(OrderProcessor.OrderCancellationInitiated.selector);
         vm.prank(user);
         issuer.requestCancel(dummyOrder, salt);
-
         assertEq(issuer.cancelRequested(orderId), true);
     }
 

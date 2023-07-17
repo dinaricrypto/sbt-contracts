@@ -88,7 +88,7 @@ abstract contract OrderProcessor is
     /// @dev blacklist address
     error Blacklist();
     /// @dev Custom error when an order cancellation has already been initiated
-    error OrderCancellationAlreadyInitiated();
+    error OrderCancellationInitiated();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -244,10 +244,10 @@ abstract contract OrderProcessor is
     }
 
     /**
-     * @dev Get order cancellation status
+     *
      * @param id Order ID
      */
-    function cancelRequested(bytes32 id) public view returns (bool) {
+    function cancelRequested(bytes32 id) external view returns (bool) {
         return _orders[id].cancellationInitiated;
     }
 
@@ -301,7 +301,6 @@ abstract contract OrderProcessor is
         if (orderState.requester == address(0)) revert OrderNotFound();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
-
         // Notify order filled
         emit OrderFill(orderId, orderRequest.recipient, fillAmount, receivedAmount);
 
@@ -332,7 +331,7 @@ abstract contract OrderProcessor is
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
-        if (_orders[orderId].cancellationInitiated) revert OrderCancellationAlreadyInitiated();
+        if (_orders[orderId].cancellationInitiated) revert OrderCancellationInitiated();
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
         // Only requester can request cancellation
