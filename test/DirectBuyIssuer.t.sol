@@ -116,6 +116,31 @@ contract DirectBuyIssuerTest is Test {
         }
     }
 
+    function testRevertTakeEscrowAfterOrderCancel(uint256 orderAmount, uint256 takeAmount) public {
+        vm.assume(orderAmount > 0);
+
+        OrderProcessor.OrderRequest memory order = dummyOrder;
+        order.quantityIn = orderAmount;
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
+        uint256 fees = flatFee + percentageFee;
+        vm.assume(fees < orderAmount);
+
+        paymentToken.mint(user, orderAmount);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), orderAmount);
+
+        vm.prank(user);
+        issuer.requestOrder(order, salt);
+        // user request a cancel order
+        vm.prank(user);
+        issuer.requestCancel(order, salt);
+
+        takeAmount = orderAmount - fees;
+        // vm.expectRevert(OrderProcessor.OrderCancellationInitiated.selector);
+        // vm.prank(operator);
+        // issuer.takeEscrow(order, salt, takeAmount);
+    }
+
     function testReturnEscrow(uint256 orderAmount, uint256 returnAmount) public {
         vm.assume(orderAmount > 0);
 
