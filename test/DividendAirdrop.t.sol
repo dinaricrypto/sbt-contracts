@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import {DividendAirdrop} from "../src/dividend-airdrops/DividendAirdrop.sol";
+import {DividendAirdrop} from "../src/dividend/DividendAirdrop.sol";
 import {DataHelper} from "./utils/DataHelper.sol";
 import {Merkle} from "murky/Merkle.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
