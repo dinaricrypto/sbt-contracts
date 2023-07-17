@@ -447,6 +447,9 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(dummyOrder, salt);
 
         bytes32 orderId = issuer.getOrderIdFromOrderRequest(dummyOrder, salt);
+        vm.expectRevert(OrderProcessor.NotOrderProcessor.selector);
+        assertEq(issuer.getOrderState(orderId).cancellationInitiated, false);
+        vm.prank(address(issuer));
         assertEq(issuer.getOrderState(orderId).cancellationInitiated, false);
         vm.expectEmit(true, true, true, true);
         emit CancelRequested(orderId, user);
@@ -456,7 +459,7 @@ contract BuyOrderIssuerTest is Test {
         vm.expectRevert(OrderProcessor.OrderCancellationInitiated.selector);
         vm.prank(user);
         issuer.requestCancel(dummyOrder, salt);
-
+        vm.prank(address(issuer));
         assertEq(issuer.getOrderState(orderId).cancellationInitiated, true);
     }
 

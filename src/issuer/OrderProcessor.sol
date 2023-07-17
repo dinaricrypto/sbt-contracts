@@ -69,8 +69,6 @@ abstract contract OrderProcessor is
         uint256 received;
         // Whether a cancellation for this order has been initiated
         bool cancellationInitiated;
-        // Whether the order has been completely filled
-        bool filled;
     }
 
     /// @dev Zero address
@@ -93,6 +91,8 @@ abstract contract OrderProcessor is
     error OrderCancellationInitiated();
     /// @dev Custom error when an order has already been filled
     error OrderFilled();
+    /// @dev Check if caller is orderprocessor
+    error NotOrderProcessor();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -251,7 +251,8 @@ abstract contract OrderProcessor is
      *
      * @param id Order ID
      */
-    function getOrderState(bytes32 id) public view returns (OrderState memory) {
+    function getOrderState(bytes32 id) external view returns (OrderState memory) {
+        if (msg.sender != address(this)) revert NotOrderProcessor();
         return _orders[id];
     }
 
@@ -281,13 +282,8 @@ abstract contract OrderProcessor is
 
         // Initialize order state
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        _orders[orderId] = OrderState({
-            requester: msg.sender,
-            remainingOrder: orderAmount,
-            received: 0,
-            cancellationInitiated: false,
-            filled: false
-        });
+        _orders[orderId] =
+            OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0, cancellationInitiated: false});
         _numOpenOrders++;
     }
 
@@ -310,8 +306,6 @@ abstract contract OrderProcessor is
         if (orderState.requester == address(0)) revert OrderNotFound();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
-        // Update order state
-        _orders[orderId].filled = true;
         // Notify order filled
         emit OrderFill(orderId, orderRequest.recipient, fillAmount, receivedAmount);
 
