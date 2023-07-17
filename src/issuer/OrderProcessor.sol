@@ -259,7 +259,10 @@ abstract contract OrderProcessor is
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
     function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
         // check blocklisted address
-        if (BridgedERC20(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)) revert Blacklist();
+        if (
+            BridgedERC20(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)
+                || BridgedERC20(orderRequest.assetToken).isBlacklisted(msg.sender)
+        ) revert Blacklist();
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         // Check for whitelisted tokens
