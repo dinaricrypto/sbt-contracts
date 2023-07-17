@@ -128,9 +128,10 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
         // Restrictions ignored for minting and burning
         // If transferRestrictor is not set, no restrictions are applied
-        if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
-            if (to == address(0) && msg.sig != this.burn.selector) revert UnauthorizedOperation();
+        if (from == address(0) || address(transferRestrictor) == address(0)) {
+            return;
         }
+        if (to == address(0) && msg.sig != this.burn.selector) revert UnauthorizedOperation();
 
         // Check transfer restrictions
         transferRestrictor.requireNotRestricted(from, to);
