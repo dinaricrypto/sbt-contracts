@@ -248,6 +248,22 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(dummyOrder, salt);
     }
 
+    function testRequestOrderBlacklist(uint256 quantityIn) public {
+        // restrict msg.sender
+        TransferRestrictor(address(token.transferRestrictor())).restrict(user);
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
+        uint256 fees = flatFee + percentageFee;
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        vm.assume(quantityIn > 0);
+        vm.assume(quantityIn > fees);
+        vm.expectRevert(OrderProcessor.Blacklist.selector);
+        vm.prank(user);
+        issuer.requestOrder(dummyOrder, salt);
+    }
+
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
         vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
 
