@@ -89,8 +89,6 @@ abstract contract OrderProcessor is
     error Blacklist();
     /// @dev Custom error when an order cancellation has already been initiated
     error OrderCancellationInitiated();
-    /// @dev Custom error when an order has already been filled
-    error OrderFilled();
     /// @dev Check if caller is orderprocessor
     error NotOrderProcessor();
 
@@ -251,9 +249,8 @@ abstract contract OrderProcessor is
      *
      * @param id Order ID
      */
-    function getOrderState(bytes32 id) external view returns (OrderState memory) {
-        if (msg.sender != address(this)) revert NotOrderProcessor();
-        return _orders[id];
+    function cancelRequested(bytes32 id) external view returns (bool) {
+        return _orders[id].cancellationInitiated;
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
