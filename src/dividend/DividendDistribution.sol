@@ -16,7 +16,6 @@ contract DividendDistribution is Ownable {
         bytes32 merkleRoot; // The Merkle root associated with the distribution.
         uint256 remainingDistribution; // The amount of tokens remaining to be claimed.
         uint256 endTime; // The timestamp when the distribution stops
-        bool isReclaimed; // A flag indicating whether the distribution has been reclaimed by the distributor.
     }
 
     // Event emitted when tokens are claimed from an distribution.
@@ -34,7 +33,7 @@ contract DividendDistribution is Ownable {
     error DistributionRunning(); // Error thrown when trying to reclaim tokens from an distribution that is still running.
     error DistributionEnded(); // Error thrown when trying to claim tokens from an distribution that has ended.
     error InvalidProof(); // Error thrown when the provided Merkle proof is invalid.
-    error AlreadyReclaimed(); // Error thrown when the distribution has already been reclaimed.
+    error NotReclaimable(); // Error thrown when the distribution has already been reclaimed or does not exist.
 
     /// ------------------- State ------------------- ///
 
@@ -68,7 +67,7 @@ contract DividendDistribution is Ownable {
         distributionId = nextDistributionId++;
 
         // Create a new distribution and store it with the next available ID
-        distributions[distributionId] = Distribution(token, merkleRoot, totalDistribution, endTime, false);
+        distributions[distributionId] = Distribution(token, merkleRoot, totalDistribution, endTime);
 
         // Emit an event for the new distribution
         emit NewDistributionCreated(distributionId, totalDistribution, block.timestamp, endTime);
@@ -128,15 +127,17 @@ contract DividendDistribution is Ownable {
      * @dev Can only be called by the distributor after the claim window has passed.
      */
     function reclaimDistribution(uint256 _distributionId) external onlyOwner {
-        if (distributions[_distributionId].isReclaimed) revert AlreadyReclaimed();
-        if (block.timestamp < distributions[_distributionId].endTime) revert DistributionRunning();
+        uint256 endTime = distributions[_distributionId].endTime;
+        if (endTime == 0) revert NotReclaimable();
+        if (block.timestamp < endTime) revert DistributionRunning();
 
-        // Mark the distribution as reclaimed
-        distributions[_distributionId].isReclaimed = true;
-        emit DistributionReclaimed(_distributionId, distributions[_distributionId].remainingDistribution);
+        uint256 totalReclaimed = distributions[_distributionId].remainingDistribution;
+        emit DistributionReclaimed(_distributionId, totalReclaimed);
+
+        address token = distributions[_distributionId].token;
+        delete distributions[_distributionId];
+
         // Transfer the unclaimed tokens back to the distributor
-        IERC20(distributions[_distributionId].token).safeTransfer(
-            msg.sender, distributions[_distributionId].remainingDistribution
-        );
+        IERC20(token).safeTransfer(msg.sender, totalReclaimed);
     }
 }

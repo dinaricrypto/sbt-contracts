@@ -130,7 +130,7 @@ contract DividendDistributionTest is Test, DataHelper {
         distribution.distribute(
             distributionId, DataHelper.distributionAddress1, DataHelper.distributionAmount0, proofForIndex1
         );
-        (,,, uint256 endTime,) = distribution.distributions(distributionId);
+        (,,, uint256 endTime) = distribution.distributions(distributionId);
         vm.warp(endTime + 1);
         vm.prank(owner);
         vm.expectRevert(DividendDistribution.DistributionEnded.selector);
@@ -160,7 +160,7 @@ contract DividendDistributionTest is Test, DataHelper {
         vm.prank(owner);
         distribution.reclaimDistribution(0);
 
-        (,,, uint256 endTime,) = distribution.distributions(0);
+        (,,, uint256 endTime) = distribution.distributions(0);
         vm.warp(endTime + 1);
 
         vm.expectEmit(true, true, true, true);
