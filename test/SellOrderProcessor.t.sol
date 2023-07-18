@@ -177,7 +177,12 @@ contract SellOrderProcessorTest is Test {
         }
     }
 
-    function testFulfillOrder(uint256 orderAmount, uint256 firstFillAmount, uint256 firstReceivedAmount, uint256 receivedAmount) public {
+    function testFulfillOrder(
+        uint256 orderAmount,
+        uint256 firstFillAmount,
+        uint256 firstReceivedAmount,
+        uint256 receivedAmount
+    ) public {
         vm.assume(orderAmount > 0);
         vm.assume(firstFillAmount > 0);
         vm.assume(firstFillAmount <= orderAmount);
