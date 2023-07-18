@@ -89,7 +89,7 @@ contract SellOrderProcessor is OrderProcessor {
         uint256 subtotal = 0;
         if (orderState.received < previousFeesEarned) {
             if (totalReceived > previousFeesEarned) {
-                // If received amount is larger than previous flat fee earned for the first time, 
+                // If received amount is larger than previous flat fee earned for the first time,
                 // then take the difference
                 subtotal = totalReceived - previousFeesEarned;
             }
