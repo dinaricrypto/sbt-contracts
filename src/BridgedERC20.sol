@@ -26,7 +26,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @dev Emitted when transfer restrictor contract is set
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
     /// @dev Emitted when a split is performed
-    event Split(address newToken, uint8 splitMultiple, bool reverseSplit, string legacyRename, string legacyResymbol);
+    event Split(BridgedERC20 newToken, uint8 splitMultiple, bool reverseSplit, string legacyName, string legacySymbol);
 
     error TokenSplit();
     error ZeroMultiple();
@@ -60,7 +60,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     ITransferRestrictor public transferRestrictor;
 
     /// @notice Address of post-split token
-    address public childToken;
+    BridgedERC20 public childToken;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -96,12 +96,12 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// ------------------ Getters ------------------ ///
 
     /// @notice Returns the name of the token
-    function name() public view virtual override returns (string memory) {
+    function name() public view override returns (string memory) {
         return _name;
     }
 
     /// @notice Returns the symbol of the token
-    function symbol() public view virtual override returns (string memory) {
+    function symbol() public view override returns (string memory) {
         return _symbol;
     }
 
@@ -140,9 +140,9 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @notice Mint tokens
     /// @param to Address to mint tokens to
     /// @param value Amount of tokens to mint
-    /// @dev Only callable by approved minter
-    function mint(address to, uint256 value) external virtual onlyRole(MINTER_ROLE) {
-        if (childToken != address(0)) revert TokenSplit();
+    /// @dev Only callable by approved minter until split
+    function mint(address to, uint256 value) external onlyRole(MINTER_ROLE) {
+        if (address(childToken) != address(0)) revert TokenSplit();
 
         _mint(to, value);
     }
@@ -150,9 +150,14 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @notice Burn tokens
     /// @param value Amount of tokens to burn
     /// @dev Only callable by approved burner
-    function burn(uint256 value) external virtual onlyRole(BURNER_ROLE) {
-        address _childToken = childToken;
-        if (_childToken != address(0) && msg.sender != _childToken) revert TokenSplit();
+    /// @dev Only callable by child token after split
+    function burn(uint256 value) external {
+        address _childToken = address(childToken);
+        if (_childToken != address(0)) {
+            if (msg.sender != _childToken) revert TokenSplit();
+        } else {
+            _checkRole(BURNER_ROLE);
+        }
 
         _burn(msg.sender, value);
     }
@@ -160,7 +165,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// ------------------ Transfers ------------------ ///
 
     /// @inheritdoc ERC20
-    function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
+    function _beforeTokenTransfer(address from, address to, uint256) internal view override {
         // Restrictions ignored for minting and burning
         // If transferRestrictor is not set, no restrictions are applied
         if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
@@ -176,19 +181,20 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @notice Deploy and configure a new BridgedERC20 for a split
     /// @param _splitMultiple Ratio of new token to old token
     /// @param _reverseSplit True if this is a reverse split
-    /// @param legacyRename New name for legacy token
-    /// @param legacyResymbol New symbol for legacy token
+    /// @param legacyName New name for legacy token
+    /// @param legacySymbol New symbol for legacy token
+    /// @return newToken Address of new token
     /// @dev After split: no mint, no burn other than by child token
-    function split(
-        uint8 _splitMultiple,
-        bool _reverseSplit,
-        string calldata legacyRename,
-        string calldata legacyResymbol
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (childToken != address(0)) revert TokenSplit();
+    function split(uint8 _splitMultiple, bool _reverseSplit, string calldata legacyName, string calldata legacySymbol)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+        returns (BridgedERC20 newToken)
+    {
+        if (address(childToken) != address(0)) revert TokenSplit();
         if (_splitMultiple == 0) revert ZeroMultiple();
 
         // Deploy new token via factory delegatecall
+        // This prevents a circular dependency on BridgedERC20 introduced by using "new"
         bytes memory returnData = factory.functionDelegateCall(
             abi.encodeWithSelector(
                 IBridgedERC20Factory.createBridgedERC20.selector,
@@ -202,22 +208,22 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
                 factory
             )
         );
-        address newToken = abi.decode(returnData, (address));
+        newToken = BridgedERC20(abi.decode(returnData, (address)));
 
         // Set child token
         childToken = newToken;
 
         // Update name and symbol
-        setName(legacyRename);
-        setSymbol(legacyResymbol);
+        setName(legacyName);
+        setSymbol(legacySymbol);
 
         // Emit split event
-        emit Split(newToken, splitMultiple, reverseSplit, legacyRename, legacyResymbol);
+        emit Split(newToken, _splitMultiple, _reverseSplit, legacyName, legacySymbol);
     }
 
     /// @notice Convert legacy tokens to new tokens at slit ratio
     /// @param amount Amount of legacy tokens to convert
-    function convert(uint256 amount) external {
+    function convert(uint256 amount) external returns (uint256 newAmount) {
         // Move legacy tokens to this contract
         BridgedERC20(deployer).transferFrom(msg.sender, address(this), amount);
 
@@ -225,7 +231,6 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         BridgedERC20(deployer).burn(amount);
 
         // Split math
-        uint256 newAmount;
         if (reverseSplit) {
             newAmount = amount / splitMultiple;
         } else {

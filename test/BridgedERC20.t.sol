@@ -12,6 +12,7 @@ contract BridgedERC20Test is Test {
     event SymbolSet(string symbol);
     event DisclosuresSet(string disclosures);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
+    event Split(address newToken, uint8 splitMultiple, bool reverseSplit, string legacyName, string legacySymbol);
 
     TransferRestrictor public restrictor;
     BridgedERC20Factory public factory;
@@ -30,6 +31,9 @@ contract BridgedERC20Test is Test {
             false,
             address(factory)
         );
+
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.BURNER_ROLE(), address(this));
     }
 
     function testSetName(string calldata name) public {
@@ -61,7 +65,6 @@ contract BridgedERC20Test is Test {
     }
 
     function testMint() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);
         assertEq(token.totalSupply(), 1e18);
         assertEq(token.balanceOf(address(1)), 1e18);
@@ -72,17 +75,17 @@ contract BridgedERC20Test is Test {
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(address(this)),
+                    Strings.toHexString(address(1)),
                     " is missing role ",
                     Strings.toHexString(uint256(token.MINTER_ROLE()), 32)
                 )
             )
         );
+        vm.prank(address(1));
         token.mint(address(1), 1e18);
     }
 
     function testBurn() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);
         token.grantRole(token.BURNER_ROLE(), address(1));
 
@@ -93,7 +96,6 @@ contract BridgedERC20Test is Test {
     }
 
     function testBurnUnauthorizedReverts() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);
 
         vm.expectRevert(
@@ -111,7 +113,6 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransfer() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
 
         assertTrue(token.transfer(address(1), 1e18));
@@ -122,7 +123,6 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransferRestrictedToReverts() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
         restrictor.restrict(address(1));
 
@@ -131,11 +131,70 @@ contract BridgedERC20Test is Test {
     }
 
     function testTransferRestrictedFromReverts() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
         restrictor.restrict(address(this));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         token.transfer(address(1), 1e18);
+    }
+
+    function testSplit(uint8 multiple, bool reverse) public {
+        string memory legacyName = string.concat(token.name(), " - old");
+        string memory legacySymbol = string.concat(token.symbol(), ".OLD");
+        string memory name = token.name();
+        string memory symbol = token.symbol();
+
+        if (multiple == 0) {
+            vm.expectRevert(BridgedERC20.ZeroMultiple.selector);
+            token.split(multiple, reverse, legacyName, legacySymbol);
+        } else {
+            BridgedERC20 newToken = token.split(multiple, reverse, legacyName, legacySymbol);
+            assertEq(token.name(), legacyName);
+            assertEq(token.symbol(), legacySymbol);
+            assertEq(newToken.name(), name);
+            assertEq(newToken.symbol(), symbol);
+            assertEq(newToken.splitMultiple(), multiple);
+            assertEq(newToken.reverseSplit(), reverse);
+        }
+    }
+
+    function testSplitTokenSplitReverts() public {
+        token.split(2, false, "name", "S");
+
+        // mint
+        vm.expectRevert(BridgedERC20.TokenSplit.selector);
+        token.mint(address(this), 100 ether);
+
+        // burn
+        vm.expectRevert(BridgedERC20.TokenSplit.selector);
+        token.burn(100 ether);
+
+        // split again
+        vm.expectRevert(BridgedERC20.TokenSplit.selector);
+        token.split(2, false, "name", "S");
+    }
+
+    function testConvert(uint8 multiple, bool reverse, uint256 amount) public {
+        vm.assume(multiple > 0);
+        // overflow precheck
+        if (!reverse) {
+            vm.assume(amount < type(uint248).max);
+        }
+        token.mint(address(this), amount);
+
+        // split
+        BridgedERC20 newToken = token.split(multiple, reverse, "name", "S");
+
+        // convert
+        assertEq(token.balanceOf(address(this)), amount);
+        token.increaseAllowance(address(newToken), amount);
+        uint256 newAmount = newToken.convert(amount);
+        if (reverse) {
+            assertEq(newAmount, amount / multiple);
+        } else {
+            assertEq(newAmount, amount * multiple);
+        }
+        assertEq(token.balanceOf(address(this)), 0);
+        assertEq(newToken.balanceOf(address(this)), newAmount);
     }
 }
