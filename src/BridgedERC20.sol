@@ -131,6 +131,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
 
         // If transferRestrictor is not set, no restrictions are applied
         if (address(transferRestrictor) != address(0)) {
+            // Check transfer restrictions
             transferRestrictor.requireNotRestricted(from, to);
         }
     }
