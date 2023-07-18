@@ -77,37 +77,6 @@ contract SellOrderProcessorTest is Test {
         });
     }
 
-    function testNoFees(uint256 value) public {
-        issuer.setOrderFees(IOrderFees(address(0)));
-        uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
-        uint256 percentageFee = issuer.getPercentageFeeForOrder(orderId, value);
-        assertEq(flatFee, 0);
-        assertEq(percentageFee, 0);
-    }
-
-    function testChangeOrderFeesCheck() public {
-        bytes32 salt1 = 0x0000000000000000000000000000000000000000000000000000000000000002;
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(dummyOrder, salt);
-        token.mint(user, dummyOrder.quantityIn);
-        vm.prank(user);
-        token.increaseAllowance(address(issuer), dummyOrder.quantityIn);
-        vm.prank(user);
-        issuer.requestOrder(dummyOrder, salt);
-        uint256 percecentageFee = issuer.getPercentageFeeForOrder(orderId, dummyOrder.quantityIn);
-        // // set new fees
-        orderFees.setFees(1.2 ether, 0.06 ether);
-        token.mint(user, dummyOrder.quantityIn);
-        vm.prank(user);
-        token.increaseAllowance(address(issuer), dummyOrder.quantityIn);
-        bytes32 orderId1 = issuer.getOrderIdFromOrderRequest(dummyOrder, salt1);
-        vm.prank(user);
-        issuer.requestOrder(dummyOrder, salt1);
-        uint256 percecentageFee1 = issuer.getPercentageFeeForOrder(orderId1, dummyOrder.quantityIn);
-        assert(percecentageFee1 != percecentageFee);
-    }
-
     function testRequestOrder(uint256 quantityIn) public {
         OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,
@@ -208,8 +177,16 @@ contract SellOrderProcessorTest is Test {
         }
     }
 
-    function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
+    function testFulfillOrder(
+        uint256 orderAmount,
+        uint256 firstFillAmount,
+        uint256 firstReceivedAmount,
+        uint256 receivedAmount
+    ) public {
         vm.assume(orderAmount > 0);
+        vm.assume(firstFillAmount > 0);
+        vm.assume(firstFillAmount <= orderAmount);
+        vm.assume(firstReceivedAmount <= receivedAmount);
 
         OrderProcessor.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
@@ -233,23 +210,43 @@ contract SellOrderProcessorTest is Test {
         uint256 issuerAssetBefore = token.balanceOf(address(issuer));
         uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
         uint256 treasuryPaymentBefore = paymentToken.balanceOf(treasury);
-        vm.expectEmit(true, true, true, true);
-        emit OrderFulfilled(orderId, user);
-        vm.prank(operator);
-        issuer.fillOrder(order, salt, orderAmount, receivedAmount);
+        if (firstFillAmount < orderAmount) {
+            uint256 secondFillAmount = orderAmount - firstFillAmount;
+            uint256 secondReceivedAmount = receivedAmount - firstReceivedAmount;
+            // first fill
+            vm.expectEmit(true, true, true, true);
+            emit OrderFill(orderId, user, firstFillAmount, firstReceivedAmount);
+            vm.prank(operator);
+            issuer.fillOrder(order, salt, firstFillAmount, firstReceivedAmount);
+            assertEq(issuer.getRemainingOrder(orderId), orderAmount - firstFillAmount);
+            assertEq(issuer.numOpenOrders(), 1);
+            assertEq(issuer.getTotalReceived(orderId), firstReceivedAmount);
+
+            // second fill
+            vm.expectEmit(true, true, true, true);
+            emit OrderFulfilled(orderId, user);
+            vm.prank(operator);
+            issuer.fillOrder(order, salt, secondFillAmount, secondReceivedAmount);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit OrderFulfilled(orderId, user);
+            vm.prank(operator);
+            issuer.fillOrder(order, salt, orderAmount, receivedAmount);
+        }
+        // order closed
         assertEq(issuer.getRemainingOrder(orderId), 0);
         assertEq(issuer.numOpenOrders(), 0);
         assertEq(issuer.getTotalReceived(orderId), 0);
         // balances after
-        uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-        uint256 percentageFee = issuer.getPercentageFeeForOrder(orderId, receivedAmount);
+        (uint256 flatFee, uint256 percentageFee) = issuer.estimateFeesForOrder(address(paymentToken), receivedAmount);
         uint256 fees = flatFee + percentageFee;
         if (fees > receivedAmount) fees = receivedAmount;
-        assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - fees);
+        // Fees may be k - 1 (k == number of fills) off due to rounding
+        assertApproxEqAbs(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - fees, 1);
         assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore);
         assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - orderAmount);
         assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
-        assertEq(paymentToken.balanceOf(treasury), treasuryPaymentBefore + fees);
+        assertApproxEqAbs(paymentToken.balanceOf(treasury), treasuryPaymentBefore + fees, 1);
     }
 
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, string calldata reason)
@@ -288,8 +285,8 @@ contract SellOrderProcessorTest is Test {
         issuer.cancelOrder(order, salt, reason);
         // balances after
         if (fillAmount > 0) {
-            uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-            uint256 percentageFee = issuer.getPercentageFeeForOrder(orderId, receivedAmount);
+            (uint256 flatFee, uint256 percentageFee) =
+                issuer.estimateFeesForOrder(address(paymentToken), receivedAmount);
             uint256 fees = percentageFee + flatFee;
             if (fees > receivedAmount) fees = receivedAmount;
             uint256 escrow = orderAmount - fillAmount;

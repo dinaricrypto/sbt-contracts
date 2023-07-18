@@ -251,6 +251,32 @@ abstract contract OrderProcessor is
         return _orders[id].cancellationInitiated;
     }
 
+    /// @notice Get fees for an order
+    /// @param token Payment token for order
+    /// @param inputValue Total input value subject to fees
+    /// @return flatFee Flat fee for order
+    /// @return percentageFee Percentage fee for order
+    /// @dev Fees zero if no orderFees contract is set
+    function estimateFeesForOrder(address token, uint256 inputValue)
+        public
+        view
+        returns (uint256 flatFee, uint256 percentageFee)
+    {
+        // Check if fee contract is set
+        if (address(orderFees) == address(0)) {
+            return (0, 0);
+        }
+
+        // Calculate fees
+        flatFee = orderFees.flatFeeForOrder(token);
+        // If input value is greater than flat fee, calculate percentage fee on remaining value
+        if (inputValue > flatFee) {
+            percentageFee = orderFees.percentageFeeForValue(inputValue - flatFee);
+        } else {
+            percentageFee = 0;
+        }
+    }
+
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Request an order
