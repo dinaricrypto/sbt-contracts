@@ -11,6 +11,7 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
 contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
+    error UnauthorizedOperation();
     /// ------------------ Events ------------------ ///
 
     /// @dev Emitted when `name` is set
@@ -125,13 +126,23 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
 
     /// @inheritdoc ERC20
     function _beforeTokenTransfer(address from, address to, uint256) internal virtual override {
-        // Restrictions ignored for minting and burning
-        // If transferRestrictor is not set, no restrictions are applied
-        if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
-            return;
-        }
+        // Disallow transfers to the zero address
+        if (to == address(0) && msg.sig != this.burn.selector) revert UnauthorizedOperation();
 
-        // Check transfer restrictions
-        transferRestrictor.requireNotRestricted(from, to);
+        // If transferRestrictor is not set, no restrictions are applied
+        if (address(transferRestrictor) != address(0)) {
+            // Check transfer restrictions
+            transferRestrictor.requireNotRestricted(from, to);
+        }
+    }
+
+    /**
+     * @param account The address of the account
+     * @return Whether the account is blacklisted
+     * @dev Returns true if the account is blacklisted , if the account is the zero address
+     */
+    function isBlacklisted(address account) external view returns (bool) {
+        if (address(transferRestrictor) == address(0)) return false;
+        return transferRestrictor.isBlacklisted(account);
     }
 }

@@ -119,7 +119,6 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         // Can't fill more than payment previously taken from escrow
         uint256 escrow = getOrderEscrow[id];
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
-
         // Buy order accounting
         _fillBuyOrder(id, order, orderState, fillAmount, receivedAmount);
     }
@@ -136,5 +135,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
         // Standard buy order accounting
         super._cancelOrderAccounting(id, order, orderState);
+        // Clear the escrow record
+        delete getOrderEscrow[id];
     }
 }

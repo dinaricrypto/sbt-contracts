@@ -21,6 +21,8 @@ contract SellOrderProcessor is OrderProcessor {
 
     /// @dev orderId => feesEarned
     mapping(bytes32 => uint256) private _feesEarned;
+    /// @dev orderId => percentageFees
+    mapping(bytes32 => uint64) private _orderPercentageFeeRates;
 
     /// ------------------ Fee Helpers ------------------ ///
 
@@ -32,6 +34,20 @@ contract SellOrderProcessor is OrderProcessor {
         if (address(orderFees) == address(0)) return 0;
         // Calculate fees
         return orderFees.flatFeeForOrder(token);
+    }
+
+    /// @notice Get percentage fee for an order
+    /// @param orderId OrderId
+    /// @param value Value of order subject to percentage fee
+    /// @dev Fee zero if no orderFees contract is set
+    function getPercentageFeeForOrder(bytes32 orderId, uint256 value) public view returns (uint256) {
+        // If fee contract is not set or percentage fee rate for the order is zero, return 0
+        if (address(orderFees) == address(0) || _orderPercentageFeeRates[orderId] == 0) return 0;
+
+        if (_orderPercentageFeeRates[orderId] != 0) {
+            return PrbMath.mulDiv18(value, _orderPercentageFeeRates[orderId]);
+        }
+        return 0;
     }
 
     /// @notice Get percentage fee for an order
@@ -55,6 +71,8 @@ contract SellOrderProcessor is OrderProcessor {
     {
         // Accumulate initial flat fee obligation
         _feesEarned[id] = getFlatFeeForOrder(orderRequest.paymentToken);
+        // store current percentage fee rate for order
+        _orderPercentageFeeRates[id] = orderFees.percentageFeeRate();
 
         // Construct order
         orderConfig = OrderConfig({
@@ -128,7 +146,7 @@ contract SellOrderProcessor is OrderProcessor {
         delete _feesEarned[id];
 
         // Return escrow
-        IERC20(order.assetToken).safeTransfer(order.recipient, refund);
+        IERC20(order.assetToken).safeTransfer(orderState.requester, refund);
     }
 
     /// @dev Distribute proceeds and fees

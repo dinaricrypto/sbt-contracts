@@ -9,6 +9,7 @@ import "./utils/SigUtils.sol";
 import "../src/issuer/BuyOrderIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BuyOrderIssuerTest is Test {
@@ -234,6 +235,24 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(dummyOrderRequest);
     }
 
+    function testRequestOrderBlacklist(uint256 quantityIn) public {
+        // restrict msg.sender
+        TransferRestrictor(address(token.transferRestrictor())).restrict(user);
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
+        uint256 fees = flatFee + percentageFee;
+        vm.assume(quantityIn > 0);
+        vm.assume(quantityIn > fees);
+
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
+
+        vm.expectRevert(OrderProcessor.Blacklist.selector);
+        vm.prank(user);
+        issuer.requestOrder(dummyOrderRequest);
+    }
+
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
         vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
 
@@ -254,17 +273,25 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(order);
     }
 
-    function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
-        vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), tryAssetToken));
+    function testBlackListAssetRevert() public {
+        TransferRestrictor(address(token.transferRestrictor())).restrict(dummyOrder.recipient);
+        vm.expectRevert(OrderProcessor.Blacklist.selector);
+        vm.prank(user);
+        issuer.requestOrder(dummyOrderRequest);
+    }
+
+    function testRequestOrderUnsupportedAssetReverts() public {
+        BridgedERC20 tryAssetToken = new MockBridgedERC20();
+        vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), address(tryAssetToken)));
 
         OrderProcessor.OrderRequest memory order = dummyOrderRequest;
-        order.assetToken = tryAssetToken;
+        order.assetToken = address(tryAssetToken);
 
         vm.expectRevert(
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(tryAssetToken),
+                    Strings.toHexString(address(tryAssetToken)),
                     " is missing role ",
                     Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32)
                 )
@@ -425,6 +452,11 @@ contract BuyOrderIssuerTest is Test {
         emit CancelRequested(dummyOrder.recipient, dummyOrder.index);
         vm.prank(user);
         issuer.requestCancel(dummyOrder.recipient, dummyOrder.index);
+
+        vm.expectRevert(OrderProcessor.OrderCancellationInitiated.selector);
+        vm.prank(user);
+        issuer.requestCancel(dummyOrder.recipient, dummyOrder.index);
+        assertEq(issuer.cancelRequested(issuer.getOrderId(dummyOrder.recipient, dummyOrder.index)), true);
     }
 
     function testRequestCancelNotRequesterReverts() public {
