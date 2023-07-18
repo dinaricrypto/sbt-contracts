@@ -21,6 +21,8 @@ contract SellOrderProcessor is OrderProcessor {
 
     /// @dev orderId => feesEarned
     mapping(bytes32 => uint256) private _feesEarned;
+    /// @dev orderId => percentageFees
+    mapping(bytes32 => uint64) private _orderPercentageFeeRates;
 
     /// ------------------ Getters ------------------ ///
 
@@ -46,6 +48,20 @@ contract SellOrderProcessor is OrderProcessor {
     }
 
     /// @notice Get percentage fee for an order
+    /// @param orderId OrderId
+    /// @param value Value of order subject to percentage fee
+    /// @dev Fee zero if no orderFees contract is set
+    function getPercentageFeeForOrder(bytes32 orderId, uint256 value) public view returns (uint256) {
+        // If fee contract is not set or percentage fee rate for the order is zero, return 0
+        if (address(orderFees) == address(0) || _orderPercentageFeeRates[orderId] == 0) return 0;
+
+        if (_orderPercentageFeeRates[orderId] != 0) {
+            return PrbMath.mulDiv18(value, _orderPercentageFeeRates[orderId]);
+        }
+        return 0;
+    }
+
+    /// @notice Get percentage fee for an order
     /// @param value Value of order subject to percentage fee
     /// @dev Fee zero if no orderFees contract is set
     function getPercentageFeeForOrder(uint256 value) public view returns (uint256) {
@@ -66,6 +82,8 @@ contract SellOrderProcessor is OrderProcessor {
     {
         // Accumulate initial flat fee obligation
         _feesEarned[orderId] = getFlatFeeForOrder(orderRequest.paymentToken);
+        // store current percentage fee rate for order
+        _orderPercentageFeeRates[orderId] = orderFees.percentageFeeRate();
 
         // Construct order
         order = Order({
