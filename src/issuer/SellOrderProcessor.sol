@@ -37,40 +37,6 @@ contract SellOrderProcessor is OrderProcessor {
         });
     }
 
-    /// @notice Get flat fee for an order
-    /// @param token Payment token for order
-    /// @dev Fee zero if no orderFees contract is set
-    function getFlatFeeForOrder(address token) public view returns (uint256) {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) return 0;
-        // Calculate fees
-        return orderFees.flatFeeForOrder(token);
-    }
-
-    /// @notice Get percentage fee for an order
-    /// @param orderId OrderId
-    /// @param value Value of order subject to percentage fee
-    /// @dev Fee zero if no orderFees contract is set
-    function getPercentageFeeForOrder(bytes32 orderId, uint256 value) public view returns (uint256) {
-        // If fee contract is not set or percentage fee rate for the order is zero, return 0
-        if (address(orderFees) == address(0) || _orderPercentageFeeRates[orderId] == 0) return 0;
-
-        if (_orderPercentageFeeRates[orderId] != 0) {
-            return PrbMath.mulDiv18(value, _orderPercentageFeeRates[orderId]);
-        }
-        return 0;
-    }
-
-    /// @notice Get percentage fee for an order
-    /// @param value Value of order subject to percentage fee
-    /// @dev Fee zero if no orderFees contract is set
-    function getPercentageFeeForOrder(uint256 value) public view returns (uint256) {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) return 0;
-        // Calculate fees
-        return orderFees.percentageFeeForValue(value);
-    }
-
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
@@ -80,10 +46,13 @@ contract SellOrderProcessor is OrderProcessor {
         override
         returns (Order memory order)
     {
-        // Accumulate initial flat fee obligation
-        _feesEarned[orderId] = getFlatFeeForOrder(orderRequest.paymentToken);
-        // store current percentage fee rate for order
-        _orderPercentageFeeRates[orderId] = orderFees.percentageFeeRate();
+        // Check if fee contract is set
+        if (address(orderFees) != address(0)) {
+            // Accumulate initial flat fee obligation
+            _feesEarned[orderId] = orderFees.flatFeeForOrder(orderRequest.paymentToken);
+            // store current percentage fee rate for order
+            _orderPercentageFeeRates[orderId] = orderFees.percentageFeeRate();
+        }
 
         // Construct order
         order = Order({
@@ -114,9 +83,30 @@ contract SellOrderProcessor is OrderProcessor {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
-        // Accumulate fee obligations at each sill then take all at end
-        uint256 collection = getPercentageFeeForOrder(receivedAmount);
-        uint256 feesEarned = _feesEarned[orderId] + collection;
+        // Accumulate flat fee before applying percentage fee rate
+        uint256 previousFeesEarned = _feesEarned[orderId];
+        uint256 totalReceived = orderState.received + receivedAmount;
+        uint256 subtotal = 0;
+        if (orderState.received < previousFeesEarned) {
+            if (totalReceived > previousFeesEarned) {
+                // If received amount is larger than previous flat fee earned for the first time, 
+                // then take the difference
+                subtotal = totalReceived - previousFeesEarned;
+            }
+        } else {
+            subtotal = receivedAmount;
+        }
+
+        // Accumulate fee obligations at each sell then take all at end
+        uint256 collection = 0;
+        if (subtotal > 0) {
+            uint256 precentageFeeRate = _orderPercentageFeeRates[orderId];
+            if (precentageFeeRate != 0) {
+                collection = PrbMath.mulDiv18(subtotal, precentageFeeRate);
+            }
+        }
+
+        uint256 feesEarned = previousFeesEarned + collection;
         // If order completely filled, clear fee data
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         if (remainingOrder == 0) {
@@ -135,9 +125,7 @@ contract SellOrderProcessor is OrderProcessor {
         IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
         // Distribute if order completely filled
         if (remainingOrder == 0) {
-            _distributeProceeds(
-                orderRequest.paymentToken, orderRequest.recipient, orderState.received + receivedAmount, feesEarned
-            );
+            _distributeProceeds(orderRequest.paymentToken, orderRequest.recipient, totalReceived, feesEarned);
         }
     }
 

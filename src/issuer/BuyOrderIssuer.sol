@@ -48,32 +48,6 @@ contract BuyOrderIssuer is OrderProcessor {
         });
     }
 
-    /// @notice Get fees for an order
-    /// @param token Payment token for order
-    /// @param inputValue Total input value subject to fees
-    /// @return flatFee Flat fee for order
-    /// @return percentageFee Percentage fee for order
-    /// @dev Fees zero if no orderFees contract is set
-    function getFeesForOrder(address token, uint256 inputValue)
-        public
-        view
-        returns (uint256 flatFee, uint256 percentageFee)
-    {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) {
-            return (0, 0);
-        }
-
-        // Calculate fees
-        flatFee = orderFees.flatFeeForOrder(token);
-        // If input value is greater than flat fee, calculate percentage fee on remaining value
-        if (inputValue > flatFee) {
-            percentageFee = orderFees.percentageFeeForValue(inputValue - flatFee);
-        } else {
-            percentageFee = 0;
-        }
-    }
-
     /// @notice Get the raw input value and fees that produce a final order value
     /// @param token Payment token for order
     /// @param orderValue Final order value
@@ -110,7 +84,8 @@ contract BuyOrderIssuer is OrderProcessor {
         returns (Order memory order)
     {
         // Determine fees
-        (uint256 flatFee, uint256 percentageFee) = getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) =
+            estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 totalFees = flatFee + percentageFee;
         // Fees must not exceed order input value
         if (totalFees >= orderRequest.quantityIn) revert OrderTooSmall();
