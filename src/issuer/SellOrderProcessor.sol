@@ -24,8 +24,6 @@ contract SellOrderProcessor is OrderProcessor {
     /// @dev orderId => percentageFees
     mapping(bytes32 => uint64) private _orderPercentageFeeRates;
 
-    /// ------------------ Fee Helpers ------------------ ///
-
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
