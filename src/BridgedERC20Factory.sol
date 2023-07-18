@@ -11,7 +11,7 @@ contract BridgedERC20Factory is IBridgedERC20Factory {
         string memory symbol,
         string memory disclosures,
         ITransferRestrictor transferRestrictor,
-        uint256 splitRatio,
+        uint8 splitMultiple,
         bool reverseSplit,
         address factory
     ) external returns (address) {
@@ -22,7 +22,7 @@ contract BridgedERC20Factory is IBridgedERC20Factory {
                     symbol,
                     disclosures,
                     transferRestrictor,
-                    splitRatio,
+                    splitMultiple,
                     reverseSplit,
                     factory
                 )

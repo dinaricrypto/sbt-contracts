@@ -26,9 +26,10 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @dev Emitted when transfer restrictor contract is set
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
     /// @dev Emitted when a split is performed
-    event Split(address newToken, uint256 splitRatio, bool reverseSplit, string legacyRename, string legacyResymbol);
+    event Split(address newToken, uint8 splitMultiple, bool reverseSplit, string legacyRename, string legacyResymbol);
 
     error TokenSplit();
+    error ZeroMultiple();
 
     /// ------------------ Immutables ------------------ ///
 
@@ -40,7 +41,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @notice Address of pre-split token or first deployer
     address public immutable deployer;
     /// @notice Ratio of legacy token to new token
-    uint256 public immutable splitRatio;
+    uint8 public immutable splitMultiple;
     /// @notice True if this is a reverse split
     bool public immutable reverseSplit;
     /// @notice Factory contract to create new tokens
@@ -69,7 +70,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @param symbol_ Token symbol
     /// @param disclosures_ URI to disclosure information
     /// @param transferRestrictor_ Contract to restrict transfers
-    /// @param splitRatio_ Ratio of legacy token to new token
+    /// @param splitMultiple_ Ratio of legacy token to new token
     /// @param reverseSplit_ True if this is a reverse split
     /// @param factory_ Factory contract to create new tokens
     constructor(
@@ -78,7 +79,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         string memory symbol_,
         string memory disclosures_,
         ITransferRestrictor transferRestrictor_,
-        uint256 splitRatio_,
+        uint8 splitMultiple_,
         bool reverseSplit_,
         address factory_
     ) AccessControlDefaultAdminRules(0, owner) {
@@ -87,7 +88,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         disclosures = disclosures_;
         transferRestrictor = transferRestrictor_;
         deployer = msg.sender;
-        splitRatio = splitRatio_;
+        splitMultiple = splitMultiple_;
         reverseSplit = reverseSplit_;
         factory = factory_;
     }
@@ -173,18 +174,19 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// ------------------ Split ------------------ ///
 
     /// @notice Deploy and configure a new BridgedERC20 for a split
-    /// @param _splitRatio Ratio of new token to old token
+    /// @param _splitMultiple Ratio of new token to old token
     /// @param _reverseSplit True if this is a reverse split
     /// @param legacyRename New name for legacy token
     /// @param legacyResymbol New symbol for legacy token
     /// @dev After split: no mint, no burn other than by child token
     function split(
-        uint256 _splitRatio,
+        uint8 _splitMultiple,
         bool _reverseSplit,
         string calldata legacyRename,
         string calldata legacyResymbol
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (childToken != address(0)) revert TokenSplit();
+        if (_splitMultiple == 0) revert ZeroMultiple();
 
         // Deploy new token via factory delegatecall
         bytes memory returnData = factory.functionDelegateCall(
@@ -195,14 +197,14 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
                 symbol(),
                 disclosures,
                 transferRestrictor,
-                _splitRatio,
+                _splitMultiple,
                 _reverseSplit,
                 factory
             )
         );
+        address newToken = abi.decode(returnData, (address));
 
         // Set child token
-        address newToken = abi.decode(returnData, (address));
         childToken = newToken;
 
         // Update name and symbol
@@ -210,7 +212,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         setSymbol(legacyResymbol);
 
         // Emit split event
-        emit Split(newToken, splitRatio, reverseSplit, legacyRename, legacyResymbol);
+        emit Split(newToken, splitMultiple, reverseSplit, legacyRename, legacyResymbol);
     }
 
     /// @notice Convert legacy tokens to new tokens at slit ratio
@@ -222,9 +224,15 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
         // Burn legacy tokens
         BridgedERC20(deployer).burn(amount);
 
-        // TODO: split math
+        // Split math
+        uint256 newAmount;
+        if (reverseSplit) {
+            newAmount = amount / splitMultiple;
+        } else {
+            newAmount = amount * splitMultiple;
+        }
 
         // Mint new tokens
-        _mint(msg.sender, amount);
+        _mint(msg.sender, newAmount);
     }
 }

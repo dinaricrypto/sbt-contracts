@@ -55,7 +55,7 @@ contract DeployTokenListScript is Script {
 
         for (uint256 i = 0; i < n; i++) {
             // deploy token
-            BridgedERC20 token = new BridgedERC20(deployer, names[i], symbols[i], "", restrictor, 1e18, false, factory);
+            BridgedERC20 token = new BridgedERC20(deployer, names[i], symbols[i], "", restrictor, 0, false, factory);
 
             // allow issuers to mint and burn
             token.grantRole(token.MINTER_ROLE(), address(buyIssuer));

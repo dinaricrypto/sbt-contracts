@@ -13,7 +13,7 @@ contract MockBridgedERC20 is BridgedERC20 {
             "dTKN",
             "example.com",
             new TransferRestrictor(msg.sender),
-            1 ether,
+            0,
             false,
             address(new BridgedERC20Factory())
         )

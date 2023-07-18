@@ -26,7 +26,7 @@ contract BridgedERC20Test is Test {
             "dTKN",
             "example.com",
             restrictor,
-            1e18,
+            0,
             false,
             address(factory)
         );
