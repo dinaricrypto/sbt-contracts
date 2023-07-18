@@ -19,6 +19,7 @@ contract DeployTokenListScript is Script {
         // address owner = vm.addr(ownerKey);
 
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
+        address factory = vm.envAddress("DSHARE_FACTORY");
         BuyOrderIssuer buyIssuer = BuyOrderIssuer(vm.envAddress("BUY_ISSUER"));
         SellOrderProcessor sellProcessor = SellOrderProcessor(vm.envAddress("SELL_PROCESSOR"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
@@ -54,7 +55,7 @@ contract DeployTokenListScript is Script {
 
         for (uint256 i = 0; i < n; i++) {
             // deploy token
-            BridgedERC20 token = new BridgedERC20(deployer, names[i], symbols[i], "", restrictor);
+            BridgedERC20 token = new BridgedERC20(deployer, names[i], symbols[i], "", restrictor, 1e18, false, factory);
 
             // allow issuers to mint and burn
             token.grantRole(token.MINTER_ROLE(), address(buyIssuer));

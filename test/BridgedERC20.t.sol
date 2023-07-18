@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import {BridgedERC20} from "../src/BridgedERC20.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
+import {BridgedERC20Factory} from "../src/BridgedERC20Factory.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BridgedERC20Test is Test {
@@ -13,16 +14,21 @@ contract BridgedERC20Test is Test {
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     TransferRestrictor public restrictor;
+    BridgedERC20Factory public factory;
     BridgedERC20 public token;
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
+        factory = new BridgedERC20Factory();
         token = new BridgedERC20(
             address(this),
             "Dinari Token",
             "dTKN",
             "example.com",
-            restrictor
+            restrictor,
+            1e18,
+            false,
+            address(factory)
         );
     }
 
