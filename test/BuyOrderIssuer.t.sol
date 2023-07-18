@@ -71,7 +71,7 @@ contract BuyOrderIssuerTest is Test {
             price: 0
         });
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(dummyOrderRequest.paymentToken, dummyOrderRequest.quantityIn);
+            issuer.estimateFeesForOrder(dummyOrderRequest.paymentToken, dummyOrderRequest.quantityIn);
         dummyOrderFees = flatFee + percentageFee;
         dummyOrder = IOrderBridge.Order({
             recipient: user,
@@ -155,7 +155,7 @@ contract BuyOrderIssuerTest is Test {
         assertEq(inputValue, value);
         assertEq(flatFee, 0);
         assertEq(percentageFee, 0);
-        (uint256 flatFee2, uint256 percentageFee2) = issuer.getFeesForOrder(address(paymentToken), value);
+        (uint256 flatFee2, uint256 percentageFee2) = issuer.estimateFeesForOrder(address(paymentToken), value);
         assertEq(flatFee2, 0);
         assertEq(percentageFee2, 0);
     }
@@ -169,7 +169,7 @@ contract BuyOrderIssuerTest is Test {
         (uint256 inputValue, uint256 flatFee, uint256 percentageFee) =
             issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
         assertEq(inputValue - flatFee - percentageFee, orderValue);
-        (uint256 flatFee2, uint256 percentageFee2) = issuer.getFeesForOrder(address(paymentToken), inputValue);
+        (uint256 flatFee2, uint256 percentageFee2) = issuer.estimateFeesForOrder(address(paymentToken), inputValue);
         assertEq(flatFee, flatFee2);
         assertEq(percentageFee, percentageFee2);
     }
@@ -186,7 +186,7 @@ contract BuyOrderIssuerTest is Test {
         orderRequest.quantityIn = quantityIn;
 
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
 
         IOrderBridge.Order memory order = dummyOrder;
@@ -239,7 +239,7 @@ contract BuyOrderIssuerTest is Test {
         // restrict msg.sender
         TransferRestrictor(address(token.transferRestrictor())).restrict(user);
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
+            issuer.estimateFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(quantityIn > 0);
         vm.assume(quantityIn > fees);
@@ -345,7 +345,7 @@ contract BuyOrderIssuerTest is Test {
         OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < orderAmount);
 
@@ -397,7 +397,7 @@ contract BuyOrderIssuerTest is Test {
         OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < orderAmount);
 
@@ -483,7 +483,7 @@ contract BuyOrderIssuerTest is Test {
         OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = inputAmount;
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < inputAmount);
         uint256 orderAmount = inputAmount - fees;

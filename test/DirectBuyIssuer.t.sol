@@ -64,7 +64,7 @@ contract DirectBuyIssuerTest is Test {
             price: 0
         });
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(dummyOrderRequest.paymentToken, dummyOrderRequest.quantityIn);
+            issuer.estimateFeesForOrder(dummyOrderRequest.paymentToken, dummyOrderRequest.quantityIn);
         dummyOrderFees = flatFee + percentageFee;
         dummyOrder = IOrderBridge.Order({
             recipient: user,
@@ -88,7 +88,7 @@ contract DirectBuyIssuerTest is Test {
         orderRequest.quantityIn = orderAmount;
 
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < orderAmount);
 
@@ -128,7 +128,7 @@ contract DirectBuyIssuerTest is Test {
 
         OrderProcessor.OrderRequest memory order = dummyOrderRequest;
         order.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) = issuer.estimateFeesForOrder(order.paymentToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < orderAmount);
 
@@ -154,7 +154,7 @@ contract DirectBuyIssuerTest is Test {
         OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < orderAmount);
 
@@ -204,7 +204,7 @@ contract DirectBuyIssuerTest is Test {
         OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees <= orderAmount);
         vm.assume(takeAmount <= orderAmount - fees);
@@ -254,7 +254,7 @@ contract DirectBuyIssuerTest is Test {
         OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < orderAmount);
         vm.assume(fillAmount < orderAmount - fees);
@@ -291,7 +291,7 @@ contract DirectBuyIssuerTest is Test {
         OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 fees = flatFee + percentageFee;
         vm.assume(fees < orderAmount);
         vm.assume(takeAmount < orderAmount - fees);
