@@ -87,6 +87,27 @@ contract SellOrderProcessorTest is Test {
         assertEq(percentageFee, 0);
     }
 
+    function testChangeOrderFeesCheck() public {
+        bytes32 salt1 = 0x0000000000000000000000000000000000000000000000000000000000000002;
+        bytes32 orderId = issuer.getOrderIdFromOrderRequest(dummyOrder, salt);
+        token.mint(user, dummyOrder.quantityIn);
+        vm.prank(user);
+        token.increaseAllowance(address(issuer), dummyOrder.quantityIn);
+        vm.prank(user);
+        issuer.requestOrder(dummyOrder, salt);
+        uint256 percecentageFee = issuer.getPercentageFeeForOrder(orderId, dummyOrder.quantityIn);
+        // // set new fees
+        orderFees.setFees(1.2 ether, 0.06 ether);
+        token.mint(user, dummyOrder.quantityIn);
+        vm.prank(user);
+        token.increaseAllowance(address(issuer), dummyOrder.quantityIn);
+        bytes32 orderId1 = issuer.getOrderIdFromOrderRequest(dummyOrder, salt1);
+        vm.prank(user);
+        issuer.requestOrder(dummyOrder, salt1);
+        uint256 percecentageFee1 = issuer.getPercentageFeeForOrder(orderId1, dummyOrder.quantityIn);
+        assert(percecentageFee1 != percecentageFee);
+    }
+
     function testRequestOrder(uint256 quantityIn) public {
         OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
             recipient: user,

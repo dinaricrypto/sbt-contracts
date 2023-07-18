@@ -22,7 +22,7 @@ contract SellOrderProcessor is OrderProcessor {
     /// @dev orderId => feesEarned
     mapping(bytes32 => uint256) private _feesEarned;
     /// @dev orderId => percentageFees
-    mapping(bytes32 => uint64) private _orderPercentageFeeRates;
+    mapping(bytes32 => uint64) public _orderPercentageFeeRates;
 
     /// ------------------ Getters ------------------ ///
 
@@ -56,8 +56,10 @@ contract SellOrderProcessor is OrderProcessor {
         // If fee contract is not set or percentage fee rate for the order is zero, return 0
         if (address(orderFees) == address(0) || _orderPercentageFeeRates[orderId] == 0) return 0;
 
-        // Apply fee to input value
-        return PrbMath.mulDiv18(value, _orderPercentageFeeRates[orderId]);
+        if (_orderPercentageFeeRates[orderId] != 0) {
+            return PrbMath.mulDiv18(value, _orderPercentageFeeRates[orderId]);
+        }
+        return 0;
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
