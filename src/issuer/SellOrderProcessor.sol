@@ -22,7 +22,7 @@ contract SellOrderProcessor is OrderProcessor {
     /// @dev orderId => feesEarned
     mapping(bytes32 => uint256) private _feesEarned;
     /// @dev orderId => percentageFees
-    mapping(bytes32 => uint64) public _orderPercentageFeeRates;
+    mapping(bytes32 => uint64) private _orderPercentageFeeRates;
 
     /// ------------------ Getters ------------------ ///
 
