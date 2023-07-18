@@ -24,3 +24,4 @@
 | _nextOrderIndex              | mapping(address => uint256)                                  | 354  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
 | _orders                      | mapping(bytes32 => struct OrderProcessor.OrderState)         | 355  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
 | _feesEarned                  | mapping(bytes32 => uint256)                                  | 356  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
+| _orderPercentageFeeRates     | mapping(bytes32 => uint64)                                   | 357  | 0      | 32    | src/issuer/SellOrderProcessor.sol:SellOrderProcessor |
