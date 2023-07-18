@@ -28,6 +28,7 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// @dev Emitted when a split is performed
     event Split(BridgedERC20 newToken, uint8 splitMultiple, bool reverseSplit, string legacyName, string legacySymbol);
 
+    error UnauthorizedOperation();
     error TokenSplit();
     error ZeroMultiple();
 
@@ -168,12 +169,24 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     function _beforeTokenTransfer(address from, address to, uint256) internal view override {
         // Restrictions ignored for minting and burning
         // If transferRestrictor is not set, no restrictions are applied
-        if (from == address(0) || to == address(0) || address(transferRestrictor) == address(0)) {
+        if (from == address(0) || address(transferRestrictor) == address(0)) {
             return;
         }
+        if (to == address(0) && msg.sig != this.burn.selector) revert UnauthorizedOperation();
 
         // Check transfer restrictions
         transferRestrictor.requireNotRestricted(from, to);
+    }
+
+    /**
+     * @param account The address of the account
+     * @return Whether the account is blacklisted
+     * @dev Returns true if the account is blacklisted , if the account is the zero address
+     */
+    function isBlacklisted(address account) external view returns (bool) {
+        if (account == address(0)) return true;
+        if (address(transferRestrictor) == address(0)) return false;
+        return transferRestrictor.isBlacklisted(account);
     }
 
     /// ------------------ Split ------------------ ///

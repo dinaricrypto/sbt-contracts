@@ -11,6 +11,8 @@ import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
+import {ITransferRestrictor} from "../ITransferRestrictor.sol";
+import {BridgedERC20} from "../BridgedERC20.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -65,6 +67,8 @@ abstract contract OrderProcessor is
         uint256 remainingOrder;
         // Total amount of received token due to fills
         uint256 received;
+        // Whether a cancellation for this order has been initiated
+        bool cancellationInitiated;
     }
 
     /// @dev Zero address
@@ -81,6 +85,10 @@ abstract contract OrderProcessor is
     error DuplicateOrder();
     /// @dev Amount too large
     error AmountTooLarge();
+    /// @dev blacklist address
+    error Blacklist();
+    /// @dev Custom error when an order cancellation has already been initiated
+    error OrderCancellationInitiated();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -93,7 +101,7 @@ abstract contract OrderProcessor is
 
     /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
     bytes32 private constant ORDERREQUEST_TYPE_HASH = keccak256(
-        "OrderRequest(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn"
+        "OrderRequest(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn)"
     );
 
     /// @notice Admin role for managing treasury, fees, and paused state
@@ -235,6 +243,14 @@ abstract contract OrderProcessor is
         return _orders[id].received;
     }
 
+    /**
+     *
+     * @param id Order ID
+     */
+    function cancelRequested(bytes32 id) external view returns (bool) {
+        return _orders[id].cancellationInitiated;
+    }
+
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Request an order
@@ -242,6 +258,11 @@ abstract contract OrderProcessor is
     /// @param salt Salt used to generate unique order ID
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
     function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
+        // check blocklisted address
+        if (
+            BridgedERC20(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)
+                || BridgedERC20(orderRequest.assetToken).isBlacklisted(msg.sender)
+        ) revert Blacklist();
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         // Check for whitelisted tokens
@@ -259,7 +280,8 @@ abstract contract OrderProcessor is
 
         // Initialize order state
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
+        _orders[orderId] =
+            OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0, cancellationInitiated: false});
         _numOpenOrders++;
     }
 
@@ -282,7 +304,6 @@ abstract contract OrderProcessor is
         if (orderState.requester == address(0)) revert OrderNotFound();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
-
         // Notify order filled
         emit OrderFill(orderId, orderRequest.recipient, fillAmount, receivedAmount);
 
@@ -313,10 +334,13 @@ abstract contract OrderProcessor is
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
+        if (_orders[orderId].cancellationInitiated) revert OrderCancellationInitiated();
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
         // Only requester can request cancellation
         if (requester != msg.sender) revert NotRequester();
+
+        _orders[orderId].cancellationInitiated = true;
 
         // Send cancel request to bridge
         emit CancelRequested(orderId, orderRequest.recipient);
