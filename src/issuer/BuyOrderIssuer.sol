@@ -34,45 +34,7 @@ contract BuyOrderIssuer is OrderProcessor {
     /// @dev orderId => FeeState
     mapping(bytes32 => FeeState) private _feeState;
 
-    /// ------------------ Getters ------------------ ///
-
-    /// @inheritdoc OrderProcessor
-    function getOrderRequestForOrder(Order calldata order) public pure override returns (OrderRequest memory) {
-        return OrderRequest({
-            recipient: order.recipient,
-            assetToken: order.assetToken,
-            paymentToken: order.paymentToken,
-            // Add fees back to order quantity to recover total quantityIn
-            quantityIn: order.paymentTokenQuantity + order.fee,
-            price: order.price
-        });
-    }
-
-    /// @notice Get fees for an order
-    /// @param token Payment token for order
-    /// @param inputValue Total input value subject to fees
-    /// @return flatFee Flat fee for order
-    /// @return percentageFee Percentage fee for order
-    /// @dev Fees zero if no orderFees contract is set
-    function getFeesForOrder(address token, uint256 inputValue)
-        public
-        view
-        returns (uint256 flatFee, uint256 percentageFee)
-    {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) {
-            return (0, 0);
-        }
-
-        // Calculate fees
-        flatFee = orderFees.flatFeeForOrder(token);
-        // If input value is greater than flat fee, calculate percentage fee on remaining value
-        if (inputValue > flatFee) {
-            percentageFee = orderFees.percentageFeeForValue(inputValue - flatFee);
-        } else {
-            percentageFee = 0;
-        }
-    }
+    /// ------------------ Fee Helpers ------------------ ///
 
     /// @notice Get the raw input value and fees that produce a final order value
     /// @param token Payment token for order
@@ -103,26 +65,24 @@ contract BuyOrderIssuer is OrderProcessor {
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
+    function _requestOrderAccounting(bytes32 id, OrderRequest calldata orderRequest)
         internal
         virtual
         override
-        returns (Order memory order)
+        returns (OrderConfig memory orderConfig)
     {
         // Determine fees
-        (uint256 flatFee, uint256 percentageFee) = getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) =
+            estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
         uint256 totalFees = flatFee + percentageFee;
         // Fees must not exceed order input value
         if (totalFees >= orderRequest.quantityIn) revert OrderTooSmall();
 
         // Initialize fee state for order
-        _feeState[orderId] = FeeState({remainingPercentageFees: percentageFee, feesEarned: flatFee});
+        _feeState[id] = FeeState({remainingPercentageFees: percentageFee, feesEarned: flatFee});
 
-        // Construct order
-        order = Order({
-            recipient: orderRequest.recipient,
-            assetToken: orderRequest.assetToken,
-            paymentToken: orderRequest.paymentToken,
+        // Construct order specification
+        orderConfig = OrderConfig({
             // Buy order
             sell: false,
             // Market order
@@ -132,9 +92,7 @@ contract BuyOrderIssuer is OrderProcessor {
             paymentTokenQuantity: orderRequest.quantityIn - totalFees,
             price: orderRequest.price,
             // Good until cancelled
-            tif: TIF.GTC,
-            // Emit fees held back from order amount
-            fee: totalFees
+            tif: TIF.GTC
         });
 
         // Escrow payment for purchase
@@ -144,32 +102,32 @@ contract BuyOrderIssuer is OrderProcessor {
     /// @inheritdoc OrderProcessor
     // slither-disable-next-line dead-code
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
-        bytes32 orderId,
+        bytes32 id,
+        Order calldata order,
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
         // Calculate fees and mint asset
-        _fillBuyOrder(orderRequest, orderId, orderState, fillAmount, receivedAmount);
+        _fillBuyOrder(id, order, orderState, fillAmount, receivedAmount);
 
         // Claim payment
-        IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, fillAmount);
+        IERC20(order.paymentToken).safeTransfer(msg.sender, fillAmount);
     }
 
     /// @dev Fill buy order accounting and mint asset
     function _fillBuyOrder(
-        OrderRequest calldata orderRequest,
-        bytes32 orderId,
+        bytes32 id,
+        Order calldata order,
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual {
-        FeeState memory feeState = _feeState[orderId];
+        FeeState memory feeState = _feeState[id];
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         // If order is done, close order and transfer fees
         if (remainingOrder == 0) {
-            _closeOrder(orderId, orderRequest.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
+            _closeOrder(id, order.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
         } else {
             // Otherwise accumulate fees for fill
             // Calculate fees
@@ -180,44 +138,44 @@ contract BuyOrderIssuer is OrderProcessor {
             }
             // Update fee state
             if (collection > 0) {
-                _feeState[orderId].remainingPercentageFees = feeState.remainingPercentageFees - collection;
-                _feeState[orderId].feesEarned = feeState.feesEarned + collection;
+                _feeState[id].remainingPercentageFees = feeState.remainingPercentageFees - collection;
+                _feeState[id].feesEarned = feeState.feesEarned + collection;
             }
         }
 
         // Mint asset
-        IMintBurn(orderRequest.assetToken).mint(orderRequest.recipient, receivedAmount);
+        IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(bytes32 id, Order calldata order, OrderState memory orderState)
         internal
         virtual
         override
     {
-        FeeState memory feeState = _feeState[orderId];
+        FeeState memory feeState = _feeState[id];
         // If no fills, then full refund
         // This addition is required to check for any fills
         uint256 refund = orderState.remainingOrder + feeState.remainingPercentageFees;
         // If any fills, then orderState.remainingOrder would not be large enough to satisfy this condition
         // feesEarned is always needed to recover flat fee
-        if (refund + feeState.feesEarned == orderRequest.quantityIn) {
-            _closeOrder(orderId, orderRequest.paymentToken, 0);
+        if (refund + feeState.feesEarned == order.quantityIn) {
+            _closeOrder(id, order.paymentToken, 0);
             // Refund full payment
-            refund = orderRequest.quantityIn;
+            refund = order.quantityIn;
         } else {
             // Otherwise close order and transfer fees
-            _closeOrder(orderId, orderRequest.paymentToken, feeState.feesEarned);
+            _closeOrder(id, order.paymentToken, feeState.feesEarned);
         }
 
         // Return escrow
-        IERC20(orderRequest.paymentToken).safeTransfer(orderState.requester, refund);
+        IERC20(order.paymentToken).safeTransfer(orderState.requester, refund);
     }
 
     /// @dev Close order and transfer fees
-    function _closeOrder(bytes32 orderId, address paymentToken, uint256 feesEarned) private {
+    function _closeOrder(bytes32 id, address paymentToken, uint256 feesEarned) private {
         // Clear fee state
-        delete _feeState[orderId];
+        delete _feeState[id];
 
         // Transfer earneds fees to treasury
         if (feesEarned > 0) {

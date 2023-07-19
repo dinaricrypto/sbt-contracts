@@ -21,6 +21,7 @@
 | orderFees                    | contract IOrderFees                                          | 352  | 0      | 20    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
 | ordersPaused                 | bool                                                         | 352  | 20     | 1     | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
 | _numOpenOrders               | uint256                                                      | 353  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
-| _orders                      | mapping(bytes32 => struct OrderProcessor.OrderState)         | 354  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
-| _feeState                    | mapping(bytes32 => struct BuyOrderIssuer.FeeState)           | 355  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
-| getOrderEscrow               | mapping(bytes32 => uint256)                                  | 356  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _nextOrderIndex              | mapping(address => uint256)                                  | 354  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _orders                      | mapping(bytes32 => struct OrderProcessor.OrderState)         | 355  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| _feeState                    | mapping(bytes32 => struct BuyOrderIssuer.FeeState)           | 356  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
+| getOrderEscrow               | mapping(bytes32 => uint256)                                  | 357  | 0      | 32    | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer |
