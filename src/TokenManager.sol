@@ -6,9 +6,11 @@ import {BridgedERC20} from "./BridgedERC20.sol";
 
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract TokenManager is Ownable2Step {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using Strings for uint256;
 
     /// ------------------ Types ------------------ ///
 
@@ -158,9 +160,9 @@ contract TokenManager is Ownable2Step {
         token.setSplit();
 
         // Rename legacy token
-        // TODO: replace suffixes with legacy versioning, possibly using dates lib
-        token.setName(string.concat(name, nameSuffix));
-        token.setSymbol(string.concat(symbol, symbolSuffix));
+        string memory timestamp = block.timestamp.toString();
+        token.setName(string.concat(name, " - pre", timestamp));
+        token.setSymbol(string.concat(symbol, ".p", timestamp));
     }
 
     /// @notice Convert a token amount to current token after split
