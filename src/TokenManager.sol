@@ -26,6 +26,7 @@ contract TokenManager is Ownable2Step {
     error TokenNotFound();
     error InvalidMultiple();
     error SplitNotFound();
+    error AlreadySplit();
 
     /// ------------------ State ------------------ ///
 
@@ -118,7 +119,7 @@ contract TokenManager is Ownable2Step {
             transferRestrictor
         );
         // Add to list of tokens
-        _currentTokens.add(address(newToken));
+        assert(_currentTokens.add(address(newToken)));
     }
 
     /// ------------------ Split ------------------ ///
@@ -128,13 +129,10 @@ contract TokenManager is Ownable2Step {
     /// @param multiple Multiple to split by
     /// @param reverseSplit Whether to perform a reverse split
     function split(BridgedERC20 token, uint8 multiple, bool reverseSplit) external returns (BridgedERC20 newToken) {
-        // Check if token is in list of tokens
-        if (!_currentTokens.contains(address(token))) revert TokenNotFound();
         // Check if split multiple is valid
         if (multiple == 0) revert InvalidMultiple();
-
         // Remove legacy token from list of tokens
-        _currentTokens.remove(address(token));
+        if (!_currentTokens.remove(address(token))) revert TokenNotFound();
 
         // Get current token name
         string memory name = token.name();
@@ -149,7 +147,7 @@ contract TokenManager is Ownable2Step {
             transferRestrictor
         );
         // Add to list of tokens
-        _currentTokens.add(address(newToken));
+        assert(_currentTokens.add(address(newToken)));
         // Map legacy token to split information
         splits[token] = SplitInfo({newToken: newToken, multiple: multiple, reverseSplit: reverseSplit});
 
@@ -189,6 +187,7 @@ contract TokenManager is Ownable2Step {
         }
 
         // Transfer tokens
+        // slither-disable-next-line unchecked-transfer
         token.transferFrom(msg.sender, address(this), amount);
         token.burn(amount);
         currentToken.mint(msg.sender, resultAmount);
