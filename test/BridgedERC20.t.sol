@@ -66,12 +66,13 @@ contract BridgedERC20Test is Test {
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(address(this)),
+                    Strings.toHexString(address(1)),
                     " is missing role ",
                     Strings.toHexString(uint256(token.MINTER_ROLE()), 32)
                 )
             )
         );
+        vm.prank(address(1));
         token.mint(address(1), 1e18);
     }
 
@@ -91,7 +92,7 @@ contract BridgedERC20Test is Test {
         token.grantRole(token.BURNER_ROLE(), address(2));
         token.mint(address(1), 1e18);
         token.mint(address(2), 1e18);
-        vm.expectRevert(BridgedERC20.UnauthorizedOperation.selector);
+        vm.expectRevert(BridgedERC20.Unauthorized.selector);
         vm.prank(address(1));
         token.transfer(address(0), 0.1e18);
 

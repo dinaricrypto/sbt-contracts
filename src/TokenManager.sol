@@ -125,8 +125,6 @@ contract TokenManager is Ownable2Step {
     /// @param token Token to split
     /// @param multiple Multiple to split by
     /// @param reverseSplit Whether to perform a reverse split
-    // TODO: After split: no mint, no burn other than by this contract
-    // TODO: Is there a way to transfer ownership after config?
     function split(BridgedERC20 token, uint8 multiple, bool reverseSplit) external returns (BridgedERC20 newToken) {
         // Check if token is in list of tokens
         if (!_currentTokens.contains(address(token))) revert TokenNotFound();
@@ -136,7 +134,7 @@ contract TokenManager is Ownable2Step {
         // Remove legacy token from list of tokens
         _currentTokens.remove(address(token));
 
-        // Get new token name
+        // Get current token name
         string memory name = token.name();
         string memory symbol = token.symbol();
 
@@ -155,6 +153,9 @@ contract TokenManager is Ownable2Step {
 
         // Emit event
         emit Split(token, newToken, multiple, reverseSplit);
+
+        // Set split on legacy token
+        token.setSplit();
 
         // Rename legacy token
         // TODO: replace suffixes with legacy versioning, possibly using dates lib
