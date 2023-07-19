@@ -13,6 +13,7 @@ import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {BridgedERC20} from "../BridgedERC20.sol";
+import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -137,6 +138,9 @@ abstract contract OrderProcessor is
     /// @notice Address to receive fees
     address public treasury;
 
+    /// @notice Address oracle
+    address private oracle;
+
     /// @notice Fee specification contract
     IOrderFees public orderFees;
 
@@ -220,6 +224,13 @@ abstract contract OrderProcessor is
         emit OrdersPaused(pause);
     }
 
+    /// @notice Set oracle address
+    /// @param _oracle Address of oracle
+    /// @dev Only callable by admin
+    function setOracle(address _oracle) external onlyRole(ADMIN_ROLE) {
+        oracle = _oracle;
+    }
+
     /// ------------------ Getters ------------------ ///
 
     /// @inheritdoc IOrderBridge
@@ -283,6 +294,18 @@ abstract contract OrderProcessor is
         } else {
             percentageFee = 0;
         }
+    }
+
+    /**
+     * @dev get price from chainlink oracle
+     * Chainlink returns the price with 8 decimals,
+     * We convert this to wei (18 decimals) by multiplying by 10**10.
+     */
+    function getAssetPrice() internal view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(oracle);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        // Adjust Chainlink price feed (8 decimals) to wei (18 decimals)
+        return uint256(price) * 10 ** 10;
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
