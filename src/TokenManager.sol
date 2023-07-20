@@ -168,7 +168,7 @@ contract TokenManager is Ownable2Step {
         // Remove legacy token from list of tokens
         if (!_currentTokens.remove(address(token))) revert TokenNotFound();
         // Check if split exceeds max supply of type(uint256).max
-        aggregateSupply = _getSupplyExpansion(token, multiple, reverseSplit);
+        aggregateSupply = getSupplyExpansion(token, multiple, reverseSplit);
 
         // Get current token name
         string memory name = token.name();
@@ -201,9 +201,13 @@ contract TokenManager is Ownable2Step {
         token.setSymbol(string.concat(symbol, ".p", timestamp));
     }
 
+    /// @notice Calculate total aggregate supply after split
+    /// @param token Token to calculate supply expansion for
+    /// @param multiple Multiple to split by
+    /// @param reverseSplit Whether to perform a reverse split
     /// @dev Accounts for all splits and supply volume conversions
-    function _getSupplyExpansion(BridgedERC20 token, uint8 multiple, bool reverseSplit)
-        internal
+    function getSupplyExpansion(BridgedERC20 token, uint8 multiple, bool reverseSplit)
+        public
         view
         returns (uint256 aggregateSupply)
     {
