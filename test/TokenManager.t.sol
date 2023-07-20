@@ -121,6 +121,14 @@ contract TokenManagerTest is Test {
             assertEq(address(tokenManager.getTokenAt(0)), address(newToken));
             assertTrue(tokenManager.isCurrentToken(address(newToken)));
             assertFalse(tokenManager.isCurrentToken(address(token1)));
+
+            // split restrictions
+            vm.expectRevert(BridgedERC20.TokenSplit.selector);
+            token1.mint(user, 1);
+
+            vm.expectRevert(BridgedERC20.TokenSplit.selector);
+            vm.prank(user);
+            token1.burn(1);
         }
     }
 

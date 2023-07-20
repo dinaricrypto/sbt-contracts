@@ -27,6 +27,19 @@ contract BridgedERC20Test is Test {
     }
 
     function testSetName(string calldata name) public {
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(address(1)),
+                    " is missing role ",
+                    Strings.toHexString(uint256(token.DEFAULT_ADMIN_ROLE()), 32)
+                )
+            )
+        );
+        vm.prank(address(1));
+        token.setName(name);
+
         vm.expectEmit(true, true, true, true);
         emit NameSet(name);
         token.setName(name);
@@ -34,6 +47,19 @@ contract BridgedERC20Test is Test {
     }
 
     function testSetSymbol(string calldata symbol) public {
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(address(1)),
+                    " is missing role ",
+                    Strings.toHexString(uint256(token.DEFAULT_ADMIN_ROLE()), 32)
+                )
+            )
+        );
+        vm.prank(address(1));
+        token.setSymbol(symbol);
+
         vm.expectEmit(true, true, true, true);
         emit SymbolSet(symbol);
         token.setSymbol(symbol);
@@ -52,6 +78,12 @@ contract BridgedERC20Test is Test {
         emit TransferRestrictorSet(ITransferRestrictor(account));
         token.setTransferRestrictor(ITransferRestrictor(account));
         assertEq(address(token.transferRestrictor()), account);
+    }
+
+    function testSetSplitReverts() public {
+        vm.expectRevert(BridgedERC20.Unauthorized.selector);
+        vm.prank(address(1));
+        token.setSplit();
     }
 
     function testMint() public {
