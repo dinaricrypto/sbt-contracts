@@ -70,6 +70,8 @@ abstract contract OrderProcessor is
         uint256 remainingOrder;
         // Total amount of received token due to fills
         uint256 received;
+        // estimated fees for gas paid in token
+        uint256 estimatedFees;
         // Whether a cancellation for this order has been initiated
         bool cancellationInitiated;
     }
@@ -150,6 +152,9 @@ abstract contract OrderProcessor is
     /// @dev Total number of active orders. Onchain enumeration not supported.
     uint256 private _numOpenOrders;
 
+    /// @dev fillOrder gas cost estimation
+    uint256 public estimatedFillOrderGas;
+
     /// @dev Next order index to use for onchain enumeration of orders per recipient
     mapping(address => uint256) private _nextOrderIndex;
 
@@ -229,6 +234,13 @@ abstract contract OrderProcessor is
     /// @dev Only callable by admin
     function setOracle(address _oracle) external onlyRole(ADMIN_ROLE) {
         oracle = _oracle;
+    }
+
+    /// @dev set an estimated gas cost for fillOrder
+    /// @param _gasCost gas cost
+    /// @dev Only callable by admin
+    function setEstimatedFillOrderGasCost(uint256 _gasCost) external onlyRole(ADMIN_ROLE) {
+        estimatedFillOrderGas = _gasCost;
     }
 
     /// ------------------ Getters ------------------ ///
@@ -332,7 +344,13 @@ abstract contract OrderProcessor is
 
         index = _nextOrderIndex[orderRequest.recipient]++;
         bytes32 id = getOrderId(orderRequest.recipient, index);
+        uint256 tokenToPayForFees;
 
+        if (oracle != address(0)) {
+            uint256 priceInWei = getAssetPrice();
+            uint256 gasCost = estimatedFillOrderGas * tx.gasprice;
+            tokenToPayForFees = (gasCost * priceInWei);
+        }
         // Get order from request and move tokens
         OrderConfig memory orderConfig = _requestOrderAccounting(id, orderRequest);
         Order memory order = Order({
@@ -359,7 +377,8 @@ abstract contract OrderProcessor is
             requester: msg.sender,
             remainingOrder: orderAmount,
             received: 0,
-            cancellationInitiated: false
+            cancellationInitiated: false,
+            estimatedFees: tokenToPayForFees
         });
         _numOpenOrders++;
     }
