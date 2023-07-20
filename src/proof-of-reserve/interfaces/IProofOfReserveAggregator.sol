@@ -5,5 +5,5 @@ interface IProofOfReserveAggregator {
     function getProofOfReserveFeedForAsset(address asset) external view returns (address);
     function enableProofOfReserveFeed(address asset, address feed) external;
     function disableProofOfReserveFeed(address asset) external;
-    function areReservedBack(address[] calldata asset) external returns (bool, bool[] memory);
+    function areReservedBack(address[] calldata asset) external view returns (bool, bool[] memory);
 }
