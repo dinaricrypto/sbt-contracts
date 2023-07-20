@@ -28,7 +28,13 @@ contract TokenManager is Ownable2Step {
     /// @dev Emitted when a new token is deployed
     event NewToken(BridgedERC20 indexed token);
     /// @dev Emitted when a split is performed
-    event Split(BridgedERC20 indexed legacyToken, BridgedERC20 indexed newToken, uint8 multiple, bool reverseSplit);
+    event Split(
+        BridgedERC20 indexed legacyToken,
+        BridgedERC20 indexed newToken,
+        uint8 multiple,
+        bool reverseSplit,
+        uint256 aggregateSupply
+    );
 
     error TokenNotFound();
     error InvalidMultiple();
@@ -37,23 +43,27 @@ contract TokenManager is Ownable2Step {
 
     /// ------------------ State ------------------ ///
 
-    /// @dev Suffix to append to new token names
+    /// @notice Suffix to append to new token names
     string public nameSuffix = " - Dinari";
 
-    /// @dev Suffix to append to new token symbols
+    /// @notice Suffix to append to new token symbols
     string public symbolSuffix = ".d";
 
-    /// @dev Transfer restrictor contract
+    /// @notice Transfer restrictor contract
     ITransferRestrictor public transferRestrictor;
 
-    /// @dev Link to disclosures
+    /// @notice Link to disclosures
     string public disclosures = "";
 
     /// @dev List of current tokens
     EnumerableSet.AddressSet private _currentTokens;
 
-    /// @dev Mapping of legacy tokens to split information
+    /// @notice Mapping of legacy tokens to split information
     mapping(BridgedERC20 => SplitInfo) public splits;
+
+    /// @notice Mapping of new tokens to legacy tokens
+    /// @dev Allows traversal up and down the split chain
+    mapping(BridgedERC20 => BridgedERC20) public parentToken;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -151,17 +161,14 @@ contract TokenManager is Ownable2Step {
     function split(BridgedERC20 token, uint8 multiple, bool reverseSplit)
         external
         onlyOwner
-        returns (BridgedERC20 newToken)
+        returns (BridgedERC20 newToken, uint256 aggregateSupply)
     {
         // Check if split multiple is valid
         if (multiple < 2) revert InvalidMultiple();
         // Remove legacy token from list of tokens
         if (!_currentTokens.remove(address(token))) revert TokenNotFound();
         // Check if split exceeds max supply of type(uint256).max
-        if (!reverseSplit) {
-            // Force overflow
-            token.totalSupply() * multiple;
-        }
+        aggregateSupply = _getSupplyExpansion(token, multiple, reverseSplit);
 
         // Get current token name
         string memory name = token.name();
@@ -179,9 +186,11 @@ contract TokenManager is Ownable2Step {
         assert(_currentTokens.add(address(newToken)));
         // Map legacy token to split information
         splits[token] = SplitInfo({newToken: newToken, multiple: multiple, reverseSplit: reverseSplit});
+        // Map new token to legacy token
+        parentToken[newToken] = token;
 
         // Emit event
-        emit Split(token, newToken, multiple, reverseSplit);
+        emit Split(token, newToken, multiple, reverseSplit, aggregateSupply);
 
         // Set split on legacy token
         token.setSplit();
@@ -190,6 +199,32 @@ contract TokenManager is Ownable2Step {
         string memory timestamp = block.timestamp.toString();
         token.setName(string.concat(name, " - pre", timestamp));
         token.setSymbol(string.concat(symbol, ".p", timestamp));
+    }
+
+    /// @dev Accounts for all splits and supply volume conversions
+    function _getSupplyExpansion(BridgedERC20 token, uint8 multiple, bool reverseSplit)
+        internal
+        view
+        returns (uint256 aggregateSupply)
+    {
+        // Get root parent
+        BridgedERC20 _parentToken = token;
+        while (address(parentToken[_parentToken]) != address(0)) {
+            _parentToken = parentToken[_parentToken];
+        }
+        // Accumulate supply expansion from parents
+        aggregateSupply = 0;
+        if (address(_parentToken) != address(token)) {
+            SplitInfo memory _split = splits[_parentToken];
+            aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, _parentToken.totalSupply());
+            while (address(_split.newToken) != address(token)) {
+                aggregateSupply += _split.newToken.totalSupply();
+                _split = splits[_split.newToken];
+                aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, aggregateSupply);
+            }
+        }
+        // Apply current split
+        aggregateSupply = splitAmount(multiple, reverseSplit, aggregateSupply + token.totalSupply());
     }
 
     /// @notice Convert a token amount to current token after split
