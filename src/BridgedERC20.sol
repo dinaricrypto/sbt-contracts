@@ -90,15 +90,21 @@ contract BridgedERC20 is ERC20, AccessControlDefaultAdminRules {
     /// ------------------ Setters ------------------ ///
 
     /// @notice Set token name
-    /// @dev Only callable by owner
-    function setName(string calldata name_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /// @dev Only callable by owner or deployer
+    function setName(string calldata name_) external {
+        if (msg.sender != deployer) {
+            _checkRole(DEFAULT_ADMIN_ROLE);
+        }
         _name = name_;
         emit NameSet(name_);
     }
 
     /// @notice Set token symbol
-    /// @dev Only callable by owner
-    function setSymbol(string calldata symbol_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    /// @dev Only callable by owner or deployer
+    function setSymbol(string calldata symbol_) external {
+        if (msg.sender != deployer) {
+            _checkRole(DEFAULT_ADMIN_ROLE);
+        }
         _symbol = symbol_;
         emit SymbolSet(symbol_);
     }

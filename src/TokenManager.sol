@@ -8,6 +8,7 @@ import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/Enum
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
+// TODO: migrate existing tokens
 contract TokenManager is Ownable2Step {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for uint256;
@@ -20,6 +21,12 @@ contract TokenManager is Ownable2Step {
         bool reverseSplit;
     }
 
+    event NameSuffixSet(string nameSuffix);
+    event SymbolSuffixSet(string symbolSuffix);
+    event TransferRestrictorSet(ITransferRestrictor transferRestrictor);
+    event DisclosuresSet(string disclosures);
+    /// @dev Emitted when a new token is deployed
+    event NewToken(BridgedERC20 indexed token);
     /// @dev Emitted when a split is performed
     event Split(BridgedERC20 indexed legacyToken, BridgedERC20 indexed newToken, uint8 multiple, bool reverseSplit);
 
@@ -74,30 +81,39 @@ contract TokenManager is Ownable2Step {
         return _currentTokens.values();
     }
 
+    /// @notice Check if token is current
+    function isCurrentToken(address token) external view returns (bool) {
+        return _currentTokens.contains(token);
+    }
+
     /// ------------------ Setters ------------------ ///
 
     /// @notice Set suffix to append to new token names
     /// @dev Only callable by owner
     function setNameSuffix(string memory nameSuffix_) external onlyOwner {
         nameSuffix = nameSuffix_;
+        emit NameSuffixSet(nameSuffix_);
     }
 
     /// @notice Set suffix to append to new token symbols
     /// @dev Only callable by owner
     function setSymbolSuffix(string memory symbolSuffix_) external onlyOwner {
         symbolSuffix = symbolSuffix_;
+        emit SymbolSuffixSet(symbolSuffix_);
     }
 
     /// @notice Set transfer restrictor contract
     /// @dev Only callable by owner
     function setTransferRestrictor(ITransferRestrictor transferRestrictor_) external onlyOwner {
         transferRestrictor = transferRestrictor_;
+        emit TransferRestrictorSet(transferRestrictor_);
     }
 
     /// @notice Set link to disclosures
     /// @dev Only callable by owner
     function setDisclosures(string memory disclosures_) external onlyOwner {
         disclosures = disclosures_;
+        emit DisclosuresSet(disclosures_);
     }
 
     /// ------------------ Token Deployment ------------------ ///
@@ -106,8 +122,10 @@ contract TokenManager is Ownable2Step {
     /// @param owner Owner of new token
     /// @param name Name of new token, without suffix
     /// @param symbol Symbol of new token, without suffix
+    /// @dev Only callable by owner
     function deployNewToken(address owner, string memory name, string memory symbol)
         external
+        onlyOwner
         returns (BridgedERC20 newToken)
     {
         // Deploy new token
@@ -120,6 +138,7 @@ contract TokenManager is Ownable2Step {
         );
         // Add to list of tokens
         assert(_currentTokens.add(address(newToken)));
+        emit NewToken(newToken);
     }
 
     /// ------------------ Split ------------------ ///
@@ -128,11 +147,21 @@ contract TokenManager is Ownable2Step {
     /// @param token Token to split
     /// @param multiple Multiple to split by
     /// @param reverseSplit Whether to perform a reverse split
-    function split(BridgedERC20 token, uint8 multiple, bool reverseSplit) external returns (BridgedERC20 newToken) {
+    /// @dev Only callable by owner
+    function split(BridgedERC20 token, uint8 multiple, bool reverseSplit)
+        external
+        onlyOwner
+        returns (BridgedERC20 newToken)
+    {
         // Check if split multiple is valid
-        if (multiple == 0) revert InvalidMultiple();
+        if (multiple < 2) revert InvalidMultiple();
         // Remove legacy token from list of tokens
         if (!_currentTokens.remove(address(token))) revert TokenNotFound();
+        // Check if split exceeds max supply of type(uint256).max
+        if (!reverseSplit) {
+            // Force overflow
+            token.totalSupply() * multiple;
+        }
 
         // Get current token name
         string memory name = token.name();
