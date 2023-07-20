@@ -28,5 +28,23 @@ contract ProofOfReserveAggregator is IProofOfReserveAggregator, Ownable {
         return _proofOfReserveList[asset];
     }
 
-    function areReservedBack(address[] calldata asset) external override returns (bool, bool[] memory) {}
+    function areReservedBack(address[] calldata asset) external override returns (bool, bool[] memory) {
+        bool[] memory unbackedAssetsFlags = new bool[](assets.length);
+        bool areReservesBacked = true;
+
+        unchecked {
+            for(uint256 i; i < asset.length; i++) {
+                address assetAddress = asset[i];
+                address feed = _proofOfReserveList[assetAddress];
+                if(feed != address(0)) {
+                    (, int256 answer, , , ) = AggregatorV3Interface(feedAddress)
+                        .latestRoundData();
+                }
+                if (answer < 0) {
+                    unbackedAssetsFlags[i] = true;
+                    areReservedBacked = false;
+                }
+            }
+        }
+    }
 }
