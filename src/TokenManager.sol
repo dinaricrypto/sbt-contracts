@@ -153,6 +153,49 @@ contract TokenManager is Ownable2Step {
 
     /// ------------------ Split ------------------ ///
 
+    /// @notice Calculate total aggregate supply after split
+    /// @param token Token to calculate supply expansion for
+    /// @param multiple Multiple to split by
+    /// @param reverseSplit Whether to perform a reverse split
+    /// @dev Accounts for all splits and supply volume conversions
+    function getSupplyExpansion(BridgedERC20 token, uint8 multiple, bool reverseSplit)
+        public
+        view
+        returns (uint256 aggregateSupply)
+    {
+        // Get root parent
+        BridgedERC20 _parentToken = token;
+        while (address(parentToken[_parentToken]) != address(0)) {
+            _parentToken = parentToken[_parentToken];
+        }
+        // Accumulate supply expansion from parents
+        aggregateSupply = 0;
+        if (address(_parentToken) != address(token)) {
+            SplitInfo memory _split = splits[_parentToken];
+            aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, _parentToken.totalSupply());
+            while (address(_split.newToken) != address(token)) {
+                aggregateSupply += _split.newToken.totalSupply();
+                _split = splits[_split.newToken];
+                aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, aggregateSupply);
+            }
+        }
+        // Apply current split
+        aggregateSupply = splitAmount(multiple, reverseSplit, aggregateSupply + token.totalSupply());
+    }
+
+    /// @notice Amount of token produced by a split
+    /// @param multiple Multiple to split by
+    /// @param reverseSplit Whether to perform a reverse split
+    /// @param amount Amount to split
+    function splitAmount(uint8 multiple, bool reverseSplit, uint256 amount) public pure returns (uint256) {
+        // Apply split
+        if (reverseSplit) {
+            return amount / multiple;
+        } else {
+            return amount * multiple;
+        }
+    }
+
     /// @notice Split a token
     /// @param token Token to split
     /// @param multiple Multiple to split by
@@ -201,36 +244,6 @@ contract TokenManager is Ownable2Step {
         token.setSymbol(string.concat(symbol, ".p", timestamp));
     }
 
-    /// @notice Calculate total aggregate supply after split
-    /// @param token Token to calculate supply expansion for
-    /// @param multiple Multiple to split by
-    /// @param reverseSplit Whether to perform a reverse split
-    /// @dev Accounts for all splits and supply volume conversions
-    function getSupplyExpansion(BridgedERC20 token, uint8 multiple, bool reverseSplit)
-        public
-        view
-        returns (uint256 aggregateSupply)
-    {
-        // Get root parent
-        BridgedERC20 _parentToken = token;
-        while (address(parentToken[_parentToken]) != address(0)) {
-            _parentToken = parentToken[_parentToken];
-        }
-        // Accumulate supply expansion from parents
-        aggregateSupply = 0;
-        if (address(_parentToken) != address(token)) {
-            SplitInfo memory _split = splits[_parentToken];
-            aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, _parentToken.totalSupply());
-            while (address(_split.newToken) != address(token)) {
-                aggregateSupply += _split.newToken.totalSupply();
-                _split = splits[_split.newToken];
-                aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, aggregateSupply);
-            }
-        }
-        // Apply current split
-        aggregateSupply = splitAmount(multiple, reverseSplit, aggregateSupply + token.totalSupply());
-    }
-
     /// @notice Convert a token amount to current token after split
     /// @param token Token to convert
     /// @param amount Amount to convert
@@ -259,18 +272,5 @@ contract TokenManager is Ownable2Step {
         token.transferFrom(msg.sender, address(this), amount);
         token.burn(amount);
         currentToken.mint(msg.sender, resultAmount);
-    }
-
-    /// @notice Amount of token produced by a split
-    /// @param multiple Multiple to split by
-    /// @param reverseSplit Whether to perform a reverse split
-    /// @param amount Amount to split
-    function splitAmount(uint8 multiple, bool reverseSplit, uint256 amount) public pure returns (uint256) {
-        // Apply split
-        if (reverseSplit) {
-            return amount / multiple;
-        } else {
-            return amount * multiple;
-        }
     }
 }
