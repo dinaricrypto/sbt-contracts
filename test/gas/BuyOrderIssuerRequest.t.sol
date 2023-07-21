@@ -4,15 +4,15 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "./utils/mocks/MockdShare.sol";
-import "./utils/SigUtils.sol";
-import "../src/issuer/BuyOrderIssuer.sol";
-import "../src/issuer/IOrderBridge.sol";
-import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import "../utils/mocks/MockdShare.sol";
+import "../utils/SigUtils.sol";
+import "../../src/issuer/BuyOrderIssuer.sol";
+import "../../src/issuer/IOrderBridge.sol";
+import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BuyOrderIssuerRequestTest is Test {
-    // For gas profiling
+    // More calls to permit and multicall for gas profiling
 
     dShare token;
     OrderFees orderFees;
@@ -29,6 +29,9 @@ contract BuyOrderIssuerRequestTest is Test {
     uint8 v;
     bytes32 r;
     bytes32 s;
+
+    OrderProcessor.OrderRequest order;
+    bytes[] calls;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -67,24 +70,61 @@ contract BuyOrderIssuerRequestTest is Test {
         bytes32 digest = sigUtils.getTypedDataHash(permit);
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
+
+        order = OrderProcessor.OrderRequest({
+            recipient: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            quantityIn: 1 ether,
+            price: 0
+        });
+
+        calls = new bytes[](2);
+        calls[0] = abi.encodeWithSelector(
+            issuer.selfPermit.selector, address(paymentToken), type(uint256).max, 30 days, v, r, s
+        );
+        calls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, order, bytes32("0x01"));
     }
 
-    function testRequestOrderWithPermit(uint256 quantityIn, bytes32 salt) public {
+    function testSelfPermit() public {
+        vm.prank(user);
+        issuer.selfPermit(address(paymentToken), type(uint256).max, 30 days, v, r, s);
+    }
+
+    function testRequestOrderWithPermitSingle() public {
+        vm.prank(user);
+        issuer.multicall(calls);
+    }
+
+    function testRequestOrderWithPermit(uint256 permitDeadline, uint256 quantityIn, bytes32 salt) public {
+        vm.assume(permitDeadline > block.timestamp);
         vm.assume(quantityIn > 1_000_000);
 
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+        SigUtils.Permit memory newpermit = SigUtils.Permit({
+            owner: user,
+            spender: address(issuer),
+            value: quantityIn,
+            nonce: 0,
+            deadline: permitDeadline
+        });
+
+        bytes32 digest = sigUtils.getTypedDataHash(newpermit);
+
+        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(userPrivateKey, digest);
+
+        OrderProcessor.OrderRequest memory neworder = OrderProcessor.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             quantityIn: quantityIn,
             price: 0
         });
-        bytes[] memory calls = new bytes[](2);
-        calls[0] = abi.encodeWithSelector(
-            issuer.selfPermit.selector, address(paymentToken), type(uint256).max, 30 days, v, r, s
+        bytes[] memory newcalls = new bytes[](2);
+        newcalls[0] = abi.encodeWithSelector(
+            issuer.selfPermit.selector, address(paymentToken), quantityIn, permitDeadline, v2, r2, s2
         );
-        calls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, order, salt);
+        newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder, salt);
         vm.prank(user);
-        issuer.multicall(calls);
+        issuer.multicall(newcalls);
     }
 }
