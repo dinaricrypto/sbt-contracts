@@ -92,7 +92,7 @@ contract ProofOfReserveExecutor is IProofOfReserveExecutor, Ownable {
         if (_assets.length == 0) {
             return true;
         }
-        (bool areReservesBacked, ) = _proofOfReserveAggregator.areReservedBack(_assets);
+        (bool areReservesBacked,) = _proofOfReserveAggregator.areReservedBack(_assets);
 
         return areReservesBacked;
     }
