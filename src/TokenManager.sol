@@ -174,6 +174,7 @@ contract TokenManager is Ownable2Step {
             SplitInfo memory _split = splits[_parentToken];
             aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, _parentToken.totalSupply());
             while (address(_split.newToken) != address(token)) {
+                // slither-disable-next-line calls-loop
                 aggregateSupply += _split.newToken.totalSupply();
                 _split = splits[_split.newToken];
                 aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, aggregateSupply);
