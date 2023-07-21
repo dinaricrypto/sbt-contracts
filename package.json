@@ -22,6 +22,7 @@
     "lint:fix": "eslint . --ext js,ts --fix",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "snapshot": "forge snapshot",
+    "gas": "forge test --gas-report",
     "storage": "./script/storage.sh",
     "keccak": "cast keccak",
     "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
