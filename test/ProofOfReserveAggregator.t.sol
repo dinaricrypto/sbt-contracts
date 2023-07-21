@@ -7,8 +7,8 @@ import {ProofOfReserveAggregator} from "../src/proof-of-reserve/ProofOfReserveAg
 contract ProofOfReserveAggregatorTest is Test {
     ProofOfReserveAggregator public aggregator;
     address private constant ASSET_1 = address(102);
-    address private constant feed_1 = address(103);
-    address private constant feed_2 = address(104);
+    address private constant FEED_1 = address(103);
+    address private constant FEED_2 = address(104);
 
     event ProofOfReserveFeedStateChanged(address indexed asset, address indexed proofOfReserveFeed, bool enabled);
 
@@ -22,21 +22,21 @@ contract ProofOfReserveAggregatorTest is Test {
         assertEq(feed, address(0), "Proof of reserve feed should not be enabled");
 
         vm.expectEmit(true, true, true, true);
-        emit ProofOfReserveFeedStateChanged(ASSET_1, feed_1, true);
-        aggregator.enableProofOfReserveFeed(ASSET_1, feed_1);
+        emit ProofOfReserveFeedStateChanged(ASSET_1, FEED_1, true);
+        aggregator.enableProofOfReserveFeed(ASSET_1, FEED_1);
 
         feed = aggregator.getProofOfReserveFeedForAsset(ASSET_1);
-        assertEq(feed, feed_1);
+        assertEq(feed, FEED_1);
     }
 
     function testProofOfReserveFeedIsEnabledWhenAlreadyEnabled() public {
-        aggregator.enableProofOfReserveFeed(ASSET_1, feed_1);
+        aggregator.enableProofOfReserveFeed(ASSET_1, FEED_1);
 
         vm.expectRevert(ProofOfReserveAggregator.FeedAlreadyEnabled.selector);
-        aggregator.enableProofOfReserveFeed(ASSET_1, feed_2);
+        aggregator.enableProofOfReserveFeed(ASSET_1, FEED_2);
 
         address proofOfReserveFeed = aggregator.getProofOfReserveFeedForAsset(ASSET_1);
-        assertEq(proofOfReserveFeed, feed_1);
+        assertEq(proofOfReserveFeed, FEED_1);
     }
 
     function testProofOfReserveFeedIsEnabledWithZeroPoRAddress() public {
@@ -47,13 +47,13 @@ contract ProofOfReserveAggregatorTest is Test {
     function testProofOfReserveFeedIsEnabledWhenNotOwner() public {
         vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vm.prank(address(0));
-        aggregator.enableProofOfReserveFeed(ASSET_1, feed_1);
+        aggregator.enableProofOfReserveFeed(ASSET_1, FEED_1);
     }
 
     function testProoOfReserveFeedIsDisabled() public {
-        aggregator.enableProofOfReserveFeed(ASSET_1, feed_1);
+        aggregator.enableProofOfReserveFeed(ASSET_1, FEED_1);
         address proofOfReserveFeed = aggregator.getProofOfReserveFeedForAsset(ASSET_1);
-        assertEq(proofOfReserveFeed, feed_1);
+        assertEq(proofOfReserveFeed, FEED_1);
 
         vm.expectEmit(true, true, false, true);
         emit ProofOfReserveFeedStateChanged(ASSET_1, address(0), false);

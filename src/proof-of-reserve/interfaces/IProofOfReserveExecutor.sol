@@ -8,9 +8,16 @@ pragma solidity 0.8.19;
  */
 interface IProofOfReserveExecutor {
     /**
+     * @dev emitted when new asset is enabled or disabled
+     * @param asset the address of the asset
+     * @param enabled whether it was enabled or disabled
+     */
+    event AssetStateChanged(address indexed asset, bool enabled);
+    /**
      * @dev Returns the list of assets
      * @return Array of asset addresses
      */
+
     function getAssets() external view returns (address[] memory);
 
     /**
