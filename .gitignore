@@ -10,7 +10,6 @@ lcov*.info
 flattened.txt
 broadcast
 coverage/
-.gas-snapshot
 
 # hardhat
 artifacts/
