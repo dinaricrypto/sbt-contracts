@@ -8,4 +8,7 @@ optimizer_runs = 1_000
 [fuzz]
 runs = 518
 
+[rpc_endpoints]
+arbitrum="${RPC_ARBITRUM}"
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

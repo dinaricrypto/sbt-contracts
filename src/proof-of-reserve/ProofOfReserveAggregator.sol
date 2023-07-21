@@ -33,6 +33,8 @@ contract ProofOfReserveAggregator is IProofOfReserveAggregator, Ownable {
         if (feed == address(0)) revert InvalidFeed();
         if (_proofOfReserveList[asset] != address(0)) revert FeedAlreadyEnabled();
 
+        emit ProofOfReserveFeedStateChanged(asset, feed, true);
+
         _proofOfReserveList[asset] = feed;
     }
 
@@ -41,6 +43,7 @@ contract ProofOfReserveAggregator is IProofOfReserveAggregator, Ownable {
      * @param asset The address of the asset
      */
     function disableProofOfReserveFeed(address asset) external override onlyOwner {
+        emit ProofOfReserveFeedStateChanged(asset, address(0), false);
         delete _proofOfReserveList[asset];
     }
 

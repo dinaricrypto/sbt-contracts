@@ -7,11 +7,13 @@ pragma solidity 0.8.19;
  * @dev This interface represents the functions of the ProofOfReserveAggregator contract.
  */
 interface IProofOfReserveAggregator {
+    event ProofOfReserveFeedStateChanged(address indexed asset, address indexed proofOfReserveFeed, bool enabled);
     /**
      * @dev Gets the Chainlink oracle feed for an asset
      * @param asset The address of the asset
      * @return The address of the Chainlink oracle feed for the asset
      */
+
     function getProofOfReserveFeedForAsset(address asset) external view returns (address);
 
     /**
