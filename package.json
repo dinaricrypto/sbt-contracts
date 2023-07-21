@@ -22,7 +22,7 @@
     "lint:fix": "eslint . --ext js,ts --fix",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "snapshot": "forge snapshot",
-    "gas": "forge test --gas-report",
+    "gas": "forge test --gas-report | grep '^|' > .gas-report",
     "storage": "./script/storage.sh",
     "keccak": "cast keccak",
     "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
@@ -82,6 +82,7 @@
     "ethers": "5.7.2"
   },
   "pre-commit": [
-    "pretty"
+    "pretty",
+    "gas"
   ]
 }
