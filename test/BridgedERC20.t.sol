@@ -117,7 +117,10 @@ contract dShareTest is Test {
         vm.expectRevert("AccessControl: pending admin must accept");
         token.acceptDefaultAdminTransfer();
 
-        vm.prank(newAdmin);
+        vm.startPrank(newAdmin);
+
+        vm.expectRevert("AccessControl: transfer delay not passed");
+        token.acceptDefaultAdminTransfer();
 
         // warp block with 1 seconds
         vm.warp(block.timestamp + 1 seconds);
