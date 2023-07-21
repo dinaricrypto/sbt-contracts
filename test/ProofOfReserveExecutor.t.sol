@@ -24,8 +24,6 @@ contract ProofOfReserveExecutorTest is Test {
         address[] memory enabledAssets = executor.getAssets();
         assertEq(enabledAssets.length, 0);
 
-        
-
         address[] memory assets = new address[](1);
         assets[0] = ASSET_1;
 

@@ -46,11 +46,10 @@ contract ProofOfReserveExecutor is IProofOfReserveExecutor, Ownable {
             address asset = assets[i];
             if (_assetState[asset]) continue;
             _assets.push(asset);
-       
+
             _assetState[asset] = true;
             emit AssetStateChanged(asset, true);
         }
-        
     }
 
     /**

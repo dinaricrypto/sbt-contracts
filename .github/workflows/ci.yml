@@ -11,6 +11,7 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
+  RPC_ARBITRUM: ${{ secrets.RPC_ARBITRUM }}
 
 jobs:
   lint:
