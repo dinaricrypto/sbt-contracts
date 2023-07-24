@@ -16,7 +16,7 @@ contract DeployDividendScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy dividend airdrop
-        new DividendDistribution();
+        new DividendDistribution(deployer);
 
         vm.stopBroadcast();
     }

@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {AccessControlDefaultAdminRules} from
+    "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
-contract DividendDistribution is Ownable {
+contract DividendDistribution is AccessControlDefaultAdminRules {
     using SafeERC20 for IERC20;
 
     /// ------------------- Types ------------------- ///
@@ -31,12 +32,21 @@ contract DividendDistribution is Ownable {
     error DistributionEnded(); // Error thrown when trying to claim tokens from an distribution that has ended.
     error NotReclaimable(); // Error thrown when the distribution has already been reclaimed or does not exist.
 
+    /// ------------------ Constants ------------------ ///
+
+    /// @notice Role for approved distributors
+    bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
+
     /// ------------------- State ------------------- ///
 
     // Mapping to store the information of each distribution by its ID.
     mapping(uint256 => Distribution) public distributions;
 
     uint256 public nextDistributionId;
+
+    /// ------------------- Initialization ------------------- ///
+
+    constructor(address owner) AccessControlDefaultAdminRules(0, owner) {}
 
     /// ------------------- Distribution Lifecycle ------------------- ///
 
@@ -49,7 +59,7 @@ contract DividendDistribution is Ownable {
      */
     function createDistribution(address token, uint256 totalDistribution, uint256 endTime)
         external
-        onlyOwner
+        onlyRole(DISTRIBUTOR_ROLE)
         returns (uint256 distributionId)
     {
         // Check if the endtime is in the past.
@@ -75,7 +85,10 @@ contract DividendDistribution is Ownable {
      * @param _amount The amount of tokens the user is claiming.
      * @dev Can only be called by the owner.
      */
-    function distribute(uint256 _distributionId, address _recipient, uint256 _amount) external onlyOwner {
+    function distribute(uint256 _distributionId, address _recipient, uint256 _amount)
+        external
+        onlyRole(DISTRIBUTOR_ROLE)
+    {
         // Check if the distribution has ended.
         if (block.timestamp > distributions[_distributionId].endTime) revert DistributionEnded();
 
@@ -94,7 +107,7 @@ contract DividendDistribution is Ownable {
      * @param _distributionId The ID of the distribution to reclaim tokens from.
      * @dev Can only be called by the distributor after the claim window has passed.
      */
-    function reclaimDistribution(uint256 _distributionId) external onlyOwner {
+    function reclaimDistribution(uint256 _distributionId) external onlyRole(DISTRIBUTOR_ROLE) {
         uint256 endTime = distributions[_distributionId].endTime;
         if (endTime == 0) revert NotReclaimable();
         if (block.timestamp < endTime) revert DistributionRunning();
