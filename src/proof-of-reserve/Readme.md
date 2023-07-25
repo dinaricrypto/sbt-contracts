@@ -6,3 +6,4 @@ In the event of an anomaly being identified in a single asset, the Proof of Rese
 
 The necessary smart contracts for the implementation of the Proof of Reserve mechanism within the Dinari protocol are contained within the provided directory. These contracts have been meticulously constructed to ensure seamless integration with the Dinari protocol, thereby facilitating optimal asset protection.
 
+![alt text](https://github.com/dinaricrypto/sbt-contracts/blob/dinari-proof-of-reserve/src/proof-of-reserve/proof-of-reserve.png?raw=true)
