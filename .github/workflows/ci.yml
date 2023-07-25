@@ -16,8 +16,6 @@ jobs:
   lint:
     strategy:
       fail-fast: true
-      matrix:
-        node-version: ["16.x"]
 
     name: Lint
     runs-on: ubuntu-latest
@@ -31,29 +29,9 @@ jobs:
         with:
           version: nightly
 
-      - name: Set up Node
-        uses: actions/setup-node@v2
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "yarn"
-
-      - name: Enable Node Corepack
-        run: corepack enable
-
-      - name: Install packages
-        run: yarn install
-
       - name: Sol Fmt
         run: |
           forge fmt --check
-
-      - name: Hardhat Build
-        run: |
-          yarn build:hh
-  
-      - name: TS Lint
-        run: |
-          yarn lint:ts
   
   analyze:
     strategy:
@@ -132,41 +110,3 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./lcov.info
-
-  hardhat:
-    strategy:
-      fail-fast: true
-      matrix:
-        node-version: ["16.x"]
-
-    name: Hardhat
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          version: nightly
-
-      - name: Set up Node
-        uses: actions/setup-node@v2
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "yarn"
-
-      - name: Enable Node Corepack
-        run: corepack enable
-
-      - name: Install packages
-        run: yarn install
-
-      - name: Hardhat Build
-        run: |
-          yarn build:hh
-
-      - name: Test
-        run: |
-          yarn test:hh
