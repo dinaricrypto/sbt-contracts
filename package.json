@@ -16,8 +16,13 @@
     "build": "forge build",
     "test": "forge test -vvv",
     "test:contract": "forge test -vvv --match-contract",
+    "build:hh": "hardhat compile --force",
+    "test:hh": "hardhat test",
+    "lint:ts": "eslint . --ext js,ts",
+    "lint:fix": "eslint . --ext js,ts --fix",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "snapshot": "forge snapshot",
+    "gas": "forge test --gas-report --fuzz-seed 1 | grep '^|' > .gas-report",
     "storage": "./script/storage.sh",
     "keccak": "cast keccak",
     "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
@@ -44,20 +49,40 @@
     "keys": "npx ts-node script/printkeys.ts"
   },
   "devDependencies": {
-    "@typechain/ethers-v5": "^10.2.1",
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
+    "@nomicfoundation/hardhat-foundry": "^1.0.2",
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@openzeppelin/hardhat-upgrades": "1.28.0",
+    "@typechain/ethers-v5": "^11.0.0",
+    "@typechain/hardhat": "7.0.0",
+    "@types/chai": "^4.2.0",
+    "@types/mocha": ">=9.1.0",
     "@types/node": "^16.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
     "bip39": "^3.1.0",
+    "chai": "^4.3.7",
     "dotenv": "^16.0.3",
+    "eslint": "^8.44.0",
+    "eslint-config-prettier": "^8.8.0",
+    "eslint-config-standard": "^17.1.0",
+    "eslint-plugin-import": "^2.27.5",
+    "eslint-plugin-n": "^16.0.1",
+    "eslint-plugin-prettier": "^5.0.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "hardhat": "^2.16.1",
     "pre-commit": "^1.2.2",
+    "prettier": "^3.0.0",
     "solidity-code-metrics": "^0.0.23",
     "ts-node": "^10.9.1",
     "typechain": "^8.1.1",
     "typescript": "~4.9.3"
   },
   "dependencies": {
-    "ethers": "^5.7.2"
+    "ethers": "5.7.2"
   },
   "pre-commit": [
-    "pretty"
+    "pretty",
+    "gas"
   ]
 }

@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
-import {BridgedERC20} from "../src/BridgedERC20.sol";
+import {dShare} from "../src/dShare.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
 import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
@@ -54,7 +54,7 @@ contract DeployTokenListScript is Script {
 
         for (uint256 i = 0; i < n; i++) {
             // deploy token
-            BridgedERC20 token = new BridgedERC20(deployer, names[i], symbols[i], "", restrictor);
+            dShare token = new dShare(deployer, names[i], symbols[i], "", restrictor);
 
             // allow issuers to mint and burn
             token.grantRole(token.MINTER_ROLE(), address(buyIssuer));

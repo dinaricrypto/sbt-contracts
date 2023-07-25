@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
-import {BridgedERC20} from "./BridgedERC20.sol";
+import {dShare} from "./dShare.sol";
 
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
@@ -16,7 +16,7 @@ contract TokenManager is Ownable2Step {
     /// ------------------ Types ------------------ ///
 
     struct SplitInfo {
-        BridgedERC20 newToken;
+        dShare newToken;
         uint8 multiple;
         bool reverseSplit;
     }
@@ -26,14 +26,10 @@ contract TokenManager is Ownable2Step {
     event TransferRestrictorSet(ITransferRestrictor transferRestrictor);
     event DisclosuresSet(string disclosures);
     /// @dev Emitted when a new token is deployed
-    event NewToken(BridgedERC20 indexed token);
+    event NewToken(dShare indexed token);
     /// @dev Emitted when a split is performed
     event Split(
-        BridgedERC20 indexed legacyToken,
-        BridgedERC20 indexed newToken,
-        uint8 multiple,
-        bool reverseSplit,
-        uint256 aggregateSupply
+        dShare indexed legacyToken, dShare indexed newToken, uint8 multiple, bool reverseSplit, uint256 aggregateSupply
     );
 
     error TokenNotFound();
@@ -59,11 +55,11 @@ contract TokenManager is Ownable2Step {
     EnumerableSet.AddressSet private _currentTokens;
 
     /// @notice Mapping of legacy tokens to split information
-    mapping(BridgedERC20 => SplitInfo) public splits;
+    mapping(dShare => SplitInfo) public splits;
 
     /// @notice Mapping of new tokens to legacy tokens
     /// @dev Allows traversal up and down the split chain
-    mapping(BridgedERC20 => BridgedERC20) public parentToken;
+    mapping(dShare => dShare) public parentToken;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -136,10 +132,10 @@ contract TokenManager is Ownable2Step {
     function deployNewToken(address owner, string memory name, string memory symbol)
         external
         onlyOwner
-        returns (BridgedERC20 newToken)
+        returns (dShare newToken)
     {
         // Deploy new token
-        newToken = new BridgedERC20(
+        newToken = new dShare(
             owner,
             string.concat(name, nameSuffix),
             string.concat(symbol, symbolSuffix),
@@ -158,13 +154,13 @@ contract TokenManager is Ownable2Step {
     /// @param multiple Multiple to split by
     /// @param reverseSplit Whether to perform a reverse split
     /// @dev Accounts for all splits and supply volume conversions
-    function getSupplyExpansion(BridgedERC20 token, uint8 multiple, bool reverseSplit)
+    function getSupplyExpansion(dShare token, uint8 multiple, bool reverseSplit)
         public
         view
         returns (uint256 aggregateSupply)
     {
         // Get root parent
-        BridgedERC20 _parentToken = token;
+        dShare _parentToken = token;
         while (address(parentToken[_parentToken]) != address(0)) {
             _parentToken = parentToken[_parentToken];
         }
@@ -202,10 +198,10 @@ contract TokenManager is Ownable2Step {
     /// @param multiple Multiple to split by
     /// @param reverseSplit Whether to perform a reverse split
     /// @dev Only callable by owner
-    function split(BridgedERC20 token, uint8 multiple, bool reverseSplit)
+    function split(dShare token, uint8 multiple, bool reverseSplit)
         external
         onlyOwner
-        returns (BridgedERC20 newToken, uint256 aggregateSupply)
+        returns (dShare newToken, uint256 aggregateSupply)
     {
         // Check if split multiple is valid
         if (multiple < 2) revert InvalidMultiple();
@@ -219,7 +215,7 @@ contract TokenManager is Ownable2Step {
         string memory symbol = token.symbol();
 
         // Deploy new token
-        newToken = new BridgedERC20(
+        newToken = new dShare(
             token.owner(),
             name,
             symbol,
@@ -251,10 +247,7 @@ contract TokenManager is Ownable2Step {
     /// @return currentToken Current token minted to user
     /// @return resultAmount Amount of current token minted to user
     /// @dev Accounts for multiple splits and returns the current token
-    function convert(BridgedERC20 token, uint256 amount)
-        external
-        returns (BridgedERC20 currentToken, uint256 resultAmount)
-    {
+    function convert(dShare token, uint256 amount) external returns (dShare currentToken, uint256 resultAmount) {
         // Check if token has been split
         SplitInfo memory _split = splits[token];
         if (address(_split.newToken) == address(0)) revert SplitNotFound();

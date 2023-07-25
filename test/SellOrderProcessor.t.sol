@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import "./utils/mocks/MockBridgedERC20.sol";
+import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/SellOrderProcessor.sol";
 import "../src/issuer/IOrderBridge.sol";
@@ -18,7 +18,7 @@ contract SellOrderProcessorTest is Test {
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
-    BridgedERC20 token;
+    dShare token;
     OrderFees orderFees;
     SellOrderProcessor issuer;
     MockERC20 paymentToken;
@@ -36,7 +36,7 @@ contract SellOrderProcessorTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockBridgedERC20();
+        token = new MockdShare();
         paymentToken = new MockERC20("Money", "$", 6);
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);

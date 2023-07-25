@@ -11,19 +11,15 @@ contract TokenManagerTest is Test {
     event SymbolSuffixSet(string symbolSuffix);
     event TransferRestrictorSet(ITransferRestrictor transferRestrictor);
     event DisclosuresSet(string disclosures);
-    event NewToken(BridgedERC20 indexed token);
+    event NewToken(dShare indexed token);
     event Split(
-        BridgedERC20 indexed legacyToken,
-        BridgedERC20 indexed newToken,
-        uint8 multiple,
-        bool reverseSplit,
-        uint256 aggregateSupply
+        dShare indexed legacyToken, dShare indexed newToken, uint8 multiple, bool reverseSplit, uint256 aggregateSupply
     );
 
     TokenManager tokenManager;
     TransferRestrictor restrictor;
 
-    BridgedERC20 token1;
+    dShare token1;
 
     address user = address(2);
 
@@ -31,7 +27,7 @@ contract TokenManagerTest is Test {
         restrictor = new TransferRestrictor(address(this));
         tokenManager = new TokenManager(restrictor);
 
-        // token1 = new BridgedERC20(address(this), "Token1", "TKN1", "example.com", restrictor);
+        // token1 = new dShare(address(this), "Token1", "TKN1", "example.com", restrictor);
         token1 = tokenManager.deployNewToken(address(this), "Token1", "TKN1");
         token1.grantRole(token1.MINTER_ROLE(), address(this));
     }
@@ -86,7 +82,7 @@ contract TokenManagerTest is Test {
         vm.prank(address(1));
         tokenManager.deployNewToken(address(1), "Token", "TKN");
 
-        BridgedERC20 newToken = tokenManager.deployNewToken(address(1), "Token", "TKN");
+        dShare newToken = tokenManager.deployNewToken(address(1), "Token", "TKN");
         assertEq(newToken.owner(), address(1));
         assertEq(newToken.name(), "Token - Dinari");
         assertEq(newToken.symbol(), "TKN.d");
@@ -115,8 +111,8 @@ contract TokenManagerTest is Test {
         } else {
             uint256 splitAmount = tokenManager.splitAmount(multiple, reverse, supply);
             vm.expectEmit(true, false, true, true);
-            emit Split(token1, BridgedERC20(address(0)), multiple, reverse, splitAmount);
-            (BridgedERC20 newToken, uint256 aggregateSupply) = tokenManager.split(token1, multiple, reverse);
+            emit Split(token1, dShare(address(0)), multiple, reverse, splitAmount);
+            (dShare newToken, uint256 aggregateSupply) = tokenManager.split(token1, multiple, reverse);
             assertEq(aggregateSupply, splitAmount);
             assertEq(newToken.owner(), token1.owner());
             assertEq(newToken.name(), "Token1 - Dinari");
@@ -131,10 +127,10 @@ contract TokenManagerTest is Test {
             assertFalse(tokenManager.isCurrentToken(address(token1)));
 
             // split restrictions
-            vm.expectRevert(BridgedERC20.TokenSplit.selector);
+            vm.expectRevert(dShare.TokenSplit.selector);
             token1.mint(user, 1);
 
-            vm.expectRevert(BridgedERC20.TokenSplit.selector);
+            vm.expectRevert(dShare.TokenSplit.selector);
             vm.prank(user);
             token1.burn(1);
         }
@@ -146,7 +142,7 @@ contract TokenManagerTest is Test {
         tokenManager.split(token1, 2, false);
 
         vm.expectRevert(TokenManager.TokenNotFound.selector);
-        tokenManager.split(BridgedERC20(address(1)), 2, false);
+        tokenManager.split(dShare(address(1)), 2, false);
     }
 
     function testConvertTripleSplit(uint8 multiple, bool reverse, uint256 amount) public {
@@ -160,15 +156,15 @@ contract TokenManagerTest is Test {
         token1.approve(address(tokenManager), amount);
 
         // split token
-        (BridgedERC20 newToken,) = tokenManager.split(token1, multiple, reverse);
+        (dShare newToken,) = tokenManager.split(token1, multiple, reverse);
         // split token again
-        (BridgedERC20 newToken2,) = tokenManager.split(newToken, multiple, reverse);
+        (dShare newToken2,) = tokenManager.split(newToken, multiple, reverse);
         // split token again
-        (BridgedERC20 newToken3, uint256 aggregateSupply3) = tokenManager.split(newToken2, multiple, reverse);
+        (dShare newToken3, uint256 aggregateSupply3) = tokenManager.split(newToken2, multiple, reverse);
 
         // convert amount
         vm.prank(user);
-        (BridgedERC20 currentToken, uint256 convertedAmount) = tokenManager.convert(token1, amount);
+        (dShare currentToken, uint256 convertedAmount) = tokenManager.convert(token1, amount);
         assertEq(address(currentToken), address(newToken3));
         assertEq(aggregateSupply3, convertedAmount);
         if (reverse) {
@@ -184,6 +180,6 @@ contract TokenManagerTest is Test {
 
     function testConvertSplitNotFoundReverts() public {
         vm.expectRevert(TokenManager.SplitNotFound.selector);
-        tokenManager.convert(BridgedERC20(address(1)), 1);
+        tokenManager.convert(dShare(address(1)), 1);
     }
 }

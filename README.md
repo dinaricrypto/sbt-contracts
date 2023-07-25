@@ -5,9 +5,10 @@ SBT Contracts
 
 Usage
 ------
-### Install foundry tools
+### Install tools and foundry
 
 ```bash
+yarn install
 yarn install:foundry
 ```
 

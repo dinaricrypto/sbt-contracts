@@ -2,22 +2,22 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {BridgedERC20} from "../src/BridgedERC20.sol";
+import {dShare} from "../src/dShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
-contract BridgedERC20Test is Test {
+contract dShareTest is Test {
     event NameSet(string name);
     event SymbolSet(string symbol);
     event DisclosuresSet(string disclosures);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     TransferRestrictor public restrictor;
-    BridgedERC20 public token;
+    dShare public token;
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
-        token = new BridgedERC20(
+        token = new dShare(
             address(this),
             "Dinari Token",
             "dTKN",
@@ -81,7 +81,7 @@ contract BridgedERC20Test is Test {
     }
 
     function testSetSplitReverts() public {
-        vm.expectRevert(BridgedERC20.Unauthorized.selector);
+        vm.expectRevert(dShare.Unauthorized.selector);
         vm.prank(address(1));
         token.setSplit();
     }
@@ -124,7 +124,7 @@ contract BridgedERC20Test is Test {
         token.grantRole(token.BURNER_ROLE(), address(2));
         token.mint(address(1), 1e18);
         token.mint(address(2), 1e18);
-        vm.expectRevert(BridgedERC20.Unauthorized.selector);
+        vm.expectRevert(dShare.Unauthorized.selector);
         vm.prank(address(1));
         token.transfer(address(0), 0.1e18);
 

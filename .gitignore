@@ -10,10 +10,12 @@ lcov*.info
 flattened.txt
 broadcast
 coverage/
+.gas-snapshot
 
 # hardhat
 artifacts/
 cache_hardhat/
+typechain-types/
 
 # slither
 /crytic_export

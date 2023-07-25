@@ -12,7 +12,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 /// Fees are calculated upfront and held back from the order amount
 /// The payment is escrowed until the order is filled or cancelled
 /// Payment is automatically refunded if the order is cancelled
-/// Implicitly assumes that asset tokens are BridgedERC20 and can be minted
+/// Implicitly assumes that asset tokens are dShare and can be minted
 contract BuyOrderIssuer is OrderProcessor {
     // Handle token transfers safely
     using SafeERC20 for IERC20;

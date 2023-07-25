@@ -12,7 +12,7 @@ import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
-import {BridgedERC20} from "../BridgedERC20.sol";
+import {dShare} from "../dShare.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -298,8 +298,8 @@ abstract contract OrderProcessor is
     {
         // check blocklisted address
         if (
-            BridgedERC20(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)
-                || BridgedERC20(orderRequest.assetToken).isBlacklisted(msg.sender)
+            dShare(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)
+                || dShare(orderRequest.assetToken).isBlacklisted(msg.sender)
         ) revert Blacklist();
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
