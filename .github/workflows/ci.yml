@@ -43,7 +43,6 @@ jobs:
 
       - name: Install packages
         run: |
-          YARN_ENABLE_IMMUTABLE_INSTALLS=false
           yarn install
 
       - name: Sol Fmt
@@ -165,7 +164,6 @@ jobs:
 
       - name: Install packages
         run: |
-          YARN_ENABLE_IMMUTABLE_INSTALLS=false
           yarn install
 
       - name: Hardhat Build
