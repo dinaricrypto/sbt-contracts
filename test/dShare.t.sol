@@ -150,6 +150,34 @@ contract dShareTest is Test {
         token.burn(0.9e18);
     }
 
+    function testTransferOwnerShip() public {
+        // set new address
+        address newAdmin = address(1);
+        assertEq(token.hasRole(0, address(this)), true);
+        vm.expectRevert("AccessControl: can't directly revoke default admin role");
+        token.revokeRole(0, address(this));
+
+        // begin admin transfer
+        token.beginDefaultAdminTransfer(newAdmin);
+
+        vm.expectRevert("AccessControl: pending admin must accept");
+        token.acceptDefaultAdminTransfer();
+
+        vm.startPrank(newAdmin);
+
+        vm.expectRevert("AccessControl: transfer delay not passed");
+        token.acceptDefaultAdminTransfer();
+
+        // warp block with 1 seconds
+        vm.warp(block.timestamp + 1 seconds);
+
+        // new owner accept admin transfer
+        token.acceptDefaultAdminTransfer();
+
+        assertEq(token.hasRole(0, address(this)), false);
+        assertEq(token.owner(), newAdmin);
+    }
+
     function testTransfer() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
