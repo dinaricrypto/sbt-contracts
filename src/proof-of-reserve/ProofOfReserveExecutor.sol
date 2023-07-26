@@ -21,6 +21,8 @@ contract ProofOfReserveExecutor is IProofOfReserveExecutor, Ownable {
     // Mapping from asset addresses to whether the asset is enabled
     mapping(address => bool) internal _assetState;
 
+    error AssetIsNotEnabledForChecking();
+
     /**
      * @dev Sets the address of the ProofOfReserveAggregator contract
      * @param _aggregator The address of the ProofOfReserveAggregator contract
@@ -95,5 +97,20 @@ contract ProofOfReserveExecutor is IProofOfReserveExecutor, Ownable {
         (bool areReservesBacked,) = _proofOfReserveAggregator.areReservedBack(_assets);
 
         return areReservesBacked;
+    }
+
+    /**
+     * @dev Requests an update to the reserve number for a specific asset
+     * @param _asset The address of the asset to check
+     * @return True if the asset is fully backed, false otherwise
+     */
+    function isAssetBacked(address _asset) external view returns (bool) {
+        if (!_assetState[_asset]) revert AssetIsNotEnabledForChecking();
+
+        address[] memory asset = new address[](1);
+        asset[0] = _asset;
+
+        (bool isReserveBacked,) = _proofOfReserveAggregator.areReservedBack(asset);
+        return isReserveBacked;
     }
 }
