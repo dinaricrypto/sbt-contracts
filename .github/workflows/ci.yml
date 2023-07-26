@@ -43,6 +43,8 @@ jobs:
 
       - name: Install packages
         run: |
+
+          yarn --version
           yarn install
 
       - name: Sol Fmt
