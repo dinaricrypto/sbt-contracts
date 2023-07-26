@@ -12,7 +12,7 @@
     "d2": "D2_LAYOUT=tala find . -type f -name '*.d2' -exec d2 --theme 3 '{}' '{}.svg' \\;",
     "d2:png": "D2_LAYOUT=tala find . -type f -name '*.d2' -exec d2 --theme 3 '{}' '{}.png' \\;",
     "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
-    "pretty": "forge fmt && yarn lint:fix",
+    "pretty": "forge fmt",
     "build": "forge build",
     "test": "forge test -vvv",
     "test:contract": "forge test -vvv --match-contract",
@@ -22,6 +22,7 @@
     "lint:fix": "eslint . --ext js,ts --fix",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
     "snapshot": "forge snapshot",
+    "gas": "forge test --gas-report --fuzz-seed 1 | grep '^|' > .gas-report",
     "storage": "./script/storage.sh",
     "keccak": "cast keccak",
     "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
@@ -81,6 +82,7 @@
     "ethers": "5.7.2"
   },
   "pre-commit": [
-    "pretty"
+    "pretty",
+    "gas"
   ]
 }
