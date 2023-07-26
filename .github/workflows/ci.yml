@@ -164,7 +164,6 @@ jobs:
 
       - name: Install packages
         run: |
-          yarn set version 1.22.19
           yarn install
 
       - name: Hardhat Build
