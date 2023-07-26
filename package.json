@@ -82,6 +82,7 @@
     "ethers": "5.7.2"
   },
   "pre-commit": [
-    "pretty"
+    "pretty",
+    "gas"
   ]
 }
