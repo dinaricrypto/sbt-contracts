@@ -1,12 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/access/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import {AccessControlDefaultAdminRules} from
+    "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
@@ -33,10 +30,8 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   3. [Optional] User requests cancellation (requestCancel)
 ///   4. Operator cancels the order (cancelOrder)
 abstract contract OrderProcessor is
-    Initializable,
-    UUPSUpgradeable,
-    AccessControlDefaultAdminRulesUpgradeable,
-    ReentrancyGuardUpgradeable,
+    AccessControlDefaultAdminRules,
+    ReentrancyGuard,
     Multicall,
     SelfPermit,
     IOrderBridge
@@ -125,35 +120,25 @@ abstract contract OrderProcessor is
 
     /// ------------------ Initialization ------------------ ///
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
     /// @notice Initialize contract
-    /// @param owner Owner of contract
+    /// @param _owner Owner of contract
     /// @param treasury_ Address to receive fees
     /// @param orderFees_ Fee specification contract
     /// @dev Treasury cannot be zero address
-    function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
+    constructor(address _owner, address treasury_, IOrderFees orderFees_)
+        ReentrancyGuard()
+        AccessControlDefaultAdminRules(0, _owner)
+    {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
-
-        // Initialize super contracts
-        __UUPSUpgradeable_init_unchained();
-        __AccessControlDefaultAdminRules_init_unchained(0, owner);
-        __ReentrancyGuard_init_unchained();
 
         // Initialize treasury and order fees
         treasury = treasury_;
         orderFees = orderFees_;
 
         // Grant admin role to owner
-        _grantRole(ADMIN_ROLE, owner);
+        _grantRole(ADMIN_ROLE, _owner);
     }
-
-    // Restrict upgrades to owner
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /// ------------------ Administration ------------------ ///
 

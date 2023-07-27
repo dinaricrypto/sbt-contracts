@@ -39,12 +39,7 @@ contract LimitBuyIssuerTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-        LimitBuyIssuer issuerImpl = new LimitBuyIssuer();
-        issuer = LimitBuyIssuer(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
-            )
-        );
+        issuer = new LimitBuyIssuer(address(this), treasury, orderFees);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

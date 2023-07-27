@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 
 import { BuyOrderIssuer__factory } from "../typechain-types";
 
@@ -24,7 +24,7 @@ describe("EIP-712 Compliance Test", function () {
     const issuerFactory = new BuyOrderIssuer__factory(deployer);
     issuerImpl = issuerFactory.attach(
       (
-        await upgrades.deployProxy(issuerFactory, [
+        await ethers.deployContract("BuyOrderIssuer", [
           deployer.address,
           treasury.address,
           orderFees.address,

@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
-import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/BuyOrderIssuer.sol";
@@ -49,12 +48,7 @@ contract BuyOrderIssuerTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
-        issuer = BuyOrderIssuer(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
-            )
-        );
+        issuer = new BuyOrderIssuer(address(this), treasury, orderFees);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -85,44 +79,6 @@ contract BuyOrderIssuerTest is Test {
             tif: IOrderBridge.TIF.GTC,
             fee: dummyOrderFees
         });
-    }
-
-    function testInitialize(address owner, address newTreasury) public {
-        vm.assume(owner != address(this) && owner != address(0));
-        vm.assume(newTreasury != address(0));
-
-        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
-        BuyOrderIssuer newIssuer = BuyOrderIssuer(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)))
-            )
-        );
-        assertEq(newIssuer.owner(), owner);
-
-        // revert if already initialized
-        BuyOrderIssuer newImpl = new BuyOrderIssuer();
-        vm.expectRevert(
-            bytes.concat(
-                "AccessControl: account ",
-                bytes(Strings.toHexString(address(this))),
-                " is missing role 0x0000000000000000000000000000000000000000000000000000000000000000"
-            )
-        );
-        newIssuer.upgradeToAndCall(
-            address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
-        );
-    }
-
-    function testInitializeZeroOwnerReverts() public {
-        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
-        vm.expectRevert("AccessControl: 0 default admin");
-        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(0), treasury, orderFees)));
-    }
-
-    function testInitializeZeroTreasuryReverts() public {
-        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), address(0), orderFees)));
     }
 
     function testSetTreasury(address account) public {

@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import {SellOrderProcessor} from "./SellOrderProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
+import {IOrderFees} from "./IOrderFees.sol";
 
 /**
  * @title LimitSellProcessor
@@ -12,6 +13,10 @@ import "prb-math/Common.sol" as PrbMath;
 contract LimitSellProcessor is SellOrderProcessor {
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();
+
+    constructor(address _owner, address treasury_, IOrderFees orderFees_)
+        SellOrderProcessor(_owner, treasury_, orderFees_)
+    {}
 
     function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
         internal
