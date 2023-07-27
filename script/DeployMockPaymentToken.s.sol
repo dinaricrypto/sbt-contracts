@@ -11,7 +11,7 @@ contract DeployMockPaymentTokenScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy mock USDC with 6 decimals
-        new MockERC20("Fake USDC", "fkUSDC", 6);
+        new MockERC20("USD Coin", "USDC", 6);
 
         vm.stopBroadcast();
     }
