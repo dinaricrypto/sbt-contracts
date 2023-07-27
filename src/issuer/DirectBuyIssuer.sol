@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {BuyOrderIssuer, OrderProcessor} from "./BuyOrderIssuer.sol";
 import {IMintBurn} from "../IMintBurn.sol";
+import "prb-math/Common.sol" as PrbMath;
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
@@ -32,6 +33,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
+    error OrderFillBelowLimitPrice();
 
     /// @dev Emitted when `amount` of escrowed payment is taken for `orderId`
     event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
@@ -118,6 +120,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
+        if (fillAmount > PrbMath.mulDiv18(receivedAmount, orderRequest.price)) revert OrderFillBelowLimitPrice();
         // Can't fill more than payment previously taken from escrow
         uint256 escrow = getOrderEscrow[orderId];
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
