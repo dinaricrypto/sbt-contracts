@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {BuyOrderIssuer, OrderProcessor} from "./BuyOrderIssuer.sol";
 import {IMintBurn} from "../IMintBurn.sol";
+import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
@@ -42,6 +43,10 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     /// @dev orderId => escrow
     mapping(bytes32 => uint256) public getOrderEscrow;
+
+    constructor(address _owner, address treasury_, IOrderFees orderFees_)
+        BuyOrderIssuer(_owner, treasury_, orderFees_)
+    {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 

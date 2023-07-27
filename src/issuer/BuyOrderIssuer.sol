@@ -5,6 +5,7 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor} from "./OrderProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
+import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BuyOrderIssuer.sol)
@@ -33,6 +34,10 @@ contract BuyOrderIssuer is OrderProcessor {
 
     /// @dev orderId => FeeState
     mapping(bytes32 => FeeState) private _feeState;
+
+    constructor(address _owner, address treasury_, IOrderFees orderFees_)
+        OrderProcessor(_owner, treasury_, orderFees_)
+    {}
 
     /// ------------------ Getters ------------------ ///
 

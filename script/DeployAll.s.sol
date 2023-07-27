@@ -7,7 +7,6 @@ import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
-import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
     function run() external {
@@ -32,32 +31,11 @@ contract DeployAllScript is Script {
         // deploy fee manager
         IOrderFees orderFees = new OrderFees(owner, 1 ether, 0.005 ether);
 
-        // deploy implementation
-        BuyOrderIssuer buyImpl = new BuyOrderIssuer();
-        // deploy proxy and set implementation
-        BuyOrderIssuer buyOrderIssuer = BuyOrderIssuer(
-            address(
-                new ERC1967Proxy(address(buyImpl), abi.encodeCall(buyImpl.initialize, (deployer, treasury, orderFees)))
-            )
-        );
+        BuyOrderIssuer buyOrderIssuer = new BuyOrderIssuer(deployer, treasury, orderFees);
 
-        // deploy implementation
-        SellOrderProcessor sellImpl = new SellOrderProcessor();
-        // deploy proxy and set implementation
-        SellOrderProcessor sellOrderProcessor = SellOrderProcessor(
-            address(
-                new ERC1967Proxy(address(sellImpl), abi.encodeCall(sellImpl.initialize, (deployer, treasury, orderFees)))
-            )
-        );
+        SellOrderProcessor sellOrderProcessor = new SellOrderProcessor(deployer, treasury, orderFees);
 
-        // deploy implementation
-        DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
-        // deploy proxy and set implementation
-        DirectBuyIssuer directBuyIssuer = DirectBuyIssuer(
-            address(
-                new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasury, orderFees)))
-            )
-        );
+        DirectBuyIssuer directBuyIssuer = new DirectBuyIssuer(deployer, treasury, orderFees);
 
         // config operator
         buyOrderIssuer.grantRole(buyOrderIssuer.OPERATOR_ROLE(), operator);
