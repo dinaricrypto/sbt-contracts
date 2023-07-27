@@ -17,7 +17,7 @@
     "test": "forge test -vvv",
     "test:contract": "forge test -vvv --match-contract",
     "build:hh": "hardhat compile --force",
-    "test:hh": "hardhat test",
+    "test:hh": "hardhat typechain && hardhat test",
     "lint:ts": "eslint . --ext js,ts",
     "lint:fix": "eslint . --ext js,ts --fix",
     "coverage": "forge coverage --report lcov && genhtml --branch-coverage --dark-mode -o ./coverage/ lcov.info",
