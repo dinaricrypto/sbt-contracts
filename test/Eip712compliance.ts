@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers, upgrades } from "hardhat";
+import { ethers } from "hardhat";
 
 import { BuyOrderIssuer__factory } from "../typechain-types";
 
