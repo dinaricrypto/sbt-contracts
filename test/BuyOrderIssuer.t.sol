@@ -120,7 +120,6 @@ contract BuyOrderIssuerTest is Test {
         vm.assume(percentageFeeRate < 1_000_000);
         OrderFees fees = new OrderFees(address(this), perOrderFee, percentageFeeRate);
         issuer.setOrderFees(fees);
-
         (uint256 inputValue, uint256 flatFee, uint256 percentageFee) =
             issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
         assertEq(inputValue - flatFee - percentageFee, orderValue);
