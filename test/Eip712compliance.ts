@@ -17,7 +17,7 @@ describe("EIP-712 Compliance Test", function () {
     const orderFees = await ethers.deployContract("OrderFees", [
       deployer.address,
       1_000_000,
-      5_000
+      5_000,
     ]);
 
     // Deploy BuyOrderIssuer contract
