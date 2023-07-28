@@ -6,27 +6,27 @@ import "solady/test/utils/mocks/MockERC20.sol";
 import "../src/issuer/OrderFees.sol";
 
 contract OrderFeesTest is Test {
-    event FeeSet(uint24 perOrderFee, uint24 percentageFee);
+    event FeeSet(uint256 perOrderFee, uint24 percentageFee);
 
     OrderFees orderFees;
     MockERC20 usdc;
 
     function setUp() public {
-        orderFees = new OrderFees(address(this), 10_000, 50);
+        orderFees = new OrderFees(address(this), 1 ether, 50);
         usdc = new MockERC20("USD Coin", "USDC", 6);
     }
 
     function decimalAdjust(uint8 decimals, uint256 fee) internal pure returns (uint256) {
         uint256 adjFee = fee;
-        if (decimals < 4) {
-            adjFee /= 10 ** (4 - decimals);
-        } else if (decimals > 4) {
-            adjFee *= 10 ** (decimals - 4);
+        if (decimals < 18) {
+            adjFee /= 10 ** (18 - decimals);
+        } else if (decimals > 18) {
+            adjFee *= 10 ** (decimals - 18);
         }
         return adjFee;
     }
 
-    function testSetFee(uint24 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
+    function testSetFee(uint256 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
         if (percentageFee >= 10000) {
             vm.expectRevert(OrderFees.FeeTooLarge.selector);
             orderFees.setFees(perOrderFee, percentageFee);
