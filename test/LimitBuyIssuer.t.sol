@@ -37,7 +37,7 @@ contract LimitBuyIssuerTest is Test {
         token = new MockdShare();
         paymentToken = new MockERC20("Money", "$", 6);
 
-        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
+        orderFees = new OrderFees(address(this), 10000, 50);
 
         issuer = new LimitBuyIssuer(address(this), treasury, orderFees);
 

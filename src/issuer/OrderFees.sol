@@ -17,20 +17,20 @@ contract OrderFees is Ownable2Step, IOrderFees {
     error DecimalsTooLarge();
 
     /// @dev Emitted when `perOrderFee` and `percentageFeeRate` are set
-    event FeeSet(uint64 perOrderFee, uint64 percentageFeeRate);
+    event FeeSet(uint24 perOrderFee, uint24 percentageFeeRate);
 
     /// ------------------ Constants ------------------ ///
 
-    /// @dev 1 ether == 100%
-    uint64 private constant _ONEHUNDRED_PERCENT = 1 ether;
+    /// @dev 10_000 == 100%
+    uint24 private constant _ONEHUNDRED_PERCENT = 10_000;
 
     /// ------------------ State ------------------ ///
 
     /// @notice Flat fee per order in ethers decimals
-    uint64 public perOrderFee;
+    uint24 public perOrderFee;
 
     /// @notice Percentage fee take per order in ethers decimals
-    uint64 public percentageFeeRate;
+    uint24 public percentageFeeRate;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -39,7 +39,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
     /// @param _perOrderFee Base flat fee per order in ethers decimals
     /// @param _percentageFeeRate Percentage fee take per order in ethers decimals
     /// @dev Percentage fee cannot be 100% or more
-    constructor(address owner, uint64 _perOrderFee, uint64 _percentageFeeRate) {
+    constructor(address owner, uint24 _perOrderFee, uint24 _percentageFeeRate) {
         // Check percentage fee is less than 100%
         if (_percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeTooLarge();
 
@@ -57,7 +57,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
     /// @param _perOrderFee Base flat fee per order in ethers decimals
     /// @param _percentageFeeRate Percentage fee per order in ethers decimals
     /// @dev Only callable by owner
-    function setFees(uint64 _perOrderFee, uint64 _percentageFeeRate) external onlyOwner {
+    function setFees(uint24 _perOrderFee, uint24 _percentageFeeRate) external onlyOwner {
         // Check percentage fee is less than 100%
         if (_percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeTooLarge();
 
@@ -81,18 +81,18 @@ contract OrderFees is Ownable2Step, IOrderFees {
         flatFee = perOrderFee;
         // Adjust flat fee to token decimals if necessary
         if (decimals < 18 && flatFee != 0) {
-            flatFee /= 10 ** (18 - decimals);
+            flatFee = PrbMath.mulDiv(flatFee, 10 ** decimals, 10 ** 18);
         }
     }
 
     /// @inheritdoc IOrderFees
     function percentageFeeForValue(uint256 value) external view returns (uint256) {
         // Get base percentage fee rate
-        uint64 _percentageFeeRate = percentageFeeRate;
+        uint24 _percentageFeeRate = percentageFeeRate;
         // If percentage fee rate is non-zero, use it, else return 0
         if (_percentageFeeRate != 0) {
             // Apply fee to input value
-            return PrbMath.mulDiv18(value, _percentageFeeRate);
+            return PrbMath.mulDiv(value, _percentageFeeRate, 10000);
         }
         return 0;
     }
@@ -100,7 +100,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
     /// @inheritdoc IOrderFees
     function recoverInputValueFromRemaining(uint256 remainingValue) external view returns (uint256) {
         // Get base percentage fee rate
-        uint64 _percentageFeeRate = percentageFeeRate;
+        uint24 _percentageFeeRate = percentageFeeRate;
         // If percentage fee rate is zero, return input unchanged
         if (_percentageFeeRate == 0) {
             return remainingValue;

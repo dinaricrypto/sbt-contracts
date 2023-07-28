@@ -6,13 +6,13 @@ import "solady/test/utils/mocks/MockERC20.sol";
 import "../src/issuer/OrderFees.sol";
 
 contract OrderFeesTest is Test {
-    event FeeSet(uint64 perOrderFee, uint64 percentageFee);
+    event FeeSet(uint24 perOrderFee, uint24 percentageFee);
 
     OrderFees orderFees;
     MockERC20 usdc;
 
     function setUp() public {
-        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
+        orderFees = new OrderFees(address(this), 10_000, 50);
         usdc = new MockERC20("USD Coin", "USDC", 6);
     }
 
@@ -26,8 +26,8 @@ contract OrderFeesTest is Test {
         return adjFee;
     }
 
-    function testSetFee(uint64 perOrderFee, uint64 percentageFee, uint8 tokenDecimals, uint256 value) public {
-        if (percentageFee >= 1 ether) {
+    function testSetFee(uint24 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
+        if (percentageFee >= 10000) {
             vm.expectRevert(OrderFees.FeeTooLarge.selector);
             orderFees.setFees(perOrderFee, percentageFee);
         } else {
@@ -36,7 +36,7 @@ contract OrderFeesTest is Test {
             orderFees.setFees(perOrderFee, percentageFee);
             assertEq(orderFees.perOrderFee(), perOrderFee);
             assertEq(orderFees.percentageFeeRate(), percentageFee);
-            assertEq(orderFees.percentageFeeForValue(value), PrbMath.mulDiv18(value, percentageFee));
+            assertEq(orderFees.percentageFeeForValue(value), PrbMath.mulDiv(value, percentageFee, 10000));
             MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
             if (tokenDecimals > 18) {
                 vm.expectRevert(OrderFees.DecimalsTooLarge.selector);
@@ -50,12 +50,13 @@ contract OrderFeesTest is Test {
     function testUSDC() public {
         // 1 USDC flat fee
         uint256 flatFee = orderFees.flatFeeForOrder(address(usdc));
+        console.log(flatFee);
         assertEq(flatFee, 1e6);
     }
 
-    function testRecoverInputValueFromRemaining(uint64 percentageFeeRate, uint128 remainingValue) public {
+    function testRecoverInputValueFromRemaining(uint24 percentageFeeRate, uint128 remainingValue) public {
         // uint128 used to avoid overflow when calculating larger raw input value
-        vm.assume(percentageFeeRate < 1 ether);
+        vm.assume(percentageFeeRate < 10000);
         orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
 
         uint256 inputValue = orderFees.recoverInputValueFromRemaining(remainingValue);

@@ -19,7 +19,7 @@ contract ReplaceFeesScript is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        IOrderFees orderFees = new OrderFees(deployer, 1 ether, 0.005 ether);
+        IOrderFees orderFees = new OrderFees(deployer, 10000, 50);
 
         buyIssuer.setOrderFees(orderFees);
         sellProcessor.setOrderFees(orderFees);
