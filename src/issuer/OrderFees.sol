@@ -22,14 +22,15 @@ contract OrderFees is Ownable2Step, IOrderFees {
     /// ------------------ Constants ------------------ ///
 
     /// @dev 10_000 == 100%
-    uint24 private constant _ONEHUNDRED_PERCENT = 10_000;
+    uint8 private constant _PERCENTAGE_DECIMALS = 4;
+    uint24 private constant _ONEHUNDRED_PERCENT = uint24(10 ** _PERCENTAGE_DECIMALS);
 
     /// ------------------ State ------------------ ///
 
     /// @notice Flat fee per order in ethers decimals
     uint24 public perOrderFee;
 
-    /// @notice Percentage fee take per order in ethers decimals
+    /// @notice Percentage fee take per order in bps
     uint24 public percentageFeeRate;
 
     /// ------------------ Initialization ------------------ ///
@@ -80,8 +81,12 @@ contract OrderFees is Ownable2Step, IOrderFees {
         // Start with base flat fee
         flatFee = perOrderFee;
         // Adjust flat fee to token decimals if necessary
-        if (decimals < 18 && flatFee != 0) {
-            flatFee = PrbMath.mulDiv(flatFee, 10 ** decimals, 10 ** 18);
+        if (flatFee != 0) {
+            if (decimals < _PERCENTAGE_DECIMALS) {
+                flatFee /= 10 ** (_PERCENTAGE_DECIMALS - decimals);
+            } else if (decimals > _PERCENTAGE_DECIMALS) {
+                flatFee *= 10 ** (decimals - _PERCENTAGE_DECIMALS);
+            }
         }
     }
 
@@ -92,7 +97,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
         // If percentage fee rate is non-zero, use it, else return 0
         if (_percentageFeeRate != 0) {
             // Apply fee to input value
-            return PrbMath.mulDiv(value, _percentageFeeRate, 10000);
+            return PrbMath.mulDiv(value, _percentageFeeRate, _ONEHUNDRED_PERCENT);
         }
         return 0;
     }

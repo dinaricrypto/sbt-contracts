@@ -18,10 +18,10 @@ contract OrderFeesTest is Test {
 
     function decimalAdjust(uint8 decimals, uint256 fee) internal pure returns (uint256) {
         uint256 adjFee = fee;
-        if (decimals < 18) {
-            adjFee /= 10 ** (18 - decimals);
-        } else if (decimals > 18) {
-            adjFee *= 10 ** (decimals - 18);
+        if (decimals < 4) {
+            adjFee /= 10 ** (4 - decimals);
+        } else if (decimals > 4) {
+            adjFee *= 10 ** (decimals - 4);
         }
         return adjFee;
     }
@@ -50,7 +50,6 @@ contract OrderFeesTest is Test {
     function testUSDC() public {
         // 1 USDC flat fee
         uint256 flatFee = orderFees.flatFeeForOrder(address(usdc));
-        console.log(flatFee);
         assertEq(flatFee, 1e6);
     }
 
