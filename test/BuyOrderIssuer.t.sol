@@ -46,7 +46,7 @@ contract BuyOrderIssuerTest is Test {
         paymentToken = new MockERC20("Money", "$", 6);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
+        orderFees = new OrderFees(address(this), 1_000_000, 5_000);
 
         issuer = new BuyOrderIssuer(address(this), treasury, orderFees);
 
@@ -115,9 +115,9 @@ contract BuyOrderIssuerTest is Test {
         assertEq(percentageFee2, 0);
     }
 
-    function testGetInputValue(uint64 perOrderFee, uint64 percentageFeeRate, uint128 orderValue) public {
+    function testGetInputValue(uint24 perOrderFee, uint24 percentageFeeRate, uint128 orderValue) public {
         // uint128 used to avoid overflow when calculating larger raw input value
-        vm.assume(percentageFeeRate < 1 ether);
+        vm.assume(percentageFeeRate < 1_000_000);
         OrderFees fees = new OrderFees(address(this), perOrderFee, percentageFeeRate);
         issuer.setOrderFees(fees);
 
