@@ -12,7 +12,7 @@ contract OrderFeesTest is Test {
     MockERC20 usdc;
 
     function setUp() public {
-        orderFees = new OrderFees(address(this), 1 ether, 50);
+        orderFees = new OrderFees(address(this), 1 ether, 5_000);
         usdc = new MockERC20("USD Coin", "USDC", 6);
     }
 
@@ -27,7 +27,7 @@ contract OrderFeesTest is Test {
     }
 
     function testSetFee(uint256 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
-        if (percentageFee >= 10000) {
+        if (percentageFee >= 1_000_000) {
             vm.expectRevert(OrderFees.FeeTooLarge.selector);
             orderFees.setFees(perOrderFee, percentageFee);
         } else {
@@ -36,7 +36,7 @@ contract OrderFeesTest is Test {
             orderFees.setFees(perOrderFee, percentageFee);
             assertEq(orderFees.perOrderFee(), perOrderFee);
             assertEq(orderFees.percentageFeeRate(), percentageFee);
-            assertEq(orderFees.percentageFeeForValue(value), PrbMath.mulDiv(value, percentageFee, 10000));
+            assertEq(orderFees.percentageFeeForValue(value), PrbMath.mulDiv(value, percentageFee, 1_000_000));
             MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
             if (tokenDecimals > 18) {
                 vm.expectRevert(OrderFees.DecimalsTooLarge.selector);
@@ -55,7 +55,7 @@ contract OrderFeesTest is Test {
 
     function testRecoverInputValueFromRemaining(uint24 percentageFeeRate, uint128 remainingValue) public {
         // uint128 used to avoid overflow when calculating larger raw input value
-        vm.assume(percentageFeeRate < 10000);
+        vm.assume(percentageFeeRate < 1_000_000);
         orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
 
         uint256 inputValue = orderFees.recoverInputValueFromRemaining(remainingValue);

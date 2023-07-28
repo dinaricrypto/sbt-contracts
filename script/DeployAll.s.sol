@@ -29,7 +29,7 @@ contract DeployAllScript is Script {
         new TransferRestrictor(owner);
 
         // deploy fee manager
-        IOrderFees orderFees = new OrderFees(owner, 10000, 50);
+        IOrderFees orderFees = new OrderFees(owner, 1_000_000, 5_000);
 
         BuyOrderIssuer buyOrderIssuer = new BuyOrderIssuer(deployer, treasury, orderFees);
 

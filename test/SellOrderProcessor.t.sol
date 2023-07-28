@@ -39,7 +39,7 @@ contract SellOrderProcessorTest is Test {
         token = new MockdShare();
         paymentToken = new MockERC20("Money", "$", 6);
 
-        orderFees = new OrderFees(address(this), 10000, 50);
+        orderFees = new OrderFees(address(this), 1_000_000, 5_000);
 
         issuer = new SellOrderProcessor(address(this), treasury, orderFees);
 
