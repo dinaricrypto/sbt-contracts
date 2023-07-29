@@ -154,11 +154,17 @@ contract TokenManager is Ownable2Step {
     /// @param multiple Multiple to split by
     /// @param reverseSplit Whether to perform a reverse split
     /// @dev Accounts for all splits and supply volume conversions
-    function getSupplyExpansion(dShare token, uint8 multiple, bool reverseSplit)
-        public
-        view
-        returns (uint256 aggregateSupply)
-    {
+    function getSupplyExpansion(dShare token, uint8 multiple, bool reverseSplit) public view returns (uint256) {
+        uint256 aggregateSupply = getAggregateSupply(token);
+
+        // Apply current split
+        return splitAmount(multiple, reverseSplit, aggregateSupply);
+    }
+
+    /// @notice Calculate total aggregate supply
+    /// @param token Token to calculate supply for
+    /// @dev Accounts for all splits and supply volume conversions
+    function getAggregateSupply(dShare token) public view returns (uint256 aggregateSupply) {
         // Get root parent
         dShare _parentToken = token;
         while (address(parentToken[_parentToken]) != address(0)) {
@@ -176,8 +182,8 @@ contract TokenManager is Ownable2Step {
                 aggregateSupply = splitAmount(_split.multiple, _split.reverseSplit, aggregateSupply);
             }
         }
-        // Apply current split
-        aggregateSupply = splitAmount(multiple, reverseSplit, aggregateSupply + token.totalSupply());
+        // Include current token supply
+        aggregateSupply += token.totalSupply();
     }
 
     /// @notice Amount of token produced by a split
