@@ -7,6 +7,7 @@ import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/DirectBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {NumberUtils} from "./utils/NumberUtils.sol";
 
 contract DirectBuyIssuerTest is Test {
     event EscrowTaken(bytes32 indexed orderId, address indexed recipient, uint256 amount);
@@ -29,7 +30,6 @@ contract DirectBuyIssuerTest is Test {
     address constant treasury = address(4);
 
     bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    OrderProcessor.OrderRequest dummyOrder;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrderBridgeData;
 
@@ -51,15 +51,7 @@ contract DirectBuyIssuerTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        dummyOrder = OrderProcessor.OrderRequest({
-            recipient: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            quantityIn: 100 ether,
-            price: 0
-        });
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), 100 ether);
         dummyOrderFees = flatFee + percentageFee;
         dummyOrderBridgeData = IOrderBridge.Order({
             recipient: user,
@@ -68,7 +60,7 @@ contract DirectBuyIssuerTest is Test {
             sell: false,
             orderType: IOrderBridge.OrderType.MARKET,
             assetTokenQuantity: 0,
-            paymentTokenQuantity: dummyOrder.quantityIn - dummyOrderFees,
+            paymentTokenQuantity: 100 ether,
             price: 0,
             tif: IOrderBridge.TIF.GTC,
             fee: dummyOrderFees
@@ -78,17 +70,18 @@ contract DirectBuyIssuerTest is Test {
     function testTakeEscrow(uint256 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
+        IOrderBridge.Order memory order = dummyOrderBridgeData;
+        order.paymentTokenQuantity = orderAmount;
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, orderAmount);
         uint256 fees = flatFee + percentageFee;
-        vm.assume(fees < orderAmount);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
 
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        bytes32 orderId = issuer.getOrderId(order, salt);
 
-        paymentToken.mint(user, orderAmount);
+        paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), orderAmount);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
@@ -96,7 +89,7 @@ contract DirectBuyIssuerTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
             issuer.takeEscrow(order, salt, takeAmount);
-        } else if (takeAmount > orderAmount - fees) {
+        } else if (takeAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.takeEscrow(order, salt, takeAmount);
@@ -106,31 +99,31 @@ contract DirectBuyIssuerTest is Test {
             vm.prank(operator);
             issuer.takeEscrow(order, salt, takeAmount);
             assertEq(paymentToken.balanceOf(operator), takeAmount);
-            assertEq(issuer.getOrderEscrow(orderId), orderAmount - fees - takeAmount);
+            assertEq(issuer.getOrderEscrow(orderId), orderAmount - takeAmount);
         }
     }
 
     function testReturnEscrow(uint256 orderAmount, uint256 returnAmount) public {
         vm.assume(orderAmount > 0);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
+        IOrderBridge.Order memory order = dummyOrderBridgeData;
+        order.paymentTokenQuantity = orderAmount;
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, orderAmount);
         uint256 fees = flatFee + percentageFee;
-        vm.assume(fees < orderAmount);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
 
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        bytes32 orderId = issuer.getOrderId(order, salt);
 
-        paymentToken.mint(user, orderAmount);
+        paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), orderAmount);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
 
-        uint256 takeAmount = orderAmount - fees;
         vm.prank(operator);
-        issuer.takeEscrow(order, salt, takeAmount);
+        issuer.takeEscrow(order, salt, orderAmount);
 
         vm.prank(operator);
         paymentToken.increaseAllowance(address(issuer), returnAmount);
@@ -139,7 +132,7 @@ contract DirectBuyIssuerTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
             issuer.returnEscrow(order, salt, returnAmount);
-        } else if (returnAmount > takeAmount) {
+        } else if (returnAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.returnEscrow(order, salt, returnAmount);
@@ -157,19 +150,20 @@ contract DirectBuyIssuerTest is Test {
         public
     {
         vm.assume(takeAmount > 0);
+        vm.assume(takeAmount <= orderAmount);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
+        IOrderBridge.Order memory order = dummyOrderBridgeData;
+        order.paymentTokenQuantity = orderAmount;
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, orderAmount);
         uint256 fees = flatFee + percentageFee;
-        vm.assume(fees <= orderAmount);
-        vm.assume(takeAmount <= orderAmount - fees);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
 
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        bytes32 orderId = issuer.getOrderId(order, salt);
 
-        paymentToken.mint(user, orderAmount);
+        paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), orderAmount);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
@@ -181,7 +175,7 @@ contract DirectBuyIssuerTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-        } else if (fillAmount > orderAmount - fees || fillAmount > takeAmount) {
+        } else if (fillAmount > orderAmount || fillAmount > takeAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
@@ -190,7 +184,7 @@ contract DirectBuyIssuerTest is Test {
             emit OrderFill(orderId, user, fillAmount, receivedAmount);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-            assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
+            assertEq(issuer.getRemainingOrder(orderId), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(orderId), 0);
@@ -202,17 +196,18 @@ contract DirectBuyIssuerTest is Test {
 
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
+        vm.assume(fillAmount < orderAmount);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        IOrderBridge.Order memory order = dummyOrderBridgeData;
+        order.paymentTokenQuantity = orderAmount;
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, orderAmount);
         uint256 fees = flatFee + percentageFee;
-        vm.assume(fees < orderAmount);
-        vm.assume(fillAmount < orderAmount - fees);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
 
-        paymentToken.mint(user, orderAmount);
+        paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), orderAmount);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
@@ -225,7 +220,7 @@ contract DirectBuyIssuerTest is Test {
             issuer.fillOrder(order, salt, fillAmount, 100);
         }
 
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        bytes32 orderId = issuer.getOrderId(order, salt);
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(orderId, user, reason);
         vm.prank(operator);
@@ -235,17 +230,18 @@ contract DirectBuyIssuerTest is Test {
     function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
         vm.assume(takeAmount > 0);
+        vm.assume(takeAmount < orderAmount);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
-        order.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
+        IOrderBridge.Order memory order = dummyOrderBridgeData;
+        order.paymentTokenQuantity = orderAmount;
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, orderAmount);
         uint256 fees = flatFee + percentageFee;
-        vm.assume(fees < orderAmount);
-        vm.assume(takeAmount < orderAmount - fees);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
 
-        paymentToken.mint(user, orderAmount);
+        paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), orderAmount);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(order, salt);

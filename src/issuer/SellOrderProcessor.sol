@@ -29,17 +29,6 @@ contract SellOrderProcessor is OrderProcessor {
 
     /// ------------------ Getters ------------------ ///
 
-    /// @inheritdoc OrderProcessor
-    function getOrderRequestForOrder(Order calldata order) public pure override returns (OrderRequest memory) {
-        return OrderRequest({
-            recipient: order.recipient,
-            assetToken: order.assetToken,
-            paymentToken: order.paymentToken,
-            quantityIn: order.assetTokenQuantity,
-            price: order.price
-        });
-    }
-
     /// @notice Get flat fee for an order
     /// @param token Payment token for order
     /// @dev Fee zero if no orderFees contract is set
@@ -63,39 +52,17 @@ contract SellOrderProcessor is OrderProcessor {
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
-        internal
-        virtual
-        override
-        returns (Order memory order)
-    {
+    function _requestOrderAccounting(Order calldata order, bytes32 orderId) internal virtual override {
         // Accumulate initial flat fee obligation
-        _feesEarned[orderId] = getFlatFeeForOrder(orderRequest.paymentToken);
-
-        // Construct order
-        order = Order({
-            recipient: orderRequest.recipient,
-            assetToken: orderRequest.assetToken,
-            paymentToken: orderRequest.paymentToken,
-            // Sell order
-            sell: true,
-            // Market order
-            orderType: OrderType.MARKET,
-            assetTokenQuantity: orderRequest.quantityIn,
-            paymentTokenQuantity: 0,
-            price: orderRequest.price,
-            // Good until cancelled
-            tif: TIF.GTC,
-            fee: 0
-        });
+        _feesEarned[orderId] = getFlatFeeForOrder(order.paymentToken);
 
         // Escrow asset for sale
-        IERC20(orderRequest.assetToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
+        IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
     }
 
     /// @inheritdoc OrderProcessor
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
+        Order calldata order,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
@@ -117,33 +84,29 @@ contract SellOrderProcessor is OrderProcessor {
         }
 
         // Burn asset
-        IMintBurn(orderRequest.assetToken).burn(fillAmount);
+        IMintBurn(order.assetToken).burn(fillAmount);
         // Transfer raw proceeds of sale here
-        IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
         // Distribute if order completely filled
         if (remainingOrder == 0) {
-            _distributeProceeds(
-                orderRequest.paymentToken, orderRequest.recipient, orderState.received + receivedAmount, feesEarned
-            );
+            _distributeProceeds(order.paymentToken, order.recipient, orderState.received + receivedAmount, feesEarned);
         }
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(Order calldata order, bytes32 orderId, OrderState memory orderState)
         internal
         virtual
         override
     {
         // If no fills, then full refund
         uint256 refund;
-        if (orderState.remainingOrder == orderRequest.quantityIn) {
+        if (orderState.remainingOrder == order.assetTokenQuantity) {
             // Full refund
-            refund = orderRequest.quantityIn;
+            refund = order.assetTokenQuantity;
         } else {
             // Otherwise distribute proceeds, take accumulated fees, and refund remaining order
-            _distributeProceeds(
-                orderRequest.paymentToken, orderRequest.recipient, orderState.received, _feesEarned[orderId]
-            );
+            _distributeProceeds(order.paymentToken, order.recipient, orderState.received, _feesEarned[orderId]);
             // Partial refund
             refund = orderState.remainingOrder;
         }
@@ -152,7 +115,7 @@ contract SellOrderProcessor is OrderProcessor {
         delete _feesEarned[orderId];
 
         // Return escrow
-        IERC20(orderRequest.assetToken).safeTransfer(orderRequest.recipient, refund);
+        IERC20(order.assetToken).safeTransfer(order.recipient, refund);
     }
 
     /// @dev Distribute proceeds and fees

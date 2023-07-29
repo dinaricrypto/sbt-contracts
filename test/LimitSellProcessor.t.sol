@@ -25,9 +25,6 @@ contract LimitSellProcessorTest is Test {
     address constant treasury = address(4);
 
     bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    OrderProcessor.OrderRequest dummyOrder;
-    uint256 dummyOrderFees;
-    IOrderBridge.Order dummyOrderBridgeData;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -49,27 +46,19 @@ contract LimitSellProcessorTest is Test {
     }
 
     function testRequestOrderLimit(uint256 quantityIn, uint256 _price) public {
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+        IOrderBridge.Order memory order = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: quantityIn,
-            price: _price
-        });
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
-
-        IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
-            recipient: order.recipient,
-            assetToken: order.assetToken,
-            paymentToken: order.paymentToken,
             sell: true,
             orderType: IOrderBridge.OrderType.LIMIT,
             assetTokenQuantity: quantityIn,
             paymentTokenQuantity: 0,
-            price: 0,
+            price: _price,
             tif: IOrderBridge.TIF.GTC,
             fee: 0
         });
+        bytes32 orderId = issuer.getOrderId(order, salt);
 
         token.mint(user, quantityIn);
         vm.prank(user);
@@ -88,15 +77,13 @@ contract LimitSellProcessorTest is Test {
                 vm.prank(user);
                 issuer.requestOrder(order, salt);
             } else {
-                bridgeOrderData.price = order.price;
                 vm.expectEmit(true, true, true, true);
-                emit OrderRequested(orderId, user, bridgeOrderData, salt);
+                emit OrderRequested(orderId, user, order, salt);
                 vm.prank(user);
                 issuer.requestOrder(order, salt);
                 assertTrue(issuer.isOrderActive(orderId));
                 assertEq(issuer.getRemainingOrder(orderId), quantityIn);
                 assertEq(issuer.numOpenOrders(), 1);
-                assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
                 assertEq(token.balanceOf(address(issuer)), quantityIn);
                 // balances after
                 assertEq(token.balanceOf(user), userBalanceBefore - quantityIn);
@@ -113,15 +100,20 @@ contract LimitSellProcessorTest is Test {
         vm.assume(fillAmount < 2 ** 128 - 1);
         vm.assume(receivedAmount < 2 ** 128 - 1);
 
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+        IOrderBridge.Order memory order = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: orderAmount,
-            price: _price
+            sell: true,
+            orderType: IOrderBridge.OrderType.LIMIT,
+            assetTokenQuantity: orderAmount,
+            paymentTokenQuantity: 0,
+            price: _price,
+            tif: IOrderBridge.TIF.GTC,
+            fee: 0
         });
 
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        bytes32 orderId = issuer.getOrderId(order, salt);
 
         token.mint(user, orderAmount);
         vm.prank(user);

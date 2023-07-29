@@ -27,9 +27,6 @@ contract BuyOrderIssuer is OrderProcessor {
         uint256 feesEarned;
     }
 
-    /// @dev Order is too small to pay fees
-    error OrderTooSmall();
-
     /// ------------------ State ------------------ ///
 
     /// @dev orderId => FeeState
@@ -40,18 +37,6 @@ contract BuyOrderIssuer is OrderProcessor {
     {}
 
     /// ------------------ Getters ------------------ ///
-
-    /// @inheritdoc OrderProcessor
-    function getOrderRequestForOrder(Order calldata order) public pure override returns (OrderRequest memory) {
-        return OrderRequest({
-            recipient: order.recipient,
-            assetToken: order.assetToken,
-            paymentToken: order.paymentToken,
-            // Add fees back to order quantity to recover total quantityIn
-            quantityIn: order.paymentTokenQuantity + order.fee,
-            price: order.price
-        });
-    }
 
     /// @notice Get fees for an order
     /// @param token Payment token for order
@@ -108,63 +93,37 @@ contract BuyOrderIssuer is OrderProcessor {
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
-        internal
-        virtual
-        override
-        returns (Order memory order)
-    {
+    function _requestOrderAccounting(Order calldata order, bytes32 orderId) internal virtual override {
         // Determine fees
-        (uint256 flatFee, uint256 percentageFee) = getFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
+        (uint256 flatFee, uint256 percentageFee) = getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
         uint256 totalFees = flatFee + percentageFee;
-        // Fees must not exceed order input value
-        if (totalFees >= orderRequest.quantityIn) revert OrderTooSmall();
 
         // Initialize fee state for order
         _feeState[orderId] = FeeState({remainingPercentageFees: percentageFee, feesEarned: flatFee});
 
-        // Construct order
-        order = Order({
-            recipient: orderRequest.recipient,
-            assetToken: orderRequest.assetToken,
-            paymentToken: orderRequest.paymentToken,
-            // Buy order
-            sell: false,
-            // Market order
-            orderType: OrderType.MARKET,
-            assetTokenQuantity: 0,
-            // Hold fees back from order amount
-            paymentTokenQuantity: orderRequest.quantityIn - totalFees,
-            price: orderRequest.price,
-            // Good until cancelled
-            tif: TIF.GTC,
-            // Emit fees held back from order amount
-            fee: totalFees
-        });
-
         // Escrow payment for purchase
-        IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), order.paymentTokenQuantity + totalFees);
     }
 
     /// @inheritdoc OrderProcessor
     // slither-disable-next-line dead-code
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
+        Order calldata order,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
         // Calculate fees and mint asset
-        _fillBuyOrder(orderRequest, orderId, orderState, fillAmount, receivedAmount);
+        _fillBuyOrder(order, orderId, orderState, fillAmount, receivedAmount);
 
         // Claim payment
-        IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, fillAmount);
+        IERC20(order.paymentToken).safeTransfer(msg.sender, fillAmount);
     }
 
     /// @dev Fill buy order accounting and mint asset
     function _fillBuyOrder(
-        OrderRequest calldata orderRequest,
+        Order calldata order,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
@@ -174,7 +133,7 @@ contract BuyOrderIssuer is OrderProcessor {
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         // If order is done, close order and transfer fees
         if (remainingOrder == 0) {
-            _closeOrder(orderId, orderRequest.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
+            _closeOrder(orderId, order.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
         } else {
             // Otherwise accumulate fees for fill
             // Calculate fees
@@ -191,32 +150,29 @@ contract BuyOrderIssuer is OrderProcessor {
         }
 
         // Mint asset
-        IMintBurn(orderRequest.assetToken).mint(orderRequest.recipient, receivedAmount);
+        IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(Order calldata order, bytes32 orderId, OrderState memory orderState)
         internal
         virtual
         override
     {
         FeeState memory feeState = _feeState[orderId];
         // If no fills, then full refund
-        // This addition is required to check for any fills
         uint256 refund = orderState.remainingOrder + feeState.remainingPercentageFees;
-        // If any fills, then orderState.remainingOrder would not be large enough to satisfy this condition
-        // feesEarned is always needed to recover flat fee
-        if (refund + feeState.feesEarned == orderRequest.quantityIn) {
-            _closeOrder(orderId, orderRequest.paymentToken, 0);
+        if (orderState.remainingOrder == order.paymentTokenQuantity) {
+            _closeOrder(orderId, order.paymentToken, 0);
             // Refund full payment
-            refund = orderRequest.quantityIn;
+            refund += feeState.feesEarned;
         } else {
             // Otherwise close order and transfer fees
-            _closeOrder(orderId, orderRequest.paymentToken, feeState.feesEarned);
+            _closeOrder(orderId, order.paymentToken, feeState.feesEarned);
         }
 
         // Return escrow
-        IERC20(orderRequest.paymentToken).safeTransfer(orderRequest.recipient, refund);
+        IERC20(order.paymentToken).safeTransfer(order.recipient, refund);
     }
 
     /// @dev Close order and transfer fees
