@@ -182,4 +182,21 @@ contract TokenManagerTest is Test {
         vm.expectRevert(TokenManager.SplitNotFound.selector);
         tokenManager.convert(dShare(address(1)), 1);
     }
+
+    function testGetAggregateSupply(uint256 amount, uint8 multiple, uint256 convertAmount) public {
+        vm.assume(multiple > 1);
+        vm.assume(!overflowChecker(amount, uint256(multiple) * uint256(multiple) * multiple));
+        vm.assume(amount > convertAmount);
+        token1.mint(user, amount);
+        uint256 totalSupply = token1.totalSupply();
+        tokenManager.split(token1, multiple, false);
+        if (amount > 0) {
+            vm.startPrank(user);
+            token1.approve(address(tokenManager), convertAmount);
+            tokenManager.convert(token1, convertAmount);
+            vm.stopPrank();
+            assertEq(tokenManager.getAggregateSupply(token1) + convertAmount, totalSupply);
+            assertEq((totalSupply - convertAmount) * multiple, tokenManager.getSupplyExpansion(token1, multiple, false));
+        }
+    }
 }
