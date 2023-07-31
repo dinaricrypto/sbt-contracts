@@ -30,7 +30,7 @@ contract SellOrderProcessorTest is Test {
     address constant treasury = address(4);
 
     bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    OrderProcessor.OrderRequest dummyOrder;
+    IOrderBridge.OrderRequest dummyOrder;
     IOrderBridge.Order dummyOrderBridgeData;
 
     function setUp() public {
@@ -56,7 +56,7 @@ contract SellOrderProcessorTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        dummyOrder = OrderProcessor.OrderRequest({
+        dummyOrder = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -87,7 +87,7 @@ contract SellOrderProcessorTest is Test {
     }
 
     function testRequestOrder(uint256 quantityIn) public {
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+        IOrderBridge.OrderRequest memory order = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -139,7 +139,7 @@ contract SellOrderProcessorTest is Test {
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
 
         bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
@@ -189,7 +189,7 @@ contract SellOrderProcessorTest is Test {
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
 
         bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
@@ -236,7 +236,7 @@ contract SellOrderProcessorTest is Test {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
 
         token.mint(user, orderAmount);
