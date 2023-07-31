@@ -87,6 +87,15 @@ interface IOrderBridge {
     /// @param salt Salt used to generate unique order ID
     function getOrderId(Order calldata order, bytes32 salt) external view returns (bytes32);
 
+    /// @notice Get order ID deterministically from order request and salt
+    /// @param orderRequest Order request to get ID for
+    /// @param salt Salt used to generate unique order ID
+    /// @dev Compliant with EIP-712 for convenient offchain computation
+    function getOrderIdFromOrderRequest(OrderRequest memory orderRequest, bytes32 salt)
+        external
+        pure
+        returns (bytes32);
+
     /// @notice Active status of order
     /// @param id Order ID to check
     function isOrderActive(bytes32 id) external view returns (bool);
