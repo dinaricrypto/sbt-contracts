@@ -41,16 +41,30 @@ describe("EIP-712 Compliance Test", function () {
     const assetToken = "0x0000000000000000000000000000000000000002";
     const paymentToken = "0x0000000000000000000000000000000000000003";
     const quantityIn = ethers.utils.parseEther("4");
-    const price = 5;
+    const price = ethers.utils.parseEther("5");
 
     const types = {
-      OrderRequest: [
+      Order: [
         { name: "salt", type: "bytes32" },
         { name: "recipient", type: "address" },
         { name: "assetToken", type: "address" },
         { name: "paymentToken", type: "address" },
-        { name: "quantityIn", type: "uint256" },
+        { name: "sell", type: "bool" },
+        { name: "orderType", type: "uint8" },
+        { name: "assetTokenQuantity", type: "uint256" },
+        { name: "paymentTokenQuantity", type: "uint256" },
+        { name: "price", type: "uint256" },
+        { name: "tif", type: "uint8" },
       ],
+    };
+    const OrderType = {
+      MARKET: 1,
+      // other order types
+    };
+
+    // Time in force
+    const TIF = {
+      GTC: 1,
     };
 
     const value = {
@@ -58,16 +72,35 @@ describe("EIP-712 Compliance Test", function () {
       recipient,
       assetToken,
       paymentToken,
-      quantityIn,
+      sell: false,
+      orderType: OrderType.MARKET,
+      assetTokenQuantity: ethers.utils.parseEther("0"),
+      paymentTokenQuantity: quantityIn,
+      price,
+      tif: TIF.GTC,
+      fee: 0,
     };
 
     const encoder = ethers.utils._TypedDataEncoder.from(types);
-    const computeId = encoder.hashStruct("OrderRequest", value);
+    const computeId = encoder.hashStruct("Order", value);
 
-    const contractId = await issuerImpl.getOrderIdFromOrderRequest(
-      { recipient, assetToken, paymentToken, quantityIn, price },
+    const contractId = await issuerImpl.getOrderId(
+      {
+        recipient,
+        assetToken,
+        paymentToken,
+        sell: false,
+        orderType: OrderType.MARKET,
+        assetTokenQuantity: ethers.utils.parseEther("0"),
+        paymentTokenQuantity: quantityIn,
+        price,
+        tif: TIF.GTC,
+        fee: 0,
+      },
       salt,
     );
+
+    console.log(contractId);
 
     expect(contractId).to.equal(computeId);
   });
