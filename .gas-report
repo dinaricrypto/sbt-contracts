@@ -6,17 +6,17 @@
 | ASSETTOKEN_ROLE                                                                           | 645             | 773    | 667    | 5167   | 42      |
 | OPERATOR_ROLE                                                                             | 666             | 668    | 666    | 688    | 40      |
 | PAYMENTTOKEN_ROLE                                                                         | 646             | 760    | 646    | 5146   | 42      |
-| cancelOrder                                                                               | 9332            | 32559  | 29764  | 51970  | 5       |
-| fillOrder                                                                                 | 5812            | 40374  | 30783  | 90100  | 10      |
-| getFeesForOrder                                                                           | 1087            | 8484   | 4566   | 22148  | 41      |
+| cancelOrder                                                                               | 9332            | 41131  | 51084  | 73508  | 5       |
+| fillOrder                                                                                 | 7806            | 57180  | 53916  | 108241 | 11      |
+| getFeesForOrder                                                                           | 1087            | 8517   | 4566   | 22148  | 41      |
 | getFlatFeeForOrder                                                                        | 961             | 2465   | 3218   | 3218   | 3       |
 | getInputValueForOrderValue                                                                | 1100            | 5678   | 5678   | 10257  | 2       |
 | getOrderEscrow                                                                            | 938             | 938    | 938    | 938    | 1       |
 | getOrderId                                                                                | 2108            | 2108   | 2108   | 2108   | 2       |
 | getOrderIdFromOrderRequest                                                                | 1642            | 3896   | 3903   | 6142   | 18      |
 | getPercentageFeeForOrder                                                                  | 885             | 1655   | 2000   | 2082   | 3       |
-| getRemainingOrder                                                                         | 898             | 906    | 898    | 920    | 5       |
-| getTotalReceived                                                                          | 920             | 931    | 931    | 942    | 2       |
+| getRemainingOrder                                                                         | 898             | 909    | 909    | 920    | 6       |
+| getTotalReceived                                                                          | 920             | 934    | 942    | 942    | 3       |
 | grantRole                                                                                 | 27958           | 27993  | 28003  | 28003  | 120     |
 | hasRole                                                                                   | 3120            | 3120   | 3120   | 3120   | 2       |
 | isOrderActive                                                                             | 900             | 928    | 943    | 943    | 3       |
@@ -26,13 +26,13 @@
 | ordersPaused                                                                              | 788             | 788    | 788    | 788    | 1       |
 | owner                                                                                     | 820             | 820    | 820    | 820    | 1       |
 | requestCancel                                                                             | 2050            | 4765   | 3729   | 8516   | 3       |
-| requestOrder                                                                              | 6052            | 114084 | 130195 | 175023 | 27      |
-| returnEscrow                                                                              | 1255            | 1255   | 1255   | 1255   | 1       |
+| requestOrder                                                                              | 6052            | 113396 | 130479 | 175023 | 27      |
+| returnEscrow                                                                              | 23998           | 23998  | 23998  | 23998  | 1       |
 | selfPermit                                                                                | 56677           | 59677  | 59177  | 63677  | 4       |
 | setOrderFees                                                                              | 11041           | 12430  | 12439  | 13801  | 4       |
 | setOrdersPaused                                                                           | 10934           | 12334  | 12334  | 13734  | 2       |
 | setTreasury                                                                               | 7714            | 10796  | 10796  | 13879  | 2       |
-| takeEscrow                                                                                | 26499           | 31798  | 33123  | 33123  | 5       |
+| takeEscrow                                                                                | 4421            | 26057  | 33123  | 33123  | 5       |
 | treasury                                                                                  | 788             | 788    | 788    | 788    | 1       |
 | upgradeToAndCall                                                                          | 32709           | 32709  | 32709  | 32709  | 1       |
 | lib/solady/test/utils/mocks/MockERC20.sol:MockERC20 contract |                 |       |        |       |         |
@@ -43,14 +43,14 @@
 | DOMAIN_SEPARATOR                                             | 1244            | 1244  | 1244   | 1244  | 26      |
 | allowance                                                    | 678             | 678   | 678    | 678   | 1       |
 | approve                                                      | 24403           | 24403 | 24403  | 24403 | 3       |
-| balanceOf                                                    | 599             | 1099  | 599    | 2599  | 32      |
+| balanceOf                                                    | 599             | 1031  | 599    | 2599  | 37      |
 | decimals                                                     | 335             | 1092  | 335    | 2335  | 66      |
-| increaseAllowance                                            | 4648            | 23500 | 24548  | 24548 | 19      |
+| increaseAllowance                                            | 24548           | 24548 | 24548  | 24548 | 19      |
 | mint                                                         | 46581           | 46581 | 46581  | 46581 | 25      |
 | nonces                                                       | 533             | 1421  | 533    | 2533  | 9       |
 | permit                                                       | 51238           | 51238 | 51238  | 51238 | 4       |
-| transfer                                                     | 18235           | 22009 | 22793  | 24793 | 15      |
-| transferFrom                                                 | 18677           | 20811 | 20277  | 30008 | 19      |
+| transfer                                                     | 18235           | 22362 | 23793  | 24793 | 18      |
+| transferFrom                                                 | 2757            | 19914 | 20277  | 30008 | 20      |
 | src/TransferRestrictor.sol:TransferRestrictor contract |                 |       |        |       |         |
 |--------------------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                                        | Deployment Size |       |        |       |         |
@@ -105,13 +105,13 @@
 | ASSETTOKEN_ROLE                                       | 284             | 284    | 284    | 284    | 28      |
 | OPERATOR_ROLE                                         | 283             | 283    | 283    | 283    | 26      |
 | PAYMENTTOKEN_ROLE                                     | 263             | 263    | 263    | 263    | 28      |
-| cancelOrder                                           | 15498           | 22459  | 22459  | 29421  | 2       |
-| fillOrder                                             | 7380            | 37498  | 15351  | 89763  | 3       |
-| getFeesForOrder                                       | 695             | 5698   | 4174   | 17256  | 29      |
+| cancelOrder                                           | 15498           | 33117  | 33117  | 50736  | 2       |
+| fillOrder                                             | 15351           | 78563  | 95541  | 107819 | 4       |
+| getFeesForOrder                                       | 695             | 5745   | 4174   | 17256  | 29      |
 | getInputValueForOrderValue                            | 705             | 5283   | 5283   | 9862   | 2       |
 | getOrderIdFromOrderRequest                            | 1229            | 1229   | 1229   | 1229   | 6       |
-| getRemainingOrder                                     | 534             | 534    | 534    | 534    | 2       |
-| getTotalReceived                                      | 556             | 556    | 556    | 556    | 1       |
+| getRemainingOrder                                     | 534             | 534    | 534    | 534    | 3       |
+| getTotalReceived                                      | 556             | 556    | 556    | 556    | 2       |
 | grantRole                                             | 27617           | 27617  | 27617  | 27617  | 78      |
 | hasRole                                               | 2731            | 2731   | 2731   | 2731   | 2       |
 | initialize                                            | 23299           | 155493 | 165270 | 165270 | 29      |
@@ -122,7 +122,7 @@
 | ordersPaused                                          | 405             | 405    | 405    | 405    | 1       |
 | owner                                                 | 437             | 437    | 437    | 437    | 1       |
 | requestCancel                                         | 1636            | 2852   | 3319   | 3602   | 3       |
-| requestOrder                                          | 5638            | 98206  | 129834 | 174613 | 14      |
+| requestOrder                                          | 5638            | 98903  | 133234 | 174613 | 14      |
 | selfPermit                                            | 56267           | 58142  | 58767  | 58767  | 4       |
 | setOrderFees                                          | 7135            | 8323   | 8918   | 8918   | 3       |
 | setOrdersPaused                                       | 6051            | 7451   | 7451   | 8851   | 2       |
@@ -138,15 +138,15 @@
 | OPERATOR_ROLE                                           | 305             | 305    | 305    | 305    | 5       |
 | PAYMENTTOKEN_ROLE                                       | 263             | 263    | 263    | 263    | 5       |
 | cancelOrder                                             | 7125            | 29040  | 29040  | 50955  | 2       |
-| fillOrder                                               | 5386            | 41125  | 41125  | 76865  | 2       |
+| fillOrder                                               | 28457           | 52661  | 52661  | 76865  | 2       |
 | getFeesForOrder                                         | 4174            | 10182  | 9383   | 17256  | 10      |
 | getOrderEscrow                                          | 552             | 552    | 552    | 552    | 1       |
 | getOrderIdFromOrderRequest                              | 1251            | 1251   | 1251   | 1251   | 4       |
 | grantRole                                               | 27572           | 27572  | 27572  | 27572  | 15      |
 | initialize                                              | 165270          | 165270 | 165270 | 165270 | 5       |
-| requestOrder                                            | 147815          | 154146 | 149480 | 162012 | 5       |
-| returnEscrow                                            | 835             | 835    | 835    | 835    | 1       |
-| takeEscrow                                              | 26166           | 31398  | 32707  | 32707  | 5       |
+| requestOrder                                            | 147815          | 148494 | 147880 | 149480 | 5       |
+| returnEscrow                                            | 23665           | 23665  | 23665  | 23665  | 1       |
+| takeEscrow                                              | 4001            | 25657  | 32707  | 32707  | 5       |
 | src/issuer/LimitBuyIssuer.sol:LimitBuyIssuer contract |                 |        |        |        |         |
 |-------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                       | Deployment Size |        |        |        |         |
@@ -185,7 +185,7 @@
 | Function Name                               | min             | avg   | median | max   | # calls |
 | flatFeeForOrder                             | 1083            | 3865  | 1790   | 8290  | 68      |
 | perOrderFee                                 | 343             | 1343  | 1343   | 2343  | 2       |
-| percentageFeeForValue                       | 640             | 1232  | 640    | 2722  | 59      |
+| percentageFeeForValue                       | 640             | 1228  | 640    | 2722  | 60      |
 | percentageFeeRate                           | 369             | 369   | 369    | 369   | 1       |
 | recoverInputValueFromRemaining              | 760             | 760   | 760    | 760   | 2       |
 | setFees                                     | 9258            | 11658 | 11658  | 14058 | 2       |
@@ -197,7 +197,7 @@
 | ASSETTOKEN_ROLE                                               | 262             | 262    | 262    | 262    | 5       |
 | OPERATOR_ROLE                                                 | 283             | 283    | 283    | 283    | 5       |
 | PAYMENTTOKEN_ROLE                                             | 307             | 307    | 307    | 307    | 5       |
-| cancelOrder                                                   | 51628           | 51628  | 51628  | 51628  | 1       |
+| cancelOrder                                                   | 73156           | 73156  | 73156  | 73156  | 1       |
 | fillOrder                                                     | 7380            | 46598  | 53579  | 78835  | 3       |
 | getFlatFeeForOrder                                            | 575             | 2079   | 2832   | 2832   | 3       |
 | getOrderId                                                    | 1665            | 1665   | 1665   | 1665   | 1       |
@@ -224,11 +224,11 @@
 | Function Name                                       | min             | avg   | median | max   | # calls |
 | BURNER_ROLE                                         | 285             | 285   | 285    | 285   | 7       |
 | MINTER_ROLE                                         | 306             | 306   | 306    | 306   | 73      |
-| balanceOf                                           | 627             | 979   | 627    | 2627  | 17      |
+| balanceOf                                           | 627             | 1048  | 627    | 2627  | 19      |
 | burn                                                | 4099            | 4611  | 4611   | 5123  | 2       |
 | decimals                                            | 246             | 246   | 246    | 246   | 2       |
 | grantRole                                           | 25610           | 26785 | 27610  | 27610 | 80      |
 | increaseAllowance                                   | 24489           | 24489 | 24489  | 24489 | 6       |
-| mint                                                | 47034           | 48784 | 49034  | 49034 | 8       |
+| mint                                                | 47034           | 48634 | 49034  | 49034 | 10      |
 | transfer                                            | 19478           | 19478 | 19478  | 19478 | 1       |
 | transferFrom                                        | 26648           | 27714 | 28248  | 28248 | 6       |
