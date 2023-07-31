@@ -184,10 +184,7 @@ abstract contract OrderProcessor is
         return _numOpenOrders;
     }
 
-    /// @notice Get order ID deterministically from order request and salt
-    /// @param orderRequest Order request to get ID for
-    /// @param salt Salt used to generate unique order ID
-    /// @dev Compliant with EIP-712 for convenient offchain computation
+    /// @inheritdoc IOrderBridge
     function getOrderIdFromOrderRequest(OrderRequest memory orderRequest, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
