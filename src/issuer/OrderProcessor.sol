@@ -28,12 +28,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   2. [Optional] Operator partially fills the order (fillOrder)
 ///   3. [Optional] User requests cancellation (requestCancel)
 ///   4. Operator cancels the order (cancelOrder)
-abstract contract OrderProcessor is
-    AccessControlDefaultAdminRules,
-    Multicall,
-    SelfPermit,
-    IOrderBridge
-{
+abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit, IOrderBridge {
     /// ------------------ Types ------------------ ///
 
     // Order state accounting variables
@@ -111,9 +106,7 @@ abstract contract OrderProcessor is
     /// @param treasury_ Address to receive fees
     /// @param orderFees_ Fee specification contract
     /// @dev Treasury cannot be zero address
-    constructor(address _owner, address treasury_, IOrderFees orderFees_)
-        AccessControlDefaultAdminRules(0, _owner)
-    {
+    constructor(address _owner, address treasury_, IOrderFees orderFees_) AccessControlDefaultAdminRules(0, _owner) {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
 
@@ -293,10 +286,7 @@ abstract contract OrderProcessor is
     /// @param salt Salt used to generate unique order ID
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(Order calldata order, bytes32 salt, string calldata reason)
-        external
-        onlyRole(OPERATOR_ROLE)
-    {
+    function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external onlyRole(OPERATOR_ROLE) {
         bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
         // Order must exist
