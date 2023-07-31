@@ -35,7 +35,7 @@ contract BuyOrderIssuerTest is Test {
     address constant treasury = address(4);
 
     bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    OrderProcessor.OrderRequest dummyOrder;
+    IOrderBridge.OrderRequest dummyOrder;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrderBridgeData;
 
@@ -63,7 +63,7 @@ contract BuyOrderIssuerTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        dummyOrder = OrderProcessor.OrderRequest({
+        dummyOrder = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -181,7 +181,7 @@ contract BuyOrderIssuerTest is Test {
     }
 
     function testRequestOrder(uint256 quantityIn) public {
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+        IOrderBridge.OrderRequest memory order = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -250,7 +250,7 @@ contract BuyOrderIssuerTest is Test {
     function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
         vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
         vm.expectRevert(
@@ -270,7 +270,7 @@ contract BuyOrderIssuerTest is Test {
     function testRequestOrderUnsupportedAssetReverts(address tryAssetToken) public {
         vm.assume(!issuer.hasRole(issuer.ASSETTOKEN_ROLE(), tryAssetToken));
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.assetToken = tryAssetToken;
 
         vm.expectRevert(
@@ -341,7 +341,7 @@ contract BuyOrderIssuerTest is Test {
     }
 
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
@@ -388,7 +388,7 @@ contract BuyOrderIssuerTest is Test {
     }
 
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;
@@ -465,7 +465,7 @@ contract BuyOrderIssuerTest is Test {
     function testCancelOrder(uint256 inputAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(inputAmount > 0);
 
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.quantityIn = inputAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
         uint256 fees = flatFee + percentageFee;

@@ -52,6 +52,20 @@ interface IOrderBridge {
         uint256 fee;
     }
 
+    // Specification for an order
+    struct OrderRequest {
+        // Recipient of order fills
+        address recipient;
+        // Bridged asset token
+        address assetToken;
+        // Payment token
+        address paymentToken;
+        // Amount of incoming order token to be used for fills
+        uint256 quantityIn;
+        // price enquiry for the request
+        uint256 price;
+    }
+
     /// @dev Fully specifies order details and salt used to generate order ID
     event OrderRequested(bytes32 indexed id, address indexed recipient, Order order, bytes32 salt);
     /// @dev Emitted for each fill
@@ -84,4 +98,35 @@ interface IOrderBridge {
     /// @notice Get total received for order
     /// @param id Order ID to check
     function getTotalReceived(bytes32 id) external view returns (uint256);
+
+    /// ------------------ Actions ------------------ ///
+
+    /// @notice Request an order
+    /// @param orderRequest Order request to submit
+    /// @param salt Salt used to generate unique order ID
+    /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
+    function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) external;
+
+    /// @notice Fill an order
+    /// @param orderRequest Order request to fill
+    /// @param salt Salt used to generate unique order ID
+    /// @param fillAmount Amount of order token to fill
+    /// @param receivedAmount Amount of received token
+    /// @dev Only callable by operator
+    function fillOrder(OrderRequest calldata orderRequest, bytes32 salt, uint256 fillAmount, uint256 receivedAmount)
+        external;
+
+    /// @notice Request to cancel an order
+    /// @param orderRequest Order request to cancel
+    /// @param salt Salt used to generate unique order ID
+    /// @dev Only callable by initial order requester
+    /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
+    function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external;
+
+    /// @notice Cancel an order
+    /// @param orderRequest Order request to cancel
+    /// @param salt Salt used to generate unique order ID
+    /// @param reason Reason for cancellation
+    /// @dev Only callable by operator
+    function cancelOrder(OrderRequest calldata orderRequest, bytes32 salt, string calldata reason) external;
 }
