@@ -12,7 +12,7 @@ contract OrderFeesTest is Test {
     MockERC20 usdc;
 
     function setUp() public {
-        orderFees = new OrderFees(address(this), 1 ether, 5_000);
+        orderFees = new OrderFees(address(this), 1 ether, 500_000);
         usdc = new MockERC20("USD Coin", "USDC", 6);
     }
 

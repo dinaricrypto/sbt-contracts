@@ -40,7 +40,7 @@ contract DirectBuyIssuerTest is Test {
         token = new MockdShare();
         paymentToken = new MockERC20("Money", "$", 6);
 
-        orderFees = new OrderFees(address(this), 1_000_000, 5_000);
+        orderFees = new OrderFees(address(this), 1 ether, 500_000);
 
         issuer = new DirectBuyIssuer(address(this), treasury, orderFees);
 

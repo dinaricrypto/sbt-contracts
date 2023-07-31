@@ -46,7 +46,7 @@ contract BuyOrderIssuerTest is Test {
         paymentToken = new MockERC20("Money", "$", 6);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new OrderFees(address(this), 1_000_000, 5_000);
+        orderFees = new OrderFees(address(this), 1 ether, 500_000);
 
         issuer = new BuyOrderIssuer(address(this), treasury, orderFees);
 
