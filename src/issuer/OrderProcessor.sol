@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
@@ -31,7 +30,6 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   4. Operator cancels the order (cancelOrder)
 abstract contract OrderProcessor is
     AccessControlDefaultAdminRules,
-    ReentrancyGuard,
     Multicall,
     SelfPermit,
     IOrderBridge
@@ -114,7 +112,6 @@ abstract contract OrderProcessor is
     /// @param orderFees_ Fee specification contract
     /// @dev Treasury cannot be zero address
     constructor(address _owner, address treasury_, IOrderFees orderFees_)
-        ReentrancyGuard()
         AccessControlDefaultAdminRules(0, _owner)
     {
         // Don't send fees to zero address
@@ -211,7 +208,7 @@ abstract contract OrderProcessor is
     /// @param order Order  to submit
     /// @param salt Salt used to generate unique order ID
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
-    function requestOrder(Order calldata order, bytes32 salt) public nonReentrant whenOrdersNotPaused {
+    function requestOrder(Order calldata order, bytes32 salt) public whenOrdersNotPaused {
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
         if (orderAmount == 0) revert ZeroValue();
@@ -222,15 +219,15 @@ abstract contract OrderProcessor is
         // Order must not already exist
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
 
-        // Move tokens
-        _requestOrderAccounting(order, orderId);
-
         // Send order to bridge
         emit OrderRequested(orderId, order.recipient, order, salt);
 
         // Initialize order state
         _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
         _numOpenOrders++;
+
+        // Move tokens
+        _requestOrderAccounting(order, orderId);
     }
 
     /// @notice Fill an order
@@ -241,7 +238,6 @@ abstract contract OrderProcessor is
     /// @dev Only callable by operator
     function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 receivedAmount)
         external
-        nonReentrant
         onlyRole(OPERATOR_ROLE)
     {
         // No nonsense
@@ -299,7 +295,6 @@ abstract contract OrderProcessor is
     /// @dev Only callable by operator
     function cancelOrder(Order calldata order, bytes32 salt, string calldata reason)
         external
-        nonReentrant
         onlyRole(OPERATOR_ROLE)
     {
         bytes32 orderId = getOrderId(order, salt);
