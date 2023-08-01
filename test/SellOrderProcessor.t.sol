@@ -146,6 +146,9 @@ contract SellOrderProcessorTest is Test {
         vm.prank(user);
         issuer.requestOrder(order, salt);
 
+        uint256 escrowAmount = issuer.escrowedBalanceTotal(order.assetToken, user);
+        assertEq(escrowAmount, orderAmount);
+
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
         paymentToken.increaseAllowance(address(issuer), receivedAmount);
@@ -177,6 +180,7 @@ contract SellOrderProcessorTest is Test {
                 assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore + receivedAmount);
                 assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
                 assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
+                assertEq(issuer.escrowedBalanceTotal(order.assetToken, user), escrowAmount - fillAmount);
             }
         }
     }

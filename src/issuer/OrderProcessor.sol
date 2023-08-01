@@ -379,4 +379,19 @@ abstract contract OrderProcessor is
     function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
         internal
         virtual;
+
+    /// ------------------ internal ------------------ ///
+
+    /// @dev Update the escrowed balance for a specific token and recipient.
+    /// @param token The address of the token.
+    /// @param recipient The address of the recipient.
+    /// @param amount The amount to update.
+    /// @param isIncrement If set to true, the function will increment the balance. Otherwise, it will decrement.
+    function _updateEscrowBalance(address token, address recipient, uint256 amount, bool isIncrement) internal {
+        if (isIncrement) {
+            escrowedBalance[token][recipient] += amount;
+        } else if (escrowedBalance[token][recipient] > 0) {
+            escrowedBalance[token][recipient] -= amount;
+        }
+    }
 }
