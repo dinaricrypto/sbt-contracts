@@ -155,7 +155,7 @@ contract DirectBuyIssuerTest is Test {
             issuer.returnEscrow(order, salt, returnAmount);
             assertEq(issuer.getOrderEscrow(orderId), returnAmount);
             assertEq(paymentToken.balanceOf(address(issuer)), fees + returnAmount);
-            assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), escrowedAmount + returnAmount);
+            assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), escrowedAmount - takeAmount + returnAmount);
         }
     }
 
