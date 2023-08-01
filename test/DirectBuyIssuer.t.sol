@@ -92,6 +92,8 @@ contract DirectBuyIssuerTest is Test {
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
+        uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, order.recipient);
+        assertEq(escrowedAmount, order.quantityIn);
         if (takeAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
@@ -107,6 +109,7 @@ contract DirectBuyIssuerTest is Test {
             issuer.takeEscrow(order, salt, takeAmount);
             assertEq(paymentToken.balanceOf(operator), takeAmount);
             assertEq(issuer.getOrderEscrow(orderId), orderAmount - fees - takeAmount);
+            assertEq(issuer.escrowedBalanceTotal(order.paymentToken, order.recipient), escrowedAmount - takeAmount);
         }
     }
 
@@ -127,6 +130,8 @@ contract DirectBuyIssuerTest is Test {
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
+        uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, order.recipient);
+        assertEq(escrowedAmount, orderAmount);
 
         uint256 takeAmount = orderAmount - fees;
         vm.prank(operator);
@@ -150,6 +155,7 @@ contract DirectBuyIssuerTest is Test {
             issuer.returnEscrow(order, salt, returnAmount);
             assertEq(issuer.getOrderEscrow(orderId), returnAmount);
             assertEq(paymentToken.balanceOf(address(issuer)), fees + returnAmount);
+            assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), escrowedAmount + returnAmount);
         }
     }
 
