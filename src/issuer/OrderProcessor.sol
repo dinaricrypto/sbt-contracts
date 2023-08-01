@@ -117,6 +117,7 @@ abstract contract OrderProcessor is
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
+    mapping(address => mapping(address => uint256)) internal escrowedBalance;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -218,6 +219,14 @@ abstract contract OrderProcessor is
     /// @inheritdoc IOrderBridge
     function getTotalReceived(bytes32 id) public view returns (uint256) {
         return _orders[id].received;
+    }
+
+    /// @notice This function fetches the total balance held in escrow for a given user and token
+    /// @param token The address of the token for which the escrowed balance is fetched
+    /// @param user The address of the user for which the escrowed balance is fetched
+    /// @return Returns the total amount of the specific token held in escrow for the given user
+    function escrowedBalanceTotal(address token, address user) public view returns (uint256) {
+        return escrowedBalance[token][user];
     }
 
     /// ------------------ Order Lifecycle ------------------ ///

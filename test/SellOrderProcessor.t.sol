@@ -127,6 +127,7 @@ contract SellOrderProcessorTest is Test {
             // balances after
             assertEq(token.balanceOf(user), userBalanceBefore - quantityIn);
             assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
+            assertEq(issuer.escrowedBalanceTotal(order.assetToken, user), order.quantityIn);
         }
     }
 
@@ -240,6 +241,9 @@ contract SellOrderProcessorTest is Test {
         vm.prank(user);
         issuer.requestOrder(order, salt);
 
+        uint256 escrowAmount = issuer.escrowedBalanceTotal(order.assetToken, user);
+        assertEq(escrowAmount, orderAmount);
+
         if (fillAmount > 0) {
             paymentToken.mint(operator, receivedAmount);
             vm.prank(operator);
@@ -258,6 +262,7 @@ contract SellOrderProcessorTest is Test {
         emit OrderCancelled(orderId, user, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, salt, reason);
+        assert(issuer.escrowedBalanceTotal(order.assetToken, user) < escrowAmount);
         // balances after
         if (fillAmount > 0) {
             uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));

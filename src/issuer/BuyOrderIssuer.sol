@@ -143,6 +143,7 @@ contract BuyOrderIssuer is OrderProcessor {
         });
 
         // Escrow payment for purchase
+        escrowedBalance[orderRequest.paymentToken][orderRequest.recipient] += orderRequest.quantityIn;
         IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
@@ -216,6 +217,7 @@ contract BuyOrderIssuer is OrderProcessor {
         }
 
         // Return escrow
+        escrowedBalance[orderRequest.paymentToken][orderRequest.recipient] -= refund;
         IERC20(orderRequest.paymentToken).safeTransfer(orderRequest.recipient, refund);
     }
 

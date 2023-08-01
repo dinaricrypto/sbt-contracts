@@ -90,6 +90,7 @@ contract SellOrderProcessor is OrderProcessor {
         });
 
         // Escrow asset for sale
+        escrowedBalance[orderRequest.assetToken][orderRequest.recipient] += orderRequest.quantityIn;
         IERC20(orderRequest.assetToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
@@ -152,6 +153,7 @@ contract SellOrderProcessor is OrderProcessor {
         delete _feesEarned[orderId];
 
         // Return escrow
+        escrowedBalance[orderRequest.assetToken][orderRequest.recipient] -= refund;
         IERC20(orderRequest.assetToken).safeTransfer(orderRequest.recipient, refund);
     }
 
