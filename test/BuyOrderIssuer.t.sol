@@ -192,6 +192,7 @@ contract BuyOrderIssuerTest is Test {
             // balances after
             assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
+            assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), order.quantityIn);
         }
     }
 
@@ -311,6 +312,8 @@ contract BuyOrderIssuerTest is Test {
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
+        uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, user);
+        assertEq(escrowedAmount, orderAmount);
 
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
@@ -339,6 +342,7 @@ contract BuyOrderIssuerTest is Test {
                 assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
                 assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
                 assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
+                assertEq(escrowedAmount - fillAmount, issuer.escrowedBalanceTotal(order.paymentToken, user));
             }
         }
     }
@@ -435,6 +439,8 @@ contract BuyOrderIssuerTest is Test {
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
+        uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, user);
+        assertEq(escrowedAmount, inputAmount);
 
         if (fillAmount > 0) {
             vm.prank(operator);
@@ -449,6 +455,7 @@ contract BuyOrderIssuerTest is Test {
         emit OrderCancelled(orderId, user, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, salt, reason);
+        assert(issuer.escrowedBalanceTotal(order.paymentToken, user) < escrowedAmount);
         // balances after
         if (fillAmount > 0) {
             // uint256 feesEarned = percentageFee * fillAmount / (orderAmount - fees) + flatFee;

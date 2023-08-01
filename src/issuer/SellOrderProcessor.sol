@@ -89,7 +89,9 @@ contract SellOrderProcessor is OrderProcessor {
             fee: 0
         });
 
-        // Escrow asset for sale
+        // update escrowed balance
+        _updateEscrowBalance(orderRequest.assetToken, orderRequest.recipient, orderRequest.quantityIn, true);
+        // Transfer asset to contract
         IERC20(orderRequest.assetToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
@@ -115,7 +117,8 @@ contract SellOrderProcessor is OrderProcessor {
                 _feesEarned[orderId] = feesEarned;
             }
         }
-
+        // update escrowed balance
+        _updateEscrowBalance(orderRequest.assetToken, orderRequest.recipient, fillAmount, false);
         // Burn asset
         IMintBurn(orderRequest.assetToken).burn(fillAmount);
         // Transfer raw proceeds of sale here
@@ -150,8 +153,7 @@ contract SellOrderProcessor is OrderProcessor {
 
         // Clear fee data
         delete _feesEarned[orderId];
-
-        // Return escrow
+        _updateEscrowBalance(orderRequest.assetToken, orderRequest.recipient, refund, false);
         IERC20(orderRequest.assetToken).safeTransfer(orderRequest.recipient, refund);
     }
 

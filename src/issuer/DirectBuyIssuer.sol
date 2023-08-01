@@ -72,6 +72,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         emit EscrowTaken(orderId, orderRequest.recipient, amount);
 
         // Take escrowed payment
+        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, amount, false);
         IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, amount);
     }
 
@@ -99,6 +100,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         emit EscrowReturned(orderId, orderRequest.recipient, amount);
 
         // Return payment to escrow
+        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, amount, true);
         IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
