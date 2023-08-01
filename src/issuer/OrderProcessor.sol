@@ -117,7 +117,7 @@ abstract contract OrderProcessor is
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
-    mapping(address => mapping(address => uint256)) internal escrowedBalance;
+    mapping(address => mapping(address => uint256)) private escrowedBalance;
 
     /// ------------------ Initialization ------------------ ///
 
