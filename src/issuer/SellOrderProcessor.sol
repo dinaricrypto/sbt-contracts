@@ -23,6 +23,7 @@ contract SellOrderProcessor is OrderProcessor {
     mapping(bytes32 => uint256) private _feesEarned;
     /// @dev orderId => percentageFees
     mapping(bytes32 => uint64) private _orderPercentageFeeRates;
+    mapping(bytes32 => uint256) private _amountDistributed;
 
     /// ------------------ Order Lifecycle ------------------ ///
 
@@ -66,21 +67,25 @@ contract SellOrderProcessor is OrderProcessor {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
-        // Accumulate flat fee before applying percentage fee rate
+        // Retrieve the flat fee already earned for this order
         uint256 previousFeesEarned = _feesEarned[id];
+
+        // Calculate the total received so far, including the current fill
         uint256 totalReceived = orderState.received + receivedAmount;
+
+        // Determine the subtotal used to calculate the percentage fee
         uint256 subtotal = 0;
         if (orderState.received < previousFeesEarned) {
+            // If the flat fee hasn't been fully covered yet, only consider the amount over it
             if (totalReceived > previousFeesEarned) {
-                // If received amount is larger than previous flat fee earned for the first time,
-                // then take the difference
                 subtotal = totalReceived - previousFeesEarned;
             }
         } else {
+            // If the flat fee has been fully covered, the subtotal is the entire fill amount
             subtotal = receivedAmount;
         }
 
-        // Accumulate fee obligations at each sell then take all at end
+        // Calculate the percentage fee on the subtotal
         uint256 collection = 0;
         if (subtotal > 0) {
             uint256 precentageFeeRate = _orderPercentageFeeRates[id];
@@ -89,26 +94,39 @@ contract SellOrderProcessor is OrderProcessor {
             }
         }
 
+        // Calculate the total fees earned so far
         uint256 feesEarned = previousFeesEarned + collection;
-        // If order completely filled, clear fee data
+
+        // Calculate the remaining order after this fill
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
+
+        // Update or delete the total fees earned for this order, depending on whether the order is fully filled
         if (remainingOrder == 0) {
-            // Clear fee state
             delete _feesEarned[id];
         } else {
-            // Update fee state with earned fees
             if (collection > 0) {
                 _feesEarned[id] = feesEarned;
             }
         }
 
-        // Burn asset
+        // Burn the filled quantity from the asset token
         IMintBurn(order.assetToken).burn(fillAmount);
-        // Transfer raw proceeds of sale here
+
+        // Transfer the received amount from the filler to this contract
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
-        // Distribute if order completely filled
+
+        // Calculate the proceeds by subtracting the collected fees from the received amount
+        uint256 amountToDistribute = receivedAmount - collection;
+
+        // Distribute the proceeds and fees
+        _distributeProceeds(order.paymentToken, order.recipient, amountToDistribute, collection);
+
+        // Track the amount distributed so far
+        _amountDistributed[id] += amountToDistribute + collection;
+
+        // If the order is fully filled, delete the record of the amount distributed
         if (remainingOrder == 0) {
-            _distributeProceeds(order.paymentToken, order.recipient, totalReceived, feesEarned);
+            delete _amountDistributed[id];
         }
     }
 
@@ -118,48 +136,40 @@ contract SellOrderProcessor is OrderProcessor {
         virtual
         override
     {
-        // If no fills, then full refund
-        uint256 refund;
+        // Calculate refund amount. By default, it is the order quantity minus the amount already distributed.
+        uint256 refund = order.quantityIn - _amountDistributed[id];
+
+        // If the order has not been filled at all, refund the full order quantity
         if (orderState.remainingOrder == order.quantityIn) {
-            // Full refund
             refund = order.quantityIn;
         } else {
-            // Otherwise distribute proceeds, take accumulated fees, and refund remaining order
+            // If the order has been partially filled, distribute the proceeds and fees for the filled portion,
+            // and set the refund to be the remaining unfilled order quantity
             _distributeProceeds(order.paymentToken, order.recipient, orderState.received, _feesEarned[id]);
-            // Partial refund
             refund = orderState.remainingOrder;
         }
 
-        // Clear fee data
+        // Clear the fee and distribution state for this order
         delete _feesEarned[id];
+        delete _amountDistributed[id];
 
-        // Return escrow
+        // Refund the remaining asset token back to the order requester
         IERC20(order.assetToken).safeTransfer(orderState.requester, refund);
     }
 
-    /// @dev Distribute proceeds and fees
-    function _distributeProceeds(address paymentToken, address recipient, uint256 totalReceived, uint256 feesEarned)
-        private
-    {
-        // Check if accumulated fees are larger than total received
-        uint256 proceeds = 0;
-        uint256 collection = 0;
-        if (totalReceived > feesEarned) {
-            // Take fees from total received before distributing
-            proceeds = totalReceived - feesEarned;
-            collection = feesEarned;
-        } else {
-            // If accumulated fees are larger than total received, then no proceeds go to recipient
-            collection = totalReceived;
-        }
-
-        // Transfer proceeds to recipient
+    /// @dev Distributes the proceeds from a filled order.
+    /// @param paymentToken The address of the token used for payment in the order.
+    /// @param recipient The address to receive the proceeds from the order.
+    /// @param proceeds The amount of the order proceeds to distribute to the recipient.
+    /// @param fees The amount of fees to distribute to the treasury.
+    function _distributeProceeds(address paymentToken, address recipient, uint256 proceeds, uint256 fees) private {
+        // If there are proceeds from the order, transfer them to the recipient
         if (proceeds > 0) {
             IERC20(paymentToken).safeTransfer(recipient, proceeds);
         }
-        // Transfer fees to treasury
-        if (collection > 0) {
-            IERC20(paymentToken).safeTransfer(treasury, collection);
+        // If there are fees from the order, transfer them to the treasury
+        if (fees > 0) {
+            IERC20(paymentToken).safeTransfer(treasury, fees);
         }
     }
 }
