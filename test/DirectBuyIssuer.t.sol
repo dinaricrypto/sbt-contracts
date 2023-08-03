@@ -15,6 +15,7 @@ contract DirectBuyIssuerTest is Test {
 
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
@@ -244,6 +245,10 @@ contract DirectBuyIssuerTest is Test {
                 assertEq(issuer.getTotalReceived(id), 0);
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
+            }
+
+            if(issuer.getRemainingOrder(id) == 0) {
+                assertEq(issuer.getOrderEscrow(id), 0);
             }
         }
     }

@@ -107,8 +107,8 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         // Initialize escrow tracking for order
         getOrderEscrow[id] = orderConfig.paymentTokenQuantity;
     }
-
     /// @inheritdoc OrderProcessor
+
     function _fillOrderAccounting(
         bytes32 id,
         Order calldata order,
@@ -121,6 +121,8 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
         // Buy order accounting
         _fillBuyOrder(id, order, orderState, fillAmount, receivedAmount);
+        uint256 remainingOrder = getRemainingOrder(id);
+        if (remainingOrder == 0) delete getOrderEscrow[id];
     }
 
     /// @inheritdoc OrderProcessor
