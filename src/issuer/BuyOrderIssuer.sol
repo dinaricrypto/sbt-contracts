@@ -143,6 +143,7 @@ contract BuyOrderIssuer is OrderProcessor {
         });
 
         // Escrow payment for purchase
+        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, orderRequest.quantityIn, true);
         IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
@@ -158,6 +159,7 @@ contract BuyOrderIssuer is OrderProcessor {
         // Calculate fees and mint asset
         _fillBuyOrder(orderRequest, orderId, orderState, fillAmount, receivedAmount);
 
+        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, fillAmount, false);
         // Claim payment
         IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, fillAmount);
     }
@@ -216,6 +218,7 @@ contract BuyOrderIssuer is OrderProcessor {
         }
 
         // Return escrow
+        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, refund, false);
         IERC20(orderRequest.paymentToken).safeTransfer(orderRequest.recipient, refund);
     }
 

@@ -2,7 +2,8 @@
 pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {BuyOrderIssuer, OrderProcessor} from "./BuyOrderIssuer.sol";
+import {OrderProcessor} from "./OrderProcessor.sol";
+import {LimitBuyIssuer} from "./LimitBuyIssuer.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
@@ -26,7 +27,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract DirectBuyIssuer is BuyOrderIssuer {
+contract DirectBuyIssuer is LimitBuyIssuer {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -72,6 +73,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         emit EscrowTaken(orderId, orderRequest.recipient, amount);
 
         // Take escrowed payment
+        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, amount, false);
         IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, amount);
     }
 
@@ -99,6 +101,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         emit EscrowReturned(orderId, orderRequest.recipient, amount);
 
         // Return payment to escrow
+        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, amount, true);
         IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
