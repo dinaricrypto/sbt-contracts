@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
+import {MockToken} from "./utils/mocks/MockToken.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
@@ -10,6 +11,7 @@ import "../src/issuer/BuyOrderIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BuyOrderIssuerTest is Test {
@@ -26,8 +28,9 @@ contract BuyOrderIssuerTest is Test {
     dShare token;
     OrderFees orderFees;
     BuyOrderIssuer issuer;
-    MockERC20 paymentToken;
+    MockToken paymentToken;
     SigUtils sigUtils;
+    TokenLockCheck tokenLockCheck;
 
     uint256 userPrivateKey;
     address user;
@@ -44,15 +47,16 @@ contract BuyOrderIssuerTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockERC20("Money", "$", 6);
+        paymentToken = new MockToken();
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
+        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         issuer = BuyOrderIssuer(
             address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
             )
         );
 
@@ -95,7 +99,7 @@ contract BuyOrderIssuerTest is Test {
         BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
         BuyOrderIssuer newIssuer = BuyOrderIssuer(
             address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees)))
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (owner, newTreasury, orderFees, tokenLockCheck)))
             )
         );
         assertEq(newIssuer.owner(), owner);
@@ -110,20 +114,20 @@ contract BuyOrderIssuerTest is Test {
             )
         );
         newIssuer.upgradeToAndCall(
-            address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees))
+            address(newImpl), abi.encodeCall(newImpl.initialize, (owner, newTreasury, orderFees, tokenLockCheck))
         );
     }
 
     function testInitializeZeroOwnerReverts() public {
         BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
         vm.expectRevert("AccessControl: 0 default admin");
-        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(0), treasury, orderFees)));
+        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(0), treasury, orderFees, tokenLockCheck)));
     }
 
     function testInitializeZeroTreasuryReverts() public {
         BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), address(0), orderFees)));
+        new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), address(0), orderFees, tokenLockCheck)));
     }
 
     function testSetTreasury(address account) public {
@@ -253,17 +257,37 @@ contract BuyOrderIssuerTest is Test {
         issuer.requestOrder(dummyOrderRequest);
     }
 
-    function testRequestOrderUnsupportedPaymentReverts(address tryPaymentToken) public {
-        vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), tryPaymentToken));
+    function testPaymentTokenBlackList(uint256 quantityIn) public {
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.estimateFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
+        uint256 fees = flatFee + percentageFee;
+        vm.assume(quantityIn > 0);
+        vm.assume(quantityIn > fees);
+
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
+
+        paymentToken.blacklist(user);
+        assertEq(tokenLockCheck.isTransferLocked(address(paymentToken), user), true);
+
+        vm.expectRevert(OrderProcessor.Blacklist.selector);
+        vm.prank(user);
+        issuer.requestOrder(dummyOrderRequest);
+    }
+
+    function testRequestOrderUnsupportedPaymentReverts() public {
+        MockToken tryPaymentToken = new MockToken();
+        vm.assume(!issuer.hasRole(issuer.PAYMENTTOKEN_ROLE(), address(tryPaymentToken)));
 
         OrderProcessor.OrderRequest memory order = dummyOrderRequest;
-        order.paymentToken = tryPaymentToken;
+        order.paymentToken = address(tryPaymentToken);
 
         vm.expectRevert(
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(tryPaymentToken),
+                    Strings.toHexString(address(tryPaymentToken)),
                     " is missing role ",
                     Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32)
                 )

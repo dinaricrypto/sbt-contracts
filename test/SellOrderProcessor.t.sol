@@ -3,12 +3,14 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
+import {MockToken} from "./utils/mocks/MockToken.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/SellOrderProcessor.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract SellOrderProcessorTest is Test {
@@ -20,8 +22,9 @@ contract SellOrderProcessorTest is Test {
 
     dShare token;
     OrderFees orderFees;
+    TokenLockCheck tokenLockCheck;
     SellOrderProcessor issuer;
-    MockERC20 paymentToken;
+    MockToken paymentToken;
 
     uint256 userPrivateKey;
     address user;
@@ -37,14 +40,15 @@ contract SellOrderProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockERC20("Money", "$", 6);
+        paymentToken = new MockToken();
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         SellOrderProcessor issuerImpl = new SellOrderProcessor();
+        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         issuer = SellOrderProcessor(
             address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
             )
         );
 
