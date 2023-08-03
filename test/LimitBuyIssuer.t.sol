@@ -93,11 +93,9 @@ contract LimitBuyIssuerTest is Test {
         bytes32 id = issuer.getOrderId(order.recipient, order.index);
         if (quantityIn == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
-            vm.prank(user);
             issuer.requestOrder(orderRequest);
         } else if (fees >= quantityIn) {
             vm.expectRevert(BuyOrderIssuer.OrderTooSmall.selector);
-            vm.prank(user);
             issuer.requestOrder(orderRequest);
         } else if (_price == 0) {
             vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
@@ -107,7 +105,6 @@ contract LimitBuyIssuerTest is Test {
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
             emit OrderRequested(user, order.index, order);
-            vm.prank(user);
             uint256 index = issuer.requestOrder(orderRequest);
             assertEq(index, order.index);
             assertTrue(issuer.isOrderActive(id));
@@ -117,6 +114,7 @@ contract LimitBuyIssuerTest is Test {
             assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
         }
+        vm.stopPrank();
     }
 
     function testFillBuyOrderLimit(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 _price)

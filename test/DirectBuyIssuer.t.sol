@@ -247,7 +247,7 @@ contract DirectBuyIssuerTest is Test {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
             }
 
-            if(issuer.getRemainingOrder(id) == 0) {
+            if (issuer.getRemainingOrder(id) == 0) {
                 assertEq(issuer.getOrderEscrow(id), 0);
             }
         }
