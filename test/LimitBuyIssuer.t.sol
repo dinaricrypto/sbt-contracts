@@ -37,7 +37,7 @@ contract LimitBuyIssuerTest is Test {
         token = new MockdShare();
         paymentToken = new MockERC20("Money", "$", 6);
 
-        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
+        orderFees = new OrderFees(address(this), 1 ether, 500_000);
 
         issuer = new LimitBuyIssuer(address(this), treasury, orderFees);
 
@@ -85,11 +85,9 @@ contract LimitBuyIssuerTest is Test {
 
         if (quantityIn == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
-            vm.prank(user);
             issuer.requestOrder(dummyOrder, salt);
         } else if (fees >= quantityIn) {
             vm.expectRevert(BuyOrderIssuer.OrderTooSmall.selector);
-            vm.prank(user);
             issuer.requestOrder(dummyOrder, salt);
         } else {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -101,7 +99,6 @@ contract LimitBuyIssuerTest is Test {
                 bridgeOrderData.price = dummyOrder.price;
                 vm.expectEmit(true, true, true, true);
                 emit OrderRequested(orderId, user, bridgeOrderData, salt);
-                vm.prank(user);
                 issuer.requestOrder(dummyOrder, salt);
                 assertTrue(issuer.isOrderActive(orderId));
                 assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
@@ -111,6 +108,7 @@ contract LimitBuyIssuerTest is Test {
                 assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
                 assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
             }
+            vm.stopPrank();
         }
     }
 
