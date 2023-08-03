@@ -46,7 +46,7 @@ contract DirectBuyIssuer is LimitBuyIssuer {
     mapping(bytes32 => uint256) public getOrderEscrow;
 
     constructor(address _owner, address treasury_, IOrderFees orderFees_)
-        BuyOrderIssuer(_owner, treasury_, orderFees_)
+        LimitBuyIssuer(_owner, treasury_, orderFees_)
     {}
 
     /// ------------------ Order Lifecycle ------------------ ///
