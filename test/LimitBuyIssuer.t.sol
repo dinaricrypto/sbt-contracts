@@ -85,7 +85,7 @@ contract LimitBuyIssuerTest is Test {
         }
 
         paymentToken.mint(user, dummyOrder.quantityIn);
-        vm.startPrank(user);
+        vm.prank(user);
         paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
 
         if (quantityIn == 0) {
