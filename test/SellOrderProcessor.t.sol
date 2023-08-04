@@ -146,7 +146,7 @@ contract SellOrderProcessorTest is Test {
             issuer.fillOrder(order, fillAmount, receivedAmount);
         } else {
             // balances before
-            uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
+            uint256 userPaymentBefore = paymentToken.balanceOf(user);
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, true);
@@ -160,7 +160,7 @@ contract SellOrderProcessorTest is Test {
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
                 // balances after
-                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore);
+                assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount);
                 assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
                 assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
             }
