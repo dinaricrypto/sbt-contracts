@@ -311,6 +311,7 @@ abstract contract OrderProcessor is
                 || tokenLockCheck.isTransferLocked(orderRequest.paymentToken, orderRequest.recipient)
                 || tokenLockCheck.isTransferLocked(orderRequest.paymentToken, msg.sender)
         ) revert Blacklist();
+        if (orderRequest.recipient == address(0)) revert ZeroAddress();
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         // Check for whitelisted tokens

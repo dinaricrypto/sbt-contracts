@@ -230,6 +230,15 @@ contract BuyOrderIssuerTest is Test {
         }
     }
 
+    function testRequestOrderZeroAddressReverts() public {
+        OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
+        orderRequest.recipient = address(0);
+
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        vm.prank(user);
+        issuer.requestOrder(orderRequest);
+    }
+
     function testRequestOrderPausedReverts() public {
         issuer.setOrdersPaused(true);
 
