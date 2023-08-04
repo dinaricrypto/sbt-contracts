@@ -2,13 +2,14 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import "solady/test/utils/mocks/MockERC20.sol";
+import {MockToken} from "./utils/mocks/MockToken.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/LimitBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 
 contract LimitBuyIssuerTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
@@ -16,8 +17,9 @@ contract LimitBuyIssuerTest is Test {
 
     dShare token;
     OrderFees orderFees;
+    TokenLockCheck tokenLockCheck;
     LimitBuyIssuer issuer;
-    MockERC20 paymentToken;
+    MockToken paymentToken;
 
     uint256 userPrivateKey;
     address user;
@@ -30,14 +32,15 @@ contract LimitBuyIssuerTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockERC20("Money", "$", 6);
+        paymentToken = new MockToken();
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         LimitBuyIssuer issuerImpl = new LimitBuyIssuer();
+        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         issuer = LimitBuyIssuer(
             address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
             )
         );
 
@@ -93,11 +96,9 @@ contract LimitBuyIssuerTest is Test {
         bytes32 id = issuer.getOrderId(order.recipient, order.index);
         if (quantityIn == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
-            vm.prank(user);
             issuer.requestOrder(orderRequest);
         } else if (fees >= quantityIn) {
             vm.expectRevert(BuyOrderIssuer.OrderTooSmall.selector);
-            vm.prank(user);
             issuer.requestOrder(orderRequest);
         } else if (_price == 0) {
             vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
@@ -107,7 +108,6 @@ contract LimitBuyIssuerTest is Test {
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
             emit OrderRequested(user, order.index, order);
-            vm.prank(user);
             uint256 index = issuer.requestOrder(orderRequest);
             assertEq(index, order.index);
             assertTrue(issuer.isOrderActive(id));
@@ -117,6 +117,7 @@ contract LimitBuyIssuerTest is Test {
             assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
         }
+        vm.stopPrank();
     }
 
     function testFillBuyOrderLimit(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 _price)

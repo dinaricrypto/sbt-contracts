@@ -13,6 +13,7 @@ import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {dShare} from "../dShare.sol";
+import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -140,6 +141,9 @@ abstract contract OrderProcessor is
     /// @notice Fee specification contract
     IOrderFees public orderFees;
 
+    /// @notice Transfer restrictor checker
+    ITokenLockCheck public tokenLockCheck;
+
     /// @dev Are orders paused?
     bool public ordersPaused;
 
@@ -164,7 +168,10 @@ abstract contract OrderProcessor is
     /// @param treasury_ Address to receive fees
     /// @param orderFees_ Fee specification contract
     /// @dev Treasury cannot be zero address
-    function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
+    function initialize(address owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        external
+        initializer
+    {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
 
@@ -177,6 +184,7 @@ abstract contract OrderProcessor is
         treasury = treasury_;
         orderFees = orderFees_;
 
+        tokenLockCheck = tokenLockCheck_;
         // Grant admin role to owner
         _grantRole(ADMIN_ROLE, owner);
     }
@@ -298,9 +306,12 @@ abstract contract OrderProcessor is
     {
         // check blocklisted address
         if (
-            dShare(orderRequest.assetToken).isBlacklisted(orderRequest.recipient)
-                || dShare(orderRequest.assetToken).isBlacklisted(msg.sender)
+            tokenLockCheck.isTransferLocked(orderRequest.assetToken, orderRequest.recipient)
+                || tokenLockCheck.isTransferLocked(orderRequest.assetToken, msg.sender)
+                || tokenLockCheck.isTransferLocked(orderRequest.paymentToken, orderRequest.recipient)
+                || tokenLockCheck.isTransferLocked(orderRequest.paymentToken, msg.sender)
         ) revert Blacklist();
+        if (orderRequest.recipient == address(0)) revert ZeroAddress();
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         // Check for whitelisted tokens
