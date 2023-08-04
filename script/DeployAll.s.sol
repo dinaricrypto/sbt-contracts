@@ -7,37 +7,51 @@ import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
+    struct DeployConfig {
+        address deployer;
+        address owner;
+        address treasury;
+        address operator;
+        address usdc;
+        address usdt;
+    }
+
     function run() external {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
         uint256 ownerKey = vm.envUint("OWNER_KEY");
-        address owner = vm.addr(ownerKey);
-        address treasury = vm.envAddress("TREASURY");
-        address operator = vm.envAddress("OPERATOR");
-        address usdc = vm.envAddress("USDC");
+        DeployConfig memory cfg = DeployConfig({
+            deployer: vm.addr(deployerPrivateKey),
+            owner: vm.addr(ownerKey),
+            treasury: vm.envAddress("TREASURY"),
+            operator: vm.envAddress("OPERATOR"),
+            usdc: vm.envAddress("USDC"),
+            usdt: vm.envAddress("USDT")
+        });
 
-        console.log("deployer: %s", deployer);
-        console.log("owner: %s", owner);
+        console.log("deployer: %s", cfg.deployer);
+        console.log("owner: %s", cfg.owner);
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy transfer restrictor
-        new TransferRestrictor(owner);
+        new TransferRestrictor(cfg.owner);
 
         // deploy fee manager
-        IOrderFees orderFees = new OrderFees(owner, 1 ether, 0.005 ether);
+        IOrderFees orderFees = new OrderFees(cfg.owner, 1 ether, 0.005 ether);
+        TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
 
         // deploy implementation
         BuyOrderIssuer buyImpl = new BuyOrderIssuer();
         // deploy proxy and set implementation
         BuyOrderIssuer buyOrderIssuer = BuyOrderIssuer(
             address(
-                new ERC1967Proxy(address(buyImpl), abi.encodeCall(buyImpl.initialize, (deployer, treasury, orderFees)))
+                new ERC1967Proxy(address(buyImpl), abi.encodeCall(buyImpl.initialize, (cfg.deployer, cfg.treasury, orderFees, tokenLockCheck)))
             )
         );
 
@@ -46,7 +60,7 @@ contract DeployAllScript is Script {
         // deploy proxy and set implementation
         SellOrderProcessor sellOrderProcessor = SellOrderProcessor(
             address(
-                new ERC1967Proxy(address(sellImpl), abi.encodeCall(sellImpl.initialize, (deployer, treasury, orderFees)))
+                new ERC1967Proxy(address(sellImpl), abi.encodeCall(sellImpl.initialize, (cfg.deployer, cfg.treasury, orderFees, tokenLockCheck)))
             )
         );
 
@@ -55,19 +69,19 @@ contract DeployAllScript is Script {
         // deploy proxy and set implementation
         DirectBuyIssuer directBuyIssuer = DirectBuyIssuer(
             address(
-                new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (deployer, treasury, orderFees)))
+                new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (cfg.deployer, cfg.treasury, orderFees, tokenLockCheck)))
             )
         );
 
         // config operator
-        buyOrderIssuer.grantRole(buyOrderIssuer.OPERATOR_ROLE(), operator);
-        sellOrderProcessor.grantRole(sellOrderProcessor.OPERATOR_ROLE(), operator);
-        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), operator);
+        buyOrderIssuer.grantRole(buyOrderIssuer.OPERATOR_ROLE(), cfg.operator);
+        sellOrderProcessor.grantRole(sellOrderProcessor.OPERATOR_ROLE(), cfg.operator);
+        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
-        buyOrderIssuer.grantRole(buyOrderIssuer.PAYMENTTOKEN_ROLE(), usdc);
-        sellOrderProcessor.grantRole(sellOrderProcessor.PAYMENTTOKEN_ROLE(), usdc);
-        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), usdc);
+        buyOrderIssuer.grantRole(buyOrderIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
+        sellOrderProcessor.grantRole(sellOrderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
+        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
 
         // transfer ownership
         // buyOrderIssuer.beginDefaultAdminTransfer(owner);

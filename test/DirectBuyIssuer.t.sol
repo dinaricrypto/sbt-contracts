@@ -2,12 +2,13 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import "solady/test/utils/mocks/MockERC20.sol";
+import {MockToken} from "./utils/mocks/MockToken.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/DirectBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 
 contract DirectBuyIssuerTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
@@ -15,13 +16,15 @@ contract DirectBuyIssuerTest is Test {
 
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     dShare token;
     OrderFees orderFees;
+    TokenLockCheck tokenLockCheck;
     DirectBuyIssuer issuer;
-    MockERC20 paymentToken;
+    MockToken paymentToken;
 
     uint256 userPrivateKey;
     address user;
@@ -38,14 +41,16 @@ contract DirectBuyIssuerTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockERC20("Money", "$", 6);
+        paymentToken = new MockToken();
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
+        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+
         issuer = DirectBuyIssuer(
             address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
             )
         );
 
