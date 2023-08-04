@@ -44,7 +44,7 @@ contract DeployAllScript is Script {
 
         // deploy fee manager
         IOrderFees orderFees = new OrderFees(cfg.owner, 1 ether, 0.005 ether);
-        TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
+        TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdt);
 
         // deploy implementation
         BuyOrderIssuer buyImpl = new BuyOrderIssuer();

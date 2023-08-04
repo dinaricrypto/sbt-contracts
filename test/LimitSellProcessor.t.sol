@@ -37,7 +37,7 @@ contract LimitSellProcessorTest is Test {
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         LimitSellProcessor issuerImpl = new LimitSellProcessor();
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        tokenLockCheck = new TokenLockCheck( address(paymentToken));
         issuer = LimitSellProcessor(
             address(
                 new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))

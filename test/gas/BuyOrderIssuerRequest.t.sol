@@ -47,7 +47,7 @@ contract BuyOrderIssuerRequestTest is Test {
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        tokenLockCheck = new TokenLockCheck(address(paymentToken));
         issuer = BuyOrderIssuer(
             address(
                 new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
