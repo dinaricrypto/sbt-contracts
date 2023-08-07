@@ -96,14 +96,14 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     }
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(bytes32 id, OrderRequest calldata orderRequest)
-        internal
-        virtual
-        override
-        returns (OrderConfig memory orderConfig)
-    {
+    function _requestOrderAccounting(
+        bytes32 id,
+        OrderRequest calldata orderRequest,
+        uint256 flatFee,
+        uint64 percentageFeeRate
+    ) internal virtual override returns (OrderConfig memory orderConfig) {
         // Compile standard buy order
-        orderConfig = super._requestOrderAccounting(id, orderRequest);
+        orderConfig = super._requestOrderAccounting(id, orderRequest, flatFee, percentageFeeRate);
         // Initialize escrow tracking for order
         getOrderEscrow[id] = orderConfig.paymentTokenQuantity;
     }
@@ -115,12 +115,13 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
-    ) internal virtual override {
+    ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
         // Can't fill more than payment previously taken from escrow
         uint256 escrow = getOrderEscrow[id];
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
-        // Buy order accounting
-        _fillBuyOrder(id, order, orderState, fillAmount, receivedAmount);
+
+        paymentEarned = 0;
+        (, feesEarned) = super._fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
     }
 
     /// @inheritdoc OrderProcessor
@@ -128,14 +129,16 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         internal
         virtual
         override
+        returns (uint256 refund)
     {
         // Prohibit cancel if escrowed payment has been taken and not returned or filled
         uint256 escrow = getOrderEscrow[id];
         if (orderState.remainingOrder != escrow) revert UnreturnedEscrow();
 
-        // Standard buy order accounting
-        super._cancelOrderAccounting(id, order, orderState);
         // Clear the escrow record
         delete getOrderEscrow[id];
+
+        // Standard buy order accounting
+        refund = super._cancelOrderAccounting(id, order, orderState);
     }
 }
