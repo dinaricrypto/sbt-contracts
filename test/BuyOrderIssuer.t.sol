@@ -37,9 +37,8 @@ contract BuyOrderIssuerTest is Test {
     address constant operator = address(3);
     address constant treasury = address(4);
 
-    uint256 flatFee = 1 ether;
-    uint64 percentageFeeRate = 0.005 ether;
-
+    uint256 flatFee;
+    uint64 percentageFeeRate;
     IOrderBridge.OrderRequest dummyOrderRequest;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrder;

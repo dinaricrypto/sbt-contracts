@@ -34,7 +34,6 @@ contract DirectBuyIssuerTest is Test {
 
     uint256 flatFee;
     uint64 percentageFeeRate;
-
     IOrderBridge.OrderRequest dummyOrderRequest;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrder;

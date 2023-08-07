@@ -46,7 +46,7 @@ abstract contract OrderProcessor is
     IOrderBridge
 {
     using SafeERC20 for IERC20;
-
+    
     /// ------------------ Types ------------------ ///
 
     // Order state accounting variables

@@ -30,7 +30,6 @@ contract SellOrderProcessorTest is Test {
 
     address constant operator = address(3);
     address constant treasury = address(4);
-
     uint256 flatFee;
     uint64 percentageFeeRate;
 
