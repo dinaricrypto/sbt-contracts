@@ -6,7 +6,7 @@ import "../src/IMintBurn.sol";
 
 contract MintScript is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("TESTNET_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         address[1] memory testWallets = [
@@ -15,7 +15,8 @@ contract MintScript is Script {
         ];
 
         address[1] memory mintAssets = [
-            0x1ad40240395186ea900Cb3df6Bf5B64420CeA46D // fake USDC
+            // 0x1ad40240395186ea900Cb3df6Bf5B64420CeA46D // fake USDC
+            0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F // new fake USDC
         ];
 
         for (uint256 i = 0; i < mintAssets.length; i++) {
