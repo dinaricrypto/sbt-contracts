@@ -37,6 +37,8 @@ contract BuyOrderIssuerTest is Test {
     address constant operator = address(3);
     address constant treasury = address(4);
 
+    uint256 flatFee;
+    uint64 percentageFeeRate;
     IOrderBridge.OrderRequest dummyOrderRequest;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrder;
@@ -73,9 +75,8 @@ contract BuyOrderIssuerTest is Test {
             quantityIn: 100 ether,
             price: 0
         });
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.estimateFeesForOrder(dummyOrderRequest.paymentToken, dummyOrderRequest.quantityIn);
-        dummyOrderFees = flatFee + percentageFee;
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        dummyOrderFees = issuer.estimateTotalFees(flatFee, percentageFeeRate, dummyOrderRequest.quantityIn);
         dummyOrder = IOrderBridge.Order({
             recipient: user,
             index: 0,
@@ -153,28 +154,29 @@ contract BuyOrderIssuerTest is Test {
     function testNoFees(uint256 value) public {
         issuer.setOrderFees(IOrderFees(address(0)));
 
-        (uint256 inputValue, uint256 flatFee, uint256 percentageFee) =
+        (uint256 inputValue, uint256 _flatFee, uint256 percentageFee) =
             issuer.getInputValueForOrderValue(address(paymentToken), value);
         assertEq(inputValue, value);
-        assertEq(flatFee, 0);
+        assertEq(_flatFee, 0);
         assertEq(percentageFee, 0);
-        (uint256 flatFee2, uint256 percentageFee2) = issuer.estimateFeesForOrder(address(paymentToken), value);
+        (uint256 flatFee2, uint256 percentageFee2) = issuer.getFeeRatesForOrder(address(paymentToken));
         assertEq(flatFee2, 0);
         assertEq(percentageFee2, 0);
     }
 
-    function testGetInputValue(uint64 perOrderFee, uint64 percentageFeeRate, uint128 orderValue) public {
+    function testGetInputValue(uint64 perOrderFee, uint64 _percentageFeeRate, uint128 orderValue) public {
         // uint128 used to avoid overflow when calculating larger raw input value
-        vm.assume(percentageFeeRate < 1 ether);
-        OrderFees fees = new OrderFees(address(this), perOrderFee, percentageFeeRate);
+        vm.assume(_percentageFeeRate < 1 ether);
+        OrderFees fees = new OrderFees(address(this), perOrderFee, _percentageFeeRate);
         issuer.setOrderFees(fees);
 
-        (uint256 inputValue, uint256 flatFee, uint256 percentageFee) =
+        (uint256 inputValue, uint256 _flatFee, uint256 percentageFee) =
             issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
-        assertEq(inputValue - flatFee - percentageFee, orderValue);
-        (uint256 flatFee2, uint256 percentageFee2) = issuer.estimateFeesForOrder(address(paymentToken), inputValue);
-        assertEq(flatFee, flatFee2);
-        assertEq(percentageFee, percentageFee2);
+        assertEq(inputValue - _flatFee - percentageFee, orderValue);
+        (uint256 flatFee2, uint64 percentageFeeRate2) = issuer.getFeeRatesForOrder(address(paymentToken));
+        uint256 totalFees = issuer.estimateTotalFees(flatFee2, percentageFeeRate2, inputValue);
+        assertEq(_flatFee, flatFee2);
+        assertEq(totalFees, _flatFee + percentageFee);
     }
 
     function testSetOrdersPaused(bool pause) public {
@@ -188,9 +190,7 @@ contract BuyOrderIssuerTest is Test {
         IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = quantityIn;
 
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
-        uint256 fees = flatFee + percentageFee;
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderRequest.quantityIn);
 
         IOrderBridge.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
@@ -250,9 +250,7 @@ contract BuyOrderIssuerTest is Test {
     function testRequestOrderBlacklist(uint256 quantityIn) public {
         // restrict msg.sender
         TransferRestrictor(address(token.transferRestrictor())).restrict(user);
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.estimateFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
-        uint256 fees = flatFee + percentageFee;
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, quantityIn);
         vm.assume(quantityIn > 0);
         vm.assume(quantityIn > fees);
 
@@ -266,9 +264,7 @@ contract BuyOrderIssuerTest is Test {
     }
 
     function testPaymentTokenBlackList(uint256 quantityIn) public {
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.estimateFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
-        uint256 fees = flatFee + percentageFee;
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, quantityIn);
         vm.assume(quantityIn > 0);
         vm.assume(quantityIn > fees);
 
@@ -376,14 +372,16 @@ contract BuyOrderIssuerTest is Test {
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
-        uint256 fees = flatFee + percentageFee;
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderRequest.quantityIn);
         vm.assume(fees < orderAmount);
 
         IOrderBridge.Order memory order = dummyOrder;
         order.quantityIn = orderAmount;
         order.paymentTokenQuantity = orderAmount - fees;
+        uint256 feesEarned = 0;
+        if (fillAmount > 0) {
+            feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
+        }
 
         paymentToken.mint(user, orderAmount);
         vm.prank(user);
@@ -412,15 +410,16 @@ contract BuyOrderIssuerTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, receivedAmount);
             assertEq(issuer.getRemainingOrder(id), orderAmount - fees - fillAmount);
+            // balances after
+            assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
+            assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount - feesEarned);
+            assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
+            assertEq(paymentToken.balanceOf(treasury), feesEarned);
             if (fillAmount == orderAmount - fees) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
-                // balances after
-                assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
-                assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
             }
         }
     }
@@ -428,9 +427,7 @@ contract BuyOrderIssuerTest is Test {
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
-        uint256 fees = flatFee + percentageFee;
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderRequest.quantityIn);
         vm.assume(fees < orderAmount);
 
         uint256 fillAmount = orderAmount - fees;
@@ -514,9 +511,7 @@ contract BuyOrderIssuerTest is Test {
 
         IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = inputAmount;
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.estimateFeesForOrder(orderRequest.paymentToken, orderRequest.quantityIn);
-        uint256 fees = flatFee + percentageFee;
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderRequest.quantityIn);
         vm.assume(fees < inputAmount);
         uint256 orderAmount = inputAmount - fees;
         vm.assume(fillAmount < orderAmount);
@@ -532,28 +527,25 @@ contract BuyOrderIssuerTest is Test {
         vm.prank(user);
         issuer.requestOrder(orderRequest);
 
+        uint256 feesEarned = 0;
         if (fillAmount > 0) {
+            feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, 100);
         }
 
         // balances before
-        uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(order.recipient, order.index, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, reason);
+        assertEq(paymentToken.balanceOf(address(issuer)), 0);
+        assertEq(paymentToken.balanceOf(treasury), feesEarned);
         // balances after
         if (fillAmount > 0) {
-            // uint256 feesEarned = percentageFee * fillAmount / (orderAmount - fees) + flatFee;
-            uint256 feesEarned = PrbMath.mulDiv(percentageFee, fillAmount, orderAmount) + flatFee;
-            uint256 escrow = inputAmount - fillAmount;
-            assertEq(paymentToken.balanceOf(address(user)), escrow - feesEarned);
-            assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - escrow);
-            assertEq(paymentToken.balanceOf(treasury), feesEarned);
+            assertEq(paymentToken.balanceOf(address(user)), inputAmount - fillAmount - feesEarned);
         } else {
             assertEq(paymentToken.balanceOf(address(user)), inputAmount);
-            assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - inputAmount);
         }
     }
 

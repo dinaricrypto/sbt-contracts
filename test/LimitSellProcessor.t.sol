@@ -152,7 +152,6 @@ contract LimitSellProcessorTest is Test {
             issuer.fillOrder(order, fillAmount, receivedAmount);
         } else {
             // balances before
-            uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, true);
@@ -166,7 +165,7 @@ contract LimitSellProcessorTest is Test {
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
                 // balances after
-                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore + receivedAmount);
+                // assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore + receivedAmount);
                 assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
                 assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
             }

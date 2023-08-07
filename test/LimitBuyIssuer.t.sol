@@ -27,6 +27,9 @@ contract LimitBuyIssuerTest is Test {
     address constant operator = address(3);
     address constant treasury = address(4);
 
+    uint256 flatFee;
+    uint64 percentageFeeRate;
+
     function setUp() public {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
@@ -43,6 +46,7 @@ contract LimitBuyIssuerTest is Test {
                 new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
             )
         );
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -84,8 +88,7 @@ contract LimitBuyIssuerTest is Test {
     }
 
     function testRequestOrderLimit(uint256 quantityIn, uint256 _price) public {
-        (uint256 flatFee, uint256 percentageFee) = issuer.estimateFeesForOrder(address(paymentToken), quantityIn);
-        uint256 fees = flatFee + percentageFee;
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, quantityIn);
         (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
             createOrderAndRequest(quantityIn, _price, fees);
 
@@ -130,12 +133,16 @@ contract LimitBuyIssuerTest is Test {
 
         uint256 fees = 0;
         {
-            (uint256 flatFee, uint256 percentageFee) = issuer.estimateFeesForOrder(address(paymentToken), orderAmount);
-            fees = flatFee + percentageFee;
+            fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
             vm.assume(fees < orderAmount);
         }
         (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
             createOrderAndRequest(orderAmount, _price, fees);
+
+        uint256 feesEarned = 0;
+        if (fillAmount > 0) {
+            feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
+        }
 
         paymentToken.mint(user, orderAmount);
         vm.prank(user);
@@ -175,8 +182,9 @@ contract LimitBuyIssuerTest is Test {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
                 // balances after
                 assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
+                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount - feesEarned);
                 assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
+                assertEq(paymentToken.balanceOf(treasury), feesEarned);
             }
         }
     }
