@@ -55,9 +55,9 @@ contract LimitBuyIssuerTest is Test {
     function createOrderAndRequest(uint256 quantityIn, uint256 price, uint256 fees)
         internal
         view
-        returns (OrderProcessor.OrderRequest memory orderRequest, IOrderBridge.Order memory order)
+        returns (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order)
     {
-        orderRequest = OrderProcessor.OrderRequest({
+        orderRequest = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -86,7 +86,7 @@ contract LimitBuyIssuerTest is Test {
     function testRequestOrderLimit(uint256 quantityIn, uint256 _price) public {
         (uint256 flatFee, uint256 percentageFee) = issuer.estimateFeesForOrder(address(paymentToken), quantityIn);
         uint256 fees = flatFee + percentageFee;
-        (OrderProcessor.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
+        (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
             createOrderAndRequest(quantityIn, _price, fees);
 
         paymentToken.mint(user, orderRequest.quantityIn);
@@ -134,7 +134,7 @@ contract LimitBuyIssuerTest is Test {
             fees = flatFee + percentageFee;
             vm.assume(fees < orderAmount);
         }
-        (OrderProcessor.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
+        (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
             createOrderAndRequest(orderAmount, _price, fees);
 
         paymentToken.mint(user, orderAmount);

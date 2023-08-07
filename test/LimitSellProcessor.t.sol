@@ -55,9 +55,9 @@ contract LimitSellProcessorTest is Test {
     function createOrderAndRequest(uint256 quantityIn, uint256 price)
         internal
         view
-        returns (OrderProcessor.OrderRequest memory orderRequest, IOrderBridge.Order memory order)
+        returns (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order)
     {
-        orderRequest = OrderProcessor.OrderRequest({
+        orderRequest = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -123,7 +123,7 @@ contract LimitSellProcessorTest is Test {
         vm.assume(fillAmount < 2 ** 128 - 1);
         vm.assume(receivedAmount < 2 ** 128 - 1);
 
-        (OrderProcessor.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
+        (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
             createOrderAndRequest(orderAmount, _price);
 
         token.mint(user, orderAmount);

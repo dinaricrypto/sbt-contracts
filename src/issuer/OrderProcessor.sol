@@ -46,20 +46,6 @@ abstract contract OrderProcessor is
 {
     /// ------------------ Types ------------------ ///
 
-    // Order request format
-    struct OrderRequest {
-        // Recipient of order fills
-        address recipient;
-        // Bridged asset token
-        address assetToken;
-        // Payment token
-        address paymentToken;
-        // Amount of incoming order token to be used for fills
-        uint256 quantityIn;
-        // price enquiry for the request
-        uint256 price;
-    }
-
     // Order state accounting variables
     struct OrderState {
         // Hash of order data used to validate order details stored offchain
