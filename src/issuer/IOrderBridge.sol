@@ -114,8 +114,7 @@ interface IOrderBridge {
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount)
-        external;
+    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
 
     /// @notice Request to cancel an order
     /// @param recipient Recipient of order fills
