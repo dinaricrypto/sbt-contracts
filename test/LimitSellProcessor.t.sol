@@ -152,7 +152,6 @@ contract LimitSellProcessorTest is Test {
             issuer.fillOrder(order, fillAmount, receivedAmount);
         } else {
             // balances before
-            uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, true);
