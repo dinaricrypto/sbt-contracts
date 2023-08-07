@@ -34,7 +34,7 @@ contract SellOrderProcessorTest is Test {
     uint256 flatFee;
     uint64 percentageFeeRate;
 
-    OrderProcessor.OrderRequest dummyOrderRequest;
+    IOrderBridge.OrderRequest dummyOrderRequest;
     IOrderBridge.Order dummyOrder;
 
     function setUp() public {
@@ -61,7 +61,7 @@ contract SellOrderProcessorTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        dummyOrderRequest = OrderProcessor.OrderRequest({
+        dummyOrderRequest = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -85,7 +85,7 @@ contract SellOrderProcessorTest is Test {
     }
 
     function testRequestOrder(uint256 quantityIn) public {
-        OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
+        IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = quantityIn;
 
         IOrderBridge.Order memory order = dummyOrder;
@@ -123,7 +123,7 @@ contract SellOrderProcessorTest is Test {
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
-        OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
+        IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
 
         IOrderBridge.Order memory order = dummyOrder;
@@ -195,7 +195,7 @@ contract SellOrderProcessorTest is Test {
         vm.assume(firstFillAmount <= orderAmount);
         vm.assume(firstReceivedAmount <= receivedAmount);
 
-        OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
+        IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
 
         IOrderBridge.Order memory order = dummyOrder;
@@ -268,7 +268,7 @@ contract SellOrderProcessorTest is Test {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
 
-        OrderProcessor.OrderRequest memory orderRequest = dummyOrderRequest;
+        IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
         orderRequest.quantityIn = orderAmount;
 
         IOrderBridge.Order memory order = dummyOrder;

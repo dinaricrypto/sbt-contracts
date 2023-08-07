@@ -54,6 +54,20 @@ interface IOrderBridge {
         TIF tif;
     }
 
+    // Specification for an order
+    struct OrderRequest {
+        // Recipient of order fills
+        address recipient;
+        // Bridged asset token
+        address assetToken;
+        // Payment token
+        address paymentToken;
+        // Amount of incoming order token to be used for fills
+        uint256 quantityIn;
+        // price enquiry for the request
+        uint256 price;
+    }
+
     /// @dev Fully specifies order details and salt used to generate order ID
     event OrderRequested(address indexed recipient, uint256 indexed index, Order order);
     /// @dev Emitted for each fill
@@ -87,4 +101,31 @@ interface IOrderBridge {
     /// @notice Get total received for order
     /// @param id Order ID
     function getTotalReceived(bytes32 id) external view returns (uint256);
+
+    /// ------------------ Actions ------------------ ///
+
+    /// @notice Request an order
+    /// @param orderRequest Order request to submit
+    /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
+    function requestOrder(OrderRequest calldata orderRequest) external returns (uint256);
+
+    /// @notice Fill an order
+    /// @param order Order request to fill
+    /// @param fillAmount Amount of order token to fill
+    /// @param receivedAmount Amount of received token
+    /// @dev Only callable by operator
+    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
+
+    /// @notice Request to cancel an order
+    /// @param recipient Recipient of order fills
+    /// @param index Order index
+    /// @dev Only callable by initial order requester
+    /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
+    function requestCancel(address recipient, uint256 index) external;
+
+    /// @notice Cancel an order
+    /// @param order Order request to cancel
+    /// @param reason Reason for cancellation
+    /// @dev Only callable by operator
+    function cancelOrder(Order calldata order, string calldata reason) external;
 }
