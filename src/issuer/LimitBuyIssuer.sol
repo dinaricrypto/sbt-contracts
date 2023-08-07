@@ -13,14 +13,14 @@ contract LimitBuyIssuer is BuyOrderIssuer {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
 
-    function _requestOrderAccounting(bytes32 id, OrderRequest calldata orderRequest)
-        internal
-        virtual
-        override
-        returns (OrderConfig memory orderConfig)
-    {
+    function _requestOrderAccounting(
+        bytes32 id,
+        OrderRequest calldata orderRequest,
+        uint256 flatFee,
+        uint64 percentageFeeRate
+    ) internal virtual override returns (OrderConfig memory orderConfig) {
         // Calls the original _requestOrderAccounting from BuyOrderIssuer
-        orderConfig = super._requestOrderAccounting(id, orderRequest);
+        orderConfig = super._requestOrderAccounting(id, orderRequest, flatFee, percentageFeeRate);
         // Modify order type to LIMIT
         orderConfig.orderType = OrderType.LIMIT;
         // Ensure that price is set for limit orders
@@ -35,10 +35,10 @@ contract LimitBuyIssuer is BuyOrderIssuer {
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
-    ) internal virtual override {
+    ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
         // Ensure that the received amount is greater or equal to limit price * fill amount , orderRequest price has ether decimals
         if (fillAmount > PrbMath.mulDiv18(receivedAmount, order.price)) revert OrderFillBelowLimitPrice();
-        // Calls the original _fillOrderAccounting from BuyOrderIssuer
-        super._fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
+
+        (paymentEarned, feesEarned) = super._fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
     }
 }

@@ -13,14 +13,14 @@ contract LimitSellProcessor is SellOrderProcessor {
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();
 
-    function _requestOrderAccounting(bytes32 id, OrderRequest calldata orderRequest)
-        internal
-        virtual
-        override
-        returns (OrderConfig memory orderConfig)
-    {
+    function _requestOrderAccounting(
+        bytes32 id,
+        OrderRequest calldata orderRequest,
+        uint256 flatFee,
+        uint64 percentageFeeRate
+    ) internal virtual override returns (OrderConfig memory orderConfig) {
         // Calls the original _requestOrderAccounting from SellOrderProcessor
-        orderConfig = super._requestOrderAccounting(id, orderRequest);
+        orderConfig = super._requestOrderAccounting(id, orderRequest, flatFee, percentageFeeRate);
         // Modify order type to LIMIT
         orderConfig.orderType = OrderType.LIMIT;
         // Ensure that price is set for limit orders
@@ -35,10 +35,10 @@ contract LimitSellProcessor is SellOrderProcessor {
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
-    ) internal virtual override {
+    ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
         // Ensure that the received amount is greater or equal to limit price * fill amount, orderRequest price has ether decimals
         if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) revert OrderFillAboveLimitPrice();
-        // Calls the original _fillOrderAccounting from SellOrderProcessor
-        super._fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
+
+        (paymentEarned, feesEarned) = super._fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
     }
 }

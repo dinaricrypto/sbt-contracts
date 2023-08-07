@@ -8,12 +8,15 @@ import {AccessControlDefaultAdminRulesUpgradeable} from
 import {ReentrancyGuardUpgradeable} from
     "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
+import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "prb-math/Common.sol" as PrbMath;
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {dShare} from "../dShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
+import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -24,8 +27,6 @@ import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 ///   This maintains clarity for users and for interpreting contract token balances
 /// Specifies a generic order request struct such that
 ///   inheriting contracts must implement unique request methods to handle multiple order processes simultaneously
-/// TODO: Design - Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
-///   or should fee handling primitives be specified here?
 /// Order lifecycle (fulfillment):
 ///   1. User requests an order (requestOrder)
 ///   2. [Optional] Operator partially fills the order (fillOrder)
@@ -44,6 +45,8 @@ abstract contract OrderProcessor is
     SelfPermit,
     IOrderBridge
 {
+    using SafeERC20 for IERC20;
+
     /// ------------------ Types ------------------ ///
 
     // Order request format
@@ -66,10 +69,16 @@ abstract contract OrderProcessor is
         bytes32 orderHash;
         // Account that requested the order
         address requester;
+        // Flat fee at time of order request
+        uint256 flatFee;
+        // Percentage fee rate at time of order request
+        uint64 percentageFeeRate;
         // Amount of order token remaining to be used
         uint256 remainingOrder;
         // Total amount of received token due to fills
         uint256 received;
+        // Total fees paid to treasury
+        uint256 feesPaid;
         // Whether a cancellation for this order has been initiated
         bool cancellationInitiated;
     }
@@ -267,29 +276,37 @@ abstract contract OrderProcessor is
         return _orders[id].cancellationInitiated;
     }
 
-    /// @notice Get fees for an order
+    /// @notice Get fee rates for an order
     /// @param token Payment token for order
-    /// @param inputValue Total input value subject to fees
     /// @return flatFee Flat fee for order
-    /// @return percentageFee Percentage fee for order
+    /// @return percentageFeeRate Percentage fee rate for order
     /// @dev Fees zero if no orderFees contract is set
-    function estimateFeesForOrder(address token, uint256 inputValue)
-        public
-        view
-        returns (uint256 flatFee, uint256 percentageFee)
-    {
+    function getFeeRatesForOrder(address token) public view returns (uint256 flatFee, uint64 percentageFeeRate) {
         // Check if fee contract is set
         if (address(orderFees) == address(0)) {
             return (0, 0);
         }
 
-        // Calculate fees
+        // Get fee rates
         flatFee = orderFees.flatFeeForOrder(token);
+        percentageFeeRate = orderFees.percentageFeeRate();
+    }
+
+    /// @notice Get total fees for an order
+    /// @param flatFee Flat fee for order
+    /// @param percentageFeeRate Percentage fee rate for order
+    /// @param inputValue Total input value subject to fees
+    function estimateTotalFees(uint256 flatFee, uint64 percentageFeeRate, uint256 inputValue)
+        public
+        pure
+        returns (uint256 totalFees)
+    {
+        // Calculate fees
+        totalFees = flatFee;
         // If input value is greater than flat fee, calculate percentage fee on remaining value
-        if (inputValue > flatFee) {
-            percentageFee = orderFees.percentageFeeForValue(inputValue - flatFee);
-        } else {
-            percentageFee = 0;
+        if (inputValue > flatFee && percentageFeeRate != 0) {
+            // Apply fee to input value
+            totalFees += PrbMath.mulDiv18(inputValue - flatFee, percentageFeeRate);
         }
     }
 
@@ -321,8 +338,11 @@ abstract contract OrderProcessor is
         index = _nextOrderIndex[orderRequest.recipient]++;
         bytes32 id = getOrderId(orderRequest.recipient, index);
 
+        // Get fees for order
+        (uint256 flatFee, uint64 percentageFeeRate) = getFeeRatesForOrder(orderRequest.paymentToken);
+
         // Get order from request and move tokens
-        OrderConfig memory orderConfig = _requestOrderAccounting(id, orderRequest);
+        OrderConfig memory orderConfig = _requestOrderAccounting(id, orderRequest, flatFee, percentageFeeRate);
         Order memory order = Order({
             recipient: orderRequest.recipient,
             index: index,
@@ -345,8 +365,11 @@ abstract contract OrderProcessor is
         _orders[id] = OrderState({
             orderHash: hashOrder(order),
             requester: msg.sender,
+            flatFee: flatFee,
+            percentageFeeRate: percentageFeeRate,
             remainingOrder: orderAmount,
             received: 0,
+            feesPaid: 0,
             cancellationInitiated: false
         });
         _numOpenOrders++;
@@ -410,6 +433,11 @@ abstract contract OrderProcessor is
         if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
+
+        // Calculate earned fees and handle any unique checks
+        (uint256 paymentEarned, uint256 feesEarned) =
+            _fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
+
         // Notify order filled
         emit OrderFill(order.recipient, order.index, fillAmount, receivedAmount);
 
@@ -424,12 +452,38 @@ abstract contract OrderProcessor is
             _numOpenOrders--;
         } else {
             // Otherwise update order state
+            // Check values
+            uint256 feesPaid = orderState.feesPaid + feesEarned;
+            assert(order.sell || feesPaid <= order.quantityIn - order.paymentTokenQuantity);
             _orders[id].remainingOrder = remainingOrder;
             _orders[id].received = orderState.received + receivedAmount;
+            _orders[id].feesPaid = orderState.feesPaid + feesEarned;
         }
 
         // Move tokens
-        _fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
+        if (order.sell) {
+            // Burn the filled quantity from the asset token
+            IMintBurn(order.assetToken).burn(fillAmount);
+
+            // Transfer the received amount from the filler to this contract
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
+
+            // If there are proceeds from the order, transfer them to the recipient
+            if (paymentEarned > 0) {
+                IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
+            }
+        } else {
+            // Claim payment
+            IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
+
+            // Mint asset
+            IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
+        }
+
+        // If there are fees from the order, transfer them to the treasury
+        if (feesEarned > 0) {
+            IERC20(order.paymentToken).safeTransfer(treasury, feesEarned);
+        }
     }
 
     /// @notice Request to cancel an order
@@ -471,8 +525,11 @@ abstract contract OrderProcessor is
         delete _orders[id];
         _numOpenOrders--;
 
-        // Move tokens
-        _cancelOrderAccounting(id, order, orderState);
+        // Calculate refund
+        uint256 refund = _cancelOrderAccounting(id, order, orderState);
+
+        // Return escrow
+        IERC20(order.sell ? order.assetToken : order.paymentToken).safeTransfer(orderState.requester, refund);
     }
 
     /// ------------------ Virtuals ------------------ ///
@@ -480,30 +537,40 @@ abstract contract OrderProcessor is
     /// @notice Compile order from request and move tokens including fees, escrow, and amount to fill
     /// @param id Order ID
     /// @param orderRequest Order request to process
+    /// @param flatFee Flat fee for order
+    /// @param percentageFeeRate Percentage fee rate for order
     /// @return orderConfig Order execution specification
     /// @dev Result used to initialize order accounting
-    function _requestOrderAccounting(bytes32 id, OrderRequest calldata orderRequest)
-        internal
-        virtual
-        returns (OrderConfig memory orderConfig);
+    function _requestOrderAccounting(
+        bytes32 id,
+        OrderRequest calldata orderRequest,
+        uint256 flatFee,
+        uint64 percentageFeeRate
+    ) internal virtual returns (OrderConfig memory orderConfig);
 
-    /// @notice Move tokens for order fill including fees and escrow
+    /// @notice Handle any unique order accounting and checks
     /// @param id Order ID
     /// @param order Order to fill
     /// @param orderState Order state
     /// @param fillAmount Amount of order token filled
     /// @param receivedAmount Amount of received token
+    /// @return paymentEarned Amount of payment token earned to be paid to operator or recipient
+    /// @return feesEarned Amount of fees earned to be paid to treasury
     function _fillOrderAccounting(
         bytes32 id,
         Order calldata order,
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
-    ) internal virtual;
+    ) internal virtual returns (uint256 paymentEarned, uint256 feesEarned);
 
     /// @notice Move tokens for order cancellation including fees and escrow
     /// @param id Order ID
     /// @param order Order to cancel
     /// @param orderState Order state
-    function _cancelOrderAccounting(bytes32 id, Order calldata order, OrderState memory orderState) internal virtual;
+    /// @return refund Amount of order token to refund to user
+    function _cancelOrderAccounting(bytes32 id, Order calldata order, OrderState memory orderState)
+        internal
+        virtual
+        returns (uint256 refund);
 }
