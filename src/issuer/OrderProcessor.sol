@@ -8,9 +8,15 @@ import {AccessControlDefaultAdminRulesUpgradeable} from
 import {ReentrancyGuardUpgradeable} from
     "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
+import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import "prb-math/Common.sol" as PrbMath;
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
 import {IOrderFees} from "./IOrderFees.sol";
+import {ITransferRestrictor} from "../ITransferRestrictor.sol";
+import {dShare} from "../dShare.sol";
+import {ITokenLockCheck} from "../ITokenLockCheck.sol";
+import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -21,8 +27,6 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   This maintains clarity for users and for interpreting contract token balances
 /// Specifies a generic order request struct such that
 ///   inheriting contracts must implement unique request methods to handle multiple order processes simultaneously
-/// TODO: Design - Fee contract required and specified here, but not used. Should fee contract be specified in inheritor?
-///   or should fee handling primitives be specified here?
 /// Order lifecycle (fulfillment):
 ///   1. User requests an order (requestOrder)
 ///   2. [Optional] Operator partially fills the order (fillOrder)
@@ -41,16 +45,44 @@ abstract contract OrderProcessor is
     SelfPermit,
     IOrderBridge
 {
+    using SafeERC20 for IERC20;
+
     /// ------------------ Types ------------------ ///
 
     // Order state accounting variables
     struct OrderState {
+        // Hash of order data used to validate order details stored offchain
+        bytes32 orderHash;
         // Account that requested the order
         address requester;
+        // Flat fee at time of order request
+        uint256 flatFee;
+        // Percentage fee rate at time of order request
+        uint64 percentageFeeRate;
         // Amount of order token remaining to be used
         uint256 remainingOrder;
         // Total amount of received token due to fills
         uint256 received;
+        // Total fees paid to treasury
+        uint256 feesPaid;
+        // Whether a cancellation for this order has been initiated
+        bool cancellationInitiated;
+    }
+
+    // Order execution specification
+    struct OrderConfig {
+        // Buy or sell
+        bool sell;
+        // Market or limit
+        OrderType orderType;
+        // Amount of asset token to be used for fills
+        uint256 assetTokenQuantity;
+        // Amount of payment token to be used for fills
+        uint256 paymentTokenQuantity;
+        // Price for limit orders
+        uint256 price;
+        // Time in force
+        TIF tif;
     }
 
     /// @dev Zero address
@@ -63,10 +95,14 @@ abstract contract OrderProcessor is
     error NotRequester();
     /// @dev Order does not exist
     error OrderNotFound();
-    /// @dev Order already exists
-    error DuplicateOrder();
+    /// @dev Invalid order data
+    error InvalidOrderData();
     /// @dev Amount too large
     error AmountTooLarge();
+    /// @dev blacklist address
+    error Blacklist();
+    /// @dev Custom error when an order cancellation has already been initiated
+    error OrderCancellationInitiated();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -100,11 +136,17 @@ abstract contract OrderProcessor is
     /// @notice Fee specification contract
     IOrderFees public orderFees;
 
+    /// @notice Transfer restrictor checker
+    ITokenLockCheck public tokenLockCheck;
+
     /// @dev Are orders paused?
     bool public ordersPaused;
 
     /// @dev Total number of active orders. Onchain enumeration not supported.
     uint256 private _numOpenOrders;
+
+    /// @dev Next order index to use for onchain enumeration of orders per recipient
+    mapping(address => uint256) private _nextOrderIndex;
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
@@ -121,7 +163,10 @@ abstract contract OrderProcessor is
     /// @param treasury_ Address to receive fees
     /// @param orderFees_ Fee specification contract
     /// @dev Treasury cannot be zero address
-    function initialize(address owner, address treasury_, IOrderFees orderFees_) external initializer {
+    function initialize(address owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        external
+        initializer
+    {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
 
@@ -134,6 +179,7 @@ abstract contract OrderProcessor is
         treasury = treasury_;
         orderFees = orderFees_;
 
+        tokenLockCheck = tokenLockCheck_;
         // Grant admin role to owner
         _grantRole(ADMIN_ROLE, owner);
     }
@@ -185,22 +231,8 @@ abstract contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderBridge
-    function getOrderIdFromOrderRequest(OrderRequest memory orderRequest, bytes32 salt) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                ORDERREQUEST_TYPE_HASH,
-                salt,
-                orderRequest.recipient,
-                orderRequest.assetToken,
-                orderRequest.paymentToken,
-                orderRequest.quantityIn
-            )
-        );
-    }
-
-    /// @inheritdoc IOrderBridge
-    function getOrderId(Order calldata order, bytes32 salt) external pure returns (bytes32) {
-        return getOrderIdFromOrderRequest(getOrderRequestForOrder(order), salt);
+    function getOrderId(address recipient, uint256 index) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(recipient, index));
     }
 
     /// @inheritdoc IOrderBridge
@@ -218,138 +250,313 @@ abstract contract OrderProcessor is
         return _orders[id].received;
     }
 
+    function _getOrderHash(bytes32 id) internal view returns (bytes32) {
+        return _orders[id].orderHash;
+    }
+
+    /**
+     *
+     * @param id Order ID
+     */
+    function cancelRequested(bytes32 id) external view returns (bool) {
+        return _orders[id].cancellationInitiated;
+    }
+
+    /// @notice Get fee rates for an order
+    /// @param token Payment token for order
+    /// @return flatFee Flat fee for order
+    /// @return percentageFeeRate Percentage fee rate for order
+    /// @dev Fees zero if no orderFees contract is set
+    function getFeeRatesForOrder(address token) public view returns (uint256 flatFee, uint64 percentageFeeRate) {
+        // Check if fee contract is set
+        if (address(orderFees) == address(0)) {
+            return (0, 0);
+        }
+
+        // Get fee rates
+        flatFee = orderFees.flatFeeForOrder(token);
+        percentageFeeRate = orderFees.percentageFeeRate();
+    }
+
+    /// @notice Get total fees for an order
+    /// @param flatFee Flat fee for order
+    /// @param percentageFeeRate Percentage fee rate for order
+    /// @param inputValue Total input value subject to fees
+    function estimateTotalFees(uint256 flatFee, uint64 percentageFeeRate, uint256 inputValue)
+        public
+        pure
+        returns (uint256 totalFees)
+    {
+        // Calculate fees
+        totalFees = flatFee;
+        // If input value is greater than flat fee, calculate percentage fee on remaining value
+        if (inputValue > flatFee && percentageFeeRate != 0) {
+            // Apply fee to input value
+            totalFees += PrbMath.mulDiv18(inputValue - flatFee, percentageFeeRate);
+        }
+    }
+
     /// ------------------ Order Lifecycle ------------------ ///
 
-    /// @inheritdoc IOrderBridge
-    function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
+    /// @notice Request an order
+    /// @param orderRequest Order request to submit
+    /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
+    function requestOrder(OrderRequest calldata orderRequest)
+        public
+        nonReentrant
+        whenOrdersNotPaused
+        returns (uint256 index)
+    {
+        // check blocklisted address
+        if (
+            tokenLockCheck.isTransferLocked(orderRequest.assetToken, orderRequest.recipient)
+                || tokenLockCheck.isTransferLocked(orderRequest.assetToken, msg.sender)
+                || tokenLockCheck.isTransferLocked(orderRequest.paymentToken, orderRequest.recipient)
+                || tokenLockCheck.isTransferLocked(orderRequest.paymentToken, msg.sender)
+        ) revert Blacklist();
+        if (orderRequest.recipient == address(0)) revert ZeroAddress();
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, orderRequest.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, orderRequest.paymentToken);
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        // Order must not already exist
-        if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
+
+        index = _nextOrderIndex[orderRequest.recipient]++;
+        bytes32 id = getOrderId(orderRequest.recipient, index);
+
+        // Get fees for order
+        (uint256 flatFee, uint64 percentageFeeRate) = getFeeRatesForOrder(orderRequest.paymentToken);
 
         // Get order from request and move tokens
-        Order memory order = _requestOrderAccounting(orderRequest, orderId);
+        OrderConfig memory orderConfig = _requestOrderAccounting(id, orderRequest, flatFee, percentageFeeRate);
+        Order memory order = Order({
+            recipient: orderRequest.recipient,
+            index: index,
+            quantityIn: orderRequest.quantityIn,
+            assetToken: orderRequest.assetToken,
+            paymentToken: orderRequest.paymentToken,
+            sell: orderConfig.sell,
+            orderType: orderConfig.orderType,
+            assetTokenQuantity: orderConfig.assetTokenQuantity,
+            paymentTokenQuantity: orderConfig.paymentTokenQuantity,
+            price: orderConfig.price,
+            tif: orderConfig.tif
+        });
 
         // Send order to bridge
-        emit OrderRequested(orderId, order.recipient, order, salt);
+        emit OrderRequested(order.recipient, index, order);
 
         // Initialize order state
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
-        _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
+        _orders[id] = OrderState({
+            orderHash: hashOrder(order),
+            requester: msg.sender,
+            flatFee: flatFee,
+            percentageFeeRate: percentageFeeRate,
+            remainingOrder: orderAmount,
+            received: 0,
+            feesPaid: 0,
+            cancellationInitiated: false
+        });
         _numOpenOrders++;
     }
 
-    /// @inheritdoc IOrderBridge
-    function fillOrder(OrderRequest calldata orderRequest, bytes32 salt, uint256 fillAmount, uint256 receivedAmount)
+    /// @notice Hash order data for validation
+    function hashOrder(Order memory order) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                order.recipient,
+                order.index,
+                order.quantityIn,
+                order.assetToken,
+                order.paymentToken,
+                order.sell,
+                order.orderType,
+                order.assetTokenQuantity,
+                order.paymentTokenQuantity,
+                order.price,
+                order.tif
+            )
+        );
+    }
+
+    /// @notice Hash order data for validation
+    function hashOrderCalldata(Order calldata order) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                order.recipient,
+                order.index,
+                order.quantityIn,
+                order.assetToken,
+                order.paymentToken,
+                order.sell,
+                order.orderType,
+                order.assetTokenQuantity,
+                order.paymentTokenQuantity,
+                order.price,
+                order.tif
+            )
+        );
+    }
+
+    /// @notice Fill an order
+    /// @param order Order to fill
+    /// @param fillAmount Amount of order token to fill
+    /// @param receivedAmount Amount of received token
+    /// @dev Only callable by operator
+    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount)
         external
         nonReentrant
         onlyRole(OPERATOR_ROLE)
     {
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        OrderState memory orderState = _orders[orderId];
+        bytes32 id = getOrderId(order.recipient, order.index);
+        OrderState memory orderState = _orders[id];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
+        // Verify order data
+        if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
 
+        // Calculate earned fees and handle any unique checks
+        (uint256 paymentEarned, uint256 feesEarned) =
+            _fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
+
         // Notify order filled
-        emit OrderFill(orderId, orderRequest.recipient, fillAmount, receivedAmount);
+        emit OrderFill(order.recipient, order.index, fillAmount, receivedAmount);
 
         // Update order state
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         // If order is completely filled then clear order state
         if (remainingOrder == 0) {
             // Notify order fulfilled
-            emit OrderFulfilled(orderId, orderRequest.recipient);
+            emit OrderFulfilled(order.recipient, order.index);
             // Clear order state
-            delete _orders[orderId];
+            delete _orders[id];
             _numOpenOrders--;
         } else {
             // Otherwise update order state
-            _orders[orderId].remainingOrder = remainingOrder;
-            _orders[orderId].received = orderState.received + receivedAmount;
+            // Check values
+            uint256 feesPaid = orderState.feesPaid + feesEarned;
+            assert(order.sell || feesPaid <= order.quantityIn - order.paymentTokenQuantity);
+            _orders[id].remainingOrder = remainingOrder;
+            _orders[id].received = orderState.received + receivedAmount;
+            _orders[id].feesPaid = orderState.feesPaid + feesEarned;
         }
 
         // Move tokens
-        _fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
+        if (order.sell) {
+            // Burn the filled quantity from the asset token
+            IMintBurn(order.assetToken).burn(fillAmount);
+
+            // Transfer the received amount from the filler to this contract
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
+
+            // If there are proceeds from the order, transfer them to the recipient
+            if (paymentEarned > 0) {
+                IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
+            }
+        } else {
+            // Claim payment
+            IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
+
+            // Mint asset
+            IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
+        }
+
+        // If there are fees from the order, transfer them to the treasury
+        if (feesEarned > 0) {
+            IERC20(order.paymentToken).safeTransfer(treasury, feesEarned);
+        }
     }
 
-    /// @inheritdoc IOrderBridge
-    function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        address requester = _orders[orderId].requester;
+    /// @notice Request to cancel an order
+    /// @param recipient Recipient of order fills
+    /// @param index Order index
+    /// @dev Only callable by initial order requester
+    /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
+    function requestCancel(address recipient, uint256 index) external {
+        bytes32 id = getOrderId(recipient, index);
+        if (_orders[id].cancellationInitiated) revert OrderCancellationInitiated();
         // Order must exist
+        address requester = _orders[id].requester;
         if (requester == address(0)) revert OrderNotFound();
         // Only requester can request cancellation
         if (requester != msg.sender) revert NotRequester();
 
+        _orders[id].cancellationInitiated = true;
+
         // Send cancel request to bridge
-        emit CancelRequested(orderId, orderRequest.recipient);
+        emit CancelRequested(recipient, index);
     }
 
-    /// @inheritdoc IOrderBridge
-    function cancelOrder(OrderRequest calldata orderRequest, bytes32 salt, string calldata reason)
-        external
-        nonReentrant
-        onlyRole(OPERATOR_ROLE)
-    {
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
-        OrderState memory orderState = _orders[orderId];
+    /// @notice Cancel an order
+    /// @param order Order to cancel
+    /// @param reason Reason for cancellation
+    /// @dev Only callable by operator
+    function cancelOrder(Order calldata order, string calldata reason) external nonReentrant onlyRole(OPERATOR_ROLE) {
+        bytes32 id = getOrderId(order.recipient, order.index);
+        OrderState memory orderState = _orders[id];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
+        // Verify order data
+        if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
 
         // Notify order cancelled
-        emit OrderCancelled(orderId, orderRequest.recipient, reason);
+        emit OrderCancelled(order.recipient, order.index, reason);
 
         // Clear order state
-        delete _orders[orderId];
+        delete _orders[id];
         _numOpenOrders--;
 
-        // Move tokens
-        _cancelOrderAccounting(orderRequest, orderId, orderState);
+        // Calculate refund
+        uint256 refund = _cancelOrderAccounting(id, order, orderState);
+
+        // Return escrow
+        IERC20(order.sell ? order.assetToken : order.paymentToken).safeTransfer(orderState.requester, refund);
     }
 
     /// ------------------ Virtuals ------------------ ///
 
-    /// @notice Get corresponding OrderRequest for an Order
-    /// @dev Declared pure to be calculable for hypothetical orders
-    function getOrderRequestForOrder(Order calldata order) public pure virtual returns (OrderRequest memory);
-
     /// @notice Compile order from request and move tokens including fees, escrow, and amount to fill
+    /// @param id Order ID
     /// @param orderRequest Order request to process
-    /// @param orderId Order ID
-    /// @return order Order to send to bridge
+    /// @param flatFee Flat fee for order
+    /// @param percentageFeeRate Percentage fee rate for order
+    /// @return orderConfig Order execution specification
     /// @dev Result used to initialize order accounting
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
-        internal
-        virtual
-        returns (Order memory order);
+    function _requestOrderAccounting(
+        bytes32 id,
+        OrderRequest calldata orderRequest,
+        uint256 flatFee,
+        uint64 percentageFeeRate
+    ) internal virtual returns (OrderConfig memory orderConfig);
 
-    /// @notice Move tokens for order fill including fees and escrow
-    /// @param orderRequest Order request to fill
-    /// @param orderId Order ID
+    /// @notice Handle any unique order accounting and checks
+    /// @param id Order ID
+    /// @param order Order to fill
     /// @param orderState Order state
     /// @param fillAmount Amount of order token filled
     /// @param receivedAmount Amount of received token
+    /// @return paymentEarned Amount of payment token earned to be paid to operator or recipient
+    /// @return feesEarned Amount of fees earned to be paid to treasury
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
-        bytes32 orderId,
+        bytes32 id,
+        Order calldata order,
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
-    ) internal virtual;
+    ) internal virtual returns (uint256 paymentEarned, uint256 feesEarned);
 
     /// @notice Move tokens for order cancellation including fees and escrow
-    /// @param orderRequest Order request to cancel
-    /// @param orderId Order ID
+    /// @param id Order ID
+    /// @param order Order to cancel
     /// @param orderState Order state
-    function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
+    /// @return refund Amount of order token to refund to user
+    function _cancelOrderAccounting(bytes32 id, Order calldata order, OrderState memory orderState)
         internal
-        virtual;
+        virtual
+        returns (uint256 refund);
 }

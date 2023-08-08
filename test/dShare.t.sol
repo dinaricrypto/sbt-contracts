@@ -27,6 +27,19 @@ contract dShareTest is Test {
     }
 
     function testSetName(string calldata name) public {
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(address(1)),
+                    " is missing role ",
+                    Strings.toHexString(uint256(token.DEFAULT_ADMIN_ROLE()), 32)
+                )
+            )
+        );
+        vm.prank(address(1));
+        token.setName(name);
+
         vm.expectEmit(true, true, true, true);
         emit NameSet(name);
         token.setName(name);
@@ -34,6 +47,19 @@ contract dShareTest is Test {
     }
 
     function testSetSymbol(string calldata symbol) public {
+        vm.expectRevert(
+            bytes(
+                string.concat(
+                    "AccessControl: account ",
+                    Strings.toHexString(address(1)),
+                    " is missing role ",
+                    Strings.toHexString(uint256(token.DEFAULT_ADMIN_ROLE()), 32)
+                )
+            )
+        );
+        vm.prank(address(1));
+        token.setSymbol(symbol);
+
         vm.expectEmit(true, true, true, true);
         emit SymbolSet(symbol);
         token.setSymbol(symbol);
@@ -54,6 +80,12 @@ contract dShareTest is Test {
         assertEq(address(token.transferRestrictor()), account);
     }
 
+    function testSetSplitReverts() public {
+        vm.expectRevert(dShare.Unauthorized.selector);
+        vm.prank(address(1));
+        token.setSplit();
+    }
+
     function testMint() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);
@@ -66,12 +98,13 @@ contract dShareTest is Test {
             bytes(
                 string.concat(
                     "AccessControl: account ",
-                    Strings.toHexString(address(this)),
+                    Strings.toHexString(address(1)),
                     " is missing role ",
                     Strings.toHexString(uint256(token.MINTER_ROLE()), 32)
                 )
             )
         );
+        vm.prank(address(1));
         token.mint(address(1), 1e18);
     }
 
@@ -84,6 +117,19 @@ contract dShareTest is Test {
         token.burn(0.9e18);
         assertEq(token.totalSupply(), 0.1e18);
         assertEq(token.balanceOf(address(1)), 0.1e18);
+    }
+
+    function testAttemptToFalsifyTotalsupply() public {
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.BURNER_ROLE(), address(2));
+        token.mint(address(1), 1e18);
+        token.mint(address(2), 1e18);
+        vm.expectRevert(dShare.Unauthorized.selector);
+        vm.prank(address(1));
+        token.transfer(address(0), 0.1e18);
+
+        vm.prank(address(2));
+        token.burn(0.9e18);
     }
 
     function testBurnUnauthorizedReverts() public {

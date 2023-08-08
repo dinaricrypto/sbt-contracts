@@ -2,50 +2,54 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import "solady/test/utils/mocks/MockERC20.sol";
+import {MockToken} from "./utils/mocks/MockToken.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/SellOrderProcessor.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract SellOrderProcessorTest is Test {
-    event OrderRequested(bytes32 indexed id, address indexed recipient, IOrderBridge.Order order, bytes32 salt);
-    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
-    event OrderFulfilled(bytes32 indexed id, address indexed recipient);
-    event CancelRequested(bytes32 indexed id, address indexed recipient);
-    event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFulfilled(address indexed recipient, uint256 indexed index);
+    event CancelRequested(address indexed recipient, uint256 indexed index);
+    event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     dShare token;
     OrderFees orderFees;
+    TokenLockCheck tokenLockCheck;
     SellOrderProcessor issuer;
-    MockERC20 paymentToken;
+    MockToken paymentToken;
 
     uint256 userPrivateKey;
     address user;
 
     address constant operator = address(3);
     address constant treasury = address(4);
+    uint256 flatFee;
+    uint64 percentageFeeRate;
 
-    bytes32 salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    IOrderBridge.OrderRequest dummyOrder;
-    IOrderBridge.Order dummyOrderBridgeData;
+    IOrderBridge.OrderRequest dummyOrderRequest;
+    IOrderBridge.Order dummyOrder;
 
     function setUp() public {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockERC20("Money", "$", 6);
+        paymentToken = new MockToken();
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
         SellOrderProcessor issuerImpl = new SellOrderProcessor();
+        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         issuer = SellOrderProcessor(
             address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees)))
+                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
             )
         );
 
@@ -56,79 +60,58 @@ contract SellOrderProcessorTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        dummyOrder = IOrderBridge.OrderRequest({
+        dummyOrderRequest = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             quantityIn: 100 ether,
             price: 0
         });
-        dummyOrderBridgeData = IOrderBridge.Order({
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        dummyOrder = IOrderBridge.Order({
             recipient: user,
+            index: 0,
+            quantityIn: dummyOrderRequest.quantityIn,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: true,
             orderType: IOrderBridge.OrderType.MARKET,
-            assetTokenQuantity: dummyOrder.quantityIn,
+            assetTokenQuantity: dummyOrderRequest.quantityIn,
             paymentTokenQuantity: 0,
             price: 0,
-            tif: IOrderBridge.TIF.GTC,
-            fee: 0
+            tif: IOrderBridge.TIF.GTC
         });
-    }
-
-    function testNoFees(uint256 value) public {
-        issuer.setOrderFees(IOrderFees(address(0)));
-
-        uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-        uint256 percentageFee = issuer.getPercentageFeeForOrder(value);
-        assertEq(flatFee, 0);
-        assertEq(percentageFee, 0);
     }
 
     function testRequestOrder(uint256 quantityIn) public {
-        IOrderBridge.OrderRequest memory order = IOrderBridge.OrderRequest({
-            recipient: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            quantityIn: quantityIn,
-            price: 0
-        });
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
+        orderRequest.quantityIn = quantityIn;
 
-        IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
-            recipient: order.recipient,
-            assetToken: order.assetToken,
-            paymentToken: order.paymentToken,
-            sell: true,
-            orderType: IOrderBridge.OrderType.MARKET,
-            assetTokenQuantity: quantityIn,
-            paymentTokenQuantity: 0,
-            price: 0,
-            tif: IOrderBridge.TIF.GTC,
-            fee: 0
-        });
+        IOrderBridge.Order memory order = dummyOrder;
+        order.quantityIn = quantityIn;
+        order.assetTokenQuantity = quantityIn;
 
         token.mint(user, quantityIn);
         vm.prank(user);
         token.increaseAllowance(address(issuer), quantityIn);
 
+        bytes32 id = issuer.getOrderId(order.recipient, order.index);
+
         if (quantityIn == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(user);
-            issuer.requestOrder(order, salt);
+            issuer.requestOrder(orderRequest);
         } else {
             // balances before
             uint256 userBalanceBefore = token.balanceOf(user);
             uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(orderId, user, bridgeOrderData, salt);
+            emit OrderRequested(order.recipient, order.index, order);
             vm.prank(user);
-            issuer.requestOrder(order, salt);
-            assertTrue(issuer.isOrderActive(orderId));
-            assertEq(issuer.getRemainingOrder(orderId), quantityIn);
+            issuer.requestOrder(orderRequest);
+            assertTrue(issuer.isOrderActive(id));
+            assertEq(issuer.getRemainingOrder(id), quantityIn);
             assertEq(issuer.numOpenOrders(), 1);
-            assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
             assertEq(token.balanceOf(address(issuer)), quantityIn);
             // balances after
             assertEq(token.balanceOf(user), userBalanceBefore - quantityIn);
@@ -139,95 +122,143 @@ contract SellOrderProcessorTest is Test {
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
-        IOrderBridge.OrderRequest memory order = dummyOrder;
-        order.quantityIn = orderAmount;
+        IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
+        orderRequest.quantityIn = orderAmount;
 
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        IOrderBridge.Order memory order = dummyOrder;
+        order.quantityIn = orderAmount;
+        order.assetTokenQuantity = orderAmount;
+
+        uint256 feesEarned = 0;
+        if (receivedAmount > 0) {
+            if (receivedAmount <= flatFee) {
+                feesEarned = receivedAmount;
+            } else {
+                feesEarned = flatFee + PrbMath.mulDiv18(receivedAmount - flatFee, percentageFeeRate);
+            }
+        }
 
         token.mint(user, orderAmount);
         vm.prank(user);
         token.increaseAllowance(address(issuer), orderAmount);
 
         vm.prank(user);
-        issuer.requestOrder(order, salt);
+        issuer.requestOrder(orderRequest);
 
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
         paymentToken.increaseAllowance(address(issuer), receivedAmount);
+
+        bytes32 id = issuer.getOrderId(order.recipient, order.index);
 
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
+            issuer.fillOrder(order, fillAmount, receivedAmount);
         } else if (fillAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
+            issuer.fillOrder(order, fillAmount, receivedAmount);
         } else {
             // balances before
-            uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
+            uint256 userPaymentBefore = paymentToken.balanceOf(user);
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, true);
-            emit OrderFill(orderId, user, fillAmount, receivedAmount);
+            emit OrderFill(order.recipient, order.index, fillAmount, receivedAmount);
             vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-            assertEq(issuer.getRemainingOrder(orderId), orderAmount - fillAmount);
+            issuer.fillOrder(order, fillAmount, receivedAmount);
+            assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
+            // balances after
+            assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - feesEarned);
+            assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
+            assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
+            assertEq(paymentToken.balanceOf(treasury), feesEarned);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
-                assertEq(issuer.getTotalReceived(orderId), 0);
+                assertEq(issuer.getTotalReceived(id), 0);
             } else {
-                assertEq(issuer.getTotalReceived(orderId), receivedAmount);
-                // balances after
-                assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore + receivedAmount);
-                assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
-                assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
+                assertEq(issuer.getTotalReceived(id), receivedAmount);
             }
         }
     }
 
-    function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
+    function testFulfillOrder(
+        uint256 orderAmount,
+        uint256 firstFillAmount,
+        uint256 firstReceivedAmount,
+        uint256 receivedAmount
+    ) public {
         vm.assume(orderAmount > 0);
+        vm.assume(firstFillAmount > 0);
+        vm.assume(firstFillAmount <= orderAmount);
+        vm.assume(firstReceivedAmount <= receivedAmount);
 
-        IOrderBridge.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
+        orderRequest.quantityIn = orderAmount;
+
+        IOrderBridge.Order memory order = dummyOrder;
         order.quantityIn = orderAmount;
-
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        order.assetTokenQuantity = orderAmount;
 
         token.mint(user, orderAmount);
         vm.prank(user);
         token.increaseAllowance(address(issuer), orderAmount);
 
         vm.prank(user);
-        issuer.requestOrder(order, salt);
+        issuer.requestOrder(orderRequest);
 
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
         paymentToken.increaseAllowance(address(issuer), receivedAmount);
 
+        bytes32 id = issuer.getOrderId(order.recipient, order.index);
+        uint256 feesEarned = 0;
+        if (receivedAmount > 0) {
+            if (receivedAmount <= flatFee) {
+                feesEarned = receivedAmount;
+            } else {
+                feesEarned = flatFee + PrbMath.mulDiv18(receivedAmount - flatFee, percentageFeeRate);
+            }
+        }
+
         // balances before
         uint256 userPaymentBefore = paymentToken.balanceOf(user);
-        uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
-        uint256 issuerAssetBefore = token.balanceOf(address(issuer));
         uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
-        uint256 treasuryPaymentBefore = paymentToken.balanceOf(treasury);
-        vm.expectEmit(true, true, true, true);
-        emit OrderFulfilled(orderId, user);
-        vm.prank(operator);
-        issuer.fillOrder(order, salt, orderAmount, receivedAmount);
-        assertEq(issuer.getRemainingOrder(orderId), 0);
+        if (firstFillAmount < orderAmount) {
+            uint256 secondFillAmount = orderAmount - firstFillAmount;
+            uint256 secondReceivedAmount = receivedAmount - firstReceivedAmount;
+            // first fill
+            vm.expectEmit(true, true, true, true);
+            emit OrderFill(order.recipient, order.index, firstFillAmount, firstReceivedAmount);
+            vm.prank(operator);
+            issuer.fillOrder(order, firstFillAmount, firstReceivedAmount);
+            assertEq(issuer.getRemainingOrder(id), orderAmount - firstFillAmount);
+            assertEq(issuer.numOpenOrders(), 1);
+            assertEq(issuer.getTotalReceived(id), firstReceivedAmount);
+
+            // second fill
+            vm.expectEmit(true, true, true, true);
+            emit OrderFulfilled(order.recipient, order.index);
+            vm.prank(operator);
+            issuer.fillOrder(order, secondFillAmount, secondReceivedAmount);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit OrderFulfilled(order.recipient, order.index);
+            vm.prank(operator);
+            issuer.fillOrder(order, orderAmount, receivedAmount);
+        }
+        // order closed
+        assertEq(issuer.getRemainingOrder(id), 0);
         assertEq(issuer.numOpenOrders(), 0);
-        assertEq(issuer.getTotalReceived(orderId), 0);
+        assertEq(issuer.getTotalReceived(id), 0);
         // balances after
-        uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-        uint256 percentageFee = issuer.getPercentageFeeForOrder(receivedAmount);
-        uint256 fees = flatFee + percentageFee;
-        if (fees > receivedAmount) fees = receivedAmount;
-        assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - fees);
-        assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore);
-        assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - orderAmount);
+        // Fees may be k - 1 (k == number of fills) off due to rounding
+        assertApproxEqAbs(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - feesEarned, 1);
+        assertEq(paymentToken.balanceOf(address(issuer)), 0);
+        assertEq(token.balanceOf(address(issuer)), 0);
         assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
-        assertEq(paymentToken.balanceOf(treasury), treasuryPaymentBefore + fees);
+        assertApproxEqAbs(paymentToken.balanceOf(treasury), feesEarned, 1);
     }
 
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, string calldata reason)
@@ -236,49 +267,53 @@ contract SellOrderProcessorTest is Test {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
 
-        IOrderBridge.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory orderRequest = dummyOrderRequest;
+        orderRequest.quantityIn = orderAmount;
+
+        IOrderBridge.Order memory order = dummyOrder;
         order.quantityIn = orderAmount;
+        order.assetTokenQuantity = orderAmount;
 
         token.mint(user, orderAmount);
         vm.prank(user);
         token.increaseAllowance(address(issuer), orderAmount);
 
         vm.prank(user);
-        issuer.requestOrder(order, salt);
+        issuer.requestOrder(orderRequest);
 
+        uint256 feesEarned = 0;
         if (fillAmount > 0) {
+            if (receivedAmount > 0) {
+                if (receivedAmount <= flatFee) {
+                    feesEarned = receivedAmount;
+                } else {
+                    feesEarned = flatFee + PrbMath.mulDiv18(receivedAmount - flatFee, percentageFeeRate);
+                }
+            }
+
             paymentToken.mint(operator, receivedAmount);
             vm.prank(operator);
             paymentToken.increaseAllowance(address(issuer), receivedAmount);
 
             vm.prank(operator);
-            issuer.fillOrder(order, salt, fillAmount, receivedAmount);
+            issuer.fillOrder(order, fillAmount, receivedAmount);
         }
 
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
-
         // balances before
-        uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
-        uint256 issuerAssetBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
-        emit OrderCancelled(orderId, user, reason);
+        emit OrderCancelled(order.recipient, order.index, reason);
         vm.prank(operator);
-        issuer.cancelOrder(order, salt, reason);
+        issuer.cancelOrder(order, reason);
         // balances after
+        assertEq(paymentToken.balanceOf(address(issuer)), 0);
+        assertEq(token.balanceOf(address(issuer)), 0);
         if (fillAmount > 0) {
-            uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));
-            uint256 percentageFee = issuer.getPercentageFeeForOrder(receivedAmount);
-            uint256 fees = percentageFee + flatFee;
-            if (fees > receivedAmount) fees = receivedAmount;
             uint256 escrow = orderAmount - fillAmount;
-            assertEq(paymentToken.balanceOf(user), receivedAmount - fees);
+            assertEq(paymentToken.balanceOf(user), receivedAmount - feesEarned);
             assertEq(token.balanceOf(user), escrow);
-            assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - receivedAmount);
-            assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - escrow);
-            assertEq(paymentToken.balanceOf(treasury), fees);
+            assertEq(paymentToken.balanceOf(treasury), feesEarned);
         } else {
             assertEq(token.balanceOf(user), orderAmount);
-            assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - orderAmount);
         }
     }
 }

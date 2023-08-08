@@ -6,22 +6,22 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /// @notice Enforces transfer restrictions
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/TransferRestrictor.sol)
-/// Maintains a single `owner` who can add or remove accounts from `blacklist`
+/// Maintains a single `owner` who can add or remove accounts from `isBlacklisted`
 contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     /// ------------------ Types ------------------ ///
 
     /// @dev Account is restricted
     error AccountRestricted();
 
-    /// @dev Emitted when `account` is added to `blacklist`
+    /// @dev Emitted when `account` is added to `isBlacklisted`
     event Restricted(address indexed account);
-    /// @dev Emitted when `account` is removed from `blacklist`
+    /// @dev Emitted when `account` is removed from `isBlacklisted`
     event Unrestricted(address indexed account);
 
     /// ------------------ State ------------------ ///
 
-    /// @notice Accounts in `blacklist` cannot send or receive tokens
-    mapping(address => bool) public blacklist;
+    /// @notice Accounts in `isBlacklisted` cannot send or receive tokens
+    mapping(address => bool) public isBlacklisted;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -35,7 +35,7 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     /// @dev Does not check if `account` is restricted
     /// Can only be called by `owner`
     function restrict(address account) external onlyOwner {
-        blacklist[account] = true;
+        isBlacklisted[account] = true;
         emit Restricted(account);
     }
 
@@ -43,7 +43,7 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     /// @dev Does not check if `account` is restricted
     /// Can only be called by `owner`
     function unrestrict(address account) external onlyOwner {
-        blacklist[account] = false;
+        isBlacklisted[account] = false;
         emit Unrestricted(account);
     }
 
@@ -52,7 +52,7 @@ contract TransferRestrictor is Ownable2Step, ITransferRestrictor {
     /// @inheritdoc ITransferRestrictor
     function requireNotRestricted(address from, address to) external view virtual {
         // Check if either account is restricted
-        if (blacklist[from] || blacklist[to]) {
+        if (isBlacklisted[from] || isBlacklisted[to]) {
             revert AccountRestricted();
         }
         // Otherwise, do nothing

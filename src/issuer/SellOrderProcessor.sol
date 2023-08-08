@@ -17,61 +17,17 @@ import {IMintBurn} from "../IMintBurn.sol";
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
 
-    /// ------------------ State ------------------ ///
-
-    /// @dev orderId => feesEarned
-    mapping(bytes32 => uint256) private _feesEarned;
-
-    /// ------------------ Getters ------------------ ///
-
-    /// @inheritdoc OrderProcessor
-    function getOrderRequestForOrder(Order calldata order) public pure override returns (OrderRequest memory) {
-        return OrderRequest({
-            recipient: order.recipient,
-            assetToken: order.assetToken,
-            paymentToken: order.paymentToken,
-            quantityIn: order.assetTokenQuantity,
-            price: order.price
-        });
-    }
-
-    /// @notice Get flat fee for an order
-    /// @param token Payment token for order
-    /// @dev Fee zero if no orderFees contract is set
-    function getFlatFeeForOrder(address token) public view returns (uint256) {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) return 0;
-        // Calculate fees
-        return orderFees.flatFeeForOrder(token);
-    }
-
-    /// @notice Get percentage fee for an order
-    /// @param value Value of order subject to percentage fee
-    /// @dev Fee zero if no orderFees contract is set
-    function getPercentageFeeForOrder(uint256 value) public view returns (uint256) {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) return 0;
-        // Calculate fees
-        return orderFees.percentageFeeForValue(value);
-    }
-
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
+    function _requestOrderAccounting(bytes32, OrderRequest calldata orderRequest, uint256, uint64)
         internal
         virtual
         override
-        returns (Order memory order)
+        returns (OrderConfig memory orderConfig)
     {
-        // Accumulate initial flat fee obligation
-        _feesEarned[orderId] = getFlatFeeForOrder(orderRequest.paymentToken);
-
         // Construct order
-        order = Order({
-            recipient: orderRequest.recipient,
-            assetToken: orderRequest.assetToken,
-            paymentToken: orderRequest.paymentToken,
+        orderConfig = OrderConfig({
             // Sell order
             sell: true,
             // Market order
@@ -80,99 +36,58 @@ contract SellOrderProcessor is OrderProcessor {
             paymentTokenQuantity: 0,
             price: orderRequest.price,
             // Good until cancelled
-            tif: TIF.GTC,
-            fee: 0
+            tif: TIF.GTC
         });
 
         // Escrow asset for sale
         IERC20(orderRequest.assetToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
     }
 
-    /// @inheritdoc OrderProcessor
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
-        bytes32 orderId,
+        bytes32,
+        Order calldata,
         OrderState memory orderState,
-        uint256 fillAmount,
+        uint256,
         uint256 receivedAmount
-    ) internal virtual override {
-        // Accumulate fee obligations at each sill then take all at end
-        uint256 collection = getPercentageFeeForOrder(receivedAmount);
-        uint256 feesEarned = _feesEarned[orderId] + collection;
-        // If order completely filled, clear fee data
-        uint256 remainingOrder = orderState.remainingOrder - fillAmount;
-        if (remainingOrder == 0) {
-            // Clear fee state
-            delete _feesEarned[orderId];
-        } else {
-            // Update fee state with earned fees
-            if (collection > 0) {
-                _feesEarned[orderId] = feesEarned;
+    ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
+        // Fees - earn up to the flat fee, then earn percentage fee on the remainder
+        // TODO: make sure that all fees are taken at total fill to prevent dust accumulating here
+        // Determine the subtotal used to calculate the percentage fee
+        uint256 subtotal = 0;
+        // If the flat fee hasn't been fully covered yet, ...
+        if (orderState.feesPaid < orderState.flatFee) {
+            // How much of the flat fee is left to cover?
+            uint256 flatFeeRemaining = orderState.flatFee - orderState.feesPaid;
+            // If the amount subject to fees is greater than the remaining flat fee, ...
+            if (receivedAmount > flatFeeRemaining) {
+                // Earn the remaining flat fee
+                feesEarned = flatFeeRemaining;
+                // Calculate the subtotal by subtracting the remaining flat fee from the amount subject to fees
+                subtotal = receivedAmount - flatFeeRemaining;
+            } else {
+                // Otherwise, earn the amount subject to fees
+                feesEarned = receivedAmount;
             }
+        } else {
+            // If the flat fee has been fully covered, the subtotal is the entire fill amount
+            subtotal = receivedAmount;
         }
 
-        // Burn asset
-        IMintBurn(orderRequest.assetToken).burn(fillAmount);
-        // Transfer raw proceeds of sale here
-        IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
-        // Distribute if order completely filled
-        if (remainingOrder == 0) {
-            _distributeProceeds(
-                orderRequest.paymentToken, orderRequest.recipient, orderState.received + receivedAmount, feesEarned
-            );
+        // Calculate the percentage fee on the subtotal
+        if (subtotal > 0 && orderState.percentageFeeRate > 0) {
+            feesEarned += PrbMath.mulDiv18(subtotal, orderState.percentageFeeRate);
         }
+
+        paymentEarned = receivedAmount - feesEarned;
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(bytes32, Order calldata, OrderState memory orderState)
         internal
         virtual
         override
+        returns (uint256 refund)
     {
-        // If no fills, then full refund
-        uint256 refund;
-        if (orderState.remainingOrder == orderRequest.quantityIn) {
-            // Full refund
-            refund = orderRequest.quantityIn;
-        } else {
-            // Otherwise distribute proceeds, take accumulated fees, and refund remaining order
-            _distributeProceeds(
-                orderRequest.paymentToken, orderRequest.recipient, orderState.received, _feesEarned[orderId]
-            );
-            // Partial refund
-            refund = orderState.remainingOrder;
-        }
-
-        // Clear fee data
-        delete _feesEarned[orderId];
-
-        // Return escrow
-        IERC20(orderRequest.assetToken).safeTransfer(orderRequest.recipient, refund);
-    }
-
-    /// @dev Distribute proceeds and fees
-    function _distributeProceeds(address paymentToken, address recipient, uint256 totalReceived, uint256 feesEarned)
-        private
-    {
-        // Check if accumulated fees are larger than total received
-        uint256 proceeds = 0;
-        uint256 collection = 0;
-        if (totalReceived > feesEarned) {
-            // Take fees from total received before distributing
-            proceeds = totalReceived - feesEarned;
-            collection = feesEarned;
-        } else {
-            // If accumulated fees are larger than total received, then no proceeds go to recipient
-            collection = totalReceived;
-        }
-
-        // Transfer proceeds to recipient
-        if (proceeds > 0) {
-            IERC20(paymentToken).safeTransfer(recipient, proceeds);
-        }
-        // Transfer fees to treasury
-        if (collection > 0) {
-            IERC20(paymentToken).safeTransfer(treasury, collection);
-        }
+        refund = orderState.remainingOrder;
     }
 }
