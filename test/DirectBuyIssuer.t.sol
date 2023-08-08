@@ -29,7 +29,7 @@ contract DirectBuyIssuerTest is Test {
     address constant treasury = address(4);
 
     bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    OrderProcessor.OrderRequest dummyOrder;
+    IOrderBridge.OrderRequest dummyOrder;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrderBridgeData;
 
@@ -51,7 +51,7 @@ contract DirectBuyIssuerTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        dummyOrder = OrderProcessor.OrderRequest({
+        dummyOrder = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -78,7 +78,7 @@ contract DirectBuyIssuerTest is Test {
     function testTakeEscrow(uint256 orderAmount, uint256 takeAmount, uint256 _price) public {
         vm.assume(orderAmount > 0);
         vm.assume(_price > 0);
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         order.price = _price;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
@@ -117,7 +117,7 @@ contract DirectBuyIssuerTest is Test {
     function testReturnEscrow(uint256 orderAmount, uint256 returnAmount, uint256 _price) public {
         vm.assume(orderAmount > 0);
         vm.assume(_price > 0);
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.price = _price;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
@@ -170,7 +170,7 @@ contract DirectBuyIssuerTest is Test {
     ) public {
         vm.assume(takeAmount > 0);
         vm.assume(_price > 0);
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.price = _price;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
@@ -216,7 +216,7 @@ contract DirectBuyIssuerTest is Test {
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason, uint256 _price) public {
         vm.assume(orderAmount > 0);
         vm.assume(_price > 0);
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.price = _price;
         order.quantityIn = orderAmount;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);
@@ -250,7 +250,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(orderAmount > 0);
         vm.assume(takeAmount > 0);
         vm.assume(_price > 0);
-        OrderProcessor.OrderRequest memory order = dummyOrder;
+        IOrderBridge.OrderRequest memory order = dummyOrder;
         order.quantityIn = orderAmount;
         order.price = _price;
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.quantityIn);

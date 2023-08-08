@@ -26,7 +26,7 @@ contract LimitBuyIssuerTest is Test {
     address constant treasury = address(4);
 
     bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    OrderProcessor.OrderRequest dummyOrder;
+    IOrderBridge.OrderRequest dummyOrder;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrderBridgeData;
 
@@ -50,7 +50,7 @@ contract LimitBuyIssuerTest is Test {
     }
 
     function testRequestOrderLimit(uint256 quantityIn, uint256 _price) public {
-        dummyOrder = OrderProcessor.OrderRequest({
+        dummyOrder = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -70,7 +70,7 @@ contract LimitBuyIssuerTest is Test {
             orderType: IOrderBridge.OrderType.LIMIT,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 0,
-            price: 0,
+            price: _price,
             tif: IOrderBridge.TIF.GTC,
             fee: fees
         });
@@ -80,7 +80,7 @@ contract LimitBuyIssuerTest is Test {
         }
 
         paymentToken.mint(user, dummyOrder.quantityIn);
-        vm.startPrank(user);
+        vm.prank(user);
         paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
 
         if (quantityIn == 0) {
@@ -88,27 +88,26 @@ contract LimitBuyIssuerTest is Test {
             issuer.requestOrder(dummyOrder, salt);
         } else if (fees >= quantityIn) {
             vm.expectRevert(BuyOrderIssuer.OrderTooSmall.selector);
+            vm.prank(user);
+            issuer.requestOrder(dummyOrder, salt);
+        } else if (_price == 0) {
+            vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
+            vm.prank(user);
             issuer.requestOrder(dummyOrder, salt);
         } else {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
-            if (_price == 0) {
-                vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
-                issuer.requestOrder(dummyOrder, salt);
-            } else {
-                bridgeOrderData.price = dummyOrder.price;
-                vm.expectEmit(true, true, true, true);
-                emit OrderRequested(orderId, user, bridgeOrderData, salt);
-                issuer.requestOrder(dummyOrder, salt);
-                assertTrue(issuer.isOrderActive(orderId));
-                assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
-                assertEq(issuer.numOpenOrders(), 1);
-                assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
-                // balances after
-                assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
-                assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
-            }
-            vm.stopPrank();
+            vm.expectEmit(true, true, true, true);
+            emit OrderRequested(orderId, user, bridgeOrderData, salt);
+            vm.prank(user);
+            issuer.requestOrder(dummyOrder, salt);
+            assertTrue(issuer.isOrderActive(orderId));
+            assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
+            assertEq(issuer.numOpenOrders(), 1);
+            assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
+            // balances after
+            assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
+            assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
         }
     }
 
@@ -120,7 +119,7 @@ contract LimitBuyIssuerTest is Test {
         vm.assume(receivedAmount < 2 ** 128 - 1);
         vm.assume(orderAmount > 0);
 
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+        OrderProcessor.OrderRequest memory order = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),

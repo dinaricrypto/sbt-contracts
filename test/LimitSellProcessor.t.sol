@@ -25,7 +25,7 @@ contract LimitSellProcessorTest is Test {
     address constant treasury = address(4);
 
     bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    OrderProcessor.OrderRequest dummyOrder;
+    IOrderBridge.OrderRequest dummyOrder;
     uint256 dummyOrderFees;
     IOrderBridge.Order dummyOrderBridgeData;
 
@@ -49,7 +49,7 @@ contract LimitSellProcessorTest is Test {
     }
 
     function testRequestOrderLimit(uint256 quantityIn, uint256 _price) public {
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+        IOrderBridge.OrderRequest memory order = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -113,7 +113,7 @@ contract LimitSellProcessorTest is Test {
         vm.assume(fillAmount < 2 ** 128 - 1);
         vm.assume(receivedAmount < 2 ** 128 - 1);
 
-        OrderProcessor.OrderRequest memory order = OrderProcessor.OrderRequest({
+        IOrderBridge.OrderRequest memory order = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),

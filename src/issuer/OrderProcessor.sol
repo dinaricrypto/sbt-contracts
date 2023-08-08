@@ -38,20 +38,6 @@ abstract contract OrderProcessor is
 {
     /// ------------------ Types ------------------ ///
 
-    // Specification for an order
-    struct OrderRequest {
-        // Recipient of order fills
-        address recipient;
-        // Bridged asset token
-        address assetToken;
-        // Payment token
-        address paymentToken;
-        // Amount of incoming order token to be used for fills
-        uint256 quantityIn;
-        // price enquiry for the request
-        uint256 price;
-    }
-
     // Order state accounting variables
     struct OrderState {
         // Account that requested the order
@@ -184,10 +170,7 @@ abstract contract OrderProcessor is
         return _numOpenOrders;
     }
 
-    /// @notice Get order ID deterministically from order request and salt
-    /// @param orderRequest Order request to get ID for
-    /// @param salt Salt used to generate unique order ID
-    /// @dev Compliant with EIP-712 for convenient offchain computation
+    /// @inheritdoc IOrderBridge
     function getOrderIdFromOrderRequest(OrderRequest memory orderRequest, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
@@ -231,10 +214,7 @@ abstract contract OrderProcessor is
 
     /// ------------------ Order Lifecycle ------------------ ///
 
-    /// @notice Request an order
-    /// @param orderRequest Order request to submit
-    /// @param salt Salt used to generate unique order ID
-    /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
+    /// @inheritdoc IOrderBridge
     function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
         // Reject spam orders
         if (orderRequest.quantityIn == 0) revert ZeroValue();
@@ -257,12 +237,7 @@ abstract contract OrderProcessor is
         _numOpenOrders++;
     }
 
-    /// @notice Fill an order
-    /// @param orderRequest Order request to fill
-    /// @param salt Salt used to generate unique order ID
-    /// @param fillAmount Amount of order token to fill
-    /// @param receivedAmount Amount of received token
-    /// @dev Only callable by operator
+    /// @inheritdoc IOrderBridge
     function fillOrder(OrderRequest calldata orderRequest, bytes32 salt, uint256 fillAmount, uint256 receivedAmount)
         external
         nonReentrant
@@ -299,11 +274,7 @@ abstract contract OrderProcessor is
         _fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
     }
 
-    /// @notice Request to cancel an order
-    /// @param orderRequest Order request to cancel
-    /// @param salt Salt used to generate unique order ID
-    /// @dev Only callable by initial order requester
-    /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
+    /// @inheritdoc IOrderBridge
     function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
         bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
         address requester = _orders[orderId].requester;
@@ -316,11 +287,7 @@ abstract contract OrderProcessor is
         emit CancelRequested(orderId, orderRequest.recipient);
     }
 
-    /// @notice Cancel an order
-    /// @param orderRequest Order request to cancel
-    /// @param salt Salt used to generate unique order ID
-    /// @param reason Reason for cancellation
-    /// @dev Only callable by operator
+    /// @inheritdoc IOrderBridge
     function cancelOrder(OrderRequest calldata orderRequest, bytes32 salt, string calldata reason)
         external
         nonReentrant

@@ -29,7 +29,7 @@ contract BuyOrderIssuerRequestTest is Test {
     bytes32 r;
     bytes32 s;
 
-    OrderProcessor.OrderRequest order;
+    IOrderBridge.OrderRequest order;
     bytes[] calls;
 
     function setUp() public {
@@ -63,7 +63,7 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        order = OrderProcessor.OrderRequest({
+        order = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -104,7 +104,7 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(userPrivateKey, digest);
 
-        OrderProcessor.OrderRequest memory neworder = OrderProcessor.OrderRequest({
+        IOrderBridge.OrderRequest memory neworder = IOrderBridge.OrderRequest({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
