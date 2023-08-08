@@ -207,10 +207,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// ------------------ Order Lifecycle ------------------ ///
 
-    /// @notice Request an order
-    /// @param order Order  to submit
-    /// @param salt Salt used to generate unique order ID
-    /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
+    /// @inheritdoc IOrderBridge
     function requestOrder(Order calldata order, bytes32 salt) public whenOrdersNotPaused {
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
@@ -233,12 +230,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         _requestOrderAccounting(order, orderId);
     }
 
-    /// @notice Fill an order
-    /// @param order Order  to fill
-    /// @param salt Salt used to generate unique order ID
-    /// @param fillAmount Amount of order token to fill
-    /// @param receivedAmount Amount of received token
-    /// @dev Only callable by operator
+    /// @inheritdoc IOrderBridge
     function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 receivedAmount)
         external
         onlyRole(OPERATOR_ROLE)
@@ -274,11 +266,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         _fillOrderAccounting(order, orderId, orderState, fillAmount, receivedAmount);
     }
 
-    /// @notice Request to cancel an order
-    /// @param order Order  to cancel
-    /// @param salt Salt used to generate unique order ID
-    /// @dev Only callable by initial order requester
-    /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
+    /// @inheritdoc IOrderBridge
     function requestCancel(Order calldata order, bytes32 salt) external {
         bytes32 orderId = getOrderId(order, salt);
         address requester = _orders[orderId].requester;
@@ -291,11 +279,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit CancelRequested(orderId, order.recipient);
     }
 
-    /// @notice Cancel an order
-    /// @param order Order  to cancel
-    /// @param salt Salt used to generate unique order ID
-    /// @param reason Reason for cancellation
-    /// @dev Only callable by operator
+    /// @inheritdoc IOrderBridge
     function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external onlyRole(OPERATOR_ROLE) {
         bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];

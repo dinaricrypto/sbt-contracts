@@ -68,31 +68,30 @@ contract LimitBuyIssuerTest is Test {
         bytes32 orderId = issuer.getOrderId(order, salt);
 
         paymentToken.mint(user, quantityIn);
-        vm.startPrank(user);
+        vm.prank(user);
         paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(user);
             issuer.requestOrder(order, salt);
+        } else if (_price == 0) {
+            vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
+            vm.prank(user);
+            issuer.requestOrder(order, salt);
         } else {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
-            if (_price == 0) {
-                vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
-                issuer.requestOrder(order, salt);
-            } else {
-                vm.expectEmit(true, true, true, true);
-                emit OrderRequested(orderId, user, order, salt);
-                vm.prank(user);
-                issuer.requestOrder(order, salt);
-                assertTrue(issuer.isOrderActive(orderId));
-                assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
-                assertEq(issuer.numOpenOrders(), 1);
-                // balances after
-                assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
-                assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
-            }
+            vm.expectEmit(true, true, true, true);
+            emit OrderRequested(orderId, user, order, salt);
+            vm.prank(user);
+            issuer.requestOrder(order, salt);
+            assertTrue(issuer.isOrderActive(orderId));
+            assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
+            assertEq(issuer.numOpenOrders(), 1);
+            // balances after
+            assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
+            assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
         }
     }
 
