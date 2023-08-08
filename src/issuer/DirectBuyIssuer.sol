@@ -4,6 +4,8 @@ pragma solidity 0.8.19;
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
 import {LimitBuyIssuer} from "./LimitBuyIssuer.sol";
+import {OrderProcessor} from "./OrderProcessor.sol";
+import {LimitBuyIssuer} from "./LimitBuyIssuer.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
@@ -52,44 +54,37 @@ contract DirectBuyIssuer is LimitBuyIssuer {
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Take escrowed payment for an order
-    /// @param orderRequest Order request
+    /// @param order Order
     /// @param salt Salt used to generate unique order ID
     /// @param amount Amount of escrowed payment token to take
     /// @dev Only callable by operator
-    function takeEscrow(OrderRequest calldata orderRequest, bytes32 salt, uint256 amount)
-        external
-        onlyRole(OPERATOR_ROLE)
-    {
+    function takeEscrow(Order calldata order, bytes32 salt, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
         // Can't take more than escrowed
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+        bytes32 orderId = getOrderId(order, salt);
         uint256 escrow = getOrderEscrow[orderId];
         if (amount > escrow) revert AmountTooLarge();
 
         // Update escrow tracking
         getOrderEscrow[orderId] = escrow - amount;
         // Notify escrow taken
-        emit EscrowTaken(orderId, orderRequest.recipient, amount);
+        emit EscrowTaken(orderId, order.recipient, amount);
 
         // Take escrowed payment
-        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, amount, false);
-        IERC20(orderRequest.paymentToken).safeTransfer(msg.sender, amount);
+        IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
     }
 
     /// @notice Return unused escrowed payment for an order
-    /// @param orderRequest Order request
+    /// @param order Order
     /// @param salt Salt used to generate unique order ID
     /// @param amount Amount of payment token to return to escrow
     /// @dev Only callable by operator
-    function returnEscrow(OrderRequest calldata orderRequest, bytes32 salt, uint256 amount)
-        external
-        onlyRole(OPERATOR_ROLE)
-    {
+    function returnEscrow(Order calldata order, bytes32 salt, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
         // Can only return unused amount
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+        bytes32 orderId = getOrderId(order, salt);
         uint256 remainingOrder = getRemainingOrder(orderId);
         uint256 escrow = getOrderEscrow[orderId];
         // Unused amount = remaining order - remaining escrow
@@ -98,29 +93,23 @@ contract DirectBuyIssuer is LimitBuyIssuer {
         // Update escrow tracking
         getOrderEscrow[orderId] = escrow + amount;
         // Notify escrow returned
-        emit EscrowReturned(orderId, orderRequest.recipient, amount);
+        emit EscrowReturned(orderId, order.recipient, amount);
 
         // Return payment to escrow
-        _updateEscrowBalance(orderRequest.paymentToken, orderRequest.recipient, amount, true);
-        IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
-        internal
-        virtual
-        override
-        returns (Order memory order)
-    {
+    function _requestOrderAccounting(Order calldata order, bytes32 orderId) internal virtual override {
         // Compile standard buy order
-        order = super._requestOrderAccounting(orderRequest, orderId);
+        super._requestOrderAccounting(order, orderId);
         // Initialize escrow tracking for order
         getOrderEscrow[orderId] = order.paymentTokenQuantity;
     }
 
     /// @inheritdoc OrderProcessor
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
+        Order calldata order,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
@@ -131,11 +120,11 @@ contract DirectBuyIssuer is LimitBuyIssuer {
         if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
 
         // Buy order accounting
-        _fillBuyOrder(orderRequest, orderId, orderState, fillAmount, receivedAmount);
+        _fillBuyOrder(order, orderId, orderState, fillAmount, receivedAmount);
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(OrderRequest calldata order, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(Order calldata order, bytes32 orderId, OrderState memory orderState)
         internal
         virtual
         override

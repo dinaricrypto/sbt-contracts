@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderBridge} from "./IOrderBridge.sol";
@@ -29,13 +28,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   2. [Optional] Operator partially fills the order (fillOrder)
 ///   3. [Optional] User requests cancellation (requestCancel)
 ///   4. Operator cancels the order (cancelOrder)
-abstract contract OrderProcessor is
-    AccessControlDefaultAdminRules,
-    ReentrancyGuard,
-    Multicall,
-    SelfPermit,
-    IOrderBridge
-{
+abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit, IOrderBridge {
     /// ------------------ Types ------------------ ///
 
     // Order state accounting variables
@@ -62,6 +55,8 @@ abstract contract OrderProcessor is
     error DuplicateOrder();
     /// @dev Amount too large
     error AmountTooLarge();
+    /// @dev Order type mismatch
+    error OrderTypeMismatch();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -73,8 +68,8 @@ abstract contract OrderProcessor is
     /// ------------------ Constants ------------------ ///
 
     /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
-    bytes32 private constant ORDERREQUEST_TYPE_HASH = keccak256(
-        "OrderRequest(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn)"
+    bytes32 private constant ORDER_TYPE_HASH = keccak256(
+        "Order(bytes32 salt,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
     /// @notice Admin role for managing treasury, fees, and paused state
@@ -103,6 +98,7 @@ abstract contract OrderProcessor is
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
+
     mapping(address => mapping(address => uint256)) private escrowedBalance;
 
     /// ------------------ Initialization ------------------ ///
@@ -112,10 +108,7 @@ abstract contract OrderProcessor is
     /// @param treasury_ Address to receive fees
     /// @param orderFees_ Fee specification contract
     /// @dev Treasury cannot be zero address
-    constructor(address _owner, address treasury_, IOrderFees orderFees_)
-        ReentrancyGuard()
-        AccessControlDefaultAdminRules(0, _owner)
-    {
+    constructor(address _owner, address treasury_, IOrderFees orderFees_) AccessControlDefaultAdminRules(0, _owner) {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
 
@@ -171,22 +164,22 @@ abstract contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderBridge
-    function getOrderIdFromOrderRequest(OrderRequest memory orderRequest, bytes32 salt) public pure returns (bytes32) {
+    function getOrderId(Order memory order, bytes32 salt) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                ORDERREQUEST_TYPE_HASH,
+                ORDER_TYPE_HASH,
                 salt,
-                orderRequest.recipient,
-                orderRequest.assetToken,
-                orderRequest.paymentToken,
-                orderRequest.quantityIn
+                order.recipient,
+                order.assetToken,
+                order.paymentToken,
+                order.sell,
+                order.orderType,
+                order.assetTokenQuantity,
+                order.paymentTokenQuantity,
+                order.price,
+                order.tif
             )
         );
-    }
-
-    /// @inheritdoc IOrderBridge
-    function getOrderId(Order calldata order, bytes32 salt) external pure returns (bytes32) {
-        return getOrderIdFromOrderRequest(getOrderRequestForOrder(order), salt);
     }
 
     /// @inheritdoc IOrderBridge
@@ -215,37 +208,36 @@ abstract contract OrderProcessor is
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc IOrderBridge
-    function requestOrder(OrderRequest calldata orderRequest, bytes32 salt) public nonReentrant whenOrdersNotPaused {
-        // Reject spam orders
-        if (orderRequest.quantityIn == 0) revert ZeroValue();
+    function requestOrder(Order calldata order, bytes32 salt) public whenOrdersNotPaused {
+        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
+        // No zero orders
+        if (orderAmount == 0) revert ZeroValue();
         // Check for whitelisted tokens
-        _checkRole(ASSETTOKEN_ROLE, orderRequest.assetToken);
-        _checkRole(PAYMENTTOKEN_ROLE, orderRequest.paymentToken);
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+        _checkRole(ASSETTOKEN_ROLE, order.assetToken);
+        _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
+        bytes32 orderId = getOrderId(order, salt);
         // Order must not already exist
         if (_orders[orderId].remainingOrder > 0) revert DuplicateOrder();
-
-        // Get order from request and move tokens
-        Order memory order = _requestOrderAccounting(orderRequest, orderId);
 
         // Send order to bridge
         emit OrderRequested(orderId, order.recipient, order, salt);
 
         // Initialize order state
-        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         _orders[orderId] = OrderState({requester: msg.sender, remainingOrder: orderAmount, received: 0});
         _numOpenOrders++;
+
+        // Move tokens
+        _requestOrderAccounting(order, orderId);
     }
 
     /// @inheritdoc IOrderBridge
-    function fillOrder(OrderRequest calldata orderRequest, bytes32 salt, uint256 fillAmount, uint256 receivedAmount)
+    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 receivedAmount)
         external
-        nonReentrant
         onlyRole(OPERATOR_ROLE)
     {
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+        bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
@@ -253,14 +245,14 @@ abstract contract OrderProcessor is
         if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
 
         // Notify order filled
-        emit OrderFill(orderId, orderRequest.recipient, fillAmount, receivedAmount);
+        emit OrderFill(orderId, order.recipient, fillAmount, receivedAmount);
 
         // Update order state
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         // If order is completely filled then clear order state
         if (remainingOrder == 0) {
             // Notify order fulfilled
-            emit OrderFulfilled(orderId, orderRequest.recipient);
+            emit OrderFulfilled(orderId, order.recipient);
             // Clear order state
             delete _orders[orderId];
             _numOpenOrders--;
@@ -271,12 +263,12 @@ abstract contract OrderProcessor is
         }
 
         // Move tokens
-        _fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
+        _fillOrderAccounting(order, orderId, orderState, fillAmount, receivedAmount);
     }
 
     /// @inheritdoc IOrderBridge
-    function requestCancel(OrderRequest calldata orderRequest, bytes32 salt) external {
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+    function requestCancel(Order calldata order, bytes32 salt) external {
+        bytes32 orderId = getOrderId(order, salt);
         address requester = _orders[orderId].requester;
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
@@ -284,55 +276,43 @@ abstract contract OrderProcessor is
         if (requester != msg.sender) revert NotRequester();
 
         // Send cancel request to bridge
-        emit CancelRequested(orderId, orderRequest.recipient);
+        emit CancelRequested(orderId, order.recipient);
     }
 
     /// @inheritdoc IOrderBridge
-    function cancelOrder(OrderRequest calldata orderRequest, bytes32 salt, string calldata reason)
-        external
-        nonReentrant
-        onlyRole(OPERATOR_ROLE)
-    {
-        bytes32 orderId = getOrderIdFromOrderRequest(orderRequest, salt);
+    function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external onlyRole(OPERATOR_ROLE) {
+        bytes32 orderId = getOrderId(order, salt);
         OrderState memory orderState = _orders[orderId];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
 
         // Notify order cancelled
-        emit OrderCancelled(orderId, orderRequest.recipient, reason);
+        emit OrderCancelled(orderId, order.recipient, reason);
 
         // Clear order state
         delete _orders[orderId];
         _numOpenOrders--;
 
         // Move tokens
-        _cancelOrderAccounting(orderRequest, orderId, orderState);
+        _cancelOrderAccounting(order, orderId, orderState);
     }
 
     /// ------------------ Virtuals ------------------ ///
 
-    /// @notice Get corresponding OrderRequest for an Order
-    /// @dev Declared pure to be calculable for hypothetical orders
-    function getOrderRequestForOrder(Order calldata order) public pure virtual returns (OrderRequest memory);
-
     /// @notice Compile order from request and move tokens including fees, escrow, and amount to fill
-    /// @param orderRequest Order request to process
+    /// @param order Order  to process
     /// @param orderId Order ID
-    /// @return order Order to send to bridge
     /// @dev Result used to initialize order accounting
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
-        internal
-        virtual
-        returns (Order memory order);
+    function _requestOrderAccounting(Order calldata order, bytes32 orderId) internal virtual;
 
     /// @notice Move tokens for order fill including fees and escrow
-    /// @param orderRequest Order request to fill
+    /// @param order Order  to fill
     /// @param orderId Order ID
     /// @param orderState Order state
     /// @param fillAmount Amount of order token filled
     /// @param receivedAmount Amount of received token
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
+        Order calldata order,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
@@ -340,10 +320,10 @@ abstract contract OrderProcessor is
     ) internal virtual;
 
     /// @notice Move tokens for order cancellation including fees and escrow
-    /// @param orderRequest Order request to cancel
+    /// @param order Order  to cancel
     /// @param orderId Order ID
     /// @param orderState Order state
-    function _cancelOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(Order calldata order, bytes32 orderId, OrderState memory orderState)
         internal
         virtual;
 

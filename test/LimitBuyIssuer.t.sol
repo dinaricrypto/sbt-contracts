@@ -9,6 +9,7 @@ import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/LimitBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import {NumberUtils} from "./utils/NumberUtils.sol";
 
 contract LimitBuyIssuerTest is Test {
     event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
@@ -26,9 +27,6 @@ contract LimitBuyIssuerTest is Test {
     address constant treasury = address(4);
 
     bytes32 constant salt = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    IOrderBridge.OrderRequest dummyOrder;
-    uint256 dummyOrderFees;
-    IOrderBridge.Order dummyOrderBridgeData;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -49,62 +47,48 @@ contract LimitBuyIssuerTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
-    function testRequestOrderLimit(uint256 quantityIn, uint256 _price) public {
-        dummyOrder = IOrderBridge.OrderRequest({
+    function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), orderAmount);
+        uint256 fees = flatFee + percentageFee;
+        IOrderBridge.Order memory order = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: quantityIn,
-            price: _price
-        });
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(dummyOrder, salt);
-
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(dummyOrder.paymentToken, dummyOrder.quantityIn);
-        uint256 fees = flatFee + percentageFee;
-        IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
-            recipient: dummyOrder.recipient,
-            assetToken: dummyOrder.assetToken,
-            paymentToken: dummyOrder.paymentToken,
             sell: false,
             orderType: IOrderBridge.OrderType.LIMIT,
             assetTokenQuantity: 0,
-            paymentTokenQuantity: 0,
+            paymentTokenQuantity: orderAmount,
             price: _price,
             tif: IOrderBridge.TIF.GTC,
             fee: fees
         });
-        bridgeOrderData.paymentTokenQuantity = 0;
-        if (quantityIn > fees) {
-            bridgeOrderData.paymentTokenQuantity = quantityIn - fees;
-        }
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
 
-        paymentToken.mint(user, dummyOrder.quantityIn);
+        bytes32 orderId = issuer.getOrderId(order, salt);
+
+        paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), dummyOrder.quantityIn);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
 
-        if (quantityIn == 0) {
+        if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
-            issuer.requestOrder(dummyOrder, salt);
-        } else if (fees >= quantityIn) {
-            vm.expectRevert(BuyOrderIssuer.OrderTooSmall.selector);
             vm.prank(user);
-            issuer.requestOrder(dummyOrder, salt);
+            issuer.requestOrder(order, salt);
         } else if (_price == 0) {
             vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
             vm.prank(user);
-            issuer.requestOrder(dummyOrder, salt);
+            issuer.requestOrder(order, salt);
         } else {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(orderId, user, bridgeOrderData, salt);
+            emit OrderRequested(orderId, user, order, salt);
             vm.prank(user);
-            issuer.requestOrder(dummyOrder, salt);
+            issuer.requestOrder(order, salt);
             assertTrue(issuer.isOrderActive(orderId));
             assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
             assertEq(issuer.numOpenOrders(), 1);
-            assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
             // balances after
             assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
@@ -119,23 +103,29 @@ contract LimitBuyIssuerTest is Test {
         vm.assume(receivedAmount < 2 ** 128 - 1);
         vm.assume(orderAmount > 0);
 
-        OrderProcessor.OrderRequest memory order = IOrderBridge.OrderRequest({
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), orderAmount);
+        uint256 fees = flatFee + percentageFee;
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
+
+        IOrderBridge.Order memory order = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: orderAmount,
-            price: _price
+            sell: false,
+            orderType: IOrderBridge.OrderType.LIMIT,
+            assetTokenQuantity: 0,
+            paymentTokenQuantity: orderAmount,
+            price: _price,
+            tif: IOrderBridge.TIF.GTC,
+            fee: fees
         });
 
-        bytes32 orderId = issuer.getOrderIdFromOrderRequest(order, salt);
+        bytes32 orderId = issuer.getOrderId(order, salt);
 
-        paymentToken.mint(user, orderAmount);
+        paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), orderAmount);
-
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.quantityIn);
-        uint256 fees = flatFee + percentageFee;
-        vm.assume(fees < orderAmount);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         vm.prank(user);
         issuer.requestOrder(order, salt);
@@ -144,7 +134,7 @@ contract LimitBuyIssuerTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-        } else if (fillAmount > orderAmount - fees) {
+        } else if (fillAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(order, salt, fillAmount, receivedAmount);
@@ -163,8 +153,8 @@ contract LimitBuyIssuerTest is Test {
                 emit OrderFill(orderId, user, fillAmount, receivedAmount);
                 vm.prank(operator);
                 issuer.fillOrder(order, salt, fillAmount, receivedAmount);
-                assertEq(issuer.getRemainingOrder(orderId), orderAmount - fees - fillAmount);
-                if (fillAmount == orderAmount - fees) {
+                assertEq(issuer.getRemainingOrder(orderId), orderAmount - fillAmount);
+                if (fillAmount == orderAmount) {
                     assertEq(issuer.numOpenOrders(), 0);
                     assertEq(issuer.getTotalReceived(orderId), 0);
                 } else {

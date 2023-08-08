@@ -9,6 +9,7 @@ import "../../src/issuer/BuyOrderIssuer.sol";
 import "../../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {NumberUtils} from "../utils/NumberUtils.sol";
 
 contract BuyOrderIssuerRequestTest is Test {
     // More calls to permit and multicall for gas profiling
@@ -29,7 +30,7 @@ contract BuyOrderIssuerRequestTest is Test {
     bytes32 r;
     bytes32 s;
 
-    IOrderBridge.OrderRequest order;
+    IOrderBridge.Order order;
     bytes[] calls;
 
     function setUp() public {
@@ -63,12 +64,19 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        order = IOrderBridge.OrderRequest({
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), 1 ether);
+        uint256 fees = flatFee + percentageFee;
+        order = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: 1 ether,
-            price: 0
+            sell: false,
+            orderType: IOrderBridge.OrderType.MARKET,
+            assetTokenQuantity: 0,
+            paymentTokenQuantity: 1 ether,
+            price: 0,
+            tif: IOrderBridge.TIF.GTC,
+            fee: fees
         });
 
         calls = new bytes[](2);
@@ -88,9 +96,17 @@ contract BuyOrderIssuerRequestTest is Test {
         issuer.multicall(calls);
     }
 
-    function testRequestOrderWithPermit(uint256 permitDeadline, uint256 quantityIn, bytes32 salt) public {
+    function testRequestOrderWithPermit(uint256 permitDeadline, uint256 orderAmount, bytes32 salt) public {
         vm.assume(permitDeadline > block.timestamp);
-        vm.assume(quantityIn > 1_000_000);
+        vm.assume(orderAmount > 1_000_000);
+
+        uint256 fees = 0;
+        {
+            (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), orderAmount);
+            fees = flatFee + percentageFee;
+        }
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
 
         SigUtils.Permit memory newpermit = SigUtils.Permit({
             owner: user,
@@ -104,13 +120,10 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(userPrivateKey, digest);
 
-        IOrderBridge.OrderRequest memory neworder = IOrderBridge.OrderRequest({
-            recipient: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            quantityIn: quantityIn,
-            price: 0
-        });
+        IOrderBridge.Order memory neworder = order;
+        neworder.paymentTokenQuantity = orderAmount;
+        neworder.fee = fees;
+
         bytes[] memory newcalls = new bytes[](2);
         newcalls[0] = abi.encodeWithSelector(
             issuer.selfPermit.selector, address(paymentToken), quantityIn, permitDeadline, v2, r2, s2

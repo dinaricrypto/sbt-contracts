@@ -18,32 +18,25 @@ contract LimitSellProcessor is SellOrderProcessor {
         SellOrderProcessor(_owner, treasury_, orderFees_)
     {}
 
-    function _requestOrderAccounting(OrderRequest calldata orderRequest, bytes32 orderId)
-        internal
-        virtual
-        override
-        returns (Order memory order)
-    {
+    function _requestOrderAccounting(Order calldata order, bytes32 orderId) internal virtual override {
         // Calls the original _requestOrderAccounting from SellOrderProcessor
-        order = super._requestOrderAccounting(orderRequest, orderId);
-        // Modify order type to LIMIT
-        order.orderType = OrderType.LIMIT;
+        super._requestOrderAccounting(order, orderId);
+        // Ensure order type is LIMIT
+        if (order.orderType != OrderType.LIMIT) revert OrderTypeMismatch();
         // Ensure that price is set for limit orders
-        if (orderRequest.price == 0) revert LimitPriceNotSet();
-        // Set the price for the limit order
-        order.price = orderRequest.price;
+        if (order.price == 0) revert LimitPriceNotSet();
     }
 
     function _fillOrderAccounting(
-        OrderRequest calldata orderRequest,
+        Order calldata order,
         bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override {
-        // Ensure that the received amount is greater or equal to limit price * fill amount, orderRequest price has ether decimals
-        if (receivedAmount < PrbMath.mulDiv18(fillAmount, orderRequest.price)) revert OrderFillAboveLimitPrice();
+        // Ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
+        if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) revert OrderFillAboveLimitPrice();
         // Calls the original _fillOrderAccounting from SellOrderProcessor
-        super._fillOrderAccounting(orderRequest, orderId, orderState, fillAmount, receivedAmount);
+        super._fillOrderAccounting(order, orderId, orderState, fillAmount, receivedAmount);
     }
 }
