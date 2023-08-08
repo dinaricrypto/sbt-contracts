@@ -102,6 +102,7 @@ contract BuyOrderIssuer is OrderProcessor {
         _feeState[orderId] = FeeState({remainingPercentageFees: percentageFee, feesEarned: flatFee});
 
         // Escrow payment for purchase
+        _updateEscrowBalance(order.paymentToken, order.recipient, order.paymentTokenQuantity, true);
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), order.paymentTokenQuantity + totalFees);
     }
 
@@ -117,6 +118,7 @@ contract BuyOrderIssuer is OrderProcessor {
         // Calculate fees and mint asset
         _fillBuyOrder(order, orderId, orderState, fillAmount, receivedAmount);
 
+        _updateEscrowBalance(order.paymentToken, order.recipient, fillAmount, false);
         // Claim payment
         IERC20(order.paymentToken).safeTransfer(msg.sender, fillAmount);
     }
@@ -172,6 +174,7 @@ contract BuyOrderIssuer is OrderProcessor {
         }
 
         // Return escrow
+        _updateEscrowBalance(order.paymentToken, order.recipient, orderState.remainingOrder, false);
         IERC20(order.paymentToken).safeTransfer(order.recipient, refund);
     }
 

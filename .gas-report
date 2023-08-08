@@ -6,14 +6,14 @@
 | DOMAIN_SEPARATOR                                             | 1244            | 1244  | 1244   | 1244  | 23      |
 | allowance                                                    | 678             | 678   | 678    | 678   | 1       |
 | approve                                                      | 24403           | 24403 | 24403  | 24403 | 3       |
-| balanceOf                                                    | 599             | 1027  | 599    | 2599  | 42      |
-| decimals                                                     | 335             | 1070  | 335    | 2335  | 68      |
+| balanceOf                                                    | 599             | 1038  | 599    | 2599  | 41      |
+| decimals                                                     | 335             | 1092  | 335    | 2335  | 66      |
 | increaseAllowance                                            | 24548           | 24548 | 24548  | 24548 | 19      |
 | mint                                                         | 46581           | 46581 | 46581  | 46581 | 25      |
 | nonces                                                       | 533             | 1421  | 533    | 2533  | 9       |
 | permit                                                       | 51238           | 51238 | 51238  | 51238 | 4       |
-| transfer                                                     | 2315            | 21400 | 24793  | 24793 | 17      |
-| transferFrom                                                 | 18677           | 20986 | 20277  | 30008 | 22      |
+| transfer                                                     | 2315            | 21313 | 24793  | 24793 | 16      |
+| transferFrom                                                 | 2757            | 20198 | 20277  | 30008 | 23      |
 | src/TransferRestrictor.sol:TransferRestrictor contract |                 |       |        |       |         |
 |--------------------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                                        | Deployment Size |       |        |       |         |
@@ -34,139 +34,141 @@
 | balanceOf                      | 627             | 627   | 627    | 627   | 4       |
 | beginDefaultAdminTransfer      | 26954           | 26954 | 26954  | 26954 | 1       |
 | burn                           | 3123            | 17299 | 17299  | 31476 | 2       |
-| disclosures                    | 1315            | 1315  | 1315   | 1315  | 1       |
+| disclosures                    | 1253            | 1253  | 1253   | 1253  | 1       |
 | grantRole                      | 27610           | 29324 | 29610  | 29610 | 7       |
 | hasRole                        | 728             | 1728  | 1728   | 2728  | 2       |
 | mint                           | 31616           | 44831 | 47034  | 47034 | 7       |
-| name                           | 1325            | 1325  | 1325   | 1325  | 1       |
+| name                           | 1548            | 1548  | 1548   | 1548  | 1       |
 | owner                          | 437             | 437   | 437    | 437   | 1       |
 | revokeRole                     | 535             | 535   | 535    | 535   | 1       |
-| setDisclosures                 | 32197           | 32197 | 32197  | 32197 | 1       |
-| setName                        | 32153           | 32153 | 32153  | 32153 | 1       |
+| setDisclosures                 | 9955            | 9955  | 9955   | 9955  | 1       |
+| setName                        | 54560           | 54560 | 54560  | 54560 | 1       |
 | setSymbol                      | 32196           | 32196 | 32196  | 32196 | 1       |
 | setTransferRestrictor          | 8925            | 8925  | 8925   | 8925  | 1       |
 | symbol                         | 1368            | 1368  | 1368   | 1368  | 1       |
 | totalSupply                    | 350             | 350   | 350    | 350   | 3       |
 | transfer                       | 3848            | 12590 | 6046   | 27878 | 3       |
 | transferRestrictor             | 404             | 404   | 404    | 404   | 1       |
-| src/dividend/DividendDistribution.sol:DividendDistribution contract |                 |       |        |        |         |
-|---------------------------------------------------------------------|-----------------|-------|--------|--------|---------|
-| Deployment Cost                                                     | Deployment Size |       |        |        |         |
-| 1517340                                                             | 7970            |       |        |        |         |
-| Function Name                                                       | min             | avg   | median | max    | # calls |
-| DISTRIBUTOR_ROLE                                                    | 283             | 283   | 283    | 283    | 7       |
-| createDistribution                                                  | 31623           | 80827 | 95608  | 100471 | 4       |
-| distribute                                                          | 988             | 20735 | 29616  | 31602  | 3       |
-| distributions                                                       | 823             | 823   | 823    | 823    | 2       |
-| grantRole                                                           | 27567           | 27567 | 27567  | 27567  | 4       |
-| reclaimDistribution                                                 | 891             | 14265 | 12347  | 31476  | 4       |
+| src/dividend/DividendDistribution.sol:DividendDistribution contract |                 |       |        |       |         |
+|---------------------------------------------------------------------|-----------------|-------|--------|-------|---------|
+| Deployment Cost                                                     | Deployment Size |       |        |       |         |
+| 1517340                                                             | 7970            |       |        |       |         |
+| Function Name                                                       | min             | avg   | median | max   | # calls |
+| DISTRIBUTOR_ROLE                                                    | 283             | 283   | 283    | 283   | 7       |
+| createDistribution                                                  | 31623           | 79811 | 95608  | 96408 | 4       |
+| distribute                                                          | 988             | 20735 | 29616  | 31602 | 3       |
+| distributions                                                       | 823             | 823   | 823    | 823   | 2       |
+| grantRole                                                           | 27567           | 27567 | 27567  | 27567 | 4       |
+| reclaimDistribution                                                 | 891             | 14265 | 12347  | 31476 | 4       |
 | src/issuer/BuyOrderIssuer.sol:BuyOrderIssuer contract |                 |        |        |        |         |
 |-------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                       | Deployment Size |        |        |        |         |
-| 2851567                                               | 14551           |        |        |        |         |
+| 2937467                                               | 14980           |        |        |        |         |
 | Function Name                                         | min             | avg    | median | max    | # calls |
 | ASSETTOKEN_ROLE                                       | 284             | 284    | 284    | 284    | 25      |
 | OPERATOR_ROLE                                         | 305             | 305    | 305    | 305    | 23      |
 | PAYMENTTOKEN_ROLE                                     | 263             | 263    | 263    | 263    | 25      |
-| cancelOrder                                           | 11326           | 30080  | 30080  | 48834  | 2       |
-| fillOrder                                             | 5207            | 52899  | 49550  | 107290 | 4       |
-| getFeesForOrder                                       | 650             | 5868   | 4138   | 17138  | 30      |
-| getInputValueForOrderValue                            | 683             | 5281   | 5281   | 9879   | 2       |
+| cancelOrder                                           | 11283           | 30505  | 30505  | 49728  | 2       |
+| escrowedBalanceTotal                                  | 832             | 832    | 832    | 832    | 4       |
+| fillOrder                                             | 5207            | 53674  | 50010  | 109469 | 4       |
+| getFeesForOrder                                       | 650             | 6478   | 4428   | 17719  | 30      |
+| getInputValueForOrderValue                            | 683             | 5742   | 5742   | 10802  | 2       |
 | getOrderId                                            | 2071            | 2071   | 2071   | 2071   | 7       |
-| getRemainingOrder                                     | 512             | 512    | 512    | 512    | 3       |
-| getTotalReceived                                      | 534             | 534    | 534    | 534    | 1       |
-| grantRole                                             | 27567           | 27567  | 27567  | 27567  | 69      |
+| getRemainingOrder                                     | 534             | 534    | 534    | 534    | 3       |
+| getTotalReceived                                      | 556             | 556    | 556    | 556    | 1       |
+| grantRole                                             | 27589           | 27589  | 27589  | 27589  | 69      |
 | hasRole                                               | 2750            | 2750   | 2750   | 2750   | 2       |
-| isOrderActive                                         | 535             | 535    | 535    | 535    | 2       |
-| multicall                                             | 188135          | 209855 | 204335 | 237097 | 3       |
-| numOpenOrders                                         | 360             | 360    | 360    | 360    | 3       |
+| isOrderActive                                         | 557             | 557    | 557    | 557    | 2       |
+| multicall                                             | 207490          | 219644 | 211190 | 240252 | 3       |
+| numOpenOrders                                         | 382             | 382    | 382    | 382    | 3       |
 | orderFees                                             | 404             | 404    | 404    | 404    | 1       |
 | ordersPaused                                          | 427             | 427    | 427    | 427    | 1       |
 | requestCancel                                         | 2518            | 3734   | 4201   | 4484   | 3       |
-| requestOrder                                          | 585             | 98181  | 117618 | 172735 | 14      |
+| requestOrder                                          | 562             | 112798 | 144619 | 175890 | 14      |
 | selfPermit                                            | 56289           | 57539  | 57539  | 58789  | 4       |
-| setOrderFees                                          | 7151            | 8342   | 8938   | 8938   | 3       |
-| setOrdersPaused                                       | 6026            | 7426   | 7426   | 8826   | 2       |
+| setOrderFees                                          | 7132            | 8320   | 8915   | 8915   | 3       |
+| setOrdersPaused                                       | 6048            | 7448   | 7448   | 8848   | 2       |
 | setTreasury                                           | 2773            | 5860   | 5860   | 8948   | 2       |
-| treasury                                              | 449             | 449    | 449    | 449    | 1       |
+| treasury                                              | 405             | 405    | 405    | 405    | 1       |
 | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer contract |                 |        |        |        |         |
 |---------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                         | Deployment Size |        |        |        |         |
-| 3029798                                                 | 15447           |        |        |        |         |
+| 3144753                                                 | 16027           |        |        |        |         |
 | Function Name                                           | min             | avg    | median | max    | # calls |
-| ASSETTOKEN_ROLE                                         | 284             | 284    | 284    | 284    | 5       |
+| ASSETTOKEN_ROLE                                         | 306             | 306    | 306    | 306    | 5       |
 | OPERATOR_ROLE                                           | 305             | 305    | 305    | 305    | 5       |
-| PAYMENTTOKEN_ROLE                                       | 263             | 263    | 263    | 263    | 5       |
-| cancelOrder                                             | 5388            | 19152  | 19152  | 32916  | 2       |
-| fillOrder                                               | 26284           | 51562  | 51562  | 76841  | 2       |
-| getFeesForOrder                                         | 4138            | 10146  | 9388   | 17220  | 10      |
-| getOrderId                                              | 2093            | 2093   | 2093   | 2093   | 4       |
-| grantRole                                               | 27589           | 27589  | 27589  | 27589  | 15      |
-| requestOrder                                            | 143832          | 159061 | 143898 | 181872 | 5       |
-| returnEscrow                                            | 3088            | 3088   | 3088   | 3088   | 1       |
-| takeEscrow                                              | 4860            | 26473  | 33555  | 33555  | 5       |
+| PAYMENTTOKEN_ROLE                                       | 285             | 285    | 285    | 285    | 5       |
+| cancelOrder                                             | 5354            | 19681  | 19681  | 34008  | 2       |
+| escrowedBalanceTotal                                    | 788             | 788    | 788    | 788    | 3       |
+| fillOrder                                               | 76863           | 78379  | 78379  | 79896  | 2       |
+| getFeesForOrder                                         | 4450            | 10112  | 9187   | 17450  | 10      |
+| getOrderEscrow                                          | 507             | 507    | 507    | 507    | 1       |
+| getOrderId                                              | 2048            | 2048   | 2048   | 2048   | 4       |
+| getRemainingOrder                                       | 534             | 534    | 534    | 534    | 1       |
+| getTotalReceived                                        | 556             | 556    | 556    | 556    | 1       |
+| grantRole                                               | 27611           | 27611  | 27611  | 27611  | 15      |
+| requestOrder                                            | 145348          | 176495 | 163310 | 205401 | 5       |
+| returnEscrow                                            | 24378           | 24378  | 24378  | 24378  | 1       |
+| takeEscrow                                              | 4816            | 26431  | 33511  | 33511  | 5       |
 | src/issuer/LimitBuyIssuer.sol:LimitBuyIssuer contract |                 |        |        |        |         |
 |-------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                       | Deployment Size |        |        |        |         |
-| 2952905                                               | 15063           |        |        |        |         |
+| 3038806                                               | 15492           |        |        |        |         |
 | Function Name                                         | min             | avg    | median | max    | # calls |
 | ASSETTOKEN_ROLE                                       | 284             | 284    | 284    | 284    | 2       |
 | OPERATOR_ROLE                                         | 305             | 305    | 305    | 305    | 2       |
 | PAYMENTTOKEN_ROLE                                     | 263             | 263    | 263    | 263    | 2       |
 | fillOrder                                             | 28184           | 28184  | 28184  | 28184  | 1       |
-| getFeesForOrder                                       | 17138           | 17179  | 17179  | 17220  | 2       |
+| getFeesForOrder                                       | 17428           | 17573  | 17573  | 17719  | 2       |
 | getOrderId                                            | 2071            | 2071   | 2071   | 2071   | 2       |
-| getRemainingOrder                                     | 512             | 512    | 512    | 512    | 1       |
-| grantRole                                             | 27567           | 27567  | 27567  | 27567  | 6       |
-| isOrderActive                                         | 535             | 535    | 535    | 535    | 1       |
-| numOpenOrders                                         | 360             | 360    | 360    | 360    | 1       |
-| requestOrder                                          | 124736          | 125503 | 125503 | 126271 | 2       |
+| grantRole                                             | 27589           | 27589  | 27589  | 27589  | 6       |
+| requestOrder                                          | 143121          | 144034 | 144034 | 144948 | 2       |
 | src/issuer/LimitSellProcessor.sol:LimitSellProcessor contract |                 |        |        |        |         |
 |---------------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                               | Deployment Size |        |        |        |         |
-| 2757667                                                       | 14088           |        |        |        |         |
+| 2841566                                                       | 14507           |        |        |        |         |
 | Function Name                                                 | min             | avg    | median | max    | # calls |
 | ASSETTOKEN_ROLE                                               | 262             | 262    | 262    | 262    | 2       |
 | OPERATOR_ROLE                                                 | 305             | 305    | 305    | 305    | 2       |
 | PAYMENTTOKEN_ROLE                                             | 307             | 307    | 307    | 307    | 2       |
-| fillOrder                                                     | 2823            | 2823   | 2823   | 2823   | 1       |
+| fillOrder                                                     | 5185            | 5185   | 5185   | 5185   | 1       |
 | getOrderId                                                    | 2049            | 2049   | 2049   | 2049   | 2       |
-| getRemainingOrder                                             | 535             | 535    | 535    | 535    | 1       |
-| grantRole                                                     | 27611           | 27611  | 27611  | 27611  | 6       |
-| isOrderActive                                                 | 513             | 513    | 513    | 513    | 1       |
-| numOpenOrders                                                 | 404             | 404    | 404    | 404    | 1       |
-| requestOrder                                                  | 122531          | 123331 | 123331 | 124131 | 2       |
-| src/issuer/OrderFees.sol:OrderFees contract |                 |       |        |       |         |
-|---------------------------------------------|-----------------|-------|--------|-------|---------|
-| Deployment Cost                             | Deployment Size |       |        |       |         |
-| 606594                                      | 3182            |       |        |       |         |
-| Function Name                               | min             | avg   | median | max   | # calls |
-| flatFeeForOrder                             | 1790            | 3918  | 1790   | 8290  | 69      |
-| perOrderFee                                 | 343             | 1343  | 1343   | 2343  | 2       |
-| percentageFeeForValue                       | 640             | 1196  | 640    | 2722  | 59      |
-| percentageFeeRate                           | 369             | 369   | 369    | 369   | 1       |
-| recoverInputValueFromRemaining              | 760             | 760   | 760    | 760   | 2       |
-| setFees                                     | 9258            | 11658 | 11658  | 14058 | 2       |
+| getRemainingOrder                                             | 512             | 512    | 512    | 512    | 1       |
+| grantRole                                                     | 27567           | 27567  | 27567  | 27567  | 6       |
+| isOrderActive                                                 | 535             | 535    | 535    | 535    | 1       |
+| numOpenOrders                                                 | 360             | 360    | 360    | 360    | 1       |
+| requestOrder                                                  | 140740          | 141540 | 141540 | 142340 | 2       |
+| src/issuer/OrderFees.sol:OrderFees contract |                 |      |        |      |         |
+|---------------------------------------------|-----------------|------|--------|------|---------|
+| Deployment Cost                             | Deployment Size |      |        |      |         |
+| 537463                                      | 3099            |      |        |      |         |
+| Function Name                               | min             | avg  | median | max  | # calls |
+| flatFeeForOrder                             | 1756            | 3915 | 1756   | 8256 | 68      |
+| perOrderFee                                 | 2308            | 2308 | 2308   | 2308 | 1       |
+| percentageFeeForValue                       | 964             | 1582 | 964    | 3255 | 62      |
+| recoverInputValueFromRemaining              | 1393            | 1393 | 1393   | 1393 | 2       |
+| setFees                                     | 2892            | 6119 | 6119   | 9346 | 2       |
 | src/issuer/SellOrderProcessor.sol:SellOrderProcessor contract |                 |        |        |        |         |
 |---------------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                               | Deployment Size |        |        |        |         |
-| 2654931                                                       | 13569           |        |        |        |         |
+| 2738829                                                       | 13988           |        |        |        |         |
 | Function Name                                                 | min             | avg    | median | max    | # calls |
 | ASSETTOKEN_ROLE                                               | 262             | 262    | 262    | 262    | 5       |
 | OPERATOR_ROLE                                                 | 305             | 305    | 305    | 305    | 5       |
 | PAYMENTTOKEN_ROLE                                             | 307             | 307    | 307    | 307    | 5       |
-| cancelOrder                                                   | 71272           | 71272  | 71272  | 71272  | 1       |
-| fillOrder                                                     | 5185            | 44628  | 51736  | 76965  | 3       |
-| getFlatFeeForOrder                                            | 597             | 2107   | 2863   | 2863   | 3       |
+| cancelOrder                                                   | 72008           | 72008  | 72008  | 72008  | 1       |
+| escrowedBalanceTotal                                          | 810             | 810    | 810    | 810    | 4       |
+| fillOrder                                                     | 5185            | 38966  | 53140  | 58574  | 3       |
+| getFlatFeeForOrder                                            | 597             | 2085   | 2829   | 2829   | 3       |
 | getOrderId                                                    | 2049            | 2049   | 2049   | 2049   | 5       |
-| getPercentageFeeForOrder                                      | 521             | 1289   | 1633   | 1715   | 3       |
-| getRemainingOrder                                             | 535             | 535    | 535    | 535    | 2       |
-| getTotalReceived                                              | 512             | 512    | 512    | 512    | 1       |
-| grantRole                                                     | 27611           | 27611  | 27611  | 27611  | 15      |
-| isOrderActive                                                 | 513             | 513    | 513    | 513    | 1       |
-| numOpenOrders                                                 | 404             | 404    | 404    | 404    | 2       |
-| requestOrder                                                  | 122319          | 123519 | 123919 | 123919 | 4       |
-| setOrderFees                                                  | 7133            | 7133   | 7133   | 7133   | 1       |
+| getPercentageFeeForOrder                                      | 521             | 1575   | 1957   | 2248   | 3       |
+| getRemainingOrder                                             | 512             | 512    | 512    | 512    | 2       |
+| getTotalReceived                                              | 534             | 534    | 534    | 534    | 1       |
+| grantRole                                                     | 27567           | 27567  | 27567  | 27567  | 15      |
+| isOrderActive                                                 | 535             | 535    | 535    | 535    | 1       |
+| numOpenOrders                                                 | 360             | 360    | 360    | 360    | 2       |
+| requestOrder                                                  | 140528          | 141728 | 142128 | 142128 | 4       |
+| setOrderFees                                                  | 7151            | 7151   | 7151   | 7151   | 1       |
 | test/utils/SigUtils.sol:SigUtils contract |                 |      |        |      |         |
 |-------------------------------------------|-----------------|------|--------|------|---------|
 | Deployment Cost                           | Deployment Size |      |        |      |         |
@@ -185,6 +187,6 @@
 | decimals                                            | 246             | 246   | 246    | 246   | 2       |
 | grantRole                                           | 25610           | 26799 | 27610  | 27610 | 74      |
 | increaseAllowance                                   | 24489           | 24489 | 24489  | 24489 | 6       |
-| mint                                                | 47034           | 48811 | 49034  | 49034 | 9       |
+| mint                                                | 47034           | 48834 | 49034  | 49034 | 10      |
 | transfer                                            | 19478           | 19478 | 19478  | 19478 | 1       |
 | transferFrom                                        | 26648           | 27714 | 28248  | 28248 | 6       |

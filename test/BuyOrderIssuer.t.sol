@@ -46,7 +46,7 @@ contract BuyOrderIssuerTest is Test {
         paymentToken = new MockERC20("Money", "$", 6);
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
+        orderFees = new OrderFees(address(this), 1 ether, 500_000);
 
         issuer = new BuyOrderIssuer(address(this), treasury, orderFees);
 
@@ -107,12 +107,11 @@ contract BuyOrderIssuerTest is Test {
         assertEq(percentageFee2, 0);
     }
 
-    function testGetInputValue(uint64 perOrderFee, uint64 percentageFeeRate, uint128 orderValue) public {
+    function testGetInputValue(uint24 perOrderFee, uint24 percentageFeeRate, uint128 orderValue) public {
         // uint128 used to avoid overflow when calculating larger raw input value
-        vm.assume(percentageFeeRate < 1 ether);
+        vm.assume(percentageFeeRate < 1_000_000);
         OrderFees fees = new OrderFees(address(this), perOrderFee, percentageFeeRate);
         issuer.setOrderFees(fees);
-
         (uint256 inputValue, uint256 flatFee, uint256 percentageFee) =
             issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
         assertEq(inputValue - flatFee - percentageFee, orderValue);
@@ -131,7 +130,7 @@ contract BuyOrderIssuerTest is Test {
     function testRequestOrder(uint256 orderAmount) public {
         (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), orderAmount);
         uint256 fees = flatFee + percentageFee;
-        IOrderBridge.Order memory bridgeOrderData = IOrderBridge.Order({
+        IOrderBridge.Order memory order = IOrderBridge.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -146,7 +145,7 @@ contract BuyOrderIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        bytes32 orderId = issuer.getOrderId(bridgeOrderData, salt);
+        bytes32 orderId = issuer.getOrderId(order, salt);
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -155,22 +154,23 @@ contract BuyOrderIssuerTest is Test {
         if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(user);
-            issuer.requestOrder(bridgeOrderData, salt);
+            issuer.requestOrder(order, salt);
         } else {
             // balances before
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(orderId, user, bridgeOrderData, salt);
+            emit OrderRequested(orderId, user, order, salt);
             vm.prank(user);
-            issuer.requestOrder(bridgeOrderData, salt);
+            issuer.requestOrder(order, salt);
             assertTrue(issuer.isOrderActive(orderId));
             assertEq(issuer.getRemainingOrder(orderId), quantityIn - fees);
             assertEq(issuer.numOpenOrders(), 1);
-            assertEq(issuer.getOrderId(bridgeOrderData, salt), orderId);
+            assertEq(issuer.getOrderId(order, salt), orderId);
             // balances after
             assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
+            assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), orderAmount);
         }
     }
 
@@ -283,12 +283,16 @@ contract BuyOrderIssuerTest is Test {
 
         bytes32 orderId = issuer.getOrderId(order, salt);
 
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        {
+            paymentToken.mint(user, quantityIn);
+            vm.prank(user);
+            paymentToken.increaseAllowance(address(issuer), quantityIn);
 
-        vm.prank(user);
-        issuer.requestOrder(order, salt);
+            vm.prank(user);
+            issuer.requestOrder(order, salt);
+            uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, user);
+            assertEq(escrowedAmount, orderAmount);
+        }
 
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
@@ -317,6 +321,7 @@ contract BuyOrderIssuerTest is Test {
                 assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
                 assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
                 assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
+                assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), orderAmount - fillAmount);
             }
         }
     }
@@ -409,12 +414,16 @@ contract BuyOrderIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        {
+            paymentToken.mint(user, quantityIn);
+            vm.prank(user);
+            paymentToken.increaseAllowance(address(issuer), quantityIn);
 
-        vm.prank(user);
-        issuer.requestOrder(order, salt);
+            vm.prank(user);
+            issuer.requestOrder(order, salt);
+            uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, user);
+            assertEq(escrowedAmount, orderAmount);
+        }
 
         if (fillAmount > 0) {
             vm.prank(operator);
@@ -430,6 +439,7 @@ contract BuyOrderIssuerTest is Test {
         vm.prank(operator);
         issuer.cancelOrder(order, salt, reason);
         // balances after
+        assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), 0);
         if (fillAmount > 0) {
             // uint256 feesEarned = percentageFee * fillAmount / (orderAmount - fees) + flatFee;
             uint256 feesEarned = PrbMath.mulDiv(percentageFee, fillAmount, orderAmount) + flatFee;
