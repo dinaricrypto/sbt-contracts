@@ -15,7 +15,7 @@ contract LimitBuyIssuer is BuyOrderIssuer {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
 
-     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
         BuyOrderIssuer(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 

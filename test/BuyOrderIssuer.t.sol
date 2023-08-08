@@ -52,7 +52,6 @@ contract BuyOrderIssuerTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-        
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
 
@@ -86,7 +85,6 @@ contract BuyOrderIssuerTest is Test {
             tif: IOrderBridge.TIF.GTC
         });
     }
-
 
     function testDeploymentZeroTreasuryReverts() public {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);

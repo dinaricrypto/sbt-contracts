@@ -46,11 +46,8 @@ contract DirectBuyIssuerTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-       
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         issuer = new DirectBuyIssuer(address(this), treasury, orderFees, tokenLockCheck);
-
-        
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

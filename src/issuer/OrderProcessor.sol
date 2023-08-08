@@ -149,10 +149,12 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @param orderFees_ Fee specification contract
     /// @param tokenLockCheck_ Transfer restrictor checker
     /// @dev Treasury cannot be zero address
-    constructor(address owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_) AccessControlDefaultAdminRules(0, owner) {
+    constructor(address owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        AccessControlDefaultAdminRules(0, owner)
+    {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
-         // Initialize treasury and order fees, and tokenLockChecker
+        // Initialize treasury and order fees, and tokenLockChecker
         treasury = treasury_;
         orderFees = orderFees_;
 
@@ -275,11 +277,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Request an order
     /// @param orderRequest Order request to submit
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
-    function requestOrder(OrderRequest calldata orderRequest)
-        public
-        whenOrdersNotPaused
-        returns (uint256 index)
-    {
+    function requestOrder(OrderRequest calldata orderRequest) public whenOrdersNotPaused returns (uint256 index) {
         // check blocklisted address
         if (
             tokenLockCheck.isTransferLocked(orderRequest.assetToken, orderRequest.recipient)

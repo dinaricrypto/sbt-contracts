@@ -45,11 +45,11 @@ contract DeployAllScript is Script {
         IOrderFees orderFees = new OrderFees(cfg.owner, 1 ether, 0.005 ether);
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
 
-
         // deploy proxy and set implementation
         BuyOrderIssuer buyOrderIssuer = new BuyOrderIssuer(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
         // deploy sellOrderProcessor
-        SellOrderProcessor sellOrderProcessor = new SellOrderProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+        SellOrderProcessor sellOrderProcessor =
+            new SellOrderProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
         // deploy proxy and set implementation
         DirectBuyIssuer directBuyIssuer = new DirectBuyIssuer(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 

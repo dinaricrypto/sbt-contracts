@@ -19,8 +19,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
 
-
-     /// ------------------ Constructor ------------------ ///
+    /// ------------------ Constructor ------------------ ///
     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
         OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}

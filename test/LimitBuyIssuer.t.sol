@@ -39,7 +39,6 @@ contract LimitBuyIssuerTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-        
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         issuer = new LimitBuyIssuer(address(this), treasury, orderFees, tokenLockCheck);
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
