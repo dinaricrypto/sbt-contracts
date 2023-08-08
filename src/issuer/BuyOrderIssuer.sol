@@ -4,6 +4,8 @@ pragma solidity 0.8.19;
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor} from "./OrderProcessor.sol";
+import {IOrderFees} from "./IOrderFees.sol";
+import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
@@ -22,6 +24,10 @@ contract BuyOrderIssuer is OrderProcessor {
     /// @dev Order is too small to pay fees
     error OrderTooSmall();
 
+    /// ------------------ Constructor ------------------ ///
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
+    {}
     /// ------------------ Fee Helpers ------------------ ///
 
     /// @notice Get the raw input value and fees that produce a final order value

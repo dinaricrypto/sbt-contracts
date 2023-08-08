@@ -4,6 +4,8 @@ pragma solidity 0.8.19;
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor} from "./OrderProcessor.sol";
+import {IOrderFees} from "./IOrderFees.sol";
+import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
@@ -16,6 +18,12 @@ import {IMintBurn} from "../IMintBurn.sol";
 /// Implicitly assumes that asset tokens are dShare and can be burned
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
+
+
+     /// ------------------ Constructor ------------------ ///
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
+    {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 

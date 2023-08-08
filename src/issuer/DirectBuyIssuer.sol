@@ -3,6 +3,8 @@ pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {BuyOrderIssuer, OrderProcessor} from "./BuyOrderIssuer.sol";
+import {IOrderFees} from "./IOrderFees.sol";
+import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
@@ -27,6 +29,11 @@ import {IMintBurn} from "../IMintBurn.sol";
 ///   6. Operator cancels the order (cancelOrder)
 contract DirectBuyIssuer is BuyOrderIssuer {
     using SafeERC20 for IERC20;
+
+    /// ------------------ Constructor ------------------ ///
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        BuyOrderIssuer(_owner, treasury_, orderFees_, tokenLockCheck_)
+    {}
 
     /// ------------------ Types ------------------ ///
 

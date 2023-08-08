@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
-import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/DirectBuyIssuer.sol";
 import "../src/issuer/IOrderBridge.sol";
@@ -47,14 +46,11 @@ contract DirectBuyIssuerTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-        DirectBuyIssuer issuerImpl = new DirectBuyIssuer();
+       
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        issuer = new DirectBuyIssuer(address(this), treasury, orderFees, tokenLockCheck);
 
-        issuer = DirectBuyIssuer(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
-            )
-        );
+        
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

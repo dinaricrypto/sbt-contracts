@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/access/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import {AccessControlDefaultAdminRules} from
+    "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
@@ -36,15 +32,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 ///   2. [Optional] Operator partially fills the order (fillOrder)
 ///   3. [Optional] User requests cancellation (requestCancel)
 ///   4. Operator cancels the order (cancelOrder)
-abstract contract OrderProcessor is
-    Initializable,
-    UUPSUpgradeable,
-    AccessControlDefaultAdminRulesUpgradeable,
-    ReentrancyGuardUpgradeable,
-    Multicall,
-    SelfPermit,
-    IOrderBridge
-{
+abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit, IOrderBridge {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -151,31 +139,20 @@ abstract contract OrderProcessor is
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
 
-    /// ------------------ Initialization ------------------ ///
+    /// ------------------ Constructor ------------------ ///
 
     /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
 
     /// @notice Initialize contract
     /// @param owner Owner of contract
     /// @param treasury_ Address to receive fees
     /// @param orderFees_ Fee specification contract
+    /// @param tokenLockCheck_ Transfer restrictor checker
     /// @dev Treasury cannot be zero address
-    function initialize(address owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        external
-        initializer
-    {
+    constructor(address owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_) AccessControlDefaultAdminRules(0, owner) {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
-
-        // Initialize super contracts
-        __UUPSUpgradeable_init_unchained();
-        __AccessControlDefaultAdminRules_init_unchained(0, owner);
-        __ReentrancyGuard_init_unchained();
-
-        // Initialize treasury and order fees
+         // Initialize treasury and order fees, and tokenLockChecker
         treasury = treasury_;
         orderFees = orderFees_;
 
@@ -183,9 +160,6 @@ abstract contract OrderProcessor is
         // Grant admin role to owner
         _grantRole(ADMIN_ROLE, owner);
     }
-
-    // Restrict upgrades to owner
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /// ------------------ Administration ------------------ ///
 
@@ -303,7 +277,6 @@ abstract contract OrderProcessor is
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
     function requestOrder(OrderRequest calldata orderRequest)
         public
-        nonReentrant
         whenOrdersNotPaused
         returns (uint256 index)
     {
@@ -406,7 +379,6 @@ abstract contract OrderProcessor is
     /// @dev Only callable by operator
     function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount)
         external
-        nonReentrant
         onlyRole(OPERATOR_ROLE)
     {
         // No nonsense
@@ -496,7 +468,7 @@ abstract contract OrderProcessor is
     /// @param order Order to cancel
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(Order calldata order, string calldata reason) external nonReentrant onlyRole(OPERATOR_ROLE) {
+    function cancelOrder(Order calldata order, string calldata reason) external onlyRole(OPERATOR_ROLE) {
         bytes32 id = getOrderId(order.recipient, order.index);
         OrderState memory orderState = _orders[id];
         // Order must exist

@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
-import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigUtils.sol";
@@ -46,13 +45,9 @@ contract BuyOrderIssuerRequestTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        issuer = BuyOrderIssuer(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
-            )
-        );
+        issuer = new BuyOrderIssuer(
+            address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

@@ -39,13 +39,9 @@ contract LimitBuyIssuerTest is Test {
 
         orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
 
-        LimitBuyIssuer issuerImpl = new LimitBuyIssuer();
+        
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        issuer = LimitBuyIssuer(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
-            )
-        );
+        issuer = new LimitBuyIssuer(address(this), treasury, orderFees, tokenLockCheck);
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
