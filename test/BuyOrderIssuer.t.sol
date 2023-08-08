@@ -172,7 +172,7 @@ contract BuyOrderIssuerTest is Test {
             // balances after
             assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
-            assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), orderAmount);
+            assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn);
         }
     }
 
@@ -292,8 +292,6 @@ contract BuyOrderIssuerTest is Test {
 
             vm.prank(user);
             issuer.requestOrder(order, salt);
-            uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, user);
-            assertEq(escrowedAmount, orderAmount);
         }
 
         if (fillAmount == 0) {
@@ -323,7 +321,7 @@ contract BuyOrderIssuerTest is Test {
                 assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
                 assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount);
                 assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
-                assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), orderAmount - fillAmount);
+                assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn - fillAmount);
             }
         }
     }
@@ -423,8 +421,6 @@ contract BuyOrderIssuerTest is Test {
 
             vm.prank(user);
             issuer.requestOrder(order, salt);
-            uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, user);
-            assertEq(escrowedAmount, orderAmount);
         }
 
         if (fillAmount > 0) {
@@ -441,7 +437,7 @@ contract BuyOrderIssuerTest is Test {
         vm.prank(operator);
         issuer.cancelOrder(order, salt, reason);
         // balances after
-        assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), 0);
+        assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), 0);
         if (fillAmount > 0) {
             // uint256 feesEarned = percentageFee * fillAmount / (orderAmount - fees) + flatFee;
             uint256 feesEarned = PrbMath.mulDiv(percentageFee, fillAmount, orderAmount) + flatFee;

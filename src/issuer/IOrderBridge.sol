@@ -85,6 +85,12 @@ interface IOrderBridge {
     /// @param id Order ID to check
     function getTotalReceived(bytes32 id) external view returns (uint256);
 
+    /// @notice This function fetches the total balance held in escrow for a given user and token
+    /// @param token The address of the token for which the escrowed balance is fetched
+    /// @param user The address of the user for which the escrowed balance is fetched
+    /// @return Returns the total amount of the specific token held in escrow for the given user
+    function escrowedBalanceOf(address token, address user) external view returns (uint256);
+
     /// ------------------ Actions ------------------ ///
 
     /// @notice Request an order

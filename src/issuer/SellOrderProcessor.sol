@@ -57,7 +57,7 @@ contract SellOrderProcessor is OrderProcessor {
         _feesEarned[orderId] = getFlatFeeForOrder(order.paymentToken);
 
         // update escrowed balance
-        _updateEscrowBalance(order.assetToken, order.recipient, order.assetTokenQuantity, true);
+        escrowedBalanceOf[order.assetToken][order.recipient] += order.assetTokenQuantity;
         // Transfer asset to contract
         IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
     }
@@ -85,7 +85,7 @@ contract SellOrderProcessor is OrderProcessor {
             }
         }
         // update escrowed balance
-        _updateEscrowBalance(order.assetToken, order.recipient, fillAmount, false);
+        escrowedBalanceOf[order.assetToken][order.recipient] -= fillAmount;
         // Burn asset
         IMintBurn(order.assetToken).burn(fillAmount);
         // Transfer raw proceeds of sale here
@@ -116,7 +116,7 @@ contract SellOrderProcessor is OrderProcessor {
 
         // Clear fee data
         delete _feesEarned[orderId];
-        _updateEscrowBalance(order.assetToken, order.recipient, refund, false);
+        escrowedBalanceOf[order.assetToken][order.recipient] -= refund;
         IERC20(order.assetToken).safeTransfer(order.recipient, refund);
     }
 

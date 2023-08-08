@@ -102,7 +102,7 @@ contract SellOrderProcessorTest is Test {
             // balances after
             assertEq(token.balanceOf(user), userBalanceBefore - quantityIn);
             assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
-            assertEq(issuer.escrowedBalanceTotal(order.assetToken, user), quantityIn);
+            assertEq(issuer.escrowedBalanceOf(order.assetToken, user), quantityIn);
         }
     }
 
@@ -121,7 +121,7 @@ contract SellOrderProcessorTest is Test {
         vm.prank(user);
         issuer.requestOrder(order, salt);
 
-        uint256 escrowAmount = issuer.escrowedBalanceTotal(order.assetToken, user);
+        uint256 escrowAmount = issuer.escrowedBalanceOf(order.assetToken, user);
         assertEq(escrowAmount, orderAmount);
 
         paymentToken.mint(operator, receivedAmount);
@@ -155,7 +155,7 @@ contract SellOrderProcessorTest is Test {
                 assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore + receivedAmount);
                 assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
                 assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
-                assertEq(issuer.escrowedBalanceTotal(order.assetToken, user), escrowAmount - fillAmount);
+                assertEq(issuer.escrowedBalanceOf(order.assetToken, user), escrowAmount - fillAmount);
             }
         }
     }
@@ -220,7 +220,7 @@ contract SellOrderProcessorTest is Test {
         vm.prank(user);
         issuer.requestOrder(order, salt);
 
-        uint256 escrowAmount = issuer.escrowedBalanceTotal(order.assetToken, user);
+        uint256 escrowAmount = issuer.escrowedBalanceOf(order.assetToken, user);
         assertEq(escrowAmount, orderAmount);
 
         if (fillAmount > 0) {
@@ -241,7 +241,7 @@ contract SellOrderProcessorTest is Test {
         emit OrderCancelled(orderId, user, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, salt, reason);
-        assert(issuer.escrowedBalanceTotal(order.assetToken, user) < escrowAmount);
+        assert(issuer.escrowedBalanceOf(order.assetToken, user) < escrowAmount);
         // balances after
         if (fillAmount > 0) {
             uint256 flatFee = issuer.getFlatFeeForOrder(address(paymentToken));

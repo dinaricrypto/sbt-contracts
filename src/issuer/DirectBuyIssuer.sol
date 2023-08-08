@@ -68,6 +68,7 @@ contract DirectBuyIssuer is LimitBuyIssuer {
 
         // Update escrow tracking
         getOrderEscrow[orderId] = escrow - amount;
+        escrowedBalanceOf[order.paymentToken][order.recipient] -= amount;
         // Notify escrow taken
         emit EscrowTaken(orderId, order.recipient, amount);
 
@@ -92,6 +93,7 @@ contract DirectBuyIssuer is LimitBuyIssuer {
 
         // Update escrow tracking
         getOrderEscrow[orderId] = escrow + amount;
+        escrowedBalanceOf[order.paymentToken][order.recipient] += amount;
         // Notify escrow returned
         emit EscrowReturned(orderId, order.recipient, amount);
 

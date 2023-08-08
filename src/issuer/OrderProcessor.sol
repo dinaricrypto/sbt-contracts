@@ -99,7 +99,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
 
-    mapping(address => mapping(address => uint256)) private escrowedBalance;
+    /// @inheritdoc IOrderBridge
+    mapping(address => mapping(address => uint256)) public escrowedBalanceOf;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -195,14 +196,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @inheritdoc IOrderBridge
     function getTotalReceived(bytes32 id) public view returns (uint256) {
         return _orders[id].received;
-    }
-
-    /// @notice This function fetches the total balance held in escrow for a given user and token
-    /// @param token The address of the token for which the escrowed balance is fetched
-    /// @param user The address of the user for which the escrowed balance is fetched
-    /// @return Returns the total amount of the specific token held in escrow for the given user
-    function escrowedBalanceTotal(address token, address user) public view returns (uint256) {
-        return escrowedBalance[token][user];
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -326,19 +319,4 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     function _cancelOrderAccounting(Order calldata order, bytes32 orderId, OrderState memory orderState)
         internal
         virtual;
-
-    /// ------------------ internal ------------------ ///
-
-    /// @dev Update the escrowed balance for a specific token and recipient.
-    /// @param token The address of the token.
-    /// @param recipient The address of the recipient.
-    /// @param amount The amount to update.
-    /// @param isIncrement If set to true, the function will increment the balance. Otherwise, it will decrement.
-    function _updateEscrowBalance(address token, address recipient, uint256 amount, bool isIncrement) internal {
-        if (isIncrement) {
-            escrowedBalance[token][recipient] += amount;
-        } else if (escrowedBalance[token][recipient] > 0) {
-            escrowedBalance[token][recipient] -= amount;
-        }
-    }
 }

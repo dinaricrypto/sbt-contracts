@@ -102,7 +102,7 @@ contract BuyOrderIssuer is OrderProcessor {
         _feeState[orderId] = FeeState({remainingPercentageFees: percentageFee, feesEarned: flatFee});
 
         // Escrow payment for purchase
-        _updateEscrowBalance(order.paymentToken, order.recipient, order.paymentTokenQuantity, true);
+        escrowedBalanceOf[order.paymentToken][order.recipient] += order.paymentTokenQuantity + totalFees;
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), order.paymentTokenQuantity + totalFees);
     }
 
@@ -118,7 +118,7 @@ contract BuyOrderIssuer is OrderProcessor {
         // Calculate fees and mint asset
         _fillBuyOrder(order, orderId, orderState, fillAmount, receivedAmount);
 
-        _updateEscrowBalance(order.paymentToken, order.recipient, fillAmount, false);
+        escrowedBalanceOf[order.paymentToken][order.recipient] -= fillAmount;
         // Claim payment
         IERC20(order.paymentToken).safeTransfer(msg.sender, fillAmount);
     }
@@ -135,7 +135,9 @@ contract BuyOrderIssuer is OrderProcessor {
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         // If order is done, close order and transfer fees
         if (remainingOrder == 0) {
-            _closeOrder(orderId, order.paymentToken, feeState.remainingPercentageFees + feeState.feesEarned);
+            _closeOrder(
+                orderId, order.paymentToken, order.recipient, feeState.remainingPercentageFees + feeState.feesEarned
+            );
         } else {
             // Otherwise accumulate fees for fill
             // Calculate fees
@@ -165,26 +167,27 @@ contract BuyOrderIssuer is OrderProcessor {
         // If no fills, then full refund
         uint256 refund = orderState.remainingOrder + feeState.remainingPercentageFees;
         if (orderState.remainingOrder == order.paymentTokenQuantity) {
-            _closeOrder(orderId, order.paymentToken, 0);
+            _closeOrder(orderId, order.paymentToken, order.recipient, 0);
             // Refund full payment
             refund += feeState.feesEarned;
         } else {
             // Otherwise close order and transfer fees
-            _closeOrder(orderId, order.paymentToken, feeState.feesEarned);
+            _closeOrder(orderId, order.paymentToken, order.recipient, feeState.feesEarned);
         }
 
         // Return escrow
-        _updateEscrowBalance(order.paymentToken, order.recipient, orderState.remainingOrder, false);
+        escrowedBalanceOf[order.paymentToken][order.recipient] -= refund;
         IERC20(order.paymentToken).safeTransfer(order.recipient, refund);
     }
 
     /// @dev Close order and transfer fees
-    function _closeOrder(bytes32 orderId, address paymentToken, uint256 feesEarned) private {
+    function _closeOrder(bytes32 orderId, address paymentToken, address orderRecipient, uint256 feesEarned) private {
         // Clear fee state
         delete _feeState[orderId];
 
         // Transfer earneds fees to treasury
         if (feesEarned > 0) {
+            escrowedBalanceOf[paymentToken][orderRecipient] -= feesEarned;
             IERC20(paymentToken).safeTransfer(treasury, feesEarned);
         }
     }
