@@ -52,9 +52,7 @@ contract DirectBuyIssuerTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-
-        (uint256 flatFee, uint256 percentageFee) =
-            issuer.getFeesForOrder(address(paymentToken), 100 ether);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), 100 ether);
         dummyOrderFees = flatFee + percentageFee;
         dummyOrder = IOrderBridge.Order({
             recipient: user,
@@ -77,7 +75,8 @@ contract DirectBuyIssuerTest is Test {
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
         uint256 fees = flatFee + percentageFee;
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -115,7 +114,8 @@ contract DirectBuyIssuerTest is Test {
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
         uint256 fees = flatFee + percentageFee;
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -169,7 +169,8 @@ contract DirectBuyIssuerTest is Test {
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
         uint256 fees = flatFee + percentageFee;
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
