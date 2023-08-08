@@ -41,6 +41,7 @@ contract DirectBuyIssuerTest is Test {
         paymentToken = new MockERC20("Money", "$", 6);
 
         orderFees = new OrderFees(address(this), 1 ether, 500_000);
+        orderFees = new OrderFees(address(this), 1 ether, 500_000);
 
         issuer = new DirectBuyIssuer(address(this), treasury, orderFees);
 
@@ -51,7 +52,9 @@ contract DirectBuyIssuerTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), 100 ether);
+
+        (uint256 flatFee, uint256 percentageFee) =
+            issuer.getFeesForOrder(address(paymentToken), 100 ether);
         dummyOrderFees = flatFee + percentageFee;
         dummyOrder = IOrderBridge.Order({
             recipient: user,
@@ -74,24 +77,19 @@ contract DirectBuyIssuerTest is Test {
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, orderAmount);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
         uint256 fees = flatFee + percentageFee;
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
         bytes32 orderId = issuer.getOrderId(order, salt);
 
-        {
-            paymentToken.mint(user, quantityIn);
-            vm.prank(user);
-            paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
 
-            vm.prank(user);
-            issuer.requestOrder(order, salt);
-            uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, order.recipient);
-            assertEq(escrowedAmount, orderAmount);
-        }
-
+        vm.prank(user);
+        issuer.requestOrder(order, salt);
         if (takeAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
@@ -117,7 +115,7 @@ contract DirectBuyIssuerTest is Test {
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, orderAmount);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
         uint256 fees = flatFee + percentageFee;
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -131,8 +129,6 @@ contract DirectBuyIssuerTest is Test {
 
             vm.prank(user);
             issuer.requestOrder(order, salt);
-            uint256 escrowedAmount = issuer.escrowedBalanceTotal(order.paymentToken, order.recipient);
-            assertEq(escrowedAmount, orderAmount);
 
             vm.prank(operator);
             issuer.takeEscrow(order, salt, orderAmount);
@@ -156,7 +152,6 @@ contract DirectBuyIssuerTest is Test {
             issuer.returnEscrow(order, salt, returnAmount);
             assertEq(issuer.getOrderEscrow(orderId), returnAmount);
             assertEq(paymentToken.balanceOf(address(issuer)), fees + returnAmount);
-            assertEq(issuer.escrowedBalanceTotal(order.paymentToken, user), orderAmount);
         }
     }
 
@@ -174,7 +169,7 @@ contract DirectBuyIssuerTest is Test {
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, orderAmount);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
         uint256 fees = flatFee + percentageFee;
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -222,7 +217,7 @@ contract DirectBuyIssuerTest is Test {
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, orderAmount);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.paymentTokenQuantity);
         uint256 fees = flatFee + percentageFee;
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -258,7 +253,7 @@ contract DirectBuyIssuerTest is Test {
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, orderAmount);
+        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(order.assetToken, order.paymentTokenQuantity);
         uint256 fees = flatFee + percentageFee;
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;

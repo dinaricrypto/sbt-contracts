@@ -98,6 +98,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
+
     mapping(address => mapping(address => uint256)) private escrowedBalance;
 
     /// ------------------ Initialization ------------------ ///

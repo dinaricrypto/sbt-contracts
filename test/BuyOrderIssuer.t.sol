@@ -47,6 +47,7 @@ contract BuyOrderIssuerTest is Test {
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         orderFees = new OrderFees(address(this), 1 ether, 500_000);
+        orderFees = new OrderFees(address(this), 1 ether, 500_000);
 
         issuer = new BuyOrderIssuer(address(this), treasury, orderFees);
 
@@ -109,6 +110,7 @@ contract BuyOrderIssuerTest is Test {
 
     function testGetInputValue(uint24 perOrderFee, uint24 percentageFeeRate, uint128 orderValue) public {
         // uint128 used to avoid overflow when calculating larger raw input value
+        vm.assume(percentageFeeRate < 1_000_000);
         vm.assume(percentageFeeRate < 1_000_000);
         OrderFees fees = new OrderFees(address(this), perOrderFee, percentageFeeRate);
         issuer.setOrderFees(fees);
