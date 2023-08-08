@@ -125,7 +125,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     IOrderFees public orderFees;
 
     /// @notice Transfer restrictor checker
-    ITokenLockCheck public tokenLockCheck;
+    ITokenLockCheck public immutable tokenLockCheck;
 
     /// @dev Are orders paused?
     bool public ordersPaused;
