@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
-import {OrderProcessor} from "./OrderProcessor.sol";
+import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
@@ -18,51 +18,11 @@ contract BuyOrderIssuer is OrderProcessor {
     // Handle token transfers safely
     using SafeERC20 for IERC20;
 
-    /// ------------------ Types ------------------ ///
-
-    struct FeeState {
-        // Percentage fees are calculated upfront and accumulated as order is filled
-        uint256 remainingPercentageFees;
-        // Total fees earned including flat fee
-        uint256 feesEarned;
-    }
-
-    /// ------------------ State ------------------ ///
-
-    /// @dev orderId => FeeState
-    mapping(bytes32 => FeeState) private _feeState;
-
-    constructor(address _owner, address treasury_, IOrderFees orderFees_)
-        OrderProcessor(_owner, treasury_, orderFees_)
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
-    /// ------------------ Getters ------------------ ///
-
-    /// @notice Get fees for an order
-    /// @param token Payment token for order
-    /// @param inputValue Total input value subject to fees
-    /// @return flatFee Flat fee for order
-    /// @return percentageFee Percentage fee for order
-    /// @dev Fees zero if no orderFees contract is set
-    function getFeesForOrder(address token, uint256 inputValue)
-        public
-        view
-        returns (uint256 flatFee, uint256 percentageFee)
-    {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) {
-            return (0, 0);
-        }
-
-        // Calculate fees
-        flatFee = orderFees.flatFeeForOrder(token);
-        // If input value is greater than flat fee, calculate percentage fee on remaining value
-        if (inputValue > flatFee) {
-            percentageFee = orderFees.percentageFeeForValue(inputValue - flatFee);
-        } else {
-            percentageFee = 0;
-        }
-    }
+    /// ------------------ Fee Helpers ------------------ ///
 
     /// @notice Get the raw input value and fees that produce a final order value
     /// @param token Payment token for order
@@ -93,102 +53,44 @@ contract BuyOrderIssuer is OrderProcessor {
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(Order calldata order, bytes32 orderId) internal virtual override {
-        // Determine fees
-        (uint256 flatFee, uint256 percentageFee) = getFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
-        uint256 totalFees = flatFee + percentageFee;
-
-        // Initialize fee state for order
-        _feeState[orderId] = FeeState({remainingPercentageFees: percentageFee, feesEarned: flatFee});
+    function _requestOrderAccounting(bytes32, Order calldata order, uint256 totalFees) internal virtual override {
+        // TODO: verify quantityIn
 
         // Escrow payment for purchase
-        escrowedBalanceOf[order.paymentToken][order.recipient] += order.paymentTokenQuantity + totalFees;
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), order.paymentTokenQuantity + totalFees);
     }
 
-    /// @inheritdoc OrderProcessor
-    // slither-disable-next-line dead-code
     function _fillOrderAccounting(
+        bytes32,
         Order calldata order,
-        bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
-        uint256 receivedAmount
-    ) internal virtual override {
-        // Calculate fees and mint asset
-        _fillBuyOrder(order, orderId, orderState, fillAmount, receivedAmount);
-
-        escrowedBalanceOf[order.paymentToken][order.recipient] -= fillAmount;
-        // Claim payment
-        IERC20(order.paymentToken).safeTransfer(msg.sender, fillAmount);
-    }
-
-    /// @dev Fill buy order accounting and mint asset
-    function _fillBuyOrder(
-        Order calldata order,
-        bytes32 orderId,
-        OrderState memory orderState,
-        uint256 fillAmount,
-        uint256 receivedAmount
-    ) internal virtual {
-        FeeState memory feeState = _feeState[orderId];
-        uint256 remainingOrder = orderState.remainingOrder - fillAmount;
-        // If order is done, close order and transfer fees
-        if (remainingOrder == 0) {
-            _closeOrder(
-                orderId, order.paymentToken, order.recipient, feeState.remainingPercentageFees + feeState.feesEarned
-            );
-        } else {
-            // Otherwise accumulate fees for fill
-            // Calculate fees
-            uint256 collection = 0;
-            if (feeState.remainingPercentageFees > 0) {
-                // fee = remainingPercentageFees * fillAmount / remainingOrder
-                collection = PrbMath.mulDiv(feeState.remainingPercentageFees, fillAmount, orderState.remainingOrder);
-            }
-            // Update fee state
-            if (collection > 0) {
-                _feeState[orderId].remainingPercentageFees = feeState.remainingPercentageFees - collection;
-                _feeState[orderId].feesEarned = feeState.feesEarned + collection;
-            }
+        uint256
+    ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
+        paymentEarned = fillAmount;
+        // Fees - earn the flat fee if first fill, then earn percentage fee on the fill
+        // TODO: make sure that all fees are taken at total fill to prevent dust accumulating here
+        feesEarned = 0;
+        if (orderState.feesPaid == 0) {
+            feesEarned = orderState.flatFee;
         }
-
-        // Mint asset
-        IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
+        uint256 totalPercentageFees = order.quantityIn - order.paymentTokenQuantity - orderState.flatFee;
+        feesEarned += PrbMath.mulDiv(totalPercentageFees, fillAmount, order.paymentTokenQuantity);
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(Order calldata order, bytes32 orderId, OrderState memory orderState)
+    function _cancelOrderAccounting(bytes32, Order calldata order, OrderState memory orderState)
         internal
         virtual
         override
+        returns (uint256 refund)
     {
-        FeeState memory feeState = _feeState[orderId];
+        uint256 totalFees = order.quantityIn - order.paymentTokenQuantity;
         // If no fills, then full refund
-        uint256 refund = orderState.remainingOrder + feeState.remainingPercentageFees;
-        if (orderState.remainingOrder == order.paymentTokenQuantity) {
-            _closeOrder(orderId, order.paymentToken, order.recipient, 0);
-            // Refund full payment
-            refund += feeState.feesEarned;
-        } else {
-            // Otherwise close order and transfer fees
-            _closeOrder(orderId, order.paymentToken, order.recipient, feeState.feesEarned);
-        }
-
-        // Return escrow
-        escrowedBalanceOf[order.paymentToken][order.recipient] -= refund;
-        IERC20(order.paymentToken).safeTransfer(order.recipient, refund);
-    }
-
-    /// @dev Close order and transfer fees
-    function _closeOrder(bytes32 orderId, address paymentToken, address orderRecipient, uint256 feesEarned) private {
-        // Clear fee state
-        delete _feeState[orderId];
-
-        // Transfer earneds fees to treasury
-        if (feesEarned > 0) {
-            escrowedBalanceOf[paymentToken][orderRecipient] -= feesEarned;
-            IERC20(paymentToken).safeTransfer(treasury, feesEarned);
+        refund = orderState.remainingOrder + totalFees;
+        if (refund < order.quantityIn) {
+            // Refund remaining order and fees
+            refund -= orderState.feesPaid;
         }
     }
 }

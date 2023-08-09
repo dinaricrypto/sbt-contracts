@@ -9,6 +9,8 @@ import {IOrderFees} from "./IOrderFees.sol";
 /// @notice Manages fee calculations for orders.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderFees.sol)
 contract OrderFees is Ownable2Step, IOrderFees {
+    // TODO: create feelib for use across contracts
+
     /// ------------------ Types ------------------ ///
 
     /// @dev Fee is too large
@@ -17,18 +19,18 @@ contract OrderFees is Ownable2Step, IOrderFees {
     error DecimalsTooLarge();
 
     /// @dev Emitted when `perOrderFee` and `percentageFeeRate` are set
-    event FeeSet(uint256 perOrderFee, uint24 percentageFeeRate);
+    event FeeSet(uint64 perOrderFee, uint24 percentageFeeRate);
 
     /// ------------------ Constants ------------------ ///
 
-    /// @dev 10_000 == 100%
+    /// @dev 1_000_000 == 100%
     uint8 private constant _PERCENTAGE_DECIMALS = 6;
     uint24 private constant _ONEHUNDRED_PERCENT = uint24(10 ** _PERCENTAGE_DECIMALS);
 
     /// ------------------ State ------------------ ///
 
     /// @notice Flat fee per order in ethers decimals
-    uint256 public perOrderFee;
+    uint64 public perOrderFee;
 
     /// @notice Percentage fee take per order in bps
     uint24 public percentageFeeRate;
@@ -40,7 +42,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
     /// @param _perOrderFee Base flat fee per order in ethers decimals
     /// @param _percentageFeeRate Percentage fee take per order in bps
     /// @dev Percentage fee cannot be 100% or more
-    constructor(address owner, uint256 _perOrderFee, uint24 _percentageFeeRate) {
+    constructor(address owner, uint64 _perOrderFee, uint24 _percentageFeeRate) {
         // Check percentage fee is less than 100%
         if (_percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeTooLarge();
 
@@ -58,7 +60,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
     /// @param _perOrderFee Base flat fee per order in ethers decimals
     /// @param _percentageFeeRate Percentage fee per order in bps
     /// @dev Only callable by owner
-    function setFees(uint256 _perOrderFee, uint24 _percentageFeeRate) external onlyOwner {
+    function setFees(uint64 _perOrderFee, uint24 _percentageFeeRate) external onlyOwner {
         // Check percentage fee is less than 100%
         if (_percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeTooLarge();
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {BuyOrderIssuer} from "./BuyOrderIssuer.sol";
+import {BuyOrderIssuer, ITokenLockCheck} from "./BuyOrderIssuer.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {IOrderFees} from "./IOrderFees.sol";
 
@@ -14,13 +14,13 @@ contract LimitBuyIssuer is BuyOrderIssuer {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
 
-    constructor(address _owner, address treasury_, IOrderFees orderFees_)
-        BuyOrderIssuer(_owner, treasury_, orderFees_)
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        BuyOrderIssuer(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
-    function _requestOrderAccounting(Order calldata order, bytes32 orderId) internal virtual override {
+    function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual override {
         // Calls the original _requestOrderAccounting from BuyOrderIssuer
-        super._requestOrderAccounting(order, orderId);
+        super._requestOrderAccounting(id, order, totalFees);
         // Ensure order type is LIMIT
         if (order.orderType != OrderType.LIMIT) revert OrderTypeMismatch();
         // Ensure that price is set for limit orders
@@ -28,15 +28,15 @@ contract LimitBuyIssuer is BuyOrderIssuer {
     }
 
     function _fillOrderAccounting(
+        bytes32 id,
         Order calldata order,
-        bytes32 orderId,
         OrderState memory orderState,
         uint256 fillAmount,
         uint256 receivedAmount
-    ) internal virtual override {
-        // Ensure that the received amount is greater or equal to limit price * fill amount , order price has ether decimals
-        if (fillAmount > PrbMath.mulDiv18(receivedAmount, order.price)) revert OrderFillBelowLimitPrice();
-        // Calls the original _fillOrderAccounting from BuyOrderIssuer
-        super._fillOrderAccounting(order, orderId, orderState, fillAmount, receivedAmount);
+    ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
+        // Ensure that the received amount is greater or equal to fill amount / limit price , order price has ether decimals
+        if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) revert OrderFillBelowLimitPrice();
+
+        (paymentEarned, feesEarned) = super._fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
     }
 }

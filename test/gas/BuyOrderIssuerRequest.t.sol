@@ -3,11 +3,14 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
+import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigUtils.sol";
 import "../../src/issuer/BuyOrderIssuer.sol";
 import "../../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 
@@ -16,8 +19,9 @@ contract BuyOrderIssuerRequestTest is Test {
 
     dShare token;
     OrderFees orderFees;
+    TokenLockCheck tokenLockCheck;
     BuyOrderIssuer issuer;
-    MockERC20 paymentToken;
+    MockToken paymentToken;
     SigUtils sigUtils;
 
     uint256 userPrivateKey;
@@ -30,6 +34,8 @@ contract BuyOrderIssuerRequestTest is Test {
     bytes32 r;
     bytes32 s;
 
+    uint256 flatFee;
+    uint24 percentageFeeRate;
     IOrderBridge.Order order;
     bytes[] calls;
 
@@ -38,11 +44,15 @@ contract BuyOrderIssuerRequestTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockERC20("Money", "$", 6);
+        paymentToken = new MockToken();
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new OrderFees(address(this), 1_000_000, 5_000);
-        issuer = new BuyOrderIssuer(address(this), treasury, orderFees);
+        orderFees = new OrderFees(address(this), 1 ether, 5_000);
+
+        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+
+        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
@@ -64,19 +74,20 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), 1 ether);
-        uint256 fees = flatFee + percentageFee;
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, 1 ether);
         order = IOrderBridge.Order({
             recipient: user,
+            index: 0,
             assetToken: address(token),
             paymentToken: address(paymentToken),
+            quantityIn: 1 ether + fees,
             sell: false,
             orderType: IOrderBridge.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC,
-            fee: fees
+            tif: IOrderBridge.TIF.GTC
         });
 
         calls = new bytes[](2);
@@ -96,22 +107,21 @@ contract BuyOrderIssuerRequestTest is Test {
         issuer.multicall(calls);
     }
 
-    function testRequestOrderWithPermit(uint256 permitDeadline, uint256 orderAmount, bytes32 salt) public {
+    function testRequestOrderWithPermit(uint256 permitDeadline, uint256 orderAmount) public {
         vm.assume(permitDeadline > block.timestamp);
         vm.assume(orderAmount > 1_000_000);
 
-        uint256 fees = 0;
-        {
-            (uint256 flatFee, uint256 percentageFee) = issuer.getFeesForOrder(address(paymentToken), orderAmount);
-            fees = flatFee + percentageFee;
-        }
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        uint256 quantityIn = orderAmount + fees;
+
+        IOrderBridge.Order memory neworder = order;
+        neworder.quantityIn = orderAmount + fees;
+        neworder.paymentTokenQuantity = orderAmount;
 
         SigUtils.Permit memory newpermit = SigUtils.Permit({
             owner: user,
             spender: address(issuer),
-            value: quantityIn,
+            value: neworder.quantityIn,
             nonce: 0,
             deadline: permitDeadline
         });
@@ -120,15 +130,11 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(userPrivateKey, digest);
 
-        IOrderBridge.Order memory neworder = order;
-        neworder.paymentTokenQuantity = orderAmount;
-        neworder.fee = fees;
-
         bytes[] memory newcalls = new bytes[](2);
         newcalls[0] = abi.encodeWithSelector(
-            issuer.selfPermit.selector, address(paymentToken), quantityIn, permitDeadline, v2, r2, s2
+            issuer.selfPermit.selector, address(paymentToken), neworder.quantityIn, permitDeadline, v2, r2, s2
         );
-        newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder, salt);
+        newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder);
         vm.prank(user);
         issuer.multicall(newcalls);
     }

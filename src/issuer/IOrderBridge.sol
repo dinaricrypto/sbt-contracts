@@ -32,6 +32,10 @@ interface IOrderBridge {
     struct Order {
         // Recipient of order fills
         address recipient;
+        // Order index
+        uint256 index;
+        // Raw amount initially deposited for order
+        uint256 quantityIn;
         // Bridged asset token
         address assetToken;
         // Payment token
@@ -48,41 +52,40 @@ interface IOrderBridge {
         uint256 price;
         // Time in force
         TIF tif;
-        // Fee held in escrow for order
-        uint256 fee;
     }
 
     /// @dev Fully specifies order details and salt used to generate order ID
-    event OrderRequested(bytes32 indexed id, address indexed recipient, Order order, bytes32 salt);
+    event OrderRequested(address indexed recipient, uint256 indexed index, Order order);
     /// @dev Emitted for each fill
-    event OrderFill(bytes32 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
     /// @dev Emitted when order is completely filled, terminal
-    event OrderFulfilled(bytes32 indexed id, address indexed recipient);
+    event OrderFulfilled(address indexed recipient, uint256 indexed index);
     /// @dev Emitted when order cancellation is requested
-    event CancelRequested(bytes32 indexed id, address indexed recipient);
+    event CancelRequested(address indexed recipient, uint256 indexed index);
     /// @dev Emitted when order is cancelled, terminal
-    event OrderCancelled(bytes32 indexed id, address indexed recipient, string reason);
+    event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     /// ------------------ Getters ------------------ ///
 
     /// @notice Total number of open orders
     function numOpenOrders() external view returns (uint256);
 
-    /// @notice Generate Order ID deterministically from order and salt
-    /// @param order Order to get ID for
-    /// @param salt Salt used to generate unique order ID
-    function getOrderId(Order calldata order, bytes32 salt) external view returns (bytes32);
+    /// @notice Get order ID from order recipient and index
+    /// @param recipient Recipient of order fills
+    /// @param index Recipient order index
+    /// @dev Order ID is used as key to store order state
+    function getOrderId(address recipient, uint256 index) external pure returns (bytes32);
 
     /// @notice Active status of order
-    /// @param id Order ID to check
+    /// @param id Order ID
     function isOrderActive(bytes32 id) external view returns (bool);
 
     /// @notice Get remaining order quantity to fill
-    /// @param id Order ID to check
+    /// @param id Order ID
     function getRemainingOrder(bytes32 id) external view returns (uint256);
 
     /// @notice Get total received for order
-    /// @param id Order ID to check
+    /// @param id Order ID
     function getTotalReceived(bytes32 id) external view returns (uint256);
 
     /// @notice This function fetches the total balance held in escrow for a given user and token
@@ -95,29 +98,26 @@ interface IOrderBridge {
 
     /// @notice Request an order
     /// @param order Order request to submit
-    /// @param salt Salt used to generate unique order ID
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
-    function requestOrder(Order calldata order, bytes32 salt) external;
+    function requestOrder(Order calldata order) external returns (uint256);
 
     /// @notice Fill an order
     /// @param order Order request to fill
-    /// @param salt Salt used to generate unique order ID
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    function fillOrder(Order calldata order, bytes32 salt, uint256 fillAmount, uint256 receivedAmount) external;
+    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
 
     /// @notice Request to cancel an order
-    /// @param order Order request to cancel
-    /// @param salt Salt used to generate unique order ID
+    /// @param recipient Recipient of order fills
+    /// @param index Order index
     /// @dev Only callable by initial order requester
     /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
-    function requestCancel(Order calldata order, bytes32 salt) external;
+    function requestCancel(address recipient, uint256 index) external;
 
     /// @notice Cancel an order
     /// @param order Order request to cancel
-    /// @param salt Salt used to generate unique order ID
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(Order calldata order, bytes32 salt, string calldata reason) external;
+    function cancelOrder(Order calldata order, string calldata reason) external;
 }
