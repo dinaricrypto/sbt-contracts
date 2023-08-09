@@ -8,6 +8,9 @@ interface IOrderFees {
     /// @param token Token for order
     function flatFeeForOrder(address token) external view returns (uint256);
 
+    /// @notice Return the current percentage fee rate
+    function percentageFeeRate() external view returns (uint24);
+
     /// @notice Calculates percentage fee for an order
     /// @param value Value of order subject to percentage fee
     function percentageFeeForValue(uint256 value) external view returns (uint256);
@@ -15,6 +18,4 @@ interface IOrderFees {
     /// @notice Recovers input value needed to achieve a given remaining value after fees
     /// @param remainingValue Remaining value after fees
     function recoverInputValueFromRemaining(uint256 remainingValue) external view returns (uint256);
-    /// @notice Return the current percentage fee rate
-    function percentageFeeRate() external view returns (uint64);
 }

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {SellOrderProcessor} from "./SellOrderProcessor.sol";
+import {SellOrderProcessor, ITokenLockCheck} from "./SellOrderProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
+import {IOrderFees} from "./IOrderFees.sol";
 
 /**
  * @title LimitSellProcessor
@@ -13,20 +14,17 @@ contract LimitSellProcessor is SellOrderProcessor {
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();
 
-    function _requestOrderAccounting(
-        bytes32 id,
-        OrderRequest calldata orderRequest,
-        uint256 flatFee,
-        uint64 percentageFeeRate
-    ) internal virtual override returns (OrderConfig memory orderConfig) {
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        SellOrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
+    {}
+
+    function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual override {
         // Calls the original _requestOrderAccounting from SellOrderProcessor
-        orderConfig = super._requestOrderAccounting(id, orderRequest, flatFee, percentageFeeRate);
-        // Modify order type to LIMIT
-        orderConfig.orderType = OrderType.LIMIT;
+        super._requestOrderAccounting(id, order, totalFees);
+        // Ensure order type is LIMIT
+        if (order.orderType != OrderType.LIMIT) revert OrderTypeMismatch();
         // Ensure that price is set for limit orders
-        if (orderRequest.price == 0) revert LimitPriceNotSet();
-        // Set the price for the limit order
-        orderConfig.price = orderRequest.price;
+        if (order.price == 0) revert LimitPriceNotSet();
     }
 
     function _fillOrderAccounting(
@@ -36,7 +34,7 @@ contract LimitSellProcessor is SellOrderProcessor {
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
-        // Ensure that the received amount is greater or equal to limit price * fill amount, orderRequest price has ether decimals
+        // Ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
         if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) revert OrderFillAboveLimitPrice();
 
         (paymentEarned, feesEarned) = super._fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);

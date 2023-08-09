@@ -54,20 +54,6 @@ interface IOrderBridge {
         TIF tif;
     }
 
-    // Specification for an order
-    struct OrderRequest {
-        // Recipient of order fills
-        address recipient;
-        // Bridged asset token
-        address assetToken;
-        // Payment token
-        address paymentToken;
-        // Amount of incoming order token to be used for fills
-        uint256 quantityIn;
-        // price enquiry for the request
-        uint256 price;
-    }
-
     /// @dev Fully specifies order details and salt used to generate order ID
     event OrderRequested(address indexed recipient, uint256 indexed index, Order order);
     /// @dev Emitted for each fill
@@ -102,12 +88,18 @@ interface IOrderBridge {
     /// @param id Order ID
     function getTotalReceived(bytes32 id) external view returns (uint256);
 
+    /// @notice This function fetches the total balance held in escrow for a given user and token
+    /// @param token The address of the token for which the escrowed balance is fetched
+    /// @param user The address of the user for which the escrowed balance is fetched
+    /// @return Returns the total amount of the specific token held in escrow for the given user
+    function escrowedBalanceOf(address token, address user) external view returns (uint256);
+
     /// ------------------ Actions ------------------ ///
 
     /// @notice Request an order
-    /// @param orderRequest Order request to submit
+    /// @param order Order request to submit
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
-    function requestOrder(OrderRequest calldata orderRequest) external returns (uint256);
+    function requestOrder(Order calldata order) external returns (uint256);
 
     /// @notice Fill an order
     /// @param order Order request to fill

@@ -34,15 +34,11 @@ contract LimitSellProcessorTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken();
 
-        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
+        orderFees = new OrderFees(address(this), 1 ether, 5_000);
 
-        LimitSellProcessor issuerImpl = new LimitSellProcessor();
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        issuer = LimitSellProcessor(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
-            )
-        );
+
+        issuer = new LimitSellProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -52,50 +48,38 @@ contract LimitSellProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
-    function createOrderAndRequest(uint256 quantityIn, uint256 price)
-        internal
-        view
-        returns (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order)
-    {
-        orderRequest = IOrderBridge.OrderRequest({
+    function createOrder(uint256 orderAmount, uint256 price) internal view returns (IOrderBridge.Order memory order) {
+        order = IOrderBridge.Order({
             recipient: user,
+            index: 0,
+            quantityIn: orderAmount,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: quantityIn,
-            price: price
-        });
-        order = IOrderBridge.Order({
-            recipient: orderRequest.recipient,
-            index: 0,
-            quantityIn: quantityIn,
-            assetToken: orderRequest.assetToken,
-            paymentToken: orderRequest.paymentToken,
             sell: true,
             orderType: IOrderBridge.OrderType.LIMIT,
-            assetTokenQuantity: quantityIn,
+            assetTokenQuantity: orderAmount,
             paymentTokenQuantity: 0,
             price: price,
             tif: IOrderBridge.TIF.GTC
         });
     }
 
-    function testRequestOrderLimit(uint256 quantityIn, uint256 _price) public {
-        (OrderProcessor.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
-            createOrderAndRequest(quantityIn, _price);
+    function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
+        IOrderBridge.Order memory order = createOrder(orderAmount, _price);
 
-        token.mint(user, quantityIn);
+        token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), quantityIn);
+        token.increaseAllowance(address(issuer), orderAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, order.index);
-        if (quantityIn == 0) {
+        if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(user);
-            issuer.requestOrder(orderRequest);
+            issuer.requestOrder(order);
         } else if (_price == 0) {
             vm.expectRevert(LimitSellProcessor.LimitPriceNotSet.selector);
             vm.prank(user);
-            issuer.requestOrder(orderRequest);
+            issuer.requestOrder(order);
         } else {
             // balances before
             uint256 userBalanceBefore = token.balanceOf(user);
@@ -103,15 +87,15 @@ contract LimitSellProcessorTest is Test {
             vm.expectEmit(true, true, true, true);
             emit OrderRequested(user, order.index, order);
             vm.prank(user);
-            uint256 index = issuer.requestOrder(orderRequest);
+            uint256 index = issuer.requestOrder(order);
             assertEq(index, order.index);
             assertTrue(issuer.isOrderActive(id));
-            assertEq(issuer.getRemainingOrder(id), quantityIn);
+            assertEq(issuer.getRemainingOrder(id), orderAmount);
             assertEq(issuer.numOpenOrders(), 1);
-            assertEq(token.balanceOf(address(issuer)), quantityIn);
+            assertEq(token.balanceOf(address(issuer)), orderAmount);
             // balances after
-            assertEq(token.balanceOf(user), userBalanceBefore - quantityIn);
-            assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
+            assertEq(token.balanceOf(user), userBalanceBefore - orderAmount);
+            assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + orderAmount);
         }
     }
 
@@ -123,15 +107,14 @@ contract LimitSellProcessorTest is Test {
         vm.assume(fillAmount < 2 ** 128 - 1);
         vm.assume(receivedAmount < 2 ** 128 - 1);
 
-        (IOrderBridge.OrderRequest memory orderRequest, IOrderBridge.Order memory order) =
-            createOrderAndRequest(orderAmount, _price);
+        IOrderBridge.Order memory order = createOrder(orderAmount, _price);
 
         token.mint(user, orderAmount);
         vm.prank(user);
         token.increaseAllowance(address(issuer), orderAmount);
 
         vm.prank(user);
-        issuer.requestOrder(orderRequest);
+        issuer.requestOrder(order);
 
         paymentToken.mint(operator, receivedAmount); // Mint paymentTokens to operator to ensure they have enough
         vm.prank(operator);

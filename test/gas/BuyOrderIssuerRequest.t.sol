@@ -12,6 +12,7 @@ import "../../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {NumberUtils} from "../utils/NumberUtils.sol";
 
 contract BuyOrderIssuerRequestTest is Test {
     // More calls to permit and multicall for gas profiling
@@ -33,7 +34,9 @@ contract BuyOrderIssuerRequestTest is Test {
     bytes32 r;
     bytes32 s;
 
-    IOrderBridge.OrderRequest order;
+    uint256 flatFee;
+    uint24 percentageFeeRate;
+    IOrderBridge.Order order;
     bytes[] calls;
 
     function setUp() public {
@@ -44,15 +47,11 @@ contract BuyOrderIssuerRequestTest is Test {
         paymentToken = new MockToken();
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new OrderFees(address(this), 1 ether, 0.005 ether);
+        orderFees = new OrderFees(address(this), 1 ether, 5_000);
 
-        BuyOrderIssuer issuerImpl = new BuyOrderIssuer();
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        issuer = BuyOrderIssuer(
-            address(
-                new ERC1967Proxy(address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (address(this), treasury, orderFees, tokenLockCheck)))
-            )
-        );
+
+        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -75,12 +74,20 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        order = IOrderBridge.OrderRequest({
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, 1 ether);
+        order = IOrderBridge.Order({
             recipient: user,
+            index: 0,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: 1 ether,
-            price: 0
+            quantityIn: 1 ether + fees,
+            sell: false,
+            orderType: IOrderBridge.OrderType.MARKET,
+            assetTokenQuantity: 0,
+            paymentTokenQuantity: 1 ether,
+            price: 0,
+            tif: IOrderBridge.TIF.GTC
         });
 
         calls = new bytes[](2);
@@ -100,14 +107,21 @@ contract BuyOrderIssuerRequestTest is Test {
         issuer.multicall(calls);
     }
 
-    function testRequestOrderWithPermit(uint256 permitDeadline, uint256 quantityIn, bytes32 salt) public {
+    function testRequestOrderWithPermit(uint256 permitDeadline, uint256 orderAmount) public {
         vm.assume(permitDeadline > block.timestamp);
-        vm.assume(quantityIn > 1_000_000);
+        vm.assume(orderAmount > 1_000_000);
+
+        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+
+        IOrderBridge.Order memory neworder = order;
+        neworder.quantityIn = orderAmount + fees;
+        neworder.paymentTokenQuantity = orderAmount;
 
         SigUtils.Permit memory newpermit = SigUtils.Permit({
             owner: user,
             spender: address(issuer),
-            value: quantityIn,
+            value: neworder.quantityIn,
             nonce: 0,
             deadline: permitDeadline
         });
@@ -116,18 +130,11 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(userPrivateKey, digest);
 
-        IOrderBridge.OrderRequest memory neworder = IOrderBridge.OrderRequest({
-            recipient: user,
-            assetToken: address(token),
-            paymentToken: address(paymentToken),
-            quantityIn: quantityIn,
-            price: 0
-        });
         bytes[] memory newcalls = new bytes[](2);
         newcalls[0] = abi.encodeWithSelector(
-            issuer.selfPermit.selector, address(paymentToken), quantityIn, permitDeadline, v2, r2, s2
+            issuer.selfPermit.selector, address(paymentToken), neworder.quantityIn, permitDeadline, v2, r2, s2
         );
-        newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder, salt);
+        newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder);
         vm.prank(user);
         issuer.multicall(newcalls);
     }

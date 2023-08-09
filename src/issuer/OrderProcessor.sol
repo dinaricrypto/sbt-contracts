@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/access/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/security/ReentrancyGuardUpgradeable.sol";
+import {AccessControlDefaultAdminRules} from
+    "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
@@ -36,15 +32,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 ///   2. [Optional] Operator partially fills the order (fillOrder)
 ///   3. [Optional] User requests cancellation (requestCancel)
 ///   4. Operator cancels the order (cancelOrder)
-abstract contract OrderProcessor is
-    Initializable,
-    UUPSUpgradeable,
-    AccessControlDefaultAdminRulesUpgradeable,
-    ReentrancyGuardUpgradeable,
-    Multicall,
-    SelfPermit,
-    IOrderBridge
-{
+abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit, IOrderBridge {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -58,7 +46,7 @@ abstract contract OrderProcessor is
         // Flat fee at time of order request
         uint256 flatFee;
         // Percentage fee rate at time of order request
-        uint64 percentageFeeRate;
+        uint24 percentageFeeRate;
         // Amount of order token remaining to be used
         uint256 remainingOrder;
         // Total amount of received token due to fills
@@ -67,22 +55,6 @@ abstract contract OrderProcessor is
         uint256 feesPaid;
         // Whether a cancellation for this order has been initiated
         bool cancellationInitiated;
-    }
-
-    // Order execution specification
-    struct OrderConfig {
-        // Buy or sell
-        bool sell;
-        // Market or limit
-        OrderType orderType;
-        // Amount of asset token to be used for fills
-        uint256 assetTokenQuantity;
-        // Amount of payment token to be used for fills
-        uint256 paymentTokenQuantity;
-        // Price for limit orders
-        uint256 price;
-        // Time in force
-        TIF tif;
     }
 
     /// @dev Zero address
@@ -99,6 +71,8 @@ abstract contract OrderProcessor is
     error InvalidOrderData();
     /// @dev Amount too large
     error AmountTooLarge();
+    /// @dev Order type mismatch
+    error OrderTypeMismatch();
     /// @dev blacklist address
     error Blacklist();
     /// @dev Custom error when an order cancellation has already been initiated
@@ -110,12 +84,14 @@ abstract contract OrderProcessor is
     event OrderFeesSet(IOrderFees indexed orderFees);
     /// @dev Emitted when orders are paused/unpaused
     event OrdersPaused(bool paused);
+    /// @dev Emitted when token lock check contract is set
+    event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
 
     /// ------------------ Constants ------------------ ///
 
     /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
-    bytes32 private constant ORDERREQUEST_TYPE_HASH = keccak256(
-        "OrderRequest(bytes32 salt,address recipient,address assetToken,address paymentToken,uint256 quantityIn)"
+    bytes32 private constant ORDER_TYPE_HASH = keccak256(
+        "Order(address recipient,uint256 index,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
     /// @notice Admin role for managing treasury, fees, and paused state
@@ -151,29 +127,21 @@ abstract contract OrderProcessor is
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
 
+    /// @inheritdoc IOrderBridge
+    mapping(address => mapping(address => uint256)) public escrowedBalanceOf;
+
     /// ------------------ Initialization ------------------ ///
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
     /// @notice Initialize contract
-    /// @param owner Owner of contract
+    /// @param _owner Owner of contract
     /// @param treasury_ Address to receive fees
     /// @param orderFees_ Fee specification contract
     /// @dev Treasury cannot be zero address
-    function initialize(address owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        external
-        initializer
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        AccessControlDefaultAdminRules(0, _owner)
     {
         // Don't send fees to zero address
         if (treasury_ == address(0)) revert ZeroAddress();
-
-        // Initialize super contracts
-        __UUPSUpgradeable_init_unchained();
-        __AccessControlDefaultAdminRules_init_unchained(0, owner);
-        __ReentrancyGuard_init_unchained();
 
         // Initialize treasury and order fees
         treasury = treasury_;
@@ -181,11 +149,8 @@ abstract contract OrderProcessor is
 
         tokenLockCheck = tokenLockCheck_;
         // Grant admin role to owner
-        _grantRole(ADMIN_ROLE, owner);
+        _grantRole(ADMIN_ROLE, _owner);
     }
-
-    // Restrict upgrades to owner
-    function _authorizeUpgrade(address newImplementation) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
 
     /// ------------------ Administration ------------------ ///
 
@@ -221,6 +186,14 @@ abstract contract OrderProcessor is
     function setOrdersPaused(bool pause) external onlyRole(ADMIN_ROLE) {
         ordersPaused = pause;
         emit OrdersPaused(pause);
+    }
+
+    /// @notice Set token lock check contract
+    /// @param tokenLockCheck_ Token lock check contract
+    /// @dev Only callable by admin
+    function setTokenLockCheck(ITokenLockCheck tokenLockCheck_) external onlyRole(ADMIN_ROLE) {
+        tokenLockCheck = tokenLockCheck_;
+        emit TokenLockCheckSet(tokenLockCheck_);
     }
 
     /// ------------------ Getters ------------------ ///
@@ -267,7 +240,7 @@ abstract contract OrderProcessor is
     /// @return flatFee Flat fee for order
     /// @return percentageFeeRate Percentage fee rate for order
     /// @dev Fees zero if no orderFees contract is set
-    function getFeeRatesForOrder(address token) public view returns (uint256 flatFee, uint64 percentageFeeRate) {
+    function getFeeRatesForOrder(address token) public view returns (uint256 flatFee, uint24 percentageFeeRate) {
         // Check if fee contract is set
         if (address(orderFees) == address(0)) {
             return (0, 0);
@@ -282,7 +255,7 @@ abstract contract OrderProcessor is
     /// @param flatFee Flat fee for order
     /// @param percentageFeeRate Percentage fee rate for order
     /// @param inputValue Total input value subject to fees
-    function estimateTotalFees(uint256 flatFee, uint64 percentageFeeRate, uint256 inputValue)
+    function estimateTotalFees(uint256 flatFee, uint24 percentageFeeRate, uint256 inputValue)
         public
         pure
         returns (uint256 totalFees)
@@ -292,62 +265,39 @@ abstract contract OrderProcessor is
         // If input value is greater than flat fee, calculate percentage fee on remaining value
         if (inputValue > flatFee && percentageFeeRate != 0) {
             // Apply fee to input value
-            totalFees += PrbMath.mulDiv18(inputValue - flatFee, percentageFeeRate);
+            totalFees += PrbMath.mulDiv(inputValue - flatFee, percentageFeeRate, 1_000_000);
         }
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
 
-    /// @notice Request an order
-    /// @param orderRequest Order request to submit
-    /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
-    function requestOrder(OrderRequest calldata orderRequest)
-        public
-        nonReentrant
-        whenOrdersNotPaused
-        returns (uint256 index)
-    {
+    /// @inheritdoc IOrderBridge
+    function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 index) {
         // check blocklisted address
         if (
-            tokenLockCheck.isTransferLocked(orderRequest.assetToken, orderRequest.recipient)
-                || tokenLockCheck.isTransferLocked(orderRequest.assetToken, msg.sender)
-                || tokenLockCheck.isTransferLocked(orderRequest.paymentToken, orderRequest.recipient)
-                || tokenLockCheck.isTransferLocked(orderRequest.paymentToken, msg.sender)
+            tokenLockCheck.isTransferLocked(order.assetToken, order.recipient)
+                || tokenLockCheck.isTransferLocked(order.assetToken, msg.sender)
+                || tokenLockCheck.isTransferLocked(order.paymentToken, order.recipient)
+                || tokenLockCheck.isTransferLocked(order.paymentToken, msg.sender)
         ) revert Blacklist();
-        if (orderRequest.recipient == address(0)) revert ZeroAddress();
-        // Reject spam orders
-        if (orderRequest.quantityIn == 0) revert ZeroValue();
+        if (order.recipient == address(0)) revert ZeroAddress();
+        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
+        // No zero orders
+        if (orderAmount == 0) revert ZeroValue();
         // Check for whitelisted tokens
-        _checkRole(ASSETTOKEN_ROLE, orderRequest.assetToken);
-        _checkRole(PAYMENTTOKEN_ROLE, orderRequest.paymentToken);
+        _checkRole(ASSETTOKEN_ROLE, order.assetToken);
+        _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
 
-        index = _nextOrderIndex[orderRequest.recipient]++;
-        bytes32 id = getOrderId(orderRequest.recipient, index);
-
-        // Get fees for order
-        (uint256 flatFee, uint64 percentageFeeRate) = getFeeRatesForOrder(orderRequest.paymentToken);
-
-        // Get order from request and move tokens
-        OrderConfig memory orderConfig = _requestOrderAccounting(id, orderRequest, flatFee, percentageFeeRate);
-        Order memory order = Order({
-            recipient: orderRequest.recipient,
-            index: index,
-            quantityIn: orderRequest.quantityIn,
-            assetToken: orderRequest.assetToken,
-            paymentToken: orderRequest.paymentToken,
-            sell: orderConfig.sell,
-            orderType: orderConfig.orderType,
-            assetTokenQuantity: orderConfig.assetTokenQuantity,
-            paymentTokenQuantity: orderConfig.paymentTokenQuantity,
-            price: orderConfig.price,
-            tif: orderConfig.tif
-        });
+        index = _nextOrderIndex[order.recipient]++;
+        bytes32 id = getOrderId(order.recipient, index);
+        // TODO: remove values that can be set here from Order struct, quantityIn
 
         // Send order to bridge
         emit OrderRequested(order.recipient, index, order);
 
+        // Get fees for order
+        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(order.paymentToken);
         // Initialize order state
-        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         _orders[id] = OrderState({
             orderHash: hashOrder(order),
             requester: msg.sender,
@@ -359,6 +309,21 @@ abstract contract OrderProcessor is
             cancellationInitiated: false
         });
         _numOpenOrders++;
+
+        // Calculate fees
+        uint256 totalFees = estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+
+        // update escrowed balance
+        // TODO: replace?
+        if (order.sell) {
+            escrowedBalanceOf[order.assetToken][order.recipient] += orderAmount;
+        } else {
+            escrowedBalanceOf[order.paymentToken][order.recipient] += orderAmount + totalFees;
+        }
+
+        // Move tokens
+        // TODO: replace with code here
+        _requestOrderAccounting(id, order, totalFees);
     }
 
     /// @notice Hash order data for validation
@@ -406,7 +371,6 @@ abstract contract OrderProcessor is
     /// @dev Only callable by operator
     function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount)
         external
-        nonReentrant
         onlyRole(OPERATOR_ROLE)
     {
         // No nonsense
@@ -443,11 +407,13 @@ abstract contract OrderProcessor is
             assert(order.sell || feesPaid <= order.quantityIn - order.paymentTokenQuantity);
             _orders[id].remainingOrder = remainingOrder;
             _orders[id].received = orderState.received + receivedAmount;
-            _orders[id].feesPaid = orderState.feesPaid + feesEarned;
+            _orders[id].feesPaid = feesPaid;
         }
 
         // Move tokens
         if (order.sell) {
+            // update escrowed balance
+            escrowedBalanceOf[order.assetToken][order.recipient] -= fillAmount;
             // Burn the filled quantity from the asset token
             IMintBurn(order.assetToken).burn(fillAmount);
 
@@ -459,6 +425,8 @@ abstract contract OrderProcessor is
                 IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
             }
         } else {
+            // update escrowed balance
+            escrowedBalanceOf[order.paymentToken][order.recipient] -= paymentEarned + feesEarned;
             // Claim payment
             IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
 
@@ -496,7 +464,7 @@ abstract contract OrderProcessor is
     /// @param order Order to cancel
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(Order calldata order, string calldata reason) external nonReentrant onlyRole(OPERATOR_ROLE) {
+    function cancelOrder(Order calldata order, string calldata reason) external onlyRole(OPERATOR_ROLE) {
         bytes32 id = getOrderId(order.recipient, order.index);
         OrderState memory orderState = _orders[id];
         // Order must exist
@@ -514,25 +482,21 @@ abstract contract OrderProcessor is
         // Calculate refund
         uint256 refund = _cancelOrderAccounting(id, order, orderState);
 
+        address refundToken = order.sell ? order.assetToken : order.paymentToken;
+        // update escrowed balance
+        escrowedBalanceOf[refundToken][order.recipient] -= refund;
         // Return escrow
-        IERC20(order.sell ? order.assetToken : order.paymentToken).safeTransfer(orderState.requester, refund);
+        IERC20(refundToken).safeTransfer(orderState.requester, refund);
     }
 
     /// ------------------ Virtuals ------------------ ///
 
     /// @notice Compile order from request and move tokens including fees, escrow, and amount to fill
     /// @param id Order ID
-    /// @param orderRequest Order request to process
-    /// @param flatFee Flat fee for order
-    /// @param percentageFeeRate Percentage fee rate for order
-    /// @return orderConfig Order execution specification
+    /// @param order Order request to process
+    /// @param totalFees Total fees for order
     /// @dev Result used to initialize order accounting
-    function _requestOrderAccounting(
-        bytes32 id,
-        OrderRequest calldata orderRequest,
-        uint256 flatFee,
-        uint64 percentageFeeRate
-    ) internal virtual returns (OrderConfig memory orderConfig);
+    function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual;
 
     /// @notice Handle any unique order accounting and checks
     /// @param id Order ID

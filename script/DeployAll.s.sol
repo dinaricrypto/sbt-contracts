@@ -8,7 +8,6 @@ import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
-import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
     struct DeployConfig {
@@ -43,35 +42,15 @@ contract DeployAllScript is Script {
         new TransferRestrictor(cfg.owner);
 
         // deploy fee manager
-        IOrderFees orderFees = new OrderFees(cfg.owner, 1 ether, 0.005 ether);
+        IOrderFees orderFees = new OrderFees(cfg.owner, 1_000_000, 5_000);
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
 
-        // deploy implementation
-        BuyOrderIssuer buyImpl = new BuyOrderIssuer();
-        // deploy proxy and set implementation
-        BuyOrderIssuer buyOrderIssuer = BuyOrderIssuer(
-            address(
-                new ERC1967Proxy(address(buyImpl), abi.encodeCall(buyImpl.initialize, (cfg.deployer, cfg.treasury, orderFees, tokenLockCheck)))
-            )
-        );
+        BuyOrderIssuer buyOrderIssuer = new BuyOrderIssuer(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
-        // deploy implementation
-        SellOrderProcessor sellImpl = new SellOrderProcessor();
-        // deploy proxy and set implementation
-        SellOrderProcessor sellOrderProcessor = SellOrderProcessor(
-            address(
-                new ERC1967Proxy(address(sellImpl), abi.encodeCall(sellImpl.initialize, (cfg.deployer, cfg.treasury, orderFees, tokenLockCheck)))
-            )
-        );
+        SellOrderProcessor sellOrderProcessor =
+            new SellOrderProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
-        // deploy implementation
-        DirectBuyIssuer directIssuerImpl = new DirectBuyIssuer();
-        // deploy proxy and set implementation
-        DirectBuyIssuer directBuyIssuer = DirectBuyIssuer(
-            address(
-                new ERC1967Proxy(address(directIssuerImpl), abi.encodeCall(directIssuerImpl.initialize, (cfg.deployer, cfg.treasury, orderFees, tokenLockCheck)))
-            )
-        );
+        DirectBuyIssuer directBuyIssuer = new DirectBuyIssuer(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
         // config operator
         buyOrderIssuer.grantRole(buyOrderIssuer.OPERATOR_ROLE(), cfg.operator);

@@ -3,8 +3,9 @@ pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
-import {OrderProcessor} from "./OrderProcessor.sol";
+import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
+import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BuyOrderIssuer.sol)
@@ -17,10 +18,9 @@ contract BuyOrderIssuer is OrderProcessor {
     // Handle token transfers safely
     using SafeERC20 for IERC20;
 
-    /// ------------------ Types ------------------ ///
-
-    /// @dev Order is too small to pay fees
-    error OrderTooSmall();
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
+    {}
 
     /// ------------------ Fee Helpers ------------------ ///
 
@@ -53,32 +53,11 @@ contract BuyOrderIssuer is OrderProcessor {
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(
-        bytes32,
-        OrderRequest calldata orderRequest,
-        uint256 flatFee,
-        uint64 percentageFeeRate
-    ) internal virtual override returns (OrderConfig memory orderConfig) {
-        uint256 totalFees = estimateTotalFees(flatFee, percentageFeeRate, orderRequest.quantityIn);
-        // Fees must not exceed order input value
-        if (totalFees >= orderRequest.quantityIn) revert OrderTooSmall();
-
-        // Construct order specification
-        orderConfig = OrderConfig({
-            // Buy order
-            sell: false,
-            // Market order
-            orderType: OrderType.MARKET,
-            assetTokenQuantity: 0,
-            // Hold fees back from order amount
-            paymentTokenQuantity: orderRequest.quantityIn - totalFees,
-            price: orderRequest.price,
-            // Good until cancelled
-            tif: TIF.GTC
-        });
+    function _requestOrderAccounting(bytes32, Order calldata order, uint256 totalFees) internal virtual override {
+        // TODO: verify quantityIn
 
         // Escrow payment for purchase
-        IERC20(orderRequest.paymentToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), order.paymentTokenQuantity + totalFees);
     }
 
     function _fillOrderAccounting(

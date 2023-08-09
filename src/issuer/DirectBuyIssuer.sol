@@ -2,8 +2,10 @@
 pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {BuyOrderIssuer, OrderProcessor} from "./BuyOrderIssuer.sol";
+import {OrderProcessor} from "./OrderProcessor.sol";
+import {LimitBuyIssuer, ITokenLockCheck} from "./LimitBuyIssuer.sol";
 import {IMintBurn} from "../IMintBurn.sol";
+import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
@@ -25,7 +27,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract DirectBuyIssuer is BuyOrderIssuer {
+contract DirectBuyIssuer is LimitBuyIssuer {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -42,6 +44,10 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     /// @dev orderId => escrow
     mapping(bytes32 => uint256) public getOrderEscrow;
+
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        LimitBuyIssuer(_owner, treasury_, orderFees_, tokenLockCheck_)
+    {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 
@@ -62,6 +68,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
         // Update escrow tracking
         getOrderEscrow[id] = escrow - amount;
+        escrowedBalanceOf[order.paymentToken][order.recipient] -= amount;
         // Notify escrow taken
         emit EscrowTaken(order.recipient, order.index, amount);
 
@@ -88,6 +95,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
         // Update escrow tracking
         getOrderEscrow[id] = escrow + amount;
+        escrowedBalanceOf[order.paymentToken][order.recipient] += amount;
         // Notify escrow returned
         emit EscrowReturned(order.recipient, order.index, amount);
 
@@ -96,16 +104,11 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     }
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(
-        bytes32 id,
-        OrderRequest calldata orderRequest,
-        uint256 flatFee,
-        uint64 percentageFeeRate
-    ) internal virtual override returns (OrderConfig memory orderConfig) {
+    function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual override {
         // Compile standard buy order
-        orderConfig = super._requestOrderAccounting(id, orderRequest, flatFee, percentageFeeRate);
+        super._requestOrderAccounting(id, order, totalFees);
         // Initialize escrow tracking for order
-        getOrderEscrow[id] = orderConfig.paymentTokenQuantity;
+        getOrderEscrow[id] = order.paymentTokenQuantity;
     }
 
     /// @inheritdoc OrderProcessor

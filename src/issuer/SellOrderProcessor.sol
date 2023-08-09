@@ -3,8 +3,9 @@ pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
-import {OrderProcessor} from "./OrderProcessor.sol";
+import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
+import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/SellOrderProcessor.sol)
@@ -17,30 +18,16 @@ import {IMintBurn} from "../IMintBurn.sol";
 contract SellOrderProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
 
+    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
+        OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
+    {}
+
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(bytes32, OrderRequest calldata orderRequest, uint256, uint64)
-        internal
-        virtual
-        override
-        returns (OrderConfig memory orderConfig)
-    {
-        // Construct order
-        orderConfig = OrderConfig({
-            // Sell order
-            sell: true,
-            // Market order
-            orderType: OrderType.MARKET,
-            assetTokenQuantity: orderRequest.quantityIn,
-            paymentTokenQuantity: 0,
-            price: orderRequest.price,
-            // Good until cancelled
-            tif: TIF.GTC
-        });
-
-        // Escrow asset for sale
-        IERC20(orderRequest.assetToken).safeTransferFrom(msg.sender, address(this), orderRequest.quantityIn);
+    function _requestOrderAccounting(bytes32, Order calldata order, uint256) internal virtual override {
+        // Transfer asset to contract
+        IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
     }
 
     function _fillOrderAccounting(
