@@ -223,7 +223,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
         vm.assume(_price > 0);
-        vm.assume(!NumberUtils.mulCheckOverflow(fillAmount, 1 ether / _price));
+        vm.assume(!NumberUtils.mulDivCheckOverflow(fillAmount, 1 ether, _price));
         uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;

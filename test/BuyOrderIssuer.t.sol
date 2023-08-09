@@ -17,6 +17,7 @@ contract BuyOrderIssuerTest is Test {
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees indexed orderFees);
     event OrdersPaused(bool paused);
+    event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
 
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
@@ -99,6 +100,13 @@ contract BuyOrderIssuerTest is Test {
         emit OrderFeesSet(fees);
         issuer.setOrderFees(fees);
         assertEq(address(issuer.orderFees()), address(fees));
+    }
+
+    function testSetTokenLockCheck(ITokenLockCheck _tokenLockCheck) public {
+        vm.expectEmit(true, true, true, true);
+        emit TokenLockCheckSet(_tokenLockCheck);
+        issuer.setTokenLockCheck(_tokenLockCheck);
+        assertEq(address(issuer.tokenLockCheck()), address(_tokenLockCheck));
     }
 
     function testNoFees(uint256 value) public {

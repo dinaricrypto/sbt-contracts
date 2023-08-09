@@ -84,6 +84,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     event OrderFeesSet(IOrderFees indexed orderFees);
     /// @dev Emitted when orders are paused/unpaused
     event OrdersPaused(bool paused);
+    /// @dev Emitted when token lock check contract is set
+    event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
 
     /// ------------------ Constants ------------------ ///
 
@@ -184,6 +186,14 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     function setOrdersPaused(bool pause) external onlyRole(ADMIN_ROLE) {
         ordersPaused = pause;
         emit OrdersPaused(pause);
+    }
+
+    /// @notice Set token lock check contract
+    /// @param tokenLockCheck_ Token lock check contract
+    /// @dev Only callable by admin
+    function setTokenLockCheck(ITokenLockCheck tokenLockCheck_) external onlyRole(ADMIN_ROLE) {
+        tokenLockCheck = tokenLockCheck_;
+        emit TokenLockCheckSet(tokenLockCheck_);
     }
 
     /// ------------------ Getters ------------------ ///

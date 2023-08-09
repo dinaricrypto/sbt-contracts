@@ -20,4 +20,16 @@ library NumberUtils {
         }
         return c / a != b;
     }
+
+    function mulDivCheckOverflow(uint256 a, uint256 b, uint256 denominator) internal pure returns (bool) {
+        // Taken from prb - math
+        uint256 prod0; // Least significant 256 bits of the product
+        uint256 prod1; // Most significant 256 bits of the product
+        assembly ("memory-safe") {
+            let mm := mulmod(a, b, not(0))
+            prod0 := mul(a, b)
+            prod1 := sub(sub(mm, prod0), lt(mm, prod0))
+        }
+        return prod1 >= denominator;
+    }
 }
