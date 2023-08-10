@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "../src/issuer/OrderFees.sol";
+import {FeeLib} from "../src/FeeLib.sol";
 
 contract OrderFeesTest is Test {
     event FeeSet(uint64 perOrderFee, uint24 percentageFee);
@@ -28,7 +29,7 @@ contract OrderFeesTest is Test {
 
     function testSetFee(uint64 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
         if (percentageFee >= 1_000_000) {
-            vm.expectRevert(OrderFees.FeeTooLarge.selector);
+            vm.expectRevert(FeeLib.FeeTooLarge.selector);
             orderFees.setFees(perOrderFee, percentageFee);
         } else {
             vm.expectEmit(true, true, true, true);
@@ -39,7 +40,7 @@ contract OrderFeesTest is Test {
             assertEq(orderFees.percentageFeeForValue(value), PrbMath.mulDiv(value, percentageFee, 1_000_000));
             MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
             if (tokenDecimals > 18) {
-                vm.expectRevert(OrderFees.DecimalsTooLarge.selector);
+                vm.expectRevert(FeeLib.DecimalsTooLarge.selector);
                 orderFees.flatFeeForOrder(address(newToken));
             } else {
                 assertEq(orderFees.flatFeeForOrder(address(newToken)), decimalAdjust(newToken.decimals(), perOrderFee));

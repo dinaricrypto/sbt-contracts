@@ -13,6 +13,7 @@ import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {dShare} from "../dShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IMintBurn} from "../IMintBurn.sol";
+import {FeeLib} from "../FeeLib.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -260,13 +261,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         pure
         returns (uint256 totalFees)
     {
-        // Calculate fees
-        totalFees = flatFee;
-        // If input value is greater than flat fee, calculate percentage fee on remaining value
-        if (inputValue > flatFee && percentageFeeRate != 0) {
-            // Apply fee to input value
-            totalFees += PrbMath.mulDiv(inputValue - flatFee, percentageFeeRate, 1_000_000);
-        }
+        return FeeLib.estimateTotalFees(flatFee, percentageFeeRate, inputValue);
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
