@@ -13,6 +13,10 @@ library FeeLib {
     /// @dev Decimals are too large
     error DecimalsTooLarge();
 
+    function checkPercentageFeeRate(uint24 _percentageFeeRate) internal pure {
+        if (_percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeTooLarge();
+    }
+
     function percentageFeeForValue(uint256 value, uint24 percentageFeeRate) internal pure returns (uint256) {
         if (percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeTooLarge();
         return percentageFeeRate != 0 ? PrbMath.mulDiv(value, percentageFeeRate, _ONEHUNDRED_PERCENT) : 0;
