@@ -248,20 +248,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         }
 
         // Get fee rates
-        flatFee = orderFees.flatFeeForOrder(token);
+        flatFee = FeeLib.flatFeeForOrder(token, orderFees.perOrderFee());
         percentageFeeRate = orderFees.percentageFeeRate();
-    }
-
-    /// @notice Get total fees for an order
-    /// @param flatFee Flat fee for order
-    /// @param percentageFeeRate Percentage fee rate for order
-    /// @param inputValue Total input value subject to fees
-    function estimateTotalFees(uint256 flatFee, uint24 percentageFeeRate, uint256 inputValue)
-        public
-        pure
-        returns (uint256 totalFees)
-    {
-        return FeeLib.estimateTotalFees(flatFee, percentageFeeRate, inputValue);
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -306,7 +294,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         _numOpenOrders++;
 
         // Calculate fees
-        uint256 totalFees = estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
 
         // update escrowed balance
         // TODO: replace?

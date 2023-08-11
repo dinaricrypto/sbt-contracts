@@ -36,7 +36,7 @@ contract OrderFees is Ownable2Step, IOrderFees {
     /// @dev Percentage fee cannot be 100% or more
     constructor(address owner, uint64 _perOrderFee, uint24 _percentageFeeRate) {
         // Check percentage fee is less than 100%
-        if (_percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeLib.FeeTooLarge();
+        FeeLib.checkPercentageFeeRate(_percentageFeeRate);
 
         // Set owner
         _transferOwnership(owner);
@@ -54,29 +54,12 @@ contract OrderFees is Ownable2Step, IOrderFees {
     /// @dev Only callable by owner
     function setFees(uint64 _perOrderFee, uint24 _percentageFeeRate) external onlyOwner {
         // Check percentage fee is less than 100%
-        if (_percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeLib.FeeTooLarge();
+        FeeLib.checkPercentageFeeRate(_percentageFeeRate);
 
         // Update fees
         perOrderFee = _perOrderFee;
         percentageFeeRate = _percentageFeeRate;
         // Emit new fees
         emit FeeSet(_perOrderFee, _percentageFeeRate);
-    }
-
-    /// ------------------ Fee Calculation ------------------ ///
-
-    /// @inheritdoc IOrderFees
-    function flatFeeForOrder(address token) external view returns (uint256 flatFee) {
-        return FeeLib.flatFeeForOrder(token, perOrderFee);
-    }
-
-    /// @inheritdoc IOrderFees
-    function percentageFeeForValue(uint256 value) external view returns (uint256) {
-        return FeeLib.percentageFeeForValue(value, percentageFeeRate);
-    }
-
-    /// @inheritdoc IOrderFees
-    function recoverInputValueFromRemaining(uint256 remainingValue) external view returns (uint256) {
-        return FeeLib.recoverInputValueFromRemaining(remainingValue, percentageFeeRate);
     }
 }

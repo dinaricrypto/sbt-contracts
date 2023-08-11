@@ -6,6 +6,7 @@ import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
+import {FeeLib} from "../FeeLib.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BuyOrderIssuer.sol)
@@ -42,10 +43,10 @@ contract BuyOrderIssuer is OrderProcessor {
         }
 
         // Calculate input value after flat fee
-        uint256 recoveredValue = orderFees.recoverInputValueFromRemaining(orderValue);
+        uint256 recoveredValue = FeeLib.recoverInputValueFromRemaining(orderValue, orderFees.percentageFeeRate());
         // Calculate fees
-        percentageFee = orderFees.percentageFeeForValue(recoveredValue);
-        flatFee = orderFees.flatFeeForOrder(token);
+        percentageFee = FeeLib.percentageFeeForValue(recoveredValue, orderFees.percentageFeeRate());
+        flatFee = FeeLib.flatFeeForOrder(token, orderFees.perOrderFee());
         // Calculate raw input value
         inputValue = recoveredValue + flatFee;
     }

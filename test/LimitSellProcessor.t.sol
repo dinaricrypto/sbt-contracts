@@ -10,6 +10,7 @@ import "../src/issuer/LimitSellProcessor.sol";
 import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
+import {FeeLib} from "../src/FeeLib.sol";
 
 contract LimitSellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);

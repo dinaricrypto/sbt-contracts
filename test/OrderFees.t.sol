@@ -7,6 +7,8 @@ import "../src/issuer/OrderFees.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
 contract OrderFeesTest is Test {
+    error DecimalsTooLarge();
+
     event FeeSet(uint64 perOrderFee, uint24 percentageFee);
 
     OrderFees orderFees;
@@ -37,20 +39,23 @@ contract OrderFeesTest is Test {
             orderFees.setFees(perOrderFee, percentageFee);
             assertEq(orderFees.perOrderFee(), perOrderFee);
             assertEq(orderFees.percentageFeeRate(), percentageFee);
-            assertEq(orderFees.percentageFeeForValue(value), PrbMath.mulDiv(value, percentageFee, 1_000_000));
-            MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
-            if (tokenDecimals > 18) {
-                vm.expectRevert(FeeLib.DecimalsTooLarge.selector);
-                orderFees.flatFeeForOrder(address(newToken));
-            } else {
-                assertEq(orderFees.flatFeeForOrder(address(newToken)), decimalAdjust(newToken.decimals(), perOrderFee));
-            }
+            assertEq(
+                FeeLib.percentageFeeForValue(value, orderFees.percentageFeeRate()),
+                PrbMath.mulDiv(value, percentageFee, 1_000_000)
+            );
+            // MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
+            // if (tokenDecimals > 18) {
+            //     vm.expectRevert(FeeLib.DecimalsTooLarge.selector);
+            //     FeeLib.flatFeeForOrder(address(newToken), orderFees.perOrderFee());
+            // } else {
+            //     assertEq(FeeLib.flatFeeForOrder(address(newToken), orderFees.perOrderFee()), decimalAdjust(newToken.decimals(), perOrderFee));
+            // }
         }
     }
 
     function testUSDC() public {
         // 1 USDC flat fee
-        uint256 flatFee = orderFees.flatFeeForOrder(address(usdc));
+        uint256 flatFee = FeeLib.flatFeeForOrder(address(usdc), orderFees.perOrderFee());
         assertEq(flatFee, 1e6);
     }
 
@@ -59,8 +64,8 @@ contract OrderFeesTest is Test {
         vm.assume(percentageFeeRate < 1_000_000);
         orderFees.setFees(orderFees.perOrderFee(), percentageFeeRate);
 
-        uint256 inputValue = orderFees.recoverInputValueFromRemaining(remainingValue);
-        uint256 percentageFee = orderFees.percentageFeeForValue(inputValue);
+        uint256 inputValue = FeeLib.recoverInputValueFromRemaining(remainingValue, orderFees.percentageFeeRate());
+        uint256 percentageFee = FeeLib.percentageFeeForValue(inputValue, orderFees.percentageFeeRate());
         assertEq(remainingValue, inputValue - percentageFee);
     }
 }

@@ -10,6 +10,7 @@ import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
+import {FeeLib} from "../src/FeeLib.sol";
 
 contract LimitBuyIssuerTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
@@ -74,7 +75,7 @@ contract LimitBuyIssuerTest is Test {
     }
 
     function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         IOrderBridge.Order memory order = createOrder(orderAmount, _price, fees);
 
@@ -112,7 +113,7 @@ contract LimitBuyIssuerTest is Test {
         vm.assume(_price > 0);
         vm.assume(orderAmount > 0);
         vm.assume(!NumberUtils.mulDivCheckOverflow(fillAmount, 1 ether, _price));
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderBridge.Order memory order = createOrder(orderAmount, _price, fees);
