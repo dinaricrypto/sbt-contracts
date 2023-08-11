@@ -17,7 +17,6 @@ contract OrderFees is Ownable2Step, IOrderFees {
 
     /// @dev 1_000_000 == 100%
     uint8 private constant _PERCENTAGE_DECIMALS = 6;
-    uint24 private constant _ONEHUNDRED_PERCENT = uint24(10 ** _PERCENTAGE_DECIMALS);
 
     /// ------------------ State ------------------ ///
 
