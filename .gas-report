@@ -184,9 +184,10 @@
 | ASSETTOKEN_ROLE                                               | 284             | 284    | 284    | 284    | 2       |
 | OPERATOR_ROLE                                                 | 283             | 283    | 283    | 283    | 2       |
 | PAYMENTTOKEN_ROLE                                             | 263             | 263    | 263    | 263    | 2       |
-| fillOrder                                                     | 2832            | 2832   | 2832   | 2832   | 1       |
+| fillOrder                                                     | 91111           | 91111  | 91111  | 91111  | 1       |
 | getOrderId                                                    | 638             | 638    | 638    | 638    | 2       |
-| getRemainingOrder                                             | 557             | 557    | 557    | 557    | 1       |
+| getRemainingOrder                                             | 557             | 557    | 557    | 557    | 2       |
+| getTotalReceived                                              | 512             | 512    | 512    | 512    | 1       |
 | grantRole                                                     | 27589           | 27589  | 27589  | 27589  | 6       |
 | isOrderActive                                                 | 514             | 514    | 514    | 514    | 1       |
 | numOpenOrders                                                 | 382             | 382    | 382    | 382    | 1       |
