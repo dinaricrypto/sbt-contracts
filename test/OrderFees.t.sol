@@ -43,13 +43,13 @@ contract OrderFeesTest is Test {
                 FeeLib.percentageFeeForValue(value, orderFees.percentageFeeRate()),
                 PrbMath.mulDiv(value, percentageFee, 1_000_000)
             );
-            // MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
-            // if (tokenDecimals > 18) {
-            //     vm.expectRevert(FeeLib.DecimalsTooLarge.selector);
-            //     FeeLib.flatFeeForOrder(address(newToken), orderFees.perOrderFee());
-            // } else {
-            //     assertEq(FeeLib.flatFeeForOrder(address(newToken), orderFees.perOrderFee()), decimalAdjust(newToken.decimals(), perOrderFee));
-            // }
+            MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
+            if (tokenDecimals > 18) {
+                vm.expectRevert(FeeLib.DecimalsTooLarge.selector);
+                this.wrapPure(address(newToken));
+            } else {
+                assertEq(this.wrapPure(address(newToken)), decimalAdjust(newToken.decimals(), perOrderFee));
+            }
         }
     }
 
@@ -67,5 +67,9 @@ contract OrderFeesTest is Test {
         uint256 inputValue = FeeLib.recoverInputValueFromRemaining(remainingValue, orderFees.percentageFeeRate());
         uint256 percentageFee = FeeLib.percentageFeeForValue(inputValue, orderFees.percentageFeeRate());
         assertEq(remainingValue, inputValue - percentageFee);
+    }
+
+    function wrapPure(address newToken) public view returns (uint256) {
+        return FeeLib.flatFeeForOrder(newToken, orderFees.perOrderFee());
     }
 }
