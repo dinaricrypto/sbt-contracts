@@ -2,6 +2,7 @@ BuyOrderIssuerRequestTest:testRequestOrderWithPermit(uint256,uint256) (runs: 518
 BuyOrderIssuerRequestTest:testRequestOrderWithPermitSingle() (gas: 398008)
 BuyOrderIssuerRequestTest:testSelfPermit() (gas: 75636)
 BuyOrderIssuerTest:testBlackListAssetRevert() (gas: 75160)
+
 BuyOrderIssuerTest:testCancelOrder(uint256,uint256,string) (runs: 518, μ: 455172, ~: 464173)
 BuyOrderIssuerTest:testCancelOrderNotFoundReverts() (gas: 48443)
 BuyOrderIssuerTest:testFillOrder(uint256,uint256,uint256) (runs: 518, μ: 418184, ~: 349860)
