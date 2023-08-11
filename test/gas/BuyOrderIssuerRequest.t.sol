@@ -93,14 +93,14 @@ contract BuyOrderIssuerRequestTest is Test {
 
         calls = new bytes[](2);
         calls[0] = abi.encodeWithSelector(
-            issuer.selfPermit.selector, address(paymentToken), type(uint256).max, 30 days, v, r, s
+            issuer.selfPermit.selector, address(paymentToken), user, type(uint256).max, 30 days, v, r, s
         );
         calls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, order, bytes32("0x01"));
     }
 
     function testSelfPermit() public {
         vm.prank(user);
-        issuer.selfPermit(address(paymentToken), type(uint256).max, 30 days, v, r, s);
+        issuer.selfPermit(address(paymentToken), user, type(uint256).max, 30 days, v, r, s);
     }
 
     function testRequestOrderWithPermitSingle() public {
@@ -133,7 +133,14 @@ contract BuyOrderIssuerRequestTest is Test {
 
         bytes[] memory newcalls = new bytes[](2);
         newcalls[0] = abi.encodeWithSelector(
-            issuer.selfPermit.selector, address(paymentToken), neworder.quantityIn, permitDeadline, v2, r2, s2
+            issuer.selfPermit.selector,
+            address(paymentToken),
+            newpermit.owner,
+            neworder.quantityIn,
+            permitDeadline,
+            v2,
+            r2,
+            s2
         );
         newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder);
         vm.prank(user);

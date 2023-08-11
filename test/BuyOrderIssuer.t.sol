@@ -304,7 +304,7 @@ contract BuyOrderIssuerTest is Test {
 
         bytes[] memory calls = new bytes[](2);
         calls[0] = abi.encodeWithSelector(
-            issuer.selfPermit.selector, address(paymentToken), permit.value, permit.deadline, v, r, s
+            issuer.selfPermit.selector, address(paymentToken), permit.owner, permit.value, permit.deadline, v, r, s
         );
         calls[1] = abi.encodeWithSelector(OrderProcessor.requestOrder.selector, dummyOrder);
 
