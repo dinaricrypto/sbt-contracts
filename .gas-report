@@ -5,7 +5,7 @@
 | Function Name                                                | min             | avg   | median | max   | # calls |
 | approve                                                      | 24403           | 24403 | 24403  | 24403 | 3       |
 | balanceOf                                                    | 599             | 932   | 599    | 2599  | 6       |
-| decimals                                                     | 2335            | 2335  | 2335   | 2335  | 1       |
+| decimals                                                     | 335             | 1335  | 1335   | 2335  | 2       |
 | mint                                                         | 46581           | 46581 | 46581  | 46581 | 3       |
 | transfer                                                     | 18235           | 21514 | 21514  | 24793 | 2       |
 | transferFrom                                                 | 20277           | 20277 | 20277  | 20277 | 2       |
@@ -166,9 +166,9 @@
 | Deployment Cost                             | Deployment Size |      |        |      |         |
 | 308804                                      | 1818            |      |        |      |         |
 | Function Name                               | min             | avg  | median | max  | # calls |
-| perOrderFee                                 | 320             | 1070 | 320    | 2320 | 64      |
-| percentageFeeRate                           | 352             | 352  | 352    | 352  | 65      |
-| setFees                                     | 2584            | 4795 | 4795   | 7007 | 2       |
+| perOrderFee                                 | 320             | 1047 | 320    | 2320 | 66      |
+| percentageFeeRate                           | 352             | 352  | 352    | 352  | 67      |
+| setFees                                     | 7007            | 8007 | 8007   | 9007 | 2       |
 | src/issuer/SellOrderProcessor.sol:SellOrderProcessor contract |                 |        |        |        |         |
 |---------------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                               | Deployment Size |        |        |        |         |
@@ -188,6 +188,12 @@
 | isOrderActive                                                 | 514             | 514    | 514    | 514    | 1       |
 | numOpenOrders                                                 | 382             | 382    | 382    | 382    | 3       |
 | requestOrder                                                  | 221229          | 222638 | 223047 | 223229 | 4       |
+| test/OrderFees.t.sol:OrderFeesTest contract |                 |      |        |      |         |
+|---------------------------------------------|-----------------|------|--------|------|---------|
+| Deployment Cost                             | Deployment Size |      |        |      |         |
+| 2824685                                     | 13948           |      |        |      |         |
+| Function Name                               | min             | avg  | median | max  | # calls |
+| wrapPure                                    | 2062            | 2062 | 2062   | 2062 | 1       |
 | test/utils/SigUtils.sol:SigUtils contract |                 |      |        |      |         |
 |-------------------------------------------|-----------------|------|--------|------|---------|
 | Deployment Cost                           | Deployment Size |      |        |      |         |
