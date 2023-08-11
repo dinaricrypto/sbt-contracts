@@ -12,12 +12,7 @@ import {FeeLib} from "../FeeLib.sol";
 contract OrderFees is Ownable2Step, IOrderFees {
     /// @dev Emitted when `perOrderFee` and `percentageFeeRate` are set
     event FeeSet(uint64 perOrderFee, uint24 percentageFeeRate);
-
-    /// ------------------ Constants ------------------ ///
-
-    /// @dev 1_000_000 == 100%
-    uint8 private constant _PERCENTAGE_DECIMALS = 6;
-
+    
     /// ------------------ State ------------------ ///
 
     /// @notice Flat fee per order in ethers decimals
