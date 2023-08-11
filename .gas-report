@@ -155,6 +155,8 @@
 | getFeeRatesForOrder                                     | 3763            | 3763   | 3763   | 3763   | 5       |
 | getOrderEscrow                                          | 552             | 552    | 552    | 552    | 1       |
 | getOrderId                                              | 616             | 616    | 616    | 616    | 3       |
+| getRemainingOrder                                       | 534             | 534    | 534    | 534    | 1       |
+| getTotalReceived                                        | 556             | 556    | 556    | 556    | 1       |
 | grantRole                                               | 27566           | 27566  | 27566  | 27566  | 15      |
 | requestOrder                                            | 248518          | 248734 | 248878 | 248878 | 5       |
 | returnEscrow                                            | 25313           | 25313  | 25313  | 25313  | 1       |

@@ -95,8 +95,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         "Order(address recipient,uint256 index,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
-    /// @notice Admin role for managing treasury, fees, and paused state
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     /// @notice Operator role for filling and cancelling orders
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     /// @notice Payment token role for whitelisting payment tokens
@@ -149,8 +147,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         orderFees = orderFees_;
 
         tokenLockCheck = tokenLockCheck_;
-        // Grant admin role to owner
-        _grantRole(ADMIN_ROLE, _owner);
     }
 
     /// ------------------ Administration ------------------ ///
@@ -165,7 +161,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @param account Address to receive fees
     /// @dev Only callable by admin
     /// Treasury cannot be zero address
-    function setTreasury(address account) external onlyRole(ADMIN_ROLE) {
+    function setTreasury(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         // Don't send fees to zero address
         if (account == address(0)) revert ZeroAddress();
 
@@ -176,7 +172,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Set order fees contract
     /// @param fees Order fees contract
     /// @dev Only callable by admin
-    function setOrderFees(IOrderFees fees) external onlyRole(ADMIN_ROLE) {
+    function setOrderFees(IOrderFees fees) external onlyRole(DEFAULT_ADMIN_ROLE) {
         orderFees = fees;
         emit OrderFeesSet(fees);
     }
@@ -184,7 +180,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Pause/unpause orders
     /// @param pause Pause orders if true, unpause if false
     /// @dev Only callable by admin
-    function setOrdersPaused(bool pause) external onlyRole(ADMIN_ROLE) {
+    function setOrdersPaused(bool pause) external onlyRole(DEFAULT_ADMIN_ROLE) {
         ordersPaused = pause;
         emit OrdersPaused(pause);
     }
@@ -192,7 +188,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Set token lock check contract
     /// @param tokenLockCheck_ Token lock check contract
     /// @dev Only callable by admin
-    function setTokenLockCheck(ITokenLockCheck tokenLockCheck_) external onlyRole(ADMIN_ROLE) {
+    function setTokenLockCheck(ITokenLockCheck tokenLockCheck_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         tokenLockCheck = tokenLockCheck_;
         emit TokenLockCheckSet(tokenLockCheck_);
     }
