@@ -10,6 +10,7 @@ import "../src/issuer/IOrderBridge.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {FeeLib} from "../src/FeeLib.sol";
 
 contract SellOrderProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);

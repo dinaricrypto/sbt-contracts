@@ -12,6 +12,7 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
+import {FeeLib} from "../src/FeeLib.sol";
 
 contract BuyOrderIssuerTest is Test {
     event TreasurySet(address indexed treasury);
@@ -65,7 +66,7 @@ contract BuyOrderIssuerTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
-        dummyOrderFees = issuer.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
+        dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
         dummyOrder = IOrderBridge.Order({
             recipient: user,
             index: 0,
@@ -131,7 +132,7 @@ contract BuyOrderIssuerTest is Test {
             issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
         assertEq(inputValue - _flatFee - percentageFee, orderValue);
         (uint256 flatFee2, uint24 percentageFeeRate2) = issuer.getFeeRatesForOrder(address(paymentToken));
-        uint256 totalFees = issuer.estimateTotalFees(flatFee2, percentageFeeRate2, inputValue);
+        uint256 totalFees = FeeLib.estimateTotalFees(flatFee2, percentageFeeRate2, inputValue);
         assertEq(_flatFee, flatFee2);
         assertEq(totalFees, _flatFee + percentageFee);
     }
@@ -144,7 +145,7 @@ contract BuyOrderIssuerTest is Test {
     }
 
     function testRequestOrder(uint256 orderAmount) public {
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderBridge.Order memory order = dummyOrder;
@@ -198,7 +199,7 @@ contract BuyOrderIssuerTest is Test {
 
     function testRequestOrderBlacklist(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderBridge.Order memory order = dummyOrder;
@@ -219,7 +220,7 @@ contract BuyOrderIssuerTest is Test {
 
     function testPaymentTokenBlackList(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -328,7 +329,7 @@ contract BuyOrderIssuerTest is Test {
 
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -385,7 +386,7 @@ contract BuyOrderIssuerTest is Test {
 
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -467,7 +468,7 @@ contract BuyOrderIssuerTest is Test {
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 

@@ -13,6 +13,7 @@ import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {dShare} from "../dShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IMintBurn} from "../IMintBurn.sol";
+import {FeeLib} from "../FeeLib.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -243,26 +244,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         }
 
         // Get fee rates
-        flatFee = orderFees.flatFeeForOrder(token);
+        flatFee = FeeLib.flatFeeForOrder(token, orderFees.perOrderFee());
         percentageFeeRate = orderFees.percentageFeeRate();
-    }
-
-    /// @notice Get total fees for an order
-    /// @param flatFee Flat fee for order
-    /// @param percentageFeeRate Percentage fee rate for order
-    /// @param inputValue Total input value subject to fees
-    function estimateTotalFees(uint256 flatFee, uint24 percentageFeeRate, uint256 inputValue)
-        public
-        pure
-        returns (uint256 totalFees)
-    {
-        // Calculate fees
-        totalFees = flatFee;
-        // If input value is greater than flat fee, calculate percentage fee on remaining value
-        if (inputValue > flatFee && percentageFeeRate != 0) {
-            // Apply fee to input value
-            totalFees += PrbMath.mulDiv(inputValue - flatFee, percentageFeeRate, 1_000_000);
-        }
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -307,7 +290,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         _numOpenOrders++;
 
         // Calculate fees
-        uint256 totalFees = estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
 
         // update escrowed balance
         // TODO: replace?

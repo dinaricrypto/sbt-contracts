@@ -13,6 +13,7 @@ import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
+import {FeeLib} from "../../src/FeeLib.sol";
 
 contract BuyOrderIssuerRequestTest is Test {
     // More calls to permit and multicall for gas profiling
@@ -75,7 +76,7 @@ contract BuyOrderIssuerRequestTest is Test {
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, 1 ether);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 1 ether);
         order = IOrderBridge.Order({
             recipient: user,
             index: 0,
@@ -111,7 +112,7 @@ contract BuyOrderIssuerRequestTest is Test {
         vm.assume(permitDeadline > block.timestamp);
         vm.assume(orderAmount > 1_000_000);
 
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderBridge.Order memory neworder = order;

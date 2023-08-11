@@ -10,6 +10,7 @@ import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
+import {FeeLib} from "../src/FeeLib.sol";
 
 contract DirectBuyIssuerTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
@@ -59,7 +60,7 @@ contract DirectBuyIssuerTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
-        dummyOrderFees = issuer.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
+        dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
         dummyOrder = IOrderBridge.Order({
             recipient: user,
             index: 0,
@@ -78,7 +79,7 @@ contract DirectBuyIssuerTest is Test {
     function testTakeEscrow(uint256 orderAmount, uint256 takeAmount, uint256 _price) public {
         vm.assume(orderAmount > 0);
         vm.assume(_price > 0);
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -117,7 +118,7 @@ contract DirectBuyIssuerTest is Test {
     function testReturnEscrow(uint256 orderAmount, uint256 returnAmount, uint256 _price) public {
         vm.assume(orderAmount > 0);
         vm.assume(_price > 0);
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -170,7 +171,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(takeAmount <= orderAmount);
         vm.assume(_price > 0);
         vm.assume(!NumberUtils.mulCheckOverflow(fillAmount, 1 ether / _price));
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -224,7 +225,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(fillAmount < orderAmount);
         vm.assume(_price > 0);
         vm.assume(!NumberUtils.mulDivCheckOverflow(fillAmount, 1 ether, _price));
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
         uint256 receivedAmount = PrbMath.mulDiv(fillAmount, 1 ether, _price);
@@ -260,7 +261,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(takeAmount > 0);
         vm.assume(takeAmount < orderAmount);
         vm.assume(_price > 0);
-        uint256 fees = issuer.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
