@@ -14,6 +14,7 @@ import {dShare} from "../dShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 import {FeeLib} from "../FeeLib.sol";
+import {IForwarder} from "../forwarder/IForwarder.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -102,6 +103,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Asset token role for whitelisting asset tokens
     /// @dev Tokens with decimals > 18 are not supported by current OrderFees implementation
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
+    /// @notice Forwarder role for forwarding context awareness
+    bytes32 public constant FORWARDER_ROLE = keccak256("FORWARDER_ROLE");
 
     /// ------------------ State ------------------ ///
 
@@ -252,13 +255,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @inheritdoc IOrderBridge
     function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 index) {
-        // check blocklisted address
-        if (
-            tokenLockCheck.isTransferLocked(order.assetToken, order.recipient)
-                || tokenLockCheck.isTransferLocked(order.assetToken, msg.sender)
-                || tokenLockCheck.isTransferLocked(order.paymentToken, order.recipient)
-                || tokenLockCheck.isTransferLocked(order.paymentToken, msg.sender)
-        ) revert Blacklist();
+        // cheap checks first
         if (order.recipient == address(0)) revert ZeroAddress();
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
@@ -266,6 +263,13 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
+        // check blocklisted address
+        if (
+            tokenLockCheck.isTransferLocked(order.assetToken, order.recipient)
+                || tokenLockCheck.isTransferLocked(order.assetToken, msg.sender)
+                || tokenLockCheck.isTransferLocked(order.paymentToken, order.recipient)
+                || tokenLockCheck.isTransferLocked(order.paymentToken, msg.sender)
+        ) revert Blacklist();
 
         index = _nextOrderIndex[order.recipient]++;
         bytes32 id = getOrderId(order.recipient, index);
@@ -464,8 +468,19 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         address refundToken = order.sell ? order.assetToken : order.paymentToken;
         // update escrowed balance
         escrowedBalanceOf[refundToken][order.recipient] -= refund;
+
+        // Determine true requester
+        address requester;
+        if (hasRole(FORWARDER_ROLE, orderState.requester)) {
+            // If order was requested by a forwarder, use the forwarder's requester on file
+            requester = IForwarder(orderState.requester).orderSigner(id);
+        } else {
+            // Otherwise use the original msg.sender as the requester
+            requester = orderState.requester;
+        }
+
         // Return escrow
-        IERC20(refundToken).safeTransfer(orderState.requester, refund);
+        IERC20(refundToken).safeTransfer(requester, refund);
     }
 
     /// ------------------ Virtuals ------------------ ///

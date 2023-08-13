@@ -2,7 +2,7 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {Forwarder} from "../../src/forwarder/Forwarder.sol";
+import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "../../src/common/Nonces.sol";
 import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -64,7 +64,7 @@ contract ForwarderRequestCancelTest is Test {
 
     uint64 priceRecencyThreshold = 30 seconds;
     bytes dataCancel;
-    PriceAttestationConsumer.PriceAttestation attestation;
+    IPriceAttestationConsumer.PriceAttestation attestation;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -146,7 +146,7 @@ contract ForwarderRequestCancelTest is Test {
 
         attestation = preparePriceAttestation();
 
-        Forwarder.ForwardRequest memory metaTx =
+        IForwarder.ForwardRequest memory metaTx =
             prepareForwardRequest(user, address(issuer), dataRequest, nonce, attestation, userPrivateKey);
 
         // calldata
@@ -162,7 +162,7 @@ contract ForwarderRequestCancelTest is Test {
     function testRequestCancel() public {
         uint256 nonce = 1;
 
-        Forwarder.ForwardRequest memory metaTx =
+        IForwarder.ForwardRequest memory metaTx =
             prepareForwardRequest(user, address(issuer), dataCancel, nonce, attestation, userPrivateKey);
 
         // calldata
@@ -175,7 +175,7 @@ contract ForwarderRequestCancelTest is Test {
     }
     //     // utils functions
 
-    function preparePriceAttestation() internal view returns (PriceAttestationConsumer.PriceAttestation memory) {
+    function preparePriceAttestation() internal view returns (IPriceAttestationConsumer.PriceAttestation memory) {
         SigPrice.PriceAttestation memory priceAttestation = SigPrice.PriceAttestation({
             token: address(paymentToken),
             price: paymentTokenPrice,
@@ -184,7 +184,7 @@ contract ForwarderRequestCancelTest is Test {
         });
         bytes32 digestPrice = sigPrice.getTypedDataHashForPriceAttestation(priceAttestation);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(relayerPrivateKey, digestPrice);
-        return PriceAttestationConsumer.PriceAttestation({
+        return IPriceAttestationConsumer.PriceAttestation({
             token: priceAttestation.token,
             price: priceAttestation.price,
             timestamp: priceAttestation.timestamp,
@@ -220,9 +220,9 @@ contract ForwarderRequestCancelTest is Test {
         address to,
         bytes memory data,
         uint256 nonce,
-        PriceAttestationConsumer.PriceAttestation memory _attestation,
+        IPriceAttestationConsumer.PriceAttestation memory _attestation,
         uint256 _privateKey
-    ) internal view returns (Forwarder.ForwardRequest memory) {
+    ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
         SigMeta.ForwardRequest memory MetaTx = SigMeta.ForwardRequest({
             user: _user,
             to: to,
@@ -235,7 +235,7 @@ contract ForwarderRequestCancelTest is Test {
         bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
 
-        Forwarder.ForwardRequest memory metaTx = Forwarder.ForwardRequest({
+        metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
             data: data,
@@ -244,7 +244,5 @@ contract ForwarderRequestCancelTest is Test {
             paymentTokenOraclePrice: _attestation,
             signature: abi.encodePacked(r2, s2, v2)
         });
-
-        return metaTx;
     }
 }
