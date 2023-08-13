@@ -3,11 +3,11 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
-import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/issuer/LimitBuyProcessor.sol";
-import "../src/issuer/IOrderProcessor.sol";
-import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import "../src/orders/LimitBuyProcessor.sol";
+import "../src/orders/IOrderProcessor.sol";
+import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import {FeeLib} from "../src/FeeLib.sol";

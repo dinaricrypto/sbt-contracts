@@ -4,9 +4,9 @@ pragma solidity 0.8.19;
 import "forge-std/Script.sol";
 import {dShare} from "../src/dShare.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
-import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
-import {MarketSellProcessor} from "../src/issuer/MarketSellProcessor.sol";
-import {MarketBuyUnlockedProcessor} from "../src/issuer/MarketBuyUnlockedProcessor.sol";
+import {MarketBuyProcessor} from "../src/orders/MarketBuyProcessor.sol";
+import {MarketSellProcessor} from "../src/orders/MarketSellProcessor.sol";
+import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
 
 contract DeployTokenListScript is Script {
     uint256 constant n = 13;

@@ -8,7 +8,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 /**
  * @title LimitSellProcessor
  * @notice Extends MarketSellProcessor to enable sell orders with a minimum acceptable price.
- * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitSellProcessor.sol)
+ * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/LimitSellProcessor.sol)
  */
 contract LimitSellProcessor is MarketSellProcessor {
     error LimitPriceNotSet();

@@ -2,9 +2,9 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
-import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
-import {MarketSellProcessor} from "../src/issuer/MarketSellProcessor.sol";
-import {MarketBuyUnlockedProcessor} from "../src/issuer/MarketBuyUnlockedProcessor.sol";
+import {MarketBuyProcessor} from "../src/orders/MarketBuyProcessor.sol";
+import {MarketSellProcessor} from "../src/orders/MarketSellProcessor.sol";
+import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
 import {dShare} from "../src/dShare.sol";
 
 contract AddTokensScript is Script {

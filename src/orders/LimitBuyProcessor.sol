@@ -8,7 +8,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 /**
  * @title LimitBuyProcessor
  * @notice Extends MarketBuyProcessor to enable buy orders with a maximum acceptable price.
- * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitBuyProcessor.sol)
+ * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/LimitBuyProcessor.sol)
  */
 contract LimitBuyProcessor is MarketBuyProcessor {
     error LimitPriceNotSet();

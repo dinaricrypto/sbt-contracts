@@ -16,7 +16,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 import {FeeLib} from "../FeeLib.sol";
 
 /// @notice Base contract managing orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
 /// Orders are submitted by users and filled by operators
 /// Handling of fees is left to the inheriting contract
 /// Each inheritor can craft a unique order processing flow

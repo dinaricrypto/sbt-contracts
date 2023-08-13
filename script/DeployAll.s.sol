@@ -3,10 +3,10 @@ pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
-import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
-import {MarketSellProcessor} from "../src/issuer/MarketSellProcessor.sol";
-import {MarketBuyUnlockedProcessor} from "../src/issuer/MarketBuyUnlockedProcessor.sol";
+import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
+import {MarketBuyProcessor} from "../src/orders/MarketBuyProcessor.sol";
+import {MarketSellProcessor} from "../src/orders/MarketSellProcessor.sol";
+import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 
 contract DeployAllScript is Script {

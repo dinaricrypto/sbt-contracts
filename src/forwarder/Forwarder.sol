@@ -9,13 +9,13 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
-import {IOrderProcessor} from "../../src/issuer/IOrderProcessor.sol";
+import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
 import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/orders-contracts/blob/main/src/orders/OrderProcessor.sol)
 contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, SelfPermit, ReentrancyGuard {
     using SafeERC20 for IERC20Permit;
     using SafeERC20 for IERC20;

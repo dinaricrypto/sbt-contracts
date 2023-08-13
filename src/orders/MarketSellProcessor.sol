@@ -8,7 +8,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/MarketSellProcessor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/MarketSellProcessor.sol)
 /// This order processor emits market orders to sell the underlying asset that are good until cancelled
 /// Fee obligations are accumulated as order is filled
 /// Fees are taken from the proceeds of the sale
