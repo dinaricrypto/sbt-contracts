@@ -271,11 +271,16 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         bytes32 id = getOrderId(order.recipient, index);
         // TODO: remove values that can be set here from Order struct, quantityIn
 
+        // Get fees for order
+        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(order.paymentToken);
+        // Calculate fees
+        uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, order.paymentTokenQuantity);
+        // Check values
+        _requestOrderAccounting(id, order, totalFees);
+
         // Send order to bridge
         emit OrderRequested(order.recipient, index, order);
 
-        // Get fees for order
-        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(order.paymentToken);
         // Initialize order state
         _orders[id] = OrderState({
             orderHash: hashOrder(order),
@@ -289,20 +294,20 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         });
         _numOpenOrders++;
 
-        // Calculate fees
-        uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
-
-        // update escrowed balance
-        // TODO: replace?
         if (order.sell) {
-            escrowedBalanceOf[order.assetToken][order.recipient] += orderAmount;
-        } else {
-            escrowedBalanceOf[order.paymentToken][order.recipient] += orderAmount + totalFees;
-        }
+            // update escrowed balance
+            escrowedBalanceOf[order.assetToken][order.recipient] += order.assetTokenQuantity;
 
-        // Move tokens
-        // TODO: replace with code here
-        _requestOrderAccounting(id, order, totalFees);
+            // Transfer asset to contract
+            IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
+        } else {
+            uint256 quantityIn = order.paymentTokenQuantity + totalFees;
+            // update escrowed balance
+            escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
+
+            // Escrow payment for purchase
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), quantityIn);
+        }
     }
 
     /// @notice Hash order data for validation
@@ -470,12 +475,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// ------------------ Virtuals ------------------ ///
 
-    /// @notice Compile order from request and move tokens including fees, escrow, and amount to fill
+    /// @notice Perform any unique order request checks and accounting
     /// @param id Order ID
     /// @param order Order request to process
     /// @param totalFees Total fees for order
-    /// @dev Result used to initialize order accounting
-    function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual;
+    function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual {}
 
     /// @notice Handle any unique order accounting and checks
     /// @param id Order ID
