@@ -163,6 +163,16 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
         emit CancellationGasCostUpdated(newCancellationGasCost);
     }
 
+    /**
+     * @notice Rescue ERC20 tokens locked up in this contract.
+     * @param tokenContract ERC20 token contract address
+     * @param to        Recipient address
+     * @param amount    Amount to withdraw
+     */
+    function rescueERC20(IERC20 tokenContract, address to, uint256 amount) external onlyOwner {
+        tokenContract.safeTransfer(to, amount);
+    }
+
     /// ------------------------------- Forwarding -------------------------------
 
     /// @inheritdoc IForwarder
