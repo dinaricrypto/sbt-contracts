@@ -9,7 +9,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {BuyOrderIssuer, OrderProcessor} from "../src/issuer/BuyOrderIssuer.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import "./utils/SigUtils.sol";
-import "../src/issuer/IOrderBridge.sol";
+import "../src/issuer/IOrderProcessor.sol";
 import "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -29,7 +29,7 @@ contract ForwarderTest is Test {
     event SellOrderProcessorSet(address indexed sellOrderProcessor);
     event LimitBuyIssuerSet(address indexed limitBuyIssuer);
     event LimitSellProcessorSet(address indexed limitSellProcessor);
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event FeeUpdated(uint256 newFeeBps);
     event CancellationFeeUpdated(uint256 newCancellationFee);
 
@@ -44,7 +44,7 @@ contract ForwarderTest is Test {
     SigPrice public sigPrice;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
-    IOrderBridge.Order public dummyOrder;
+    IOrderProcessor.Order public dummyOrder;
     TokenLockCheck tokenLockCheck;
 
     uint24 percentageFeeRate;
@@ -112,18 +112,18 @@ contract ForwarderTest is Test {
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
-        dummyOrder = IOrderBridge.Order({
+        dummyOrder = IOrderProcessor.Order({
             recipient: user,
             index: 0,
             quantityIn: 100 ether + dummyOrderFees,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.MARKET,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
 
         // set fees
@@ -216,7 +216,7 @@ contract ForwarderTest is Test {
     function testRequestOrderThroughForwarder() public {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.quantityIn);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = dummyOrder.quantityIn + fees;
         order.paymentTokenQuantity = dummyOrder.quantityIn;
 
@@ -311,7 +311,7 @@ contract ForwarderTest is Test {
     }
 
     function testSellOrder() public {
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = dummyOrder.quantityIn;
         order.sell = true;
         order.assetTokenQuantity = dummyOrder.quantityIn;
@@ -458,7 +458,7 @@ contract ForwarderTest is Test {
 
         vm.assume(quantityIn < 100 ether);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn + fees;
         order.paymentTokenQuantity = quantityIn;
         issuer.setOrdersPaused(true);
@@ -488,7 +488,7 @@ contract ForwarderTest is Test {
     function testRequestCancel() public {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.quantityIn);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = dummyOrder.quantityIn + fees;
         order.paymentTokenQuantity = dummyOrder.quantityIn;
 
@@ -581,7 +581,7 @@ contract ForwarderTest is Test {
     function testRequestCancelNotRequesterReverts() public {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.quantityIn);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = dummyOrder.quantityIn + fees;
         order.paymentTokenQuantity = dummyOrder.quantityIn;
 

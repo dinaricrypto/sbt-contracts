@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/DirectBuyIssuer.sol";
-import "../src/issuer/IOrderBridge.sol";
+import "../src/issuer/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
@@ -16,7 +16,7 @@ contract DirectBuyIssuerTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
 
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
@@ -37,7 +37,7 @@ contract DirectBuyIssuerTest is Test {
     uint256 flatFee;
     uint24 percentageFeeRate;
     uint256 dummyOrderFees;
-    IOrderBridge.Order dummyOrder;
+    IOrderProcessor.Order dummyOrder;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -61,18 +61,18 @@ contract DirectBuyIssuerTest is Test {
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
-        dummyOrder = IOrderBridge.Order({
+        dummyOrder = IOrderProcessor.Order({
             recipient: user,
             index: 0,
             quantityIn: 100 ether + dummyOrderFees,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.LIMIT,
+            orderType: IOrderProcessor.OrderType.LIMIT,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
@@ -83,7 +83,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
@@ -122,7 +122,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
@@ -175,7 +175,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
@@ -230,7 +230,7 @@ contract DirectBuyIssuerTest is Test {
         uint256 quantityIn = orderAmount + fees;
         uint256 receivedAmount = PrbMath.mulDiv(fillAmount, 1 ether, _price);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
@@ -265,7 +265,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;

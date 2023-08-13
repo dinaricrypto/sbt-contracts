@@ -9,7 +9,7 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
-import {IOrderBridge} from "../../src/issuer/IOrderBridge.sol";
+import {IOrderProcessor} from "../../src/issuer/IOrderProcessor.sol";
 import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
@@ -190,16 +190,16 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         // Get the function selector
         bytes4 functionSelector = bytes4(metaTx.data[:4]);
         // Check call
-        if (functionSelector == IOrderBridge.requestOrder.selector) {
+        if (functionSelector == IOrderProcessor.requestOrder.selector) {
             // Check if function selector is request Order to approve quantityIn
             // Get order from data
-            (IOrderBridge.Order memory order) = abi.decode(metaTx.data[4:], (IOrderBridge.Order));
+            (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
             _requestOrderPreparation(order, metaTx.user, metaTx.to);
-        } else if (functionSelector == IOrderBridge.requestCancel.selector) {
+        } else if (functionSelector == IOrderProcessor.requestCancel.selector) {
             // Check if cancel request is from the original order signer
             // Get data from metaTx
             (address recipient, uint256 index) = abi.decode(metaTx.data[4:], (address, uint256));
-            bytes32 orderId = IOrderBridge(metaTx.to).getOrderId(recipient, index);
+            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(recipient, index);
             if (orderSigners[orderId] != metaTx.user) revert InvalidSigner();
         } else {
             revert UnsupportedCall();
@@ -209,15 +209,15 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         // slither-disable-next-line unused-return
         bytes memory result = metaTx.to.functionCall(metaTx.data);
 
-        if (functionSelector == IOrderBridge.requestOrder.selector) {
+        if (functionSelector == IOrderProcessor.requestOrder.selector) {
             uint256 id = abi.decode(result, (uint256));
             // get order ID
-            bytes32 orderId = IOrderBridge(metaTx.to).getOrderId(metaTx.user, id);
+            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, id);
             orderSigners[orderId] = metaTx.user;
         }
 
         // handle transaction payment
-        if (functionSelector == IOrderBridge.requestOrder.selector) {
+        if (functionSelector == IOrderProcessor.requestOrder.selector) {
             _handlePayment(
                 metaTx.user, metaTx.paymentTokenOraclePrice.token, metaTx.paymentTokenOraclePrice.price, gasStart
             );
@@ -281,7 +281,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
      * @param user The address of the user initiating the order.
      * @param target The address of the target contract (e.g. buyOrderIssuer or sellOrderProcessor) that will execute the order.
      */
-    function _requestOrderPreparation(IOrderBridge.Order memory order, address user, address target) internal {
+    function _requestOrderPreparation(IOrderProcessor.Order memory order, address user, address target) internal {
         // store order to mapping
 
         // Pull tokens from user and approve module to spend

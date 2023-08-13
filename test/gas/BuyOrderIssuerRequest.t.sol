@@ -8,7 +8,7 @@ import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigUtils.sol";
 import "../../src/issuer/BuyOrderIssuer.sol";
-import "../../src/issuer/IOrderBridge.sol";
+import "../../src/issuer/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -37,7 +37,7 @@ contract BuyOrderIssuerRequestTest is Test {
 
     uint256 flatFee;
     uint24 percentageFeeRate;
-    IOrderBridge.Order order;
+    IOrderProcessor.Order order;
     bytes[] calls;
 
     function setUp() public {
@@ -77,18 +77,18 @@ contract BuyOrderIssuerRequestTest is Test {
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 1 ether);
-        order = IOrderBridge.Order({
+        order = IOrderProcessor.Order({
             recipient: user,
             index: 0,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             quantityIn: 1 ether + fees,
             sell: false,
-            orderType: IOrderBridge.OrderType.MARKET,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
 
         calls = new bytes[](2);
@@ -115,7 +115,7 @@ contract BuyOrderIssuerRequestTest is Test {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
-        IOrderBridge.Order memory neworder = order;
+        IOrderProcessor.Order memory neworder = order;
         neworder.quantityIn = orderAmount + fees;
         neworder.paymentTokenQuantity = orderAmount;
 

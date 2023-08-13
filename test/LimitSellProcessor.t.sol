@@ -7,13 +7,13 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/LimitSellProcessor.sol";
-import "../src/issuer/IOrderBridge.sol";
+import "../src/issuer/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
 contract LimitSellProcessorTest is Test {
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
 
     dShare token;
@@ -49,24 +49,28 @@ contract LimitSellProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
-    function createOrder(uint256 orderAmount, uint256 price) internal view returns (IOrderBridge.Order memory order) {
-        order = IOrderBridge.Order({
+    function createOrder(uint256 orderAmount, uint256 price)
+        internal
+        view
+        returns (IOrderProcessor.Order memory order)
+    {
+        order = IOrderProcessor.Order({
             recipient: user,
             index: 0,
             quantityIn: orderAmount,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: true,
-            orderType: IOrderBridge.OrderType.LIMIT,
+            orderType: IOrderProcessor.OrderType.LIMIT,
             assetTokenQuantity: orderAmount,
             paymentTokenQuantity: 0,
             price: price,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
     function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
-        IOrderBridge.Order memory order = createOrder(orderAmount, _price);
+        IOrderProcessor.Order memory order = createOrder(orderAmount, _price);
 
         token.mint(user, orderAmount);
         vm.prank(user);
@@ -108,7 +112,7 @@ contract LimitSellProcessorTest is Test {
         vm.assume(fillAmount < 2 ** 128 - 1);
         vm.assume(receivedAmount < 2 ** 128 - 1);
 
-        IOrderBridge.Order memory order = createOrder(orderAmount, _price);
+        IOrderProcessor.Order memory order = createOrder(orderAmount, _price);
 
         token.mint(user, orderAmount);
         vm.prank(user);

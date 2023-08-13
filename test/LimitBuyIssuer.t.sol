@@ -6,14 +6,14 @@ import {MockToken} from "./utils/mocks/MockToken.sol";
 import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
 import "../src/issuer/LimitBuyIssuer.sol";
-import "../src/issuer/IOrderBridge.sol";
+import "../src/issuer/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
 contract LimitBuyIssuerTest is Test {
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
 
     dShare token;
@@ -57,27 +57,27 @@ contract LimitBuyIssuerTest is Test {
     function createOrder(uint256 orderAmount, uint256 price, uint256 fees)
         internal
         view
-        returns (IOrderBridge.Order memory order)
+        returns (IOrderProcessor.Order memory order)
     {
-        order = IOrderBridge.Order({
+        order = IOrderProcessor.Order({
             recipient: user,
             index: 0,
             quantityIn: orderAmount + fees,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.LIMIT,
+            orderType: IOrderProcessor.OrderType.LIMIT,
             assetTokenQuantity: 0,
             paymentTokenQuantity: orderAmount,
             price: price,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
     function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        IOrderBridge.Order memory order = createOrder(orderAmount, _price, fees);
+        IOrderProcessor.Order memory order = createOrder(orderAmount, _price, fees);
 
         paymentToken.mint(user, order.quantityIn);
         vm.startPrank(user);
@@ -116,7 +116,7 @@ contract LimitBuyIssuerTest is Test {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
-        IOrderBridge.Order memory order = createOrder(orderAmount, _price, fees);
+        IOrderProcessor.Order memory order = createOrder(orderAmount, _price, fees);
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
