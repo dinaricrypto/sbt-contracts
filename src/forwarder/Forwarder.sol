@@ -37,27 +37,15 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         bytes signature; // ECDSA signature of the user authorizing the meta-transaction.
     }
 
-    struct SupportedModules {
-        address marketBuyProcessor;
-        address marketBuyUnlockedProcessor;
-        address marketSellProcessor;
-        address limitBuyProcessor;
-        address limitSellProcessor;
-    }
-
     error UserNotRelayer();
     error InvalidSigner();
     error InvalidAmount();
     error ExpiredRequest();
     error UnsupportedCall();
-    error InvalidModuleAddress();
+    error NotSupportedModule();
 
     event RelayerSet(address indexed relayer, bool isRelayer);
-    event MarketBuyProcessorSet(address indexed marketBuyProcessor);
-    event MarketBuyUnlockedProcessorSet(address indexed marketBuyUnlockedProcessor);
-    event MarketSellProcessorSet(address indexed marketSellProcessor);
-    event LimitBuyProcessorSet(address indexed limitBuyProcessor);
-    event LimitSellProcessorSet(address indexed limitSellProcessor);
+    event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 newFeeBps);
     event CancellationFeeUpdated(uint256 newCancellationFee);
 
@@ -82,7 +70,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
     uint256 public cancellationGasCost;
 
     /// @notice The set of supported modules.
-    SupportedModules public supportedModules;
+    mapping(address => bool) public isSupportedModule;
 
     /// @notice The mapping of relayer addresses authorize to send meta transactions.
     mapping(address => bool) public isRelayer;
@@ -121,39 +109,11 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         emit RelayerSet(newRelayer, _isRelayer);
     }
 
-    /// @notice Sets the address of the MarketBuyProcessor contract.
+    /// @notice Sets the address of a supported module.
     /// @dev Only callable by the contract owner.
-    function setMarketBuyProcessor(address marketBuyProcessor) external onlyOwner {
-        supportedModules.marketBuyProcessor = marketBuyProcessor;
-        emit MarketBuyProcessorSet(marketBuyProcessor);
-    }
-
-    /// @notice Sets the address of the MarketBuyUnlockedProcessor contract.
-    /// @dev Only callable by the contract owner.
-    function setMarketBuyUnlockedProcessor(address marketBuyUnlockedProcessor) external onlyOwner {
-        supportedModules.marketBuyUnlockedProcessor = marketBuyUnlockedProcessor;
-        emit MarketBuyUnlockedProcessorSet(marketBuyUnlockedProcessor);
-    }
-
-    /// @notice Sets the address of the MarketSellProcessor contract.
-    /// @dev Only callable by the contract owner.
-    function setMarketSellProcessor(address marketSellProcessor) external onlyOwner {
-        supportedModules.marketSellProcessor = marketSellProcessor;
-        emit MarketSellProcessorSet(marketSellProcessor);
-    }
-
-    /// @notice Sets the address of the LimitBuyProcessor contract.
-    /// @dev Only callable by the contract owner.
-    function setLimitBuyProcessor(address limitBuyProcessor) external onlyOwner {
-        supportedModules.limitBuyProcessor = limitBuyProcessor;
-        emit LimitBuyProcessorSet(limitBuyProcessor);
-    }
-
-    /// @notice Sets the address of the LimitSellProcessor contract.
-    /// @dev Only callable by the contract owner.
-    function setLimitSellProcessor(address limitSellProcessor) external onlyOwner {
-        supportedModules.limitSellProcessor = limitSellProcessor;
-        emit LimitSellProcessorSet(limitSellProcessor);
+    function setSupportedModule(address module, bool isSupported) external onlyOwner {
+        isSupportedModule[module] = isSupported;
+        emit SupportedModuleSet(module, isSupported);
     }
 
     /// @notice Updates the fee rate.
@@ -231,8 +191,8 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
      *      deadline, nonce, payment token oracle price, and the signature components (v, r, s).
      */
     function _validateForwardRequest(ForwardRequest calldata metaTx) internal {
-        if (metaTx.to == address(0)) revert InvalidModuleAddress();
         if (metaTx.deadline < block.timestamp) revert ExpiredRequest();
+        if (!isSupportedModule[metaTx.to]) revert NotSupportedModule();
 
         _verifyPriceAttestation(metaTx.paymentTokenOraclePrice);
 
@@ -282,24 +242,15 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
      * @param target The address of the target contract (e.g. MarketBuyProcessor or MarketSellProcessor) that will execute the order.
      */
     function _requestOrderPreparation(IOrderProcessor.Order memory order, address user, address target) internal {
-        // store order to mapping
-        // TODO: replace check against processors with check on Order.sell
-
         // Pull tokens from user and approve module to spend
-        if (
-            target == supportedModules.marketBuyProcessor || target == supportedModules.marketBuyUnlockedProcessor
-                || target == supportedModules.limitBuyProcessor
-        ) {
-            // slither-disable-next-line arbitrary-send-erc20
-            IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.quantityIn);
-            IERC20(order.paymentToken).safeIncreaseAllowance(target, order.quantityIn);
-        } else if (target == supportedModules.marketSellProcessor || target == supportedModules.limitSellProcessor) {
+        if (order.sell) {
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.assetToken).safeTransferFrom(user, address(this), order.quantityIn);
             IERC20(order.assetToken).safeIncreaseAllowance(target, order.quantityIn);
         } else {
-            // Service not available for other contracts
-            revert InvalidModuleAddress();
+            // slither-disable-next-line arbitrary-send-erc20
+            IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.quantityIn);
+            IERC20(order.paymentToken).safeIncreaseAllowance(target, order.quantityIn);
         }
     }
 
@@ -325,10 +276,6 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         // Transfer the payment for gas fees
         // slither-disable-next-line arbitrary-send-erc20
         IERC20(paymentToken).safeTransferFrom(user, msg.sender, paymentAmount + fee);
-    }
-
-    function getSupportedModules() external view returns (SupportedModules memory) {
-        return supportedModules;
     }
 
     // slither-disable-next-line naming-convention

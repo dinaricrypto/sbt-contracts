@@ -24,14 +24,10 @@ contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
     event PriceRecencyThresholdSet(uint256 threshold);
     event RelayerSet(address indexed relayer, bool isRelayer);
-    event MarketBuyProcessorSet(address indexed marketBuyProcessor);
-    event MarketBuyUnlockedProcessorSet(address indexed marketBuyUnlockedProcessor);
-    event MarketSellProcessorSet(address indexed marketSellProcessor);
-    event LimitBuyProcessorSet(address indexed limitBuyProcessor);
-    event LimitSellProcessorSet(address indexed limitSellProcessor);
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
+    event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 newFeeBps);
     event CancellationFeeUpdated(uint256 newCancellationFee);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
 
     Forwarder public forwarder;
     MarketBuyProcessor public issuer;
@@ -98,8 +94,8 @@ contract ForwarderTest is Test {
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
-        forwarder.setMarketBuyProcessor(address(issuer));
-        forwarder.setMarketSellProcessor(address(sellIssuer));
+        forwarder.setSupportedModule(address(issuer), true);
+        forwarder.setSupportedModule(address(sellIssuer), true);
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
@@ -172,35 +168,19 @@ contract ForwarderTest is Test {
 
     function testAddProcessor(address setIssuer) public {
         vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.setMarketBuyProcessor(setIssuer);
-        vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.setMarketSellProcessor(setIssuer);
-        vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.setMarketBuyUnlockedProcessor(setIssuer);
+        forwarder.setSupportedModule(setIssuer, true);
 
-        vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
-        emit MarketBuyProcessorSet(setIssuer);
-        forwarder.setMarketBuyProcessor(setIssuer);
-        vm.expectEmit(true, true, true, true);
-        emit MarketSellProcessorSet(setIssuer);
-        forwarder.setMarketSellProcessor(setIssuer);
-        vm.expectEmit(true, true, true, true);
-        emit MarketBuyUnlockedProcessorSet(setIssuer);
-        forwarder.setMarketBuyUnlockedProcessor(setIssuer);
-        vm.expectEmit(true, true, true, true);
-        emit LimitBuyProcessorSet(setIssuer);
-        forwarder.setLimitBuyProcessor(setIssuer);
-        vm.expectEmit(true, true, true, true);
-        emit LimitSellProcessorSet(setIssuer);
-        forwarder.setLimitSellProcessor(setIssuer);
+        emit SupportedModuleSet(setIssuer, true);
+        vm.prank(owner);
+        forwarder.setSupportedModule(setIssuer, true);
+        assert(forwarder.isSupportedModule(setIssuer));
 
-        Forwarder.SupportedModules memory modules = forwarder.getSupportedModules();
-        assertEq(modules.marketBuyProcessor, setIssuer);
-        assertEq(modules.marketSellProcessor, setIssuer);
-        assertEq(modules.marketBuyUnlockedProcessor, setIssuer);
-        assertEq(modules.limitBuyProcessor, setIssuer);
-        assertEq(modules.limitSellProcessor, setIssuer);
+        vm.expectEmit(true, true, true, true);
+        emit SupportedModuleSet(setIssuer, false);
+        vm.prank(owner);
+        forwarder.setSupportedModule(setIssuer, false);
+        assert(!forwarder.isSupportedModule(setIssuer));
     }
 
     function testRelayer(address setRelayer) public {
@@ -573,7 +553,7 @@ contract ForwarderTest is Test {
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
         multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        vm.expectRevert(Forwarder.InvalidModuleAddress.selector);
+        vm.expectRevert(Forwarder.NotSupportedModule.selector);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
     }

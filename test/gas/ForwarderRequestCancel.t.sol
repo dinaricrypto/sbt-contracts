@@ -88,8 +88,7 @@ contract ForwarderRequestCancelTest is Test {
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
-        forwarder.setMarketBuyProcessor(address(issuer));
-        forwarder.setMarketSellProcessor(address(sellIssuer));
+        forwarder.setSupportedModule(address(issuer), true);
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
