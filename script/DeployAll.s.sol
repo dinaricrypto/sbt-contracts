@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
-import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
+import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
@@ -45,7 +45,7 @@ contract DeployAllScript is Script {
         IOrderFees orderFees = new OrderFees(cfg.owner, 1_000_000, 5_000);
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
 
-        BuyOrderIssuer buyOrderIssuer = new BuyOrderIssuer(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+        MarketBuyProcessor buyProcessor = new MarketBuyProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
         SellOrderProcessor sellOrderProcessor =
             new SellOrderProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
@@ -53,17 +53,17 @@ contract DeployAllScript is Script {
         DirectBuyIssuer directBuyIssuer = new DirectBuyIssuer(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
         // config operator
-        buyOrderIssuer.grantRole(buyOrderIssuer.OPERATOR_ROLE(), cfg.operator);
+        buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);
         sellOrderProcessor.grantRole(sellOrderProcessor.OPERATOR_ROLE(), cfg.operator);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
-        buyOrderIssuer.grantRole(buyOrderIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
+        buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         sellOrderProcessor.grantRole(sellOrderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
 
         // transfer ownership
-        // buyOrderIssuer.beginDefaultAdminTransfer(owner);
+        // buyProcessor.beginDefaultAdminTransfer(owner);
         // sellOrderProcessor.beginDefaultAdminTransfer(owner);
         // directBuyIssuer.beginDefaultAdminTransfer(owner);
 
@@ -72,7 +72,7 @@ contract DeployAllScript is Script {
         // // accept ownership transfer
         // vm.startBroadcast(owner);
 
-        // buyOrderIssuer.acceptDefaultAdminTransfer();
+        // buyProcessor.acceptDefaultAdminTransfer();
         // sellOrderProcessor.acceptDefaultAdminTransfer();
         // directBuyIssuer.acceptDefaultAdminTransfer();
 

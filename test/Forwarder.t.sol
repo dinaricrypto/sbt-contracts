@@ -6,7 +6,7 @@ import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {Nonces} from "../src/common/Nonces.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
-import {BuyOrderIssuer, OrderProcessor} from "../src/issuer/BuyOrderIssuer.sol";
+import {MarketBuyProcessor, OrderProcessor} from "../src/issuer/MarketBuyProcessor.sol";
 import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
 import "./utils/SigUtils.sol";
 import "../src/issuer/IOrderProcessor.sol";
@@ -24,7 +24,7 @@ contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
     event PriceRecencyThresholdSet(uint256 threshold);
     event RelayerSet(address indexed relayer, bool isRelayer);
-    event BuyOrderIssuerSet(address indexed buyOrderIssuer);
+    event MarketBuyProcessorSet(address indexed marketBuyProcessor);
     event DirectBuyIssuerSet(address indexed directBuyIssuer);
     event SellOrderProcessorSet(address indexed sellOrderProcessor);
     event LimitBuyIssuerSet(address indexed limitBuyIssuer);
@@ -34,7 +34,7 @@ contract ForwarderTest is Test {
     event CancellationFeeUpdated(uint256 newCancellationFee);
 
     Forwarder public forwarder;
-    BuyOrderIssuer public issuer;
+    MarketBuyProcessor public issuer;
     SellOrderProcessor public sellIssuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
@@ -82,7 +82,7 @@ contract ForwarderTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new MarketBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
         sellIssuer = new SellOrderProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
@@ -98,7 +98,7 @@ contract ForwarderTest is Test {
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
-        forwarder.setBuyOrderIssuer(address(issuer));
+        forwarder.setMarketBuyProcessor(address(issuer));
         forwarder.setSellOrderProcessor(address(sellIssuer));
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
@@ -172,7 +172,7 @@ contract ForwarderTest is Test {
 
     function testAddProcessor(address setIssuer) public {
         vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.setBuyOrderIssuer(setIssuer);
+        forwarder.setMarketBuyProcessor(setIssuer);
         vm.expectRevert("Ownable: caller is not the owner");
         forwarder.setSellOrderProcessor(setIssuer);
         vm.expectRevert("Ownable: caller is not the owner");
@@ -180,8 +180,8 @@ contract ForwarderTest is Test {
 
         vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
-        emit BuyOrderIssuerSet(setIssuer);
-        forwarder.setBuyOrderIssuer(setIssuer);
+        emit MarketBuyProcessorSet(setIssuer);
+        forwarder.setMarketBuyProcessor(setIssuer);
         vm.expectEmit(true, true, true, true);
         emit SellOrderProcessorSet(setIssuer);
         forwarder.setSellOrderProcessor(setIssuer);
@@ -196,7 +196,7 @@ contract ForwarderTest is Test {
         forwarder.setLimitSellProcessor(setIssuer);
 
         Forwarder.SupportedModules memory modules = forwarder.getSupportedModules();
-        assertEq(modules.buyOrderIssuer, setIssuer);
+        assertEq(modules.marketBuyProcessor, setIssuer);
         assertEq(modules.sellOrderProcessor, setIssuer);
         assertEq(modules.directBuyIssuer, setIssuer);
         assertEq(modules.limitBuyIssuer, setIssuer);
@@ -553,7 +553,7 @@ contract ForwarderTest is Test {
     }
 
     function testrequestOrderModuleNotFound() public {
-        BuyOrderIssuer issuer1 = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        MarketBuyProcessor issuer1 = new MarketBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 

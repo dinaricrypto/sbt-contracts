@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
-import "../src/issuer/BuyOrderIssuer.sol";
+import "../src/issuer/MarketBuyProcessor.sol";
 import "../src/issuer/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
@@ -14,7 +14,7 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract BuyOrderIssuerTest is Test {
+contract MarketBuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees indexed orderFees);
     event OrdersPaused(bool paused);
@@ -28,7 +28,7 @@ contract BuyOrderIssuerTest is Test {
 
     dShare token;
     OrderFees orderFees;
-    BuyOrderIssuer issuer;
+    MarketBuyProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
@@ -56,7 +56,7 @@ contract BuyOrderIssuerTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new MarketBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

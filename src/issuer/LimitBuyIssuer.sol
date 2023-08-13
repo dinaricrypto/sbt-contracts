@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {BuyOrderIssuer, ITokenLockCheck} from "./BuyOrderIssuer.sol";
+import {MarketBuyProcessor, ITokenLockCheck} from "./MarketBuyProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {IOrderFees} from "./IOrderFees.sol";
 
 /**
  * @title LimitBuyIssuer
- * @notice Extends BuyOrderIssuer to enable buy orders with a maximum acceptable price.
+ * @notice Extends MarketBuyProcessor to enable buy orders with a maximum acceptable price.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitBuyIssuer.sol)
  */
-contract LimitBuyIssuer is BuyOrderIssuer {
+contract LimitBuyIssuer is MarketBuyProcessor {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
 
     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        BuyOrderIssuer(_owner, treasury_, orderFees_, tokenLockCheck_)
+        MarketBuyProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
     function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual override {
-        // Calls the original _requestOrderAccounting from BuyOrderIssuer
+        // Calls the original _requestOrderAccounting from MarketBuyProcessor
         super._requestOrderAccounting(id, order, totalFees);
         // Ensure order type is LIMIT
         if (order.orderType != OrderType.LIMIT) revert OrderTypeMismatch();

@@ -6,7 +6,7 @@ import {Forwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "../../src/common/Nonces.sol";
 import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {BuyOrderIssuer, OrderProcessor} from "../../src/issuer/BuyOrderIssuer.sol";
+import {MarketBuyProcessor, OrderProcessor} from "../../src/issuer/MarketBuyProcessor.sol";
 import {SellOrderProcessor} from "../../src/issuer/SellOrderProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/issuer/IOrderProcessor.sol";
@@ -21,19 +21,8 @@ import {FeeLib} from "../../src/FeeLib.sol";
 
 // additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {
-    event TrustedOracleSet(address indexed oracle, bool isTrusted);
-    event PriceRecencyThresholdSet(uint256 threshold);
-    event RelayerSet(address indexed relayer, bool isRelayer);
-    event BuyOrderIssuerSet(address indexed buyOrderIssuer);
-    event DirectBuyIssuerSet(address indexed directBuyIssuer);
-    event SellOrderProcessorSet(address indexed sellOrderProcessor);
-    event LimitBuyIssuerSet(address indexed limitBuyIssuer);
-    event LimitSellProcessorSet(address indexed limitSellProcessor);
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
-    event FeeUpdated(uint256 newFeeBps);
-
     Forwarder public forwarder;
-    BuyOrderIssuer public issuer;
+    MarketBuyProcessor public issuer;
     SellOrderProcessor public sellIssuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
@@ -83,7 +72,7 @@ contract ForwarderRequestCancelTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new MarketBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
         sellIssuer = new SellOrderProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
@@ -99,7 +88,7 @@ contract ForwarderRequestCancelTest is Test {
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
-        forwarder.setBuyOrderIssuer(address(issuer));
+        forwarder.setMarketBuyProcessor(address(issuer));
         forwarder.setSellOrderProcessor(address(sellIssuer));
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);

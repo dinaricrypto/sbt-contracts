@@ -38,7 +38,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
     }
 
     struct SupportedModules {
-        address buyOrderIssuer;
+        address marketBuyProcessor;
         address directBuyIssuer;
         address sellOrderProcessor;
         address limitBuyIssuer;
@@ -53,7 +53,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
     error InvalidModuleAddress();
 
     event RelayerSet(address indexed relayer, bool isRelayer);
-    event BuyOrderIssuerSet(address indexed buyOrderIssuer);
+    event MarketBuyProcessorSet(address indexed marketBuyProcessor);
     event DirectBuyIssuerSet(address indexed directBuyIssuer);
     event SellOrderProcessorSet(address indexed sellOrderProcessor);
     event LimitBuyIssuerSet(address indexed limitBuyIssuer);
@@ -121,11 +121,11 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         emit RelayerSet(newRelayer, _isRelayer);
     }
 
-    /// @notice Sets the address of the BuyOrderIssuer contract.
+    /// @notice Sets the address of the MarketBuyProcessor contract.
     /// @dev Only callable by the contract owner.
-    function setBuyOrderIssuer(address buyOrderIssuer) external onlyOwner {
-        supportedModules.buyOrderIssuer = buyOrderIssuer;
-        emit BuyOrderIssuerSet(buyOrderIssuer);
+    function setMarketBuyProcessor(address marketBuyProcessor) external onlyOwner {
+        supportedModules.marketBuyProcessor = marketBuyProcessor;
+        emit MarketBuyProcessorSet(marketBuyProcessor);
     }
 
     /// @notice Sets the address of the DirectBuyIssuer contract.
@@ -279,14 +279,15 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
      *
      * @param order The details of the order, including payment and asset tokens, and the quantity.
      * @param user The address of the user initiating the order.
-     * @param target The address of the target contract (e.g. buyOrderIssuer or sellOrderProcessor) that will execute the order.
+     * @param target The address of the target contract (e.g. MarketBuyProcessor or sellOrderProcessor) that will execute the order.
      */
     function _requestOrderPreparation(IOrderProcessor.Order memory order, address user, address target) internal {
         // store order to mapping
+        // TODO: replace check against processors with check on Order.sell
 
         // Pull tokens from user and approve module to spend
         if (
-            target == supportedModules.buyOrderIssuer || target == supportedModules.directBuyIssuer
+            target == supportedModules.marketBuyProcessor || target == supportedModules.directBuyIssuer
                 || target == supportedModules.limitBuyIssuer
         ) {
             // slither-disable-next-line arbitrary-send-erc20
