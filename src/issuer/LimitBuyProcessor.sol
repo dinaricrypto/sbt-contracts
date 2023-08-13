@@ -6,11 +6,11 @@ import "prb-math/Common.sol" as PrbMath;
 import {IOrderFees} from "./IOrderFees.sol";
 
 /**
- * @title LimitBuyIssuer
+ * @title LimitBuyProcessor
  * @notice Extends MarketBuyProcessor to enable buy orders with a maximum acceptable price.
- * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitBuyIssuer.sol)
+ * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitBuyProcessor.sol)
  */
-contract LimitBuyIssuer is MarketBuyProcessor {
+contract LimitBuyProcessor is MarketBuyProcessor {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
 

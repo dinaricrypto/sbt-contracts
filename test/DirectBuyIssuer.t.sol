@@ -201,7 +201,7 @@ contract DirectBuyIssuerTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
-            vm.expectRevert(LimitBuyIssuer.OrderFillBelowLimitPrice.selector);
+            vm.expectRevert(LimitBuyProcessor.OrderFillBelowLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, receivedAmount);
         } else {

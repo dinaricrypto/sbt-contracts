@@ -41,7 +41,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         address marketBuyProcessor;
         address directBuyIssuer;
         address marketSellProcessor;
-        address limitBuyIssuer;
+        address limitBuyProcessor;
         address limitSellProcessor;
     }
 
@@ -56,7 +56,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
     event MarketBuyProcessorSet(address indexed marketBuyProcessor);
     event DirectBuyIssuerSet(address indexed directBuyIssuer);
     event MarketSellProcessorSet(address indexed marketSellProcessor);
-    event LimitBuyIssuerSet(address indexed limitBuyIssuer);
+    event LimitBuyProcessorSet(address indexed limitBuyProcessor);
     event LimitSellProcessorSet(address indexed limitSellProcessor);
     event FeeUpdated(uint256 newFeeBps);
     event CancellationFeeUpdated(uint256 newCancellationFee);
@@ -142,11 +142,11 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         emit MarketSellProcessorSet(marketSellProcessor);
     }
 
-    /// @notice Sets the address of the LimitBuyIssuer contract.
+    /// @notice Sets the address of the LimitBuyProcessor contract.
     /// @dev Only callable by the contract owner.
-    function setLimitBuyIssuer(address limitBuyIssuer) external onlyOwner {
-        supportedModules.limitBuyIssuer = limitBuyIssuer;
-        emit LimitBuyIssuerSet(limitBuyIssuer);
+    function setLimitBuyProcessor(address limitBuyProcessor) external onlyOwner {
+        supportedModules.limitBuyProcessor = limitBuyProcessor;
+        emit LimitBuyProcessorSet(limitBuyProcessor);
     }
 
     /// @notice Sets the address of the LimitSellProcessor contract.
@@ -288,7 +288,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         // Pull tokens from user and approve module to spend
         if (
             target == supportedModules.marketBuyProcessor || target == supportedModules.directBuyIssuer
-                || target == supportedModules.limitBuyIssuer
+                || target == supportedModules.limitBuyProcessor
         ) {
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.quantityIn);

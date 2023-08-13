@@ -5,21 +5,21 @@ import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/issuer/LimitBuyIssuer.sol";
+import "../src/issuer/LimitBuyProcessor.sol";
 import "../src/issuer/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract LimitBuyIssuerTest is Test {
+contract LimitBuyProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
 
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    LimitBuyIssuer issuer;
+    LimitBuyProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -42,7 +42,7 @@ contract LimitBuyIssuerTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new LimitBuyIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new LimitBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
 
@@ -88,7 +88,7 @@ contract LimitBuyIssuerTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             issuer.requestOrder(order);
         } else if (_price == 0) {
-            vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
+            vm.expectRevert(LimitBuyProcessor.LimitPriceNotSet.selector);
             issuer.requestOrder(order);
         } else {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -140,7 +140,7 @@ contract LimitBuyIssuerTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
-            vm.expectRevert(LimitBuyIssuer.OrderFillBelowLimitPrice.selector);
+            vm.expectRevert(LimitBuyProcessor.OrderFillBelowLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, receivedAmount);
         } else {

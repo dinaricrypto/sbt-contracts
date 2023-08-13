@@ -27,7 +27,7 @@ contract ForwarderTest is Test {
     event MarketBuyProcessorSet(address indexed marketBuyProcessor);
     event DirectBuyIssuerSet(address indexed directBuyIssuer);
     event MarketSellProcessorSet(address indexed marketSellProcessor);
-    event LimitBuyIssuerSet(address indexed limitBuyIssuer);
+    event LimitBuyProcessorSet(address indexed limitBuyProcessor);
     event LimitSellProcessorSet(address indexed limitSellProcessor);
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event FeeUpdated(uint256 newFeeBps);
@@ -189,8 +189,8 @@ contract ForwarderTest is Test {
         emit DirectBuyIssuerSet(setIssuer);
         forwarder.setDirectBuyIssuer(setIssuer);
         vm.expectEmit(true, true, true, true);
-        emit LimitBuyIssuerSet(setIssuer);
-        forwarder.setLimitBuyIssuer(setIssuer);
+        emit LimitBuyProcessorSet(setIssuer);
+        forwarder.setLimitBuyProcessor(setIssuer);
         vm.expectEmit(true, true, true, true);
         emit LimitSellProcessorSet(setIssuer);
         forwarder.setLimitSellProcessor(setIssuer);
@@ -199,7 +199,7 @@ contract ForwarderTest is Test {
         assertEq(modules.marketBuyProcessor, setIssuer);
         assertEq(modules.marketSellProcessor, setIssuer);
         assertEq(modules.directBuyIssuer, setIssuer);
-        assertEq(modules.limitBuyIssuer, setIssuer);
+        assertEq(modules.limitBuyProcessor, setIssuer);
         assertEq(modules.limitSellProcessor, setIssuer);
     }
 
