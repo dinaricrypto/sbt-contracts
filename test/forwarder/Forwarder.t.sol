@@ -106,6 +106,7 @@ contract ForwarderTest is Test {
 
         // set issuer forwarder role
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
+        sellIssuer.grantRole(sellIssuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
         sigPrice = new SigPrice(forwarder.DOMAIN_SEPARATOR());
@@ -198,12 +199,18 @@ contract ForwarderTest is Test {
         emit LimitSellProcessorSet(setIssuer);
         forwarder.setLimitSellProcessor(setIssuer);
 
-        Forwarder.SupportedModules memory modules = forwarder.getSupportedModules();
-        assertEq(modules.buyOrderIssuer, setIssuer);
-        assertEq(modules.sellOrderProcessor, setIssuer);
-        assertEq(modules.directBuyIssuer, setIssuer);
-        assertEq(modules.limitBuyIssuer, setIssuer);
-        assertEq(modules.limitSellProcessor, setIssuer);
+        (
+            address buyOrderIssuer,
+            address sellOrderProcessor,
+            address directBuyIssuer,
+            address limitBuyIssuer,
+            address limitSellProcessor
+        ) = forwarder.supportedProcessors();
+        assertEq(buyOrderIssuer, setIssuer);
+        assertEq(sellOrderProcessor, setIssuer);
+        assertEq(directBuyIssuer, setIssuer);
+        assertEq(limitBuyIssuer, setIssuer);
+        assertEq(limitSellProcessor, setIssuer);
     }
 
     function testRelayer(address setRelayer) public {
@@ -285,9 +292,7 @@ contract ForwarderTest is Test {
 
         // check if gas fees have been taken by forwarder
         uint256 balanceUserBeforeCancel = IERC20(address(paymentToken)).balanceOf(user);
-        assertLt(
-            balanceUserBeforeCancel, balanceUserBeforeOrder - dummyOrder.quantityIn 
-        );
+        assertLt(balanceUserBeforeCancel, balanceUserBeforeOrder - dummyOrder.quantityIn);
 
         // update nonce
         nonce += 1;
@@ -297,7 +302,6 @@ contract ForwarderTest is Test {
             prepareForwardRequest(user, address(issuer), dataCancel, nonce, attestation, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx2);
-
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -348,6 +352,34 @@ contract ForwarderTest is Test {
         assertEq(token.balanceOf(user), userBalanceBefore - order.quantityIn);
         assertEq(token.balanceOf(address(sellIssuer)), issuerBalanceBefore + order.quantityIn);
         assertEq(sellIssuer.escrowedBalanceOf(order.assetToken, user), order.quantityIn);
+    }
+
+    function testRequestOrderNotApprovedByProcessorReverts() public {
+        issuer.revokeRole(issuer.FORWARDER_ROLE(), address(forwarder));
+
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
+        uint256 nonce = 0;
+
+        // 4. Mint tokens
+        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+
+        //  Prepare PriceAttestation
+        PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
+
+        //  Prepare ForwardRequest
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, attestation, userPrivateKey);
+
+        // calldata
+        bytes[] memory multicalldata = new bytes[](2);
+        multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+
+        // 1. Request order
+        vm.expectRevert(Forwarder.ForwarderNotApprovedByProcessor.selector);
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
     }
 
     function testRequestOrderRevertStalePrice() public {
@@ -536,6 +568,7 @@ contract ForwarderTest is Test {
 
     function testRequestOrderModuleNotFound() public {
         BuyOrderIssuer issuer1 = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer1.grantRole(issuer1.FORWARDER_ROLE(), address(forwarder));
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
@@ -555,13 +588,12 @@ contract ForwarderTest is Test {
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
         multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        vm.expectRevert(Forwarder.InvalidModuleAddress.selector);
+        vm.expectRevert(Forwarder.InvalidProcessorAddress.selector);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
     }
 
     function testRequestCancelNotRequesterReverts() public {
-
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
         uint256 nonce = 0;
@@ -598,7 +630,6 @@ contract ForwarderTest is Test {
     }
 
     function testCancel() public {
-
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
         uint256 nonce = 0;

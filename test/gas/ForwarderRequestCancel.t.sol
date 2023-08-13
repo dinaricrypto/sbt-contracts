@@ -7,11 +7,9 @@ import {Nonces} from "../../src/common/Nonces.sol";
 import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {BuyOrderIssuer, OrderProcessor} from "../../src/issuer/BuyOrderIssuer.sol";
-import {SellOrderProcessor} from "../../src/issuer/SellOrderProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/issuer/IOrderBridge.sol";
 import "../utils/mocks/MockToken.sol";
-import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigMeta.sol";
 import "../utils/SigPrice.sol";
@@ -34,7 +32,6 @@ contract ForwarderRequestCancelTest is Test {
 
     Forwarder public forwarder;
     BuyOrderIssuer public issuer;
-    SellOrderProcessor public sellIssuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
     dShare public token;
@@ -84,26 +81,22 @@ contract ForwarderRequestCancelTest is Test {
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
         issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
-        sellIssuer = new SellOrderProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
-        token.grantRole(token.BURNER_ROLE(), address(sellIssuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-        sellIssuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        sellIssuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        sellIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
         forwarder.setBuyOrderIssuer(address(issuer));
-        forwarder.setSellOrderProcessor(address(sellIssuer));
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
+
+        issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
         sigPrice = new SigPrice(forwarder.DOMAIN_SEPARATOR());
@@ -173,7 +166,8 @@ contract ForwarderRequestCancelTest is Test {
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
     }
-    //     // utils functions
+
+    // utils functions
 
     function preparePriceAttestation() internal view returns (IPriceAttestationConsumer.PriceAttestation memory) {
         SigPrice.PriceAttestation memory priceAttestation = SigPrice.PriceAttestation({

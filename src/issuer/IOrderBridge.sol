@@ -94,6 +94,11 @@ interface IOrderBridge {
     /// @return Returns the total amount of the specific token held in escrow for the given user
     function escrowedBalanceOf(address token, address user) external view returns (uint256);
 
+    /// @dev Returns `true` if `account` has been granted `role`.
+    function hasRole(bytes32 role, address account) external view returns (bool);
+
+    function FORWARDER_ROLE() external view returns (bytes32);
+
     /// ------------------ Actions ------------------ ///
 
     /// @notice Request an order
