@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {SellOrderProcessor, ITokenLockCheck} from "./SellOrderProcessor.sol";
+import {MarketSellProcessor, ITokenLockCheck} from "./MarketSellProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {IOrderFees} from "./IOrderFees.sol";
 
 /**
  * @title LimitSellProcessor
- * @notice Extends SellOrderProcessor to enable sell orders with a minimum acceptable price.
+ * @notice Extends MarketSellProcessor to enable sell orders with a minimum acceptable price.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/LimitSellProcessor.sol)
  */
-contract LimitSellProcessor is SellOrderProcessor {
+contract LimitSellProcessor is MarketSellProcessor {
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();
 
     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        SellOrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
+        MarketSellProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
     function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual override {
-        // Calls the original _requestOrderAccounting from SellOrderProcessor
+        // Calls the original _requestOrderAccounting from MarketSellProcessor
         super._requestOrderAccounting(id, order, totalFees);
         // Ensure order type is LIMIT
         if (order.orderType != OrderType.LIMIT) revert OrderTypeMismatch();

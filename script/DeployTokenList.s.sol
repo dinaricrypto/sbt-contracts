@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {dShare} from "../src/dShare.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
 import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
-import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
+import {MarketSellProcessor} from "../src/issuer/MarketSellProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 
 contract DeployTokenListScript is Script {
@@ -20,7 +20,7 @@ contract DeployTokenListScript is Script {
 
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
         MarketBuyProcessor buyIssuer = MarketBuyProcessor(vm.envAddress("BUY_ISSUER"));
-        SellOrderProcessor sellProcessor = SellOrderProcessor(vm.envAddress("SELL_PROCESSOR"));
+        MarketSellProcessor sellProcessor = MarketSellProcessor(vm.envAddress("SELL_PROCESSOR"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
 
         console.log("deployer: %s", deployer);

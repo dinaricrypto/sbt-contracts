@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
 import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
-import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
+import {MarketSellProcessor} from "../src/issuer/MarketSellProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {dShare} from "../src/dShare.sol";
 
@@ -17,7 +17,7 @@ contract AddTokensOldScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         MarketBuyProcessor buyIssuer = MarketBuyProcessor(vm.envAddress("BUY_ISSUER"));
-        SellOrderProcessor sellProcessor = SellOrderProcessor(vm.envAddress("SELL_PROCESSOR"));
+        MarketSellProcessor sellProcessor = MarketSellProcessor(vm.envAddress("SELL_PROCESSOR"));
         DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
 
         address[1] memory paymentTokens = [

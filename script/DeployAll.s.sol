@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
-import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
+import {MarketSellProcessor} from "../src/issuer/MarketSellProcessor.sol";
 import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 
@@ -47,24 +47,24 @@ contract DeployAllScript is Script {
 
         MarketBuyProcessor buyProcessor = new MarketBuyProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
-        SellOrderProcessor sellOrderProcessor =
-            new SellOrderProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+        MarketSellProcessor sellProcessor =
+            new MarketSellProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
         DirectBuyIssuer directBuyIssuer = new DirectBuyIssuer(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
         // config operator
         buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);
-        sellOrderProcessor.grantRole(sellOrderProcessor.OPERATOR_ROLE(), cfg.operator);
+        sellProcessor.grantRole(sellProcessor.OPERATOR_ROLE(), cfg.operator);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
         buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
-        sellOrderProcessor.grantRole(sellOrderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
+        sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
 
         // transfer ownership
         // buyProcessor.beginDefaultAdminTransfer(owner);
-        // sellOrderProcessor.beginDefaultAdminTransfer(owner);
+        // sellProcessor.beginDefaultAdminTransfer(owner);
         // directBuyIssuer.beginDefaultAdminTransfer(owner);
 
         vm.stopBroadcast();
@@ -73,7 +73,7 @@ contract DeployAllScript is Script {
         // vm.startBroadcast(owner);
 
         // buyProcessor.acceptDefaultAdminTransfer();
-        // sellOrderProcessor.acceptDefaultAdminTransfer();
+        // sellProcessor.acceptDefaultAdminTransfer();
         // directBuyIssuer.acceptDefaultAdminTransfer();
 
         // vm.stopBroadcast();

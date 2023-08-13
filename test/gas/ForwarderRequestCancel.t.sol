@@ -7,7 +7,7 @@ import {Nonces} from "../../src/common/Nonces.sol";
 import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {MarketBuyProcessor, OrderProcessor} from "../../src/issuer/MarketBuyProcessor.sol";
-import {SellOrderProcessor} from "../../src/issuer/SellOrderProcessor.sol";
+import {MarketSellProcessor} from "../../src/issuer/MarketSellProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/issuer/IOrderProcessor.sol";
 import "../utils/mocks/MockToken.sol";
@@ -23,7 +23,7 @@ import {FeeLib} from "../../src/FeeLib.sol";
 contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
     MarketBuyProcessor public issuer;
-    SellOrderProcessor public sellIssuer;
+    MarketSellProcessor public sellIssuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
     dShare public token;
@@ -73,7 +73,7 @@ contract ForwarderRequestCancelTest is Test {
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
         issuer = new MarketBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
-        sellIssuer = new SellOrderProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        sellIssuer = new MarketSellProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -89,7 +89,7 @@ contract ForwarderRequestCancelTest is Test {
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
         forwarder.setMarketBuyProcessor(address(issuer));
-        forwarder.setSellOrderProcessor(address(sellIssuer));
+        forwarder.setMarketSellProcessor(address(sellIssuer));
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
