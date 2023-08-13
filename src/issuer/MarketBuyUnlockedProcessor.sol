@@ -8,7 +8,7 @@ import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/MarketBuyUnlockedProcessor.sol)
 /// This order processor emits market orders to buy the underlying asset that are good until cancelled
 /// Fees are calculated upfront and held back from the order amount
 /// The payment is taken by the operator before the order is filled
@@ -27,7 +27,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract DirectBuyIssuer is LimitBuyProcessor {
+contract MarketBuyUnlockedProcessor is LimitBuyProcessor {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///

@@ -25,7 +25,7 @@ contract ForwarderTest is Test {
     event PriceRecencyThresholdSet(uint256 threshold);
     event RelayerSet(address indexed relayer, bool isRelayer);
     event MarketBuyProcessorSet(address indexed marketBuyProcessor);
-    event DirectBuyIssuerSet(address indexed directBuyIssuer);
+    event MarketBuyUnlockedProcessorSet(address indexed marketBuyUnlockedProcessor);
     event MarketSellProcessorSet(address indexed marketSellProcessor);
     event LimitBuyProcessorSet(address indexed limitBuyProcessor);
     event LimitSellProcessorSet(address indexed limitSellProcessor);
@@ -176,7 +176,7 @@ contract ForwarderTest is Test {
         vm.expectRevert("Ownable: caller is not the owner");
         forwarder.setMarketSellProcessor(setIssuer);
         vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.setDirectBuyIssuer(setIssuer);
+        forwarder.setMarketBuyUnlockedProcessor(setIssuer);
 
         vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
@@ -186,8 +186,8 @@ contract ForwarderTest is Test {
         emit MarketSellProcessorSet(setIssuer);
         forwarder.setMarketSellProcessor(setIssuer);
         vm.expectEmit(true, true, true, true);
-        emit DirectBuyIssuerSet(setIssuer);
-        forwarder.setDirectBuyIssuer(setIssuer);
+        emit MarketBuyUnlockedProcessorSet(setIssuer);
+        forwarder.setMarketBuyUnlockedProcessor(setIssuer);
         vm.expectEmit(true, true, true, true);
         emit LimitBuyProcessorSet(setIssuer);
         forwarder.setLimitBuyProcessor(setIssuer);
@@ -198,7 +198,7 @@ contract ForwarderTest is Test {
         Forwarder.SupportedModules memory modules = forwarder.getSupportedModules();
         assertEq(modules.marketBuyProcessor, setIssuer);
         assertEq(modules.marketSellProcessor, setIssuer);
-        assertEq(modules.directBuyIssuer, setIssuer);
+        assertEq(modules.marketBuyUnlockedProcessor, setIssuer);
         assertEq(modules.limitBuyProcessor, setIssuer);
         assertEq(modules.limitSellProcessor, setIssuer);
     }

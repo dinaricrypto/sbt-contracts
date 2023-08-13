@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/issuer/DirectBuyIssuer.sol";
+import "../src/issuer/MarketBuyUnlockedProcessor.sol";
 import "../src/issuer/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
@@ -12,7 +12,7 @@ import {NumberUtils} from "./utils/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract DirectBuyIssuerTest is Test {
+contract MarketBuyUnlockedProcessorTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
 
@@ -25,7 +25,7 @@ contract DirectBuyIssuerTest is Test {
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    DirectBuyIssuer issuer;
+    MarketBuyUnlockedProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -50,7 +50,7 @@ contract DirectBuyIssuerTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new DirectBuyIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new MarketBuyUnlockedProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -280,7 +280,7 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(operator);
         issuer.takeEscrow(order, takeAmount);
 
-        vm.expectRevert(DirectBuyIssuer.UnreturnedEscrow.selector);
+        vm.expectRevert(MarketBuyUnlockedProcessor.UnreturnedEscrow.selector);
         vm.prank(operator);
         issuer.cancelOrder(order, "");
     }

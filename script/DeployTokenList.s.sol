@@ -6,7 +6,7 @@ import {dShare} from "../src/dShare.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
 import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
 import {MarketSellProcessor} from "../src/issuer/MarketSellProcessor.sol";
-import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {MarketBuyUnlockedProcessor} from "../src/issuer/MarketBuyUnlockedProcessor.sol";
 
 contract DeployTokenListScript is Script {
     uint256 constant n = 13;
@@ -21,7 +21,7 @@ contract DeployTokenListScript is Script {
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
         MarketBuyProcessor buyIssuer = MarketBuyProcessor(vm.envAddress("BUY_ISSUER"));
         MarketSellProcessor sellProcessor = MarketSellProcessor(vm.envAddress("SELL_PROCESSOR"));
-        DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
+        MarketBuyUnlockedProcessor directIssuer = MarketBuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
 
         console.log("deployer: %s", deployer);
         // console.log("owner: %s", owner);

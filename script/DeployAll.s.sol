@@ -6,7 +6,7 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
 import {MarketBuyProcessor} from "../src/issuer/MarketBuyProcessor.sol";
 import {MarketSellProcessor} from "../src/issuer/MarketSellProcessor.sol";
-import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {MarketBuyUnlockedProcessor} from "../src/issuer/MarketBuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 
 contract DeployAllScript is Script {
@@ -50,7 +50,8 @@ contract DeployAllScript is Script {
         MarketSellProcessor sellProcessor =
             new MarketSellProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
-        DirectBuyIssuer directBuyIssuer = new DirectBuyIssuer(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+        MarketBuyUnlockedProcessor directBuyIssuer =
+            new MarketBuyUnlockedProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
         // config operator
         buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);

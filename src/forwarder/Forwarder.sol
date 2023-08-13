@@ -39,7 +39,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
 
     struct SupportedModules {
         address marketBuyProcessor;
-        address directBuyIssuer;
+        address marketBuyUnlockedProcessor;
         address marketSellProcessor;
         address limitBuyProcessor;
         address limitSellProcessor;
@@ -54,7 +54,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
 
     event RelayerSet(address indexed relayer, bool isRelayer);
     event MarketBuyProcessorSet(address indexed marketBuyProcessor);
-    event DirectBuyIssuerSet(address indexed directBuyIssuer);
+    event MarketBuyUnlockedProcessorSet(address indexed marketBuyUnlockedProcessor);
     event MarketSellProcessorSet(address indexed marketSellProcessor);
     event LimitBuyProcessorSet(address indexed limitBuyProcessor);
     event LimitSellProcessorSet(address indexed limitSellProcessor);
@@ -128,11 +128,11 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         emit MarketBuyProcessorSet(marketBuyProcessor);
     }
 
-    /// @notice Sets the address of the DirectBuyIssuer contract.
+    /// @notice Sets the address of the MarketBuyUnlockedProcessor contract.
     /// @dev Only callable by the contract owner.
-    function setDirectBuyIssuer(address directBuyIssuer) external onlyOwner {
-        supportedModules.directBuyIssuer = directBuyIssuer;
-        emit DirectBuyIssuerSet(directBuyIssuer);
+    function setMarketBuyUnlockedProcessor(address marketBuyUnlockedProcessor) external onlyOwner {
+        supportedModules.marketBuyUnlockedProcessor = marketBuyUnlockedProcessor;
+        emit MarketBuyUnlockedProcessorSet(marketBuyUnlockedProcessor);
     }
 
     /// @notice Sets the address of the MarketSellProcessor contract.
@@ -287,7 +287,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
 
         // Pull tokens from user and approve module to spend
         if (
-            target == supportedModules.marketBuyProcessor || target == supportedModules.directBuyIssuer
+            target == supportedModules.marketBuyProcessor || target == supportedModules.marketBuyUnlockedProcessor
                 || target == supportedModules.limitBuyProcessor
         ) {
             // slither-disable-next-line arbitrary-send-erc20
