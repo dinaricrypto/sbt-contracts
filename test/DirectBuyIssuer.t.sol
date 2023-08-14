@@ -200,15 +200,20 @@ contract DirectBuyIssuerTest is Test {
     }
 
     // Useful case: 1000003, 1, ''
-    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
+    // Useful case: 1000003, 1, ''
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason, uint256 _price) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
+        vm.assume(_price > 0);
+        vm.assume(!NumberUtils.mulDivCheckOverflow(fillAmount, 1 ether, _price));
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
+        uint256 receivedAmount = PrbMath.mulDiv(fillAmount, 1 ether, _price);
 
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
+        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
