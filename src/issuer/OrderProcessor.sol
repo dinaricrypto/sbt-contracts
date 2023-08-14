@@ -269,8 +269,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
         index = _nextOrderIndex[order.recipient]++;
         bytes32 id = getOrderId(order.recipient, index);
-        // TODO: remove values that can be set here from Order struct, quantityIn
-
         // Get fees for order
         (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(order.paymentToken);
         // Calculate fees
@@ -315,8 +313,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         return keccak256(
             abi.encode(
                 order.recipient,
-                order.index,
-                order.quantityIn,
                 order.assetToken,
                 order.paymentToken,
                 order.sell,
@@ -334,8 +330,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         return keccak256(
             abi.encode(
                 order.recipient,
-                order.index,
-                order.quantityIn,
                 order.assetToken,
                 order.paymentToken,
                 order.sell,
@@ -350,16 +344,18 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @notice Fill an order
     /// @param order Order to fill
+    /// @param index order index
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount)
+    function fillOrder(Order calldata order, uint256 index, uint256 fillAmount, uint256 receivedAmount)
         external
         onlyRole(OPERATOR_ROLE)
     {
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
-        bytes32 id = getOrderId(order.recipient, order.index);
+        if (_nextOrderIndex[order.recipient] == 0) revert OrderNotFound();
+        bytes32 id = getOrderId(order.recipient, index);
         OrderState memory orderState = _orders[id];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
@@ -373,22 +369,24 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             _fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
 
         // Notify order filled
-        emit OrderFill(order.recipient, order.index, fillAmount, receivedAmount);
+        emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
 
         // Update order state
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
         // If order is completely filled then clear order state
         if (remainingOrder == 0) {
             // Notify order fulfilled
-            emit OrderFulfilled(order.recipient, order.index);
+            emit OrderFulfilled(order.recipient, index);
             // Clear order state
             delete _orders[id];
             _numOpenOrders--;
         } else {
             // Otherwise update order state
             // Check values
+            uint256 estimatedTotalFees =
+                FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
             uint256 feesPaid = orderState.feesPaid + feesEarned;
-            assert(order.sell || feesPaid <= order.quantityIn - order.paymentTokenQuantity);
+            assert(order.sell || feesPaid <= estimatedTotalFees);
             _orders[id].remainingOrder = remainingOrder;
             _orders[id].received = orderState.received + receivedAmount;
             _orders[id].feesPaid = feesPaid;
@@ -446,10 +444,14 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @notice Cancel an order
     /// @param order Order to cancel
+    /// @param index Order index
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(Order calldata order, string calldata reason) external onlyRole(OPERATOR_ROLE) {
-        bytes32 id = getOrderId(order.recipient, order.index);
+    function cancelOrder(Order calldata order, uint256 index, string calldata reason)
+        external
+        onlyRole(OPERATOR_ROLE)
+    {
+        bytes32 id = getOrderId(order.recipient, index);
         OrderState memory orderState = _orders[id];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
@@ -457,7 +459,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
 
         // Notify order cancelled
-        emit OrderCancelled(order.recipient, order.index, reason);
+        emit OrderCancelled(order.recipient, index, reason);
 
         // Clear order state
         delete _orders[id];
