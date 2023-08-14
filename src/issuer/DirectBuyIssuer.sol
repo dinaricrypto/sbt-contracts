@@ -53,12 +53,13 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     /// @notice Take escrowed payment for an order
     /// @param order Order
+    /// @param index order index
     /// @param amount Amount of escrowed payment token to take
     /// @dev Only callable by operator
-    function takeEscrow(Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
+    function takeEscrow(Order calldata order, uint256 index, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
-        bytes32 id = getOrderId(order.recipient, order.index);
+        bytes32 id = getOrderId(order.recipient, index);
         // Verify order data
         bytes32 orderHash = _getOrderHash(id);
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
@@ -70,7 +71,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         getOrderEscrow[id] = escrow - amount;
         escrowedBalanceOf[order.paymentToken][order.recipient] -= amount;
         // Notify escrow taken
-        emit EscrowTaken(order.recipient, order.index, amount);
+        emit EscrowTaken(order.recipient, index, amount);
 
         // Take escrowed payment
         IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
@@ -78,12 +79,13 @@ contract DirectBuyIssuer is BuyOrderIssuer {
 
     /// @notice Return unused escrowed payment for an order
     /// @param order Order
+    /// @param index order index
     /// @param amount Amount of payment token to return to escrow
     /// @dev Only callable by operator
-    function returnEscrow(Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
+    function returnEscrow(Order calldata order, uint256 index, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
-        bytes32 id = getOrderId(order.recipient, order.index);
+        bytes32 id = getOrderId(order.recipient, index);
         // Verify order data
         bytes32 orderHash = _getOrderHash(id);
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
@@ -97,7 +99,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
         getOrderEscrow[id] = escrow + amount;
         escrowedBalanceOf[order.paymentToken][order.recipient] += amount;
         // Notify escrow returned
-        emit EscrowReturned(order.recipient, order.index, amount);
+        emit EscrowReturned(order.recipient, index, amount);
 
         // Return payment to escrow
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);

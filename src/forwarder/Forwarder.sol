@@ -13,6 +13,7 @@ import {IOrderBridge} from "../../src/issuer/IOrderBridge.sol";
 import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
+import {FeeLib} from "../../src/FeeLib.sol";
 import {IForwarder} from "./IForwarder.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
@@ -287,14 +288,16 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
             target == supportedProcessors.buyOrderIssuer || target == supportedProcessors.directBuyIssuer
                 || target == supportedProcessors.limitBuyIssuer
         ) {
+            (uint256 flatFee, uint24 percentageRateFee) = IOrderBridge(target).getFeeRatesForOrder(order.paymentToken);
+            uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageRateFee, order.paymentTokenQuantity);
             // slither-disable-next-line arbitrary-send-erc20
-            IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.quantityIn);
-            IERC20(order.paymentToken).safeIncreaseAllowance(target, order.quantityIn);
+            IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);
+            IERC20(order.paymentToken).safeIncreaseAllowance(target, order.paymentTokenQuantity + fees);
         } else if (target == supportedProcessors.sellOrderProcessor || target == supportedProcessors.limitSellProcessor)
         {
             // slither-disable-next-line arbitrary-send-erc20
-            IERC20(order.assetToken).safeTransferFrom(user, address(this), order.quantityIn);
-            IERC20(order.assetToken).safeIncreaseAllowance(target, order.quantityIn);
+            IERC20(order.assetToken).safeTransferFrom(user, address(this), order.assetTokenQuantity);
+            IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
         } else {
             // Service not available for other contracts
             revert InvalidProcessorAddress();

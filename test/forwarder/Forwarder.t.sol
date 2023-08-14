@@ -12,7 +12,6 @@ import "../utils/SigUtils.sol";
 import "../../src/issuer/IOrderBridge.sol";
 import "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
-import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../utils/SigMeta.sol";
 import "../utils/SigPrice.sol";
 import "../../src/forwarder/PriceAttestationConsumer.sol";
@@ -118,8 +117,6 @@ contract ForwarderTest is Test {
 
         dummyOrder = IOrderBridge.Order({
             recipient: user,
-            index: 0,
-            quantityIn: 100 ether + dummyOrderFees,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
@@ -224,12 +221,18 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderThroughForwarder() public {
-        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.paymentTokenQuantity);
+
+        uint256 quantityIn = dummyOrder.paymentTokenQuantity + fees;
+
+        IOrderBridge.Order memory order = dummyOrder;
+
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
 
         uint256 nonce = 0;
 
         // 4. Mint tokens
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        deal(address(paymentToken), user, quantityIn * 1e6);
 
         //  Prepare PriceAttestation
         PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
@@ -243,14 +246,14 @@ contract ForwarderTest is Test {
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
         multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        bytes32 id = issuer.getOrderId(dummyOrder.recipient, dummyOrder.index);
+        bytes32 id = issuer.getOrderId(order.recipient, 0);
 
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
 
         // 1. Request order
         vm.expectEmit(true, true, true, true);
-        emit OrderRequested(user, dummyOrder.index, dummyOrder);
+        emit OrderRequested(user, 0, order);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
@@ -258,12 +261,12 @@ contract ForwarderTest is Test {
         assertEq(issuer.getRemainingOrder(id), dummyOrder.paymentTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
 
-        assertLt(paymentToken.balanceOf(address(user)), userBalanceBefore - dummyOrder.quantityIn);
-        assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + dummyOrder.quantityIn);
-        assertEq(issuer.escrowedBalanceOf(dummyOrder.paymentToken, user), dummyOrder.quantityIn);
+        assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
+        assertLt(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
+        assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn);
     }
 
-    function testForwarderCancellationGasCostSet(uint256 cancellationCost) public {
+    function testForwarderCancellationFeeSet(uint256 cancellationCost) public {
         bytes memory dataRequest = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
         vm.assume(cancellationCost < 10e6);
@@ -271,7 +274,7 @@ contract ForwarderTest is Test {
         vm.prank(owner);
         forwarder.setCancellationGasCost(cancellationCost);
 
-        deal(address(paymentToken), user, (dummyOrder.quantityIn + cancellationCost) * 1e6);
+        deal(address(paymentToken), user, (dummyOrder.paymentTokenQuantity + dummyOrderFees + cancellationCost) * 1e6);
 
         PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
 
@@ -290,15 +293,19 @@ contract ForwarderTest is Test {
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
-        // check if gas fees have been taken by forwarder
+        // check if cancellation fees has been taken by forwarder
+        assertLt(
+            IERC20(address(paymentToken)).balanceOf(address(user)),
+            balanceUserBeforeOrder - (dummyOrder.paymentTokenQuantity + dummyOrderFees)
+        );
+
         uint256 balanceUserBeforeCancel = IERC20(address(paymentToken)).balanceOf(user);
-        assertLt(balanceUserBeforeCancel, balanceUserBeforeOrder - dummyOrder.quantityIn);
 
         // update nonce
         nonce += 1;
 
-        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, dummyOrder.index);
-        IForwarder.ForwardRequest memory metaTx2 =
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
+        Forwarder.ForwardRequest memory metaTx2 =
             prepareForwardRequest(user, address(issuer), dataCancel, nonce, attestation, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx2);
@@ -313,14 +320,14 @@ contract ForwarderTest is Test {
     function testSellOrder() public {
         IOrderBridge.Order memory order = dummyOrder;
         order.sell = true;
-        order.assetTokenQuantity = dummyOrder.quantityIn;
+        order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
 
         uint256 nonce = 0;
 
-        deal(address(token), user, order.quantityIn * 1e6);
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        deal(address(token), user, order.assetTokenQuantity * 1e6);
+        deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         //  Prepare PriceAttestation
         PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
@@ -335,12 +342,12 @@ contract ForwarderTest is Test {
         multicalldata[1] = preparePermitCall(shareSigUtils, address(token), user, userPrivateKey, nonce);
         multicalldata[2] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        bytes32 id = sellIssuer.getOrderId(order.recipient, order.index);
+        bytes32 id = sellIssuer.getOrderId(order.recipient, 0);
 
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
-        emit OrderRequested(order.recipient, order.index, order);
+        emit OrderRequested(order.recipient, 0, order);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -349,9 +356,9 @@ contract ForwarderTest is Test {
         assertEq(sellIssuer.getRemainingOrder(id), order.assetTokenQuantity);
         assertEq(sellIssuer.numOpenOrders(), 1);
         assertEq(token.balanceOf(address(sellIssuer)), order.assetTokenQuantity);
-        assertEq(token.balanceOf(user), userBalanceBefore - order.quantityIn);
-        assertEq(token.balanceOf(address(sellIssuer)), issuerBalanceBefore + order.quantityIn);
-        assertEq(sellIssuer.escrowedBalanceOf(order.assetToken, user), order.quantityIn);
+        assertEq(token.balanceOf(user), userBalanceBefore - order.assetTokenQuantity);
+        assertEq(token.balanceOf(address(sellIssuer)), issuerBalanceBefore + order.assetTokenQuantity);
+        assertEq(sellIssuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
     }
 
     function testRequestOrderNotApprovedByProcessorReverts() public {
@@ -362,7 +369,8 @@ contract ForwarderTest is Test {
         uint256 nonce = 0;
 
         // 4. Mint tokens
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
+        deal(address(paymentToken), user, quantityIn);
 
         //  Prepare PriceAttestation
         PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
@@ -421,7 +429,7 @@ contract ForwarderTest is Test {
     function testUnsupportedCall() public {
         bytes memory data = abi.encodeWithSignature("requestUnsupported((address,address,address,uint256))", dummyOrder);
 
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        deal(address(paymentToken), user, dummyOrder.paymentTokenQuantity * 1e6);
 
         uint256 nonce = 0;
 
@@ -480,12 +488,16 @@ contract ForwarderTest is Test {
         forwarder.multicall(multicalldata);
     }
 
-    function testRequestOrderPausedRevertThroughFordwarder() public {
+    function testRequestOrderPausedRevertThroughFordwarder(uint256 quantityIn) public {
+        vm.assume(quantityIn < 100 ether);
+
+        IOrderBridge.Order memory order = dummyOrder;
+        order.paymentTokenQuantity = quantityIn;
         issuer.setOrdersPaused(true);
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        deal(address(paymentToken), user, (order.paymentTokenQuantity + dummyOrderFees) * 1e6);
 
         uint256 nonce = 0;
 
@@ -506,11 +518,13 @@ contract ForwarderTest is Test {
     }
 
     function testRequestCancel() public {
-        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+        IOrderBridge.Order memory order = dummyOrder;
+
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
 
         uint256 nonce = 0;
 
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         //  Prepare PriceAttestation
         IPriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
@@ -528,15 +542,15 @@ contract ForwarderTest is Test {
         forwarder.multicall(multicalldata);
 
         nonce += 1;
-        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, dummyOrder.index);
-        IForwarder.ForwardRequest memory metaTx1 =
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
+        Forwarder.ForwardRequest memory metaTx1 =
             prepareForwardRequest(user, address(issuer), dataCancel, nonce, attestation, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx1);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
-        assertEq(issuer.cancelRequested(issuer.getOrderId(dummyOrder.recipient, dummyOrder.index)), true);
+        assertEq(issuer.cancelRequested(issuer.getOrderId(order.recipient, 0)), true);
     }
 
     function testInvaldUserNonce() public {
@@ -545,7 +559,7 @@ contract ForwarderTest is Test {
         uint256 nonce = 1;
 
         // Mint
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        deal(address(paymentToken), user, dummyOrder.paymentTokenQuantity * 1e6);
 
         //  Prepare PriceAttestation
         IPriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
@@ -575,7 +589,7 @@ contract ForwarderTest is Test {
         uint256 nonce = 0;
 
         // Mint
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        deal(address(paymentToken), user, dummyOrder.paymentTokenQuantity * 1e6);
 
         // 4. Prepare PriceAttestation
         IPriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
@@ -594,11 +608,13 @@ contract ForwarderTest is Test {
     }
 
     function testRequestCancelNotRequesterReverts() public {
-        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+        IOrderBridge.Order memory order = dummyOrder;
+
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
 
         uint256 nonce = 0;
 
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
+        deal(address(paymentToken), user, dummyOrder.paymentTokenQuantity + dummyOrderFees * 1e6);
 
         //  Prepare PriceAttestation
         IPriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
@@ -612,13 +628,13 @@ contract ForwarderTest is Test {
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
         multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        bytes32 id = issuer.getOrderId(dummyOrder.recipient, dummyOrder.index);
+        bytes32 id = issuer.getOrderId(order.recipient, 0);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
-        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, dummyOrder.index);
-        IForwarder.ForwardRequest memory metaTx1 =
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
+        Forwarder.ForwardRequest memory metaTx1 =
             prepareForwardRequest(relayer, address(issuer), dataCancel, nonce, attestation, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx1);
@@ -634,7 +650,8 @@ contract ForwarderTest is Test {
 
         uint256 nonce = 0;
 
-        uint256 userFunds = dummyOrder.quantityIn * 1e6;
+        uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
+        uint256 userFunds = quantityIn * 1e6;
         deal(address(paymentToken), user, userFunds);
 
         //  Prepare PriceAttestation
@@ -651,16 +668,17 @@ contract ForwarderTest is Test {
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
+        // uint256 index = abi.decode(multiReturns[1], (uint256));
 
         uint256 balanceUserBefore = paymentToken.balanceOf(user);
 
         // cancel
         vm.prank(operator);
-        issuer.cancelOrder(dummyOrder, "test");
+        issuer.cancelOrder(dummyOrder, 0, "test");
         assertEq(paymentToken.balanceOf(address(forwarder)), 0);
         assertEq(paymentToken.balanceOf(address(issuer)), 0);
         assertLt(paymentToken.balanceOf(address(user)), userFunds);
-        assertEq(paymentToken.balanceOf(address(user)), balanceUserBefore + dummyOrder.quantityIn);
+        assertEq(paymentToken.balanceOf(address(user)), balanceUserBefore + quantityIn);
     }
 
     // utils functions
