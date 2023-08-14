@@ -58,8 +58,6 @@ contract MarketSellProcessorTest is Test {
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
-            index: 0,
-            quantityIn: 100 ether,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: true,
@@ -73,14 +71,13 @@ contract MarketSellProcessorTest is Test {
 
     function testRequestOrder(uint256 quantityIn) public {
         IOrderProcessor.Order memory order = dummyOrder;
-        order.quantityIn = quantityIn;
         order.assetTokenQuantity = quantityIn;
 
         token.mint(user, quantityIn);
         vm.prank(user);
         token.increaseAllowance(address(issuer), quantityIn);
 
-        bytes32 id = issuer.getOrderId(order.recipient, order.index);
+        bytes32 id = issuer.getOrderId(order.recipient, 0);
 
         if (quantityIn == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
@@ -91,7 +88,7 @@ contract MarketSellProcessorTest is Test {
             uint256 userBalanceBefore = token.balanceOf(user);
             uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(order.recipient, order.index, order);
+            emit OrderRequested(order.recipient, 0, order);
             vm.prank(user);
             issuer.requestOrder(order);
             assertTrue(issuer.isOrderActive(id));
@@ -109,7 +106,6 @@ contract MarketSellProcessorTest is Test {
         vm.assume(orderAmount > 0);
 
         IOrderProcessor.Order memory order = dummyOrder;
-        order.quantityIn = orderAmount;
         order.assetTokenQuantity = orderAmount;
 
         uint256 feesEarned = 0;
@@ -126,7 +122,7 @@ contract MarketSellProcessorTest is Test {
         token.increaseAllowance(address(issuer), orderAmount);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        uint256 index = issuer.requestOrder(order);
 
         uint256 escrowAmount = issuer.escrowedBalanceOf(order.assetToken, user);
         assertEq(escrowAmount, orderAmount);
@@ -135,25 +131,25 @@ contract MarketSellProcessorTest is Test {
         vm.prank(operator);
         paymentToken.increaseAllowance(address(issuer), receivedAmount);
 
-        bytes32 id = issuer.getOrderId(order.recipient, order.index);
+        bytes32 id = issuer.getOrderId(order.recipient, index);
 
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (fillAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {
             // balances before
             uint256 userPaymentBefore = paymentToken.balanceOf(user);
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, true);
-            emit OrderFill(order.recipient, order.index, fillAmount, receivedAmount);
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
             assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
             // balances after
             assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - feesEarned);
@@ -181,7 +177,6 @@ contract MarketSellProcessorTest is Test {
         vm.assume(firstReceivedAmount <= receivedAmount);
 
         IOrderProcessor.Order memory order = dummyOrder;
-        order.quantityIn = orderAmount;
         order.assetTokenQuantity = orderAmount;
 
         token.mint(user, orderAmount);
@@ -189,13 +184,13 @@ contract MarketSellProcessorTest is Test {
         token.increaseAllowance(address(issuer), orderAmount);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        uint256 index = issuer.requestOrder(order);
 
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
         paymentToken.increaseAllowance(address(issuer), receivedAmount);
 
-        bytes32 id = issuer.getOrderId(order.recipient, order.index);
+        bytes32 id = issuer.getOrderId(order.recipient, index);
         uint256 feesEarned = 0;
         if (receivedAmount > 0) {
             if (receivedAmount <= flatFee) {
@@ -213,23 +208,23 @@ contract MarketSellProcessorTest is Test {
             uint256 secondReceivedAmount = receivedAmount - firstReceivedAmount;
             // first fill
             vm.expectEmit(true, true, true, true);
-            emit OrderFill(order.recipient, order.index, firstFillAmount, firstReceivedAmount);
+            emit OrderFill(order.recipient, index, firstFillAmount, firstReceivedAmount);
             vm.prank(operator);
-            issuer.fillOrder(order, firstFillAmount, firstReceivedAmount);
+            issuer.fillOrder(order, index, firstFillAmount, firstReceivedAmount);
             assertEq(issuer.getRemainingOrder(id), orderAmount - firstFillAmount);
             assertEq(issuer.numOpenOrders(), 1);
             assertEq(issuer.getTotalReceived(id), firstReceivedAmount);
 
             // second fill
             vm.expectEmit(true, true, true, true);
-            emit OrderFulfilled(order.recipient, order.index);
+            emit OrderFulfilled(order.recipient, index);
             vm.prank(operator);
-            issuer.fillOrder(order, secondFillAmount, secondReceivedAmount);
+            issuer.fillOrder(order, index, secondFillAmount, secondReceivedAmount);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit OrderFulfilled(order.recipient, order.index);
+            emit OrderFulfilled(order.recipient, index);
             vm.prank(operator);
-            issuer.fillOrder(order, orderAmount, receivedAmount);
+            issuer.fillOrder(order, index, orderAmount, receivedAmount);
         }
         // order closed
         assertEq(issuer.getRemainingOrder(id), 0);
@@ -251,7 +246,6 @@ contract MarketSellProcessorTest is Test {
         vm.assume(fillAmount < orderAmount);
 
         IOrderProcessor.Order memory order = dummyOrder;
-        order.quantityIn = orderAmount;
         order.assetTokenQuantity = orderAmount;
 
         token.mint(user, orderAmount);
@@ -259,7 +253,7 @@ contract MarketSellProcessorTest is Test {
         token.increaseAllowance(address(issuer), orderAmount);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        uint256 index = issuer.requestOrder(order);
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
@@ -276,14 +270,14 @@ contract MarketSellProcessorTest is Test {
             paymentToken.increaseAllowance(address(issuer), receivedAmount);
 
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         }
 
         // balances before
         vm.expectEmit(true, true, true, true);
-        emit OrderCancelled(order.recipient, order.index, reason);
+        emit OrderCancelled(order.recipient, index, reason);
         vm.prank(operator);
-        issuer.cancelOrder(order, reason);
+        issuer.cancelOrder(order, index, reason);
         // balances after
         assertEq(paymentToken.balanceOf(address(issuer)), 0);
         assertEq(token.balanceOf(address(issuer)), 0);

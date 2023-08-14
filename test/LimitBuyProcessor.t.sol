@@ -54,15 +54,13 @@ contract LimitBuyProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
-    function createOrder(uint256 orderAmount, uint256 price, uint256 fees)
+    function createOrder(uint256 orderAmount, uint256 price)
         internal
         view
         returns (IOrderProcessor.Order memory order)
     {
         order = IOrderProcessor.Order({
             recipient: user,
-            index: 0,
-            quantityIn: orderAmount + fees,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
@@ -77,13 +75,12 @@ contract LimitBuyProcessorTest is Test {
     function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        IOrderProcessor.Order memory order = createOrder(orderAmount, _price, fees);
+        IOrderProcessor.Order memory order = createOrder(orderAmount, _price);
 
-        paymentToken.mint(user, order.quantityIn);
+        paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.startPrank(user);
-        paymentToken.increaseAllowance(address(issuer), order.quantityIn);
+        paymentToken.increaseAllowance(address(issuer), order.paymentTokenQuantity + fees);
 
-        bytes32 id = issuer.getOrderId(order.recipient, order.index);
         if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             issuer.requestOrder(order);
@@ -94,15 +91,16 @@ contract LimitBuyProcessorTest is Test {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(user, order.index, order);
+            emit OrderRequested(user, 0, order);
             uint256 index = issuer.requestOrder(order);
-            assertEq(index, order.index);
+            bytes32 id = issuer.getOrderId(order.recipient, index);
+            assertEq(index, 0);
             assertTrue(issuer.isOrderActive(id));
-            assertEq(issuer.getRemainingOrder(id), orderAmount);
+            assertEq(issuer.getRemainingOrder(id), order.paymentTokenQuantity);
             assertEq(issuer.numOpenOrders(), 1);
             // balances after
-            assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - order.quantityIn);
-            assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + order.quantityIn);
+            assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - (order.paymentTokenQuantity + fees));
+            assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + (order.paymentTokenQuantity + fees));
         }
         vm.stopPrank();
     }
@@ -116,33 +114,33 @@ contract LimitBuyProcessorTest is Test {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
-        IOrderProcessor.Order memory order = createOrder(orderAmount, _price, fees);
+        IOrderProcessor.Order memory order = createOrder(orderAmount, _price);
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
             feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
         }
 
-        paymentToken.mint(user, order.quantityIn);
+        paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), order.quantityIn);
+        paymentToken.increaseAllowance(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        uint256 index = issuer.requestOrder(order);
 
-        bytes32 id = issuer.getOrderId(order.recipient, order.index);
+        bytes32 id = issuer.getOrderId(order.recipient, index);
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (fillAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
             vm.expectRevert(LimitBuyProcessor.OrderFillBelowLimitPrice.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {
             // balances before
             uint256 userAssetBefore = token.balanceOf(user);
@@ -150,9 +148,9 @@ contract LimitBuyProcessorTest is Test {
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.assume(fillAmount < orderAmount);
             vm.expectEmit(true, true, true, true);
-            emit OrderFill(user, order.index, fillAmount, receivedAmount);
+            emit OrderFill(user, index, fillAmount, receivedAmount);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
             assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);

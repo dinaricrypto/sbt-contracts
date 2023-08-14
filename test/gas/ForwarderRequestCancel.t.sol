@@ -103,8 +103,6 @@ contract ForwarderRequestCancelTest is Test {
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
-            index: 0,
-            quantityIn: 100 ether + dummyOrderFees,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
@@ -119,15 +117,11 @@ contract ForwarderRequestCancelTest is Test {
         vm.prank(owner);
         forwarder.setFeeBps(100);
 
-        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.quantityIn);
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.paymentTokenQuantity);
 
-        IOrderProcessor.Order memory order = dummyOrder;
-        order.quantityIn = dummyOrder.quantityIn + fees;
-        order.paymentTokenQuantity = dummyOrder.quantityIn;
+        deal(address(paymentToken), user, (dummyOrder.paymentTokenQuantity + fees) * 1e6);
 
-        deal(address(paymentToken), user, dummyOrder.quantityIn * 1e6);
-
-        dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, order.index);
+        dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
         bytes memory dataRequest = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
         uint256 nonce = 0;

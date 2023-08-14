@@ -58,12 +58,13 @@ contract MarketBuyProcessor is OrderProcessor {
     ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
         paymentEarned = fillAmount;
         // Fees - earn the flat fee if first fill, then earn percentage fee on the fill
-        // TODO: make sure that all fees are taken at total fill to prevent dust accumulating here
         feesEarned = 0;
         if (orderState.feesPaid == 0) {
             feesEarned = orderState.flatFee;
         }
-        uint256 totalPercentageFees = order.quantityIn - order.paymentTokenQuantity - orderState.flatFee;
+        uint256 estimatedTotalFees =
+            FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
+        uint256 totalPercentageFees = estimatedTotalFees - orderState.flatFee;
         feesEarned += PrbMath.mulDiv(totalPercentageFees, fillAmount, order.paymentTokenQuantity);
     }
 
@@ -74,10 +75,11 @@ contract MarketBuyProcessor is OrderProcessor {
         override
         returns (uint256 refund)
     {
-        uint256 totalFees = order.quantityIn - order.paymentTokenQuantity;
+        uint256 totalFees =
+            FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
         // If no fills, then full refund
         refund = orderState.remainingOrder + totalFees;
-        if (refund < order.quantityIn) {
+        if (refund < order.paymentTokenQuantity + totalFees) {
             // Refund remaining order and fees
             refund -= orderState.feesPaid;
         }

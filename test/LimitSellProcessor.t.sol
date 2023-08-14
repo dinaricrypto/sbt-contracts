@@ -56,8 +56,6 @@ contract LimitSellProcessorTest is Test {
     {
         order = IOrderProcessor.Order({
             recipient: user,
-            index: 0,
-            quantityIn: orderAmount,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: true,
@@ -76,7 +74,7 @@ contract LimitSellProcessorTest is Test {
         vm.prank(user);
         token.increaseAllowance(address(issuer), orderAmount);
 
-        bytes32 id = issuer.getOrderId(order.recipient, order.index);
+        bytes32 id = issuer.getOrderId(order.recipient, 0);
         if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(user);
@@ -90,10 +88,10 @@ contract LimitSellProcessorTest is Test {
             uint256 userBalanceBefore = token.balanceOf(user);
             uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(user, order.index, order);
+            emit OrderRequested(user, 0, order);
             vm.prank(user);
             uint256 index = issuer.requestOrder(order);
-            assertEq(index, order.index);
+            assertEq(index, 0);
             assertTrue(issuer.isOrderActive(id));
             assertEq(issuer.getRemainingOrder(id), orderAmount);
             assertEq(issuer.numOpenOrders(), 1);
@@ -119,33 +117,33 @@ contract LimitSellProcessorTest is Test {
         token.increaseAllowance(address(issuer), orderAmount);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        uint256 index = issuer.requestOrder(order);
 
         paymentToken.mint(operator, receivedAmount); // Mint paymentTokens to operator to ensure they have enough
         vm.prank(operator);
         paymentToken.increaseAllowance(address(issuer), receivedAmount);
 
-        bytes32 id = issuer.getOrderId(order.recipient, order.index);
+        bytes32 id = issuer.getOrderId(order.recipient, 0);
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (fillAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) {
             vm.expectRevert(LimitSellProcessor.OrderFillAboveLimitPrice.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {
             // balances before
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, true);
-            emit OrderFill(user, order.index, fillAmount, receivedAmount);
+            emit OrderFill(user, index, fillAmount, receivedAmount);
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
             assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
