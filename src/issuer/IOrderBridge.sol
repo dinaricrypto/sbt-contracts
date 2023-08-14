@@ -90,6 +90,13 @@ interface IOrderBridge {
     /// @return Returns the total amount of the specific token held in escrow for the given user
     function escrowedBalanceOf(address token, address user) external view returns (uint256);
 
+    /// @notice Get fee rates for an order
+    /// @param token Payment token for order
+    /// @return flatFee Flat fee for order
+    /// @return percentageFeeRate Percentage fee rate for order
+    /// @dev Fees zero if no orderFees contract is set
+    function getFeeRatesForOrder(address token) external view returns (uint256, uint24);
+
     /// ------------------ Actions ------------------ ///
 
     /// @notice Request an order
@@ -118,11 +125,4 @@ interface IOrderBridge {
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
     function cancelOrder(Order calldata order, uint256 index, string calldata reason) external;
-
-    /// @notice Get fee rates for an order
-    /// @param token Payment token for order
-    /// @return flatFee Flat fee for order
-    /// @return percentageFeeRate Percentage fee rate for order
-    /// @dev Fees zero if no orderFees contract is set
-    function getFeeRatesForOrder(address token) external view returns (uint256, uint24);
 }
