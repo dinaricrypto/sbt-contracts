@@ -76,13 +76,10 @@ contract BuyOrderIssuerRequestTest is Test {
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
-        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 1 ether);
         order = IOrderBridge.Order({
             recipient: user,
-            index: 0,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            quantityIn: 1 ether + fees,
             sell: false,
             orderType: IOrderBridge.OrderType.MARKET,
             assetTokenQuantity: 0,
@@ -116,13 +113,13 @@ contract BuyOrderIssuerRequestTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderBridge.Order memory neworder = order;
-        neworder.quantityIn = orderAmount + fees;
         neworder.paymentTokenQuantity = orderAmount;
+        uint256 quantityIn = neworder.paymentTokenQuantity + fees;
 
         SigUtils.Permit memory newpermit = SigUtils.Permit({
             owner: user,
             spender: address(issuer),
-            value: neworder.quantityIn,
+            value: quantityIn,
             nonce: 0,
             deadline: permitDeadline
         });
@@ -133,14 +130,7 @@ contract BuyOrderIssuerRequestTest is Test {
 
         bytes[] memory newcalls = new bytes[](2);
         newcalls[0] = abi.encodeWithSelector(
-            issuer.selfPermit.selector,
-            address(paymentToken),
-            newpermit.owner,
-            neworder.quantityIn,
-            permitDeadline,
-            v2,
-            r2,
-            s2
+            issuer.selfPermit.selector, address(paymentToken), newpermit.owner, quantityIn, permitDeadline, v2, r2, s2
         );
         newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder);
         vm.prank(user);

@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
-import {LimitBuyIssuer, ITokenLockCheck} from "./LimitBuyIssuer.sol";
+import {BuyOrderIssuer, ITokenLockCheck} from "./BuyOrderIssuer.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
@@ -27,7 +27,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract DirectBuyIssuer is LimitBuyIssuer {
+contract DirectBuyIssuer is BuyOrderIssuer {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -46,19 +46,20 @@ contract DirectBuyIssuer is LimitBuyIssuer {
     mapping(bytes32 => uint256) public getOrderEscrow;
 
     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        LimitBuyIssuer(_owner, treasury_, orderFees_, tokenLockCheck_)
+        BuyOrderIssuer(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Take escrowed payment for an order
     /// @param order Order
+    /// @param index order index
     /// @param amount Amount of escrowed payment token to take
     /// @dev Only callable by operator
-    function takeEscrow(Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
+    function takeEscrow(Order calldata order, uint256 index, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
-        bytes32 id = getOrderId(order.recipient, order.index);
+        bytes32 id = getOrderId(order.recipient, index);
         // Verify order data
         bytes32 orderHash = _getOrderHash(id);
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
@@ -70,7 +71,7 @@ contract DirectBuyIssuer is LimitBuyIssuer {
         getOrderEscrow[id] = escrow - amount;
         escrowedBalanceOf[order.paymentToken][order.recipient] -= amount;
         // Notify escrow taken
-        emit EscrowTaken(order.recipient, order.index, amount);
+        emit EscrowTaken(order.recipient, index, amount);
 
         // Take escrowed payment
         IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
@@ -78,12 +79,13 @@ contract DirectBuyIssuer is LimitBuyIssuer {
 
     /// @notice Return unused escrowed payment for an order
     /// @param order Order
+    /// @param index order index
     /// @param amount Amount of payment token to return to escrow
     /// @dev Only callable by operator
-    function returnEscrow(Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
+    function returnEscrow(Order calldata order, uint256 index, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
-        bytes32 id = getOrderId(order.recipient, order.index);
+        bytes32 id = getOrderId(order.recipient, index);
         // Verify order data
         bytes32 orderHash = _getOrderHash(id);
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
@@ -97,7 +99,7 @@ contract DirectBuyIssuer is LimitBuyIssuer {
         getOrderEscrow[id] = escrow + amount;
         escrowedBalanceOf[order.paymentToken][order.recipient] += amount;
         // Notify escrow returned
-        emit EscrowReturned(order.recipient, order.index, amount);
+        emit EscrowReturned(order.recipient, index, amount);
 
         // Return payment to escrow
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);

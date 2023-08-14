@@ -32,10 +32,6 @@ interface IOrderBridge {
     struct Order {
         // Recipient of order fills
         address recipient;
-        // Order index
-        uint256 index;
-        // Raw amount initially deposited for order
-        uint256 quantityIn;
         // Bridged asset token
         address assetToken;
         // Payment token
@@ -103,10 +99,11 @@ interface IOrderBridge {
 
     /// @notice Fill an order
     /// @param order Order request to fill
+    /// @param index order index
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
+    function fillOrder(Order calldata order, uint256 index, uint256 fillAmount, uint256 receivedAmount) external;
 
     /// @notice Request to cancel an order
     /// @param recipient Recipient of order fills
@@ -117,7 +114,15 @@ interface IOrderBridge {
 
     /// @notice Cancel an order
     /// @param order Order request to cancel
+    /// @param order index
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(Order calldata order, string calldata reason) external;
+    function cancelOrder(Order calldata order, uint256 index, string calldata reason) external;
+
+    /// @notice Get fee rates for an order
+    /// @param token Payment token for order
+    /// @return flatFee Flat fee for order
+    /// @return percentageFeeRate Percentage fee rate for order
+    /// @dev Fees zero if no orderFees contract is set
+    function getFeeRatesForOrder(address token) external view returns (uint256, uint24);
 }
