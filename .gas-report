@@ -34,7 +34,7 @@
 | 295565                                                 | 1609            |       |        |       |         |
 | Function Name                                          | min             | avg   | median | max   | # calls |
 | isBlacklisted                                          | 597             | 1508  | 597    | 2597  | 68      |
-| requireNotRestricted                                   | 692             | 2932  | 2859   | 4859  | 51      |
+| requireNotRestricted                                   | 692             | 2933  | 2859   | 4859  | 50      |
 | restrict                                               | 23864           | 25464 | 25864  | 25864 | 5       |
 | unrestrict                                             | 1532            | 1532  | 1532   | 1532  | 1       |
 | src/dShare.sol:dShare contract |                 |       |        |       |         |
@@ -57,7 +57,7 @@
 | hasRole                        | 706             | 1706  | 1706   | 2706  | 2       |
 | increaseAllowance              | 24512           | 24512 | 24512  | 24512 | 6       |
 | isBlacklisted                  | 1708            | 4215  | 1708   | 8208  | 66      |
-| mint                           | 569             | 49829 | 56810  | 59147 | 27      |
+| mint                           | 569             | 51252 | 56810  | 59147 | 26      |
 | name                           | 1263            | 1961  | 1263   | 3263  | 9       |
 | nonces                         | 605             | 1605  | 1605   | 2605  | 2       |
 | owner                          | 460             | 1126  | 460    | 2460  | 9       |
@@ -145,19 +145,17 @@
 | src/issuer/DirectBuyIssuer.sol:DirectBuyIssuer contract |                 |        |        |        |         |
 |---------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                         | Deployment Size |        |        |        |         |
-| 3860700                                                 | 19640           |        |        |        |         |
+| 3802406                                                 | 19341           |        |        |        |         |
 | Function Name                                           | min             | avg    | median | max    | # calls |
 | ASSETTOKEN_ROLE                                         | 264             | 264    | 264    | 264    | 5       |
 | OPERATOR_ROLE                                           | 305             | 305    | 305    | 305    | 5       |
 | PAYMENTTOKEN_ROLE                                       | 285             | 285    | 285    | 285    | 5       |
 | cancelOrder                                             | 6677            | 17248  | 17248  | 27820  | 2       |
-| fillOrder                                               | 76453           | 106303 | 106303 | 136153 | 2       |
+| fillOrder                                               | 4042            | 69950  | 69950  | 135858 | 2       |
 | getFeeRatesForOrder                                     | 3763            | 3763   | 3763   | 3763   | 5       |
 | getOrderId                                              | 616             | 616    | 616    | 616    | 3       |
-| getRemainingOrder                                       | 534             | 534    | 534    | 534    | 1       |
-| getTotalReceived                                        | 556             | 556    | 556    | 556    | 1       |
 | grantRole                                               | 27566           | 27566  | 27566  | 27566  | 15      |
-| requestOrder                                            | 248435          | 248651 | 248795 | 248795 | 5       |
+| requestOrder                                            | 248124          | 248268 | 248124 | 248484 | 5       |
 | returnEscrow                                            | 3469            | 3469   | 3469   | 3469   | 1       |
 | takeEscrow                                              | 5221            | 27486  | 34792  | 34792  | 5       |
 | src/issuer/LimitBuyIssuer.sol:LimitBuyIssuer contract |                 |        |        |        |         |
@@ -262,5 +260,5 @@
 | mint                                              | 46604           | 46604 | 46604  | 46604 | 23      |
 | nonces                                            | 599             | 1571  | 599    | 2599  | 37      |
 | permit                                            | 14239           | 49072 | 51239  | 51239 | 18      |
-| transfer                                          | 2332            | 20460 | 22815  | 24815 | 25      |
+| transfer                                          | 2332            | 21034 | 22815  | 24815 | 23      |
 | transferFrom                                      | 5286            | 18917 | 20260  | 29986 | 37      |
