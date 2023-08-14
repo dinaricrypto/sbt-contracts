@@ -66,7 +66,7 @@ contract DirectBuyIssuerTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.LIMIT,
+            orderType: IOrderBridge.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
@@ -74,16 +74,14 @@ contract DirectBuyIssuerTest is Test {
         });
     }
 
-    function testTakeEscrow(uint256 orderAmount, uint256 takeAmount, uint256 _price) public {
+    function testTakeEscrow(uint256 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
-        vm.assume(_price > 0);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -112,16 +110,14 @@ contract DirectBuyIssuerTest is Test {
         }
     }
 
-    function testReturnEscrow(uint256 orderAmount, uint256 returnAmount, uint256 _price) public {
+    function testReturnEscrow(uint256 orderAmount, uint256 returnAmount) public {
         vm.assume(orderAmount > 0);
-        vm.assume(_price > 0);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -156,24 +152,17 @@ contract DirectBuyIssuerTest is Test {
         }
     }
 
-    function testFillOrder(
-        uint256 orderAmount,
-        uint256 takeAmount,
-        uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256 _price
-    ) public {
+    function testFillOrder(uint256 orderAmount, uint256 takeAmount, uint256 fillAmount, uint256 receivedAmount)
+        public
+    {
         vm.assume(takeAmount > 0);
         vm.assume(takeAmount <= orderAmount);
-        vm.assume(_price > 0);
-        vm.assume(!NumberUtils.mulCheckOverflow(fillAmount, 1 ether / _price));
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -211,19 +200,15 @@ contract DirectBuyIssuerTest is Test {
     }
 
     // Useful case: 1000003, 1, ''
-    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason, uint256 _price) public {
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
-        vm.assume(_price > 0);
-        vm.assume(!NumberUtils.mulDivCheckOverflow(fillAmount, 1 ether, _price));
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
-        uint256 receivedAmount = PrbMath.mulDiv(fillAmount, 1 ether, _price);
 
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -246,18 +231,16 @@ contract DirectBuyIssuerTest is Test {
         issuer.cancelOrder(order, index, reason);
     }
 
-    function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount, uint256 _price) public {
+    function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
         vm.assume(takeAmount > 0);
         vm.assume(takeAmount < orderAmount);
-        vm.assume(_price > 0);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
         IOrderBridge.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);

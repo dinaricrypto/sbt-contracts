@@ -33,7 +33,7 @@
 | 295565                                                 | 1609            |       |        |       |         |
 | Function Name                                          | min             | avg   | median | max   | # calls |
 | isBlacklisted                                          | 597             | 1508  | 597    | 2597  | 68      |
-| requireNotRestricted                                   | 692             | 2980  | 2859   | 4859  | 47      |
+| requireNotRestricted                                   | 692             | 2933  | 2859   | 4859  | 50      |
 | restrict                                               | 23864           | 25464 | 25864  | 25864 | 5       |
 | unrestrict                                             | 1532            | 1532  | 1532   | 1532  | 1       |
 | src/dShare.sol:dShare contract |                 |       |        |       |         |
@@ -215,7 +215,7 @@
 | test/OrderFees.t.sol:OrderFeesTest contract |                 |      |        |      |         |
 |---------------------------------------------|-----------------|------|--------|------|---------|
 | Deployment Cost                             | Deployment Size |      |        |      |         |
-| 2824685                                     | 13948           |      |        |      |         |
+| 2825093                                     | 13950           |      |        |      |         |
 | Function Name                               | min             | avg  | median | max  | # calls |
 | wrapPure                                    | 2062            | 2062 | 2062   | 2062 | 1       |
 | test/utils/SigMeta.sol:SigMeta contract |                 |      |        |      |         |

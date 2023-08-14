@@ -276,6 +276,13 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Check values
         _requestOrderAccounting(id, order, totalFees);
 
+        // Get fees for order
+        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(order.paymentToken);
+        // Calculate fees
+        uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, order.paymentTokenQuantity);
+        // Check values
+        _requestOrderAccounting(id, order, totalFees);
+
         // Send order to bridge
         emit OrderRequested(order.recipient, index, order);
 
