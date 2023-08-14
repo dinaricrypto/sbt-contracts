@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
@@ -16,19 +15,11 @@ import {IOrderFees} from "./IOrderFees.sol";
 /// The asset token is automatically refunded if the order is cancelled
 /// Implicitly assumes that asset tokens are dShare and can be burned
 contract MarketSellProcessor is OrderProcessor {
-    using SafeERC20 for IERC20;
-
     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
         OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
     /// ------------------ Order Lifecycle ------------------ ///
-
-    /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(bytes32, Order calldata order, uint256) internal virtual override {
-        // Transfer asset to contract
-        IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
-    }
 
     function _fillOrderAccounting(
         bytes32,

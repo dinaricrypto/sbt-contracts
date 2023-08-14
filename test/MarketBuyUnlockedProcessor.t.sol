@@ -68,7 +68,7 @@ contract MarketBuyUnlockedProcessorTest is Test {
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderProcessor.OrderType.LIMIT,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
@@ -76,9 +76,8 @@ contract MarketBuyUnlockedProcessorTest is Test {
         });
     }
 
-    function testTakeEscrow(uint256 orderAmount, uint256 takeAmount, uint256 _price) public {
+    function testTakeEscrow(uint256 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
-        vm.assume(_price > 0);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -86,7 +85,6 @@ contract MarketBuyUnlockedProcessorTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -115,9 +113,8 @@ contract MarketBuyUnlockedProcessorTest is Test {
         }
     }
 
-    function testReturnEscrow(uint256 orderAmount, uint256 returnAmount, uint256 _price) public {
+    function testReturnEscrow(uint256 orderAmount, uint256 returnAmount) public {
         vm.assume(orderAmount > 0);
-        vm.assume(_price > 0);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -125,7 +122,6 @@ contract MarketBuyUnlockedProcessorTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -160,17 +156,11 @@ contract MarketBuyUnlockedProcessorTest is Test {
         }
     }
 
-    function testFillOrder(
-        uint256 orderAmount,
-        uint256 takeAmount,
-        uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256 _price
-    ) public {
+    function testFillOrder(uint256 orderAmount, uint256 takeAmount, uint256 fillAmount, uint256 receivedAmount)
+        public
+    {
         vm.assume(takeAmount > 0);
         vm.assume(takeAmount <= orderAmount);
-        vm.assume(_price > 0);
-        vm.assume(!NumberUtils.mulCheckOverflow(fillAmount, 1 ether / _price));
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -178,7 +168,6 @@ contract MarketBuyUnlockedProcessorTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -200,10 +189,6 @@ contract MarketBuyUnlockedProcessorTest is Test {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, receivedAmount);
-        } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
-            vm.expectRevert(LimitBuyProcessor.OrderFillBelowLimitPrice.selector);
-            vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
         } else {
             vm.expectEmit(true, true, true, true);
             emit OrderFill(order.recipient, order.index, fillAmount, receivedAmount);
@@ -220,20 +205,16 @@ contract MarketBuyUnlockedProcessorTest is Test {
     }
 
     // Useful case: 1000003, 1, ''
-    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason, uint256 _price) public {
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
-        vm.assume(_price > 0);
-        vm.assume(!NumberUtils.mulDivCheckOverflow(fillAmount, 1 ether, _price));
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
-        uint256 receivedAmount = PrbMath.mulDiv(fillAmount, 1 ether, _price);
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -247,7 +228,7 @@ contract MarketBuyUnlockedProcessorTest is Test {
             issuer.takeEscrow(order, fillAmount);
 
             vm.prank(operator);
-            issuer.fillOrder(order, fillAmount, receivedAmount);
+            issuer.fillOrder(order, fillAmount, 100);
         }
 
         vm.expectEmit(true, true, true, true);
@@ -256,11 +237,10 @@ contract MarketBuyUnlockedProcessorTest is Test {
         issuer.cancelOrder(order, reason);
     }
 
-    function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount, uint256 _price) public {
+    function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount) public {
         vm.assume(orderAmount > 0);
         vm.assume(takeAmount > 0);
         vm.assume(takeAmount < orderAmount);
-        vm.assume(_price > 0);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -268,7 +248,6 @@ contract MarketBuyUnlockedProcessorTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.quantityIn = quantityIn;
         order.paymentTokenQuantity = orderAmount;
-        order.price = _price;
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);

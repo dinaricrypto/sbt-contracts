@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
-import {LimitBuyProcessor, ITokenLockCheck} from "./LimitBuyProcessor.sol";
+import {MarketBuyProcessor, ITokenLockCheck} from "./MarketBuyProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
@@ -27,7 +27,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract MarketBuyUnlockedProcessor is LimitBuyProcessor {
+contract MarketBuyUnlockedProcessor is MarketBuyProcessor {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -46,7 +46,7 @@ contract MarketBuyUnlockedProcessor is LimitBuyProcessor {
     mapping(bytes32 => uint256) public getOrderEscrow;
 
     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        LimitBuyProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
+        MarketBuyProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
     /// ------------------ Order Lifecycle ------------------ ///
