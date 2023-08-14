@@ -4,6 +4,7 @@ out = "out"
 libs = ["node_modules", "lib"]
 solc_version = '0.8.19'
 optimizer_runs = 1_000
+gas_price = 200_000_000
 
 [fuzz]
 runs = 518
