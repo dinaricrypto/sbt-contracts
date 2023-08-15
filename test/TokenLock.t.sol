@@ -18,12 +18,11 @@ contract TokenLockTest is Test {
         tokenLockCheck = new TokenLockCheck(address(token), address(token2));
     }
 
-    function testGetter() public {
+    function testLocked() public {
         assertEq(tokenLockCheck.isTransferLocked(address(token), user), false);
         assertEq(tokenLockCheck.isTransferLocked(address(token2), user), false);
-    }
+        assertEq(tokenLockCheck.isTransferLocked(user, user), false);
 
-    function testLocked() public {
         token.blacklist(user);
         token2.blackList(user);
         assertEq(tokenLockCheck.isTransferLocked(address(token), user), true);

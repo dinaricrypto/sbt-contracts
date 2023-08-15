@@ -4,13 +4,13 @@ pragma solidity 0.8.19;
 import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
-import {ITransferRestrictor} from "./ITransferRestrictor.sol";
+import {IdShare, ITransferRestrictor} from "./IdShare.sol";
 
 /// @notice Core token contract for bridged assets.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
-contract dShare is ERC20, AccessControlDefaultAdminRules {
+contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     /// ------------------ Types ------------------ ///
 
     error Unauthorized();
