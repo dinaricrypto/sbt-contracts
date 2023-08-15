@@ -7,7 +7,6 @@ import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
 import "../src/orders/SellProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
-import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {FeeLib} from "../src/FeeLib.sol";
@@ -20,7 +19,6 @@ contract SellProcessorTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     dShare token;
-    OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
     SellProcessor issuer;
     MockToken paymentToken;
@@ -42,11 +40,9 @@ contract SellProcessorTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken();
 
-        orderFees = new OrderFees(address(this), 1 ether, 5_000);
-
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new SellProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
