@@ -11,7 +11,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 contract DeployAllScript is Script {
     struct DeployConfig {
         address deployer;
-        address owner;
+        // address owner;
         address treasury;
         address operator;
         address usdc;
@@ -24,10 +24,10 @@ contract DeployAllScript is Script {
     function run() external {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
-        uint256 ownerKey = vm.envUint("OWNER_KEY");
+        // uint256 ownerKey = vm.envUint("OWNER_KEY");
         DeployConfig memory cfg = DeployConfig({
             deployer: vm.addr(deployerPrivateKey),
-            owner: vm.addr(ownerKey),
+            // owner: vm.addr(ownerKey),
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
             usdc: vm.envAddress("USDC"),
@@ -35,13 +35,13 @@ contract DeployAllScript is Script {
         });
 
         console.log("deployer: %s", cfg.deployer);
-        console.log("owner: %s", cfg.owner);
+        // console.log("owner: %s", cfg.owner);
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy transfer restrictor
-        new TransferRestrictor(cfg.owner);
+        new TransferRestrictor(cfg.deployer);
 
         // deploy blacklist prechecker
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
