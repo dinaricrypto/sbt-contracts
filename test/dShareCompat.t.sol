@@ -118,7 +118,6 @@ contract dShareCompatTest is Test {
     }
 
     function testRequestOrderThroughForwarder() public {
-
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
 
         IOrderProcessor.Order memory order = dummyOrder;

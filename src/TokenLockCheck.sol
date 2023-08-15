@@ -44,7 +44,8 @@ contract TokenLockCheck is ITokenLockCheck, Ownable {
                 abi.encodeWithSelector(selector, account), "TokenLockCheck: low-level static call failed"
             ),
             (bool)
-        );    }
+        );
+    }
 
     function isTransferLocked(address token, address account) external view returns (bool) {
         bytes4 selector = callSelector[token];

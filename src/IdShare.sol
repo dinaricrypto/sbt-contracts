@@ -7,7 +7,6 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IdShare.sol)
 /// Minter, burner, and blacklist
 interface IdShare {
-
     /// @notice URI to disclosure information
     function disclosures() external view returns (string memory);
 
