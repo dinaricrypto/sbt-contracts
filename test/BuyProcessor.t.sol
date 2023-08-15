@@ -51,7 +51,8 @@ contract BuyProcessorTest is Test {
         paymentToken = new MockToken();
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(50));
+        tokenLockCheck.setAsDShare(address(token));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
@@ -79,6 +80,7 @@ contract BuyProcessorTest is Test {
 
     function testSetTreasury(address account) public {
         vm.assume(account != address(0));
+        tokenLockCheck.setAsDShare(address(token));
 
         vm.expectEmit(true, true, true, true);
         emit TreasurySet(account);
@@ -213,6 +215,7 @@ contract BuyProcessorTest is Test {
         vm.prank(user);
         paymentToken.increaseAllowance(address(issuer), quantityIn);
 
+        assert(tokenLockCheck.isTransferLocked(address(token), user));
         vm.expectRevert(OrderProcessor.Blacklist.selector);
         vm.prank(user);
         issuer.requestOrder(dummyOrder);
@@ -232,7 +235,7 @@ contract BuyProcessorTest is Test {
         paymentToken.increaseAllowance(address(issuer), quantityIn);
 
         paymentToken.blacklist(user);
-        assertEq(tokenLockCheck.isTransferLocked(address(paymentToken), user), true);
+        assert(tokenLockCheck.isTransferLocked(address(paymentToken), user));
 
         vm.expectRevert(OrderProcessor.Blacklist.selector);
         vm.prank(user);

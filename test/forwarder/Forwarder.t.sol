@@ -204,9 +204,7 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderThroughForwarder() public {
-        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.paymentTokenQuantity);
-
-        uint256 quantityIn = dummyOrder.paymentTokenQuantity + fees;
+        uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
 
         IOrderProcessor.Order memory order = dummyOrder;
 
