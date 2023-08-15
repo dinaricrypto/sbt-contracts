@@ -3,23 +3,23 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
-import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/issuer/LimitBuyIssuer.sol";
-import "../src/issuer/IOrderBridge.sol";
-import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import "../src/orders/BuyProcessor.sol";
+import "../src/orders/IOrderProcessor.sol";
+import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract LimitBuyIssuerTest is Test {
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+contract BuyProcessorTest is Test {
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
 
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    LimitBuyIssuer issuer;
+    BuyProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -42,7 +42,7 @@ contract LimitBuyIssuerTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new LimitBuyIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
 
@@ -54,24 +54,28 @@ contract LimitBuyIssuerTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
-    function createOrder(uint256 orderAmount, uint256 price) internal view returns (IOrderBridge.Order memory order) {
-        order = IOrderBridge.Order({
+    function createLimitOrder(uint256 orderAmount, uint256 price)
+        internal
+        view
+        returns (IOrderProcessor.Order memory order)
+    {
+        order = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.LIMIT,
+            orderType: IOrderProcessor.OrderType.LIMIT,
             assetTokenQuantity: 0,
             paymentTokenQuantity: orderAmount,
             price: price,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
     function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        IOrderBridge.Order memory order = createOrder(orderAmount, _price);
+        IOrderProcessor.Order memory order = createLimitOrder(orderAmount, _price);
 
         paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.startPrank(user);
@@ -81,7 +85,7 @@ contract LimitBuyIssuerTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             issuer.requestOrder(order);
         } else if (_price == 0) {
-            vm.expectRevert(LimitBuyIssuer.LimitPriceNotSet.selector);
+            vm.expectRevert(BuyProcessor.LimitPriceNotSet.selector);
             issuer.requestOrder(order);
         } else {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -110,7 +114,7 @@ contract LimitBuyIssuerTest is Test {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
-        IOrderBridge.Order memory order = createOrder(orderAmount, _price);
+        IOrderProcessor.Order memory order = createLimitOrder(orderAmount, _price);
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
@@ -134,7 +138,7 @@ contract LimitBuyIssuerTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
-            vm.expectRevert(LimitBuyIssuer.OrderFillBelowLimitPrice.selector);
+            vm.expectRevert(BuyProcessor.OrderFillBelowLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {

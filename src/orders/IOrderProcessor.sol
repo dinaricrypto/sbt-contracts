@@ -2,11 +2,11 @@
 pragma solidity 0.8.19;
 
 /// @notice Interface for contracts processing orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/IOrderBridge.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/IOrderProcessor.sol)
 /// This interface provides a standard Order type and order lifecycle events
 /// Orders are requested on-chain, processed off-chain, then fulfillment is submitted for on-chain settlement
-/// Bridge operators have a consistent interface for processing orders and submitting fulfillment
-interface IOrderBridge {
+/// Processor operators have a consistent interface for processing orders and submitting fulfillment
+interface IOrderProcessor {
     /// ------------------ Types ------------------ ///
 
     // Market or limit order

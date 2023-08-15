@@ -7,27 +7,40 @@ import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/SellOrderProcessor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/SellProcessor.sol)
 /// This order processor emits market orders to sell the underlying asset that are good until cancelled
 /// Fee obligations are accumulated as order is filled
 /// Fees are taken from the proceeds of the sale
 /// The asset token is escrowed until the order is filled or cancelled
 /// The asset token is automatically refunded if the order is cancelled
 /// Implicitly assumes that asset tokens are dShare and can be burned
-contract SellOrderProcessor is OrderProcessor {
+contract SellProcessor is OrderProcessor {
+    error LimitPriceNotSet();
+    error OrderFillAboveLimitPrice();
+
     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
         OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 
+    function _requestOrderAccounting(bytes32, Order calldata order, uint256) internal virtual override {
+        // Ensure that price is set for limit orders
+        if (order.orderType == OrderType.LIMIT && order.price == 0) revert LimitPriceNotSet();
+    }
+
     function _fillOrderAccounting(
         bytes32,
-        Order calldata,
+        Order calldata order,
         OrderState memory orderState,
-        uint256,
+        uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
+        // For limit orders, ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
+        if (order.orderType == OrderType.LIMIT && receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) {
+            revert OrderFillAboveLimitPrice();
+        }
+
         // Fees - earn up to the flat fee, then earn percentage fee on the remainder
         // TODO: make sure that all fees are taken at total fill to prevent dust accumulating here
         // Determine the subtotal used to calculate the percentage fee

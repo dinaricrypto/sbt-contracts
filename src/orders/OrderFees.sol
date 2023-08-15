@@ -8,7 +8,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 import {FeeLib} from "../FeeLib.sol";
 
 /// @notice Manages fee calculations for orders.
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderFees.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderFees.sol)
 contract OrderFees is Ownable2Step, IOrderFees {
     /// @dev Emitted when `perOrderFee` and `percentageFeeRate` are set
     event FeeSet(uint64 perOrderFee, uint24 percentageFeeRate);

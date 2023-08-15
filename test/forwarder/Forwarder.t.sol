@@ -4,12 +4,12 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "../../src/common/Nonces.sol";
-import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
+import {OrderFees, IOrderFees} from "../../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {BuyOrderIssuer, OrderProcessor} from "../../src/issuer/BuyOrderIssuer.sol";
-import {SellOrderProcessor} from "../../src/issuer/SellOrderProcessor.sol";
+import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
+import {SellProcessor} from "../../src/orders/SellProcessor.sol";
 import "../utils/SigUtils.sol";
-import "../../src/issuer/IOrderBridge.sol";
+import "../../src/orders/IOrderProcessor.sol";
 import "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigMeta.sol";
@@ -23,18 +23,14 @@ contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
     event PriceRecencyThresholdSet(uint256 threshold);
     event RelayerSet(address indexed relayer, bool isRelayer);
-    event BuyOrderIssuerSet(address indexed buyOrderIssuer);
-    event DirectBuyIssuerSet(address indexed directBuyIssuer);
-    event SellOrderProcessorSet(address indexed sellOrderProcessor);
-    event LimitBuyIssuerSet(address indexed limitBuyIssuer);
-    event LimitSellProcessorSet(address indexed limitSellProcessor);
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+    event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 newCancellationGasCost);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
 
     Forwarder public forwarder;
-    BuyOrderIssuer public issuer;
-    SellOrderProcessor public sellIssuer;
+    BuyProcessor public issuer;
+    SellProcessor public sellIssuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
     dShare public token;
@@ -43,7 +39,7 @@ contract ForwarderTest is Test {
     SigPrice public sigPrice;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
-    IOrderBridge.Order public dummyOrder;
+    IOrderProcessor.Order public dummyOrder;
     TokenLockCheck tokenLockCheck;
 
     uint24 percentageFeeRate;
@@ -81,8 +77,8 @@ contract ForwarderTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
-        sellIssuer = new SellOrderProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        sellIssuer = new SellProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -97,8 +93,8 @@ contract ForwarderTest is Test {
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
-        forwarder.setBuyOrderIssuer(address(issuer));
-        forwarder.setSellOrderProcessor(address(sellIssuer));
+        forwarder.setSupportedModule(address(issuer), true);
+        forwarder.setSupportedModule(address(sellIssuer), true);
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
@@ -115,16 +111,16 @@ contract ForwarderTest is Test {
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
-        dummyOrder = IOrderBridge.Order({
+        dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.MARKET,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
 
         // set fees
@@ -173,41 +169,19 @@ contract ForwarderTest is Test {
 
     function testAddProcessor(address setIssuer) public {
         vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.setBuyOrderIssuer(setIssuer);
-        vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.setSellOrderProcessor(setIssuer);
-        vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.setDirectBuyIssuer(setIssuer);
+        forwarder.setSupportedModule(setIssuer, true);
 
-        vm.startPrank(owner);
         vm.expectEmit(true, true, true, true);
-        emit BuyOrderIssuerSet(setIssuer);
-        forwarder.setBuyOrderIssuer(setIssuer);
-        vm.expectEmit(true, true, true, true);
-        emit SellOrderProcessorSet(setIssuer);
-        forwarder.setSellOrderProcessor(setIssuer);
-        vm.expectEmit(true, true, true, true);
-        emit DirectBuyIssuerSet(setIssuer);
-        forwarder.setDirectBuyIssuer(setIssuer);
-        vm.expectEmit(true, true, true, true);
-        emit LimitBuyIssuerSet(setIssuer);
-        forwarder.setLimitBuyIssuer(setIssuer);
-        vm.expectEmit(true, true, true, true);
-        emit LimitSellProcessorSet(setIssuer);
-        forwarder.setLimitSellProcessor(setIssuer);
+        emit SupportedModuleSet(setIssuer, true);
+        vm.prank(owner);
+        forwarder.setSupportedModule(setIssuer, true);
+        assert(forwarder.isSupportedModule(setIssuer));
 
-        (
-            address buyOrderIssuer,
-            address sellOrderProcessor,
-            address directBuyIssuer,
-            address limitBuyIssuer,
-            address limitSellProcessor
-        ) = forwarder.supportedProcessors();
-        assertEq(buyOrderIssuer, setIssuer);
-        assertEq(sellOrderProcessor, setIssuer);
-        assertEq(directBuyIssuer, setIssuer);
-        assertEq(limitBuyIssuer, setIssuer);
-        assertEq(limitSellProcessor, setIssuer);
+        vm.expectEmit(true, true, true, true);
+        emit SupportedModuleSet(setIssuer, false);
+        vm.prank(owner);
+        forwarder.setSupportedModule(setIssuer, false);
+        assert(!forwarder.isSupportedModule(setIssuer));
     }
 
     function testRelayer(address setRelayer) public {
@@ -225,7 +199,7 @@ contract ForwarderTest is Test {
 
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
 
@@ -318,7 +292,7 @@ contract ForwarderTest is Test {
     }
 
     function testSellOrder() public {
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.sell = true;
         order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
 
@@ -491,7 +465,7 @@ contract ForwarderTest is Test {
     function testRequestOrderPausedRevertThroughFordwarder(uint256 quantityIn) public {
         vm.assume(quantityIn < 100 ether);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = quantityIn;
         issuer.setOrdersPaused(true);
 
@@ -518,7 +492,7 @@ contract ForwarderTest is Test {
     }
 
     function testRequestCancel() public {
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
 
@@ -581,7 +555,7 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderModuleNotFound() public {
-        BuyOrderIssuer issuer1 = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        BuyProcessor issuer1 = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
         issuer1.grantRole(issuer1.FORWARDER_ROLE(), address(forwarder));
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
@@ -602,13 +576,13 @@ contract ForwarderTest is Test {
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
         multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        vm.expectRevert(Forwarder.InvalidProcessorAddress.selector);
+        vm.expectRevert(Forwarder.NotSupportedModule.selector);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
     }
 
     function testRequestCancelNotRequesterReverts() public {
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
 

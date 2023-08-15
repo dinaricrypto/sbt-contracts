@@ -5,22 +5,22 @@ import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
-import "../src/issuer/BuyOrderIssuer.sol";
-import "../src/issuer/IOrderBridge.sol";
-import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import "../src/orders/BuyProcessor.sol";
+import "../src/orders/IOrderProcessor.sol";
+import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract BuyOrderIssuerTest is Test {
+contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
     event OrderFeesSet(IOrderFees indexed orderFees);
     event OrdersPaused(bool paused);
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
 
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
@@ -28,7 +28,7 @@ contract BuyOrderIssuerTest is Test {
 
     dShare token;
     OrderFees orderFees;
-    BuyOrderIssuer issuer;
+    BuyProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
@@ -42,7 +42,7 @@ contract BuyOrderIssuerTest is Test {
     uint256 flatFee;
     uint24 percentageFeeRate;
     uint256 dummyOrderFees;
-    IOrderBridge.Order dummyOrder;
+    IOrderProcessor.Order dummyOrder;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -56,7 +56,7 @@ contract BuyOrderIssuerTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -67,16 +67,16 @@ contract BuyOrderIssuerTest is Test {
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
-        dummyOrder = IOrderBridge.Order({
+        dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.MARKET,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
@@ -146,7 +146,7 @@ contract BuyOrderIssuerTest is Test {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         uint256 quantityIn = order.paymentTokenQuantity + fees;
 
@@ -179,7 +179,7 @@ contract BuyOrderIssuerTest is Test {
     }
 
     function testRequestOrderZeroAddressReverts() public {
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.recipient = address(0);
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
@@ -200,7 +200,7 @@ contract BuyOrderIssuerTest is Test {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         uint256 quantityIn = orderAmount + fees;
         order.paymentTokenQuantity = orderAmount;
 
@@ -222,7 +222,7 @@ contract BuyOrderIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
         paymentToken.mint(user, quantityIn);
@@ -240,7 +240,7 @@ contract BuyOrderIssuerTest is Test {
     function testRequestOrderUnsupportedPaymentReverts() public {
         address tryPaymentToken = address(new MockToken());
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
         vm.expectRevert(
@@ -267,7 +267,7 @@ contract BuyOrderIssuerTest is Test {
     function testRequestOrderUnsupportedAssetReverts() public {
         address tryAssetToken = address(new MockdShare());
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.assetToken = tryAssetToken;
 
         vm.expectRevert(
@@ -326,7 +326,7 @@ contract BuyOrderIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
         uint256 feesEarned = 0;
@@ -382,7 +382,7 @@ contract BuyOrderIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
         paymentToken.mint(user, quantityIn);
@@ -465,7 +465,7 @@ contract BuyOrderIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
         paymentToken.mint(user, quantityIn);

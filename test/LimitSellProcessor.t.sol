@@ -4,22 +4,22 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {OrderProcessor} from "../src/issuer/OrderProcessor.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/issuer/LimitSellProcessor.sol";
-import "../src/issuer/IOrderBridge.sol";
-import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import "../src/orders/SellProcessor.sol";
+import "../src/orders/IOrderProcessor.sol";
+import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract LimitSellProcessorTest is Test {
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+contract SellProcessorTest is Test {
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
 
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    LimitSellProcessor issuer;
+    SellProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -39,7 +39,7 @@ contract LimitSellProcessorTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new LimitSellProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new SellProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -49,22 +49,26 @@ contract LimitSellProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
-    function createOrder(uint256 orderAmount, uint256 price) internal view returns (IOrderBridge.Order memory order) {
-        order = IOrderBridge.Order({
+    function createOrder(uint256 orderAmount, uint256 price)
+        internal
+        view
+        returns (IOrderProcessor.Order memory order)
+    {
+        order = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: true,
-            orderType: IOrderBridge.OrderType.LIMIT,
+            orderType: IOrderProcessor.OrderType.LIMIT,
             assetTokenQuantity: orderAmount,
             paymentTokenQuantity: 0,
             price: price,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
     function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
-        IOrderBridge.Order memory order = createOrder(orderAmount, _price);
+        IOrderProcessor.Order memory order = createOrder(orderAmount, _price);
 
         token.mint(user, orderAmount);
         vm.prank(user);
@@ -76,7 +80,7 @@ contract LimitSellProcessorTest is Test {
             vm.prank(user);
             issuer.requestOrder(order);
         } else if (_price == 0) {
-            vm.expectRevert(LimitSellProcessor.LimitPriceNotSet.selector);
+            vm.expectRevert(SellProcessor.LimitPriceNotSet.selector);
             vm.prank(user);
             issuer.requestOrder(order);
         } else {
@@ -106,7 +110,7 @@ contract LimitSellProcessorTest is Test {
         vm.assume(fillAmount < 2 ** 128 - 1);
         vm.assume(receivedAmount < 2 ** 128 - 1);
 
-        IOrderBridge.Order memory order = createOrder(orderAmount, _price);
+        IOrderProcessor.Order memory order = createOrder(orderAmount, _price);
 
         token.mint(user, orderAmount);
         vm.prank(user);
@@ -129,7 +133,7 @@ contract LimitSellProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) {
-            vm.expectRevert(LimitSellProcessor.OrderFillAboveLimitPrice.selector);
+            vm.expectRevert(SellProcessor.OrderFillAboveLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {

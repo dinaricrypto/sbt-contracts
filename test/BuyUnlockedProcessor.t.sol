@@ -4,19 +4,19 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/issuer/DirectBuyIssuer.sol";
-import "../src/issuer/IOrderBridge.sol";
-import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import "../src/orders/BuyUnlockedProcessor.sol";
+import "../src/orders/IOrderProcessor.sol";
+import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract DirectBuyIssuerTest is Test {
+contract BuyUnlockedProcessorTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
 
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
@@ -25,7 +25,7 @@ contract DirectBuyIssuerTest is Test {
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    DirectBuyIssuer issuer;
+    BuyUnlockedProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -37,7 +37,7 @@ contract DirectBuyIssuerTest is Test {
     uint256 flatFee;
     uint24 percentageFeeRate;
     uint256 dummyOrderFees;
-    IOrderBridge.Order dummyOrder;
+    IOrderProcessor.Order dummyOrder;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -50,7 +50,7 @@ contract DirectBuyIssuerTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new DirectBuyIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyUnlockedProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -61,16 +61,16 @@ contract DirectBuyIssuerTest is Test {
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
-        dummyOrder = IOrderBridge.Order({
+        dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.MARKET,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
@@ -80,7 +80,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
         paymentToken.mint(user, quantityIn);
@@ -116,7 +116,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
         paymentToken.mint(user, quantityIn);
@@ -161,7 +161,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
         paymentToken.mint(user, quantityIn);
@@ -211,7 +211,7 @@ contract DirectBuyIssuerTest is Test {
         uint256 quantityIn = orderAmount + fees;
         uint256 receivedAmount = PrbMath.mulDiv(fillAmount, 1 ether, _price);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
 
@@ -244,7 +244,7 @@ contract DirectBuyIssuerTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
         paymentToken.mint(user, quantityIn);
@@ -257,7 +257,7 @@ contract DirectBuyIssuerTest is Test {
         vm.prank(operator);
         issuer.takeEscrow(order, index, takeAmount);
 
-        vm.expectRevert(DirectBuyIssuer.UnreturnedEscrow.selector);
+        vm.expectRevert(BuyUnlockedProcessor.UnreturnedEscrow.selector);
         vm.prank(operator);
         issuer.cancelOrder(order, index, "");
     }

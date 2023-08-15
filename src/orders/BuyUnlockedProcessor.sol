@@ -3,12 +3,12 @@ pragma solidity 0.8.19;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
-import {BuyOrderIssuer, ITokenLockCheck} from "./BuyOrderIssuer.sol";
+import {BuyProcessor, ITokenLockCheck} from "./BuyProcessor.sol";
 import {IMintBurn} from "../IMintBurn.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/DirectBuyIssuer.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/BuyUnlockedProcessor.sol)
 /// This order processor emits market orders to buy the underlying asset that are good until cancelled
 /// Fees are calculated upfront and held back from the order amount
 /// The payment is taken by the operator before the order is filled
@@ -27,7 +27,7 @@ import {IOrderFees} from "./IOrderFees.sol";
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract DirectBuyIssuer is BuyOrderIssuer {
+contract BuyUnlockedProcessor is BuyProcessor {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -46,7 +46,7 @@ contract DirectBuyIssuer is BuyOrderIssuer {
     mapping(bytes32 => uint256) public getOrderEscrow;
 
     constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        BuyOrderIssuer(_owner, treasury_, orderFees_, tokenLockCheck_)
+        BuyProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
     {}
 
     /// ------------------ Order Lifecycle ------------------ ///

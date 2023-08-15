@@ -7,21 +7,21 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigUtils.sol";
-import "../../src/issuer/BuyOrderIssuer.sol";
-import "../../src/issuer/IOrderBridge.sol";
-import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
+import "../../src/orders/BuyProcessor.sol";
+import "../../src/orders/IOrderProcessor.sol";
+import {OrderFees, IOrderFees} from "../../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/FeeLib.sol";
 
-contract BuyOrderIssuerRequestTest is Test {
+contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
 
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    BuyOrderIssuer issuer;
+    BuyProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
 
@@ -37,7 +37,7 @@ contract BuyOrderIssuerRequestTest is Test {
 
     uint256 flatFee;
     uint24 percentageFeeRate;
-    IOrderBridge.Order order;
+    IOrderProcessor.Order order;
     bytes[] calls;
 
     function setUp() public {
@@ -52,7 +52,7 @@ contract BuyOrderIssuerRequestTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -76,16 +76,16 @@ contract BuyOrderIssuerRequestTest is Test {
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
-        order = IOrderBridge.Order({
+        order = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.MARKET,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
 
         calls = new bytes[](2);
@@ -112,7 +112,7 @@ contract BuyOrderIssuerRequestTest is Test {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
-        IOrderBridge.Order memory neworder = order;
+        IOrderProcessor.Order memory neworder = order;
         neworder.paymentTokenQuantity = orderAmount;
         uint256 quantityIn = neworder.paymentTokenQuantity + fees;
 

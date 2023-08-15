@@ -10,7 +10,7 @@ import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {SelfPermit} from "../common/SelfPermit.sol";
-import {IOrderBridge} from "./IOrderBridge.sol";
+import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {IOrderFees} from "./IOrderFees.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {dShare} from "../dShare.sol";
@@ -20,7 +20,7 @@ import {FeeLib} from "../FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 
 /// @notice Base contract managing orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/issuer/OrderProcessor.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
 /// Orders are submitted by users and filled by operators
 /// Handling of fees is left to the inheriting contract
 /// Each inheritor can craft a unique order processing flow
@@ -37,7 +37,7 @@ import {IForwarder} from "../forwarder/IForwarder.sol";
 ///   2. [Optional] Operator partially fills the order (fillOrder)
 ///   3. [Optional] User requests cancellation (requestCancel)
 ///   4. Operator cancels the order (cancelOrder)
-abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit, IOrderBridge {
+abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit, IOrderProcessor {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -132,7 +132,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
 
-    /// @inheritdoc IOrderBridge
+    /// @inheritdoc IOrderProcessor
     mapping(address => mapping(address => uint256)) public escrowedBalanceOf;
 
     /// ------------------ Initialization ------------------ ///
@@ -201,27 +201,27 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// ------------------ Getters ------------------ ///
 
-    /// @inheritdoc IOrderBridge
+    /// @inheritdoc IOrderProcessor
     function numOpenOrders() external view returns (uint256) {
         return _numOpenOrders;
     }
 
-    /// @inheritdoc IOrderBridge
+    /// @inheritdoc IOrderProcessor
     function getOrderId(address recipient, uint256 index) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(recipient, index));
     }
 
-    /// @inheritdoc IOrderBridge
+    /// @inheritdoc IOrderProcessor
     function isOrderActive(bytes32 id) public view returns (bool) {
         return _orders[id].remainingOrder > 0;
     }
 
-    /// @inheritdoc IOrderBridge
+    /// @inheritdoc IOrderProcessor
     function getRemainingOrder(bytes32 id) public view returns (uint256) {
         return _orders[id].remainingOrder;
     }
 
-    /// @inheritdoc IOrderBridge
+    /// @inheritdoc IOrderProcessor
     function getTotalReceived(bytes32 id) public view returns (uint256) {
         return _orders[id].received;
     }
@@ -233,7 +233,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     function hasRole(bytes32 role, address account)
         public
         view
-        override(AccessControl, IAccessControl, IOrderBridge)
+        override(AccessControl, IAccessControl, IOrderProcessor)
         returns (bool)
     {
         return super.hasRole(role, account);
@@ -265,7 +265,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// ------------------ Order Lifecycle ------------------ ///
 
-    /// @inheritdoc IOrderBridge
+    /// @inheritdoc IOrderProcessor
     function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 index) {
         // cheap checks first
         if (order.recipient == address(0)) revert ZeroAddress();

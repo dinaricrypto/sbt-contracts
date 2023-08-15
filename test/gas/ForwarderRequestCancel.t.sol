@@ -4,11 +4,11 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "../../src/common/Nonces.sol";
-import {OrderFees, IOrderFees} from "../../src/issuer/OrderFees.sol";
+import {OrderFees, IOrderFees} from "../../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {BuyOrderIssuer, OrderProcessor} from "../../src/issuer/BuyOrderIssuer.sol";
+import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
 import "../utils/SigUtils.sol";
-import "../../src/issuer/IOrderBridge.sol";
+import "../../src/orders/IOrderProcessor.sol";
 import "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigMeta.sol";
@@ -19,19 +19,8 @@ import {FeeLib} from "../../src/FeeLib.sol";
 
 // additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {
-    event TrustedOracleSet(address indexed oracle, bool isTrusted);
-    event PriceRecencyThresholdSet(uint256 threshold);
-    event RelayerSet(address indexed relayer, bool isRelayer);
-    event BuyOrderIssuerSet(address indexed buyOrderIssuer);
-    event DirectBuyIssuerSet(address indexed directBuyIssuer);
-    event SellOrderProcessorSet(address indexed sellOrderProcessor);
-    event LimitBuyIssuerSet(address indexed limitBuyIssuer);
-    event LimitSellProcessorSet(address indexed limitSellProcessor);
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
-    event FeeUpdated(uint256 newFeeBps);
-
     Forwarder public forwarder;
-    BuyOrderIssuer public issuer;
+    BuyProcessor public issuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
     dShare public token;
@@ -40,7 +29,7 @@ contract ForwarderRequestCancelTest is Test {
     SigPrice public sigPrice;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
-    IOrderBridge.Order public dummyOrder;
+    IOrderProcessor.Order public dummyOrder;
     TokenLockCheck tokenLockCheck;
 
     uint24 percentageFeeRate;
@@ -80,7 +69,7 @@ contract ForwarderRequestCancelTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyOrderIssuer(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -91,7 +80,7 @@ contract ForwarderRequestCancelTest is Test {
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
-        forwarder.setBuyOrderIssuer(address(issuer));
+        forwarder.setSupportedModule(address(issuer), true);
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
@@ -106,16 +95,16 @@ contract ForwarderRequestCancelTest is Test {
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
-        dummyOrder = IOrderBridge.Order({
+        dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: false,
-            orderType: IOrderBridge.OrderType.MARKET,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
 
         // set fees

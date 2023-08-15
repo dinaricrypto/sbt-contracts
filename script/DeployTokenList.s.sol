@@ -4,9 +4,9 @@ pragma solidity 0.8.19;
 import "forge-std/Script.sol";
 import {dShare} from "../src/dShare.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
-import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
-import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
-import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
+import {SellProcessor} from "../src/orders/SellProcessor.sol";
+import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 
 contract DeployTokenListScript is Script {
     uint256 constant n = 13;
@@ -19,9 +19,9 @@ contract DeployTokenListScript is Script {
         // address owner = vm.addr(ownerKey);
 
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
-        BuyOrderIssuer buyIssuer = BuyOrderIssuer(vm.envAddress("BUY_ISSUER"));
-        SellOrderProcessor sellProcessor = SellOrderProcessor(vm.envAddress("SELL_PROCESSOR"));
-        DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
+        BuyProcessor buyIssuer = BuyProcessor(vm.envAddress("BUY_ISSUER"));
+        SellProcessor sellProcessor = SellProcessor(vm.envAddress("SELL_PROCESSOR"));
+        BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
 
         console.log("deployer: %s", deployer);
         // console.log("owner: %s", owner);

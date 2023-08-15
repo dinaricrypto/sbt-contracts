@@ -2,18 +2,18 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
-import {BuyOrderIssuer} from "../src/issuer/BuyOrderIssuer.sol";
-import {SellOrderProcessor} from "../src/issuer/SellOrderProcessor.sol";
-import {DirectBuyIssuer} from "../src/issuer/DirectBuyIssuer.sol";
+import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
+import {SellProcessor} from "../src/orders/SellProcessor.sol";
+import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {dShare} from "../src/dShare.sol";
 
 contract AddTokensScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        BuyOrderIssuer buyIssuer = BuyOrderIssuer(vm.envAddress("BUY_ISSUER"));
-        SellOrderProcessor sellProcessor = SellOrderProcessor(vm.envAddress("SELL_PROCESSOR"));
-        DirectBuyIssuer directIssuer = DirectBuyIssuer(vm.envAddress("DIRECT_ISSUER"));
+        BuyProcessor buyIssuer = BuyProcessor(vm.envAddress("BUY_ISSUER"));
+        SellProcessor sellProcessor = SellProcessor(vm.envAddress("SELL_PROCESSOR"));
+        BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
 
         address[1] memory paymentTokens = [
             0x1ad40240395186ea900Cb3df6Bf5B64420CeA46D // fake USDC

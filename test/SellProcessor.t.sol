@@ -5,15 +5,15 @@ import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
-import "../src/issuer/SellOrderProcessor.sol";
-import "../src/issuer/IOrderBridge.sol";
-import {OrderFees, IOrderFees} from "../src/issuer/OrderFees.sol";
+import "../src/orders/SellProcessor.sol";
+import "../src/orders/IOrderProcessor.sol";
+import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract SellOrderProcessorTest is Test {
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderBridge.Order order);
+contract SellProcessorTest is Test {
+    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
@@ -22,7 +22,7 @@ contract SellOrderProcessorTest is Test {
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    SellOrderProcessor issuer;
+    SellProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -33,7 +33,7 @@ contract SellOrderProcessorTest is Test {
     uint256 flatFee;
     uint24 percentageFeeRate;
 
-    IOrderBridge.Order dummyOrder;
+    IOrderProcessor.Order dummyOrder;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -46,7 +46,7 @@ contract SellOrderProcessorTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new SellOrderProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new SellProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -56,21 +56,21 @@ contract SellOrderProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
-        dummyOrder = IOrderBridge.Order({
+        dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
             sell: true,
-            orderType: IOrderBridge.OrderType.MARKET,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 100 ether,
             paymentTokenQuantity: 0,
             price: 0,
-            tif: IOrderBridge.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
     function testRequestOrder(uint256 quantityIn) public {
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.assetTokenQuantity = quantityIn;
 
         token.mint(user, quantityIn);
@@ -105,7 +105,7 @@ contract SellOrderProcessorTest is Test {
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.assetTokenQuantity = orderAmount;
 
         uint256 feesEarned = 0;
@@ -176,7 +176,7 @@ contract SellOrderProcessorTest is Test {
         vm.assume(firstFillAmount <= orderAmount);
         vm.assume(firstReceivedAmount <= receivedAmount);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.assetTokenQuantity = orderAmount;
 
         token.mint(user, orderAmount);
@@ -245,7 +245,7 @@ contract SellOrderProcessorTest is Test {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
 
-        IOrderBridge.Order memory order = dummyOrder;
+        IOrderProcessor.Order memory order = dummyOrder;
         order.assetTokenQuantity = orderAmount;
 
         token.mint(user, orderAmount);

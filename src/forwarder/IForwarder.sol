@@ -42,6 +42,7 @@ interface IForwarder {
      * This function should only be called by the authorized relayer.
      * @param metaTx The meta transaction containing the user address, target contract, encoded function call data,
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
+     * @return The return data of the forwarded function call.
      */
-    function forwardFunctionCall(ForwardRequest calldata metaTx) external;
+    function forwardFunctionCall(ForwardRequest calldata metaTx) external returns (bytes memory);
 }
