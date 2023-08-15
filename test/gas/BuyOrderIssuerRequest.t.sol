@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigUtils.sol";
-import "../../src/orders/MarketBuyProcessor.sol";
+import "../../src/orders/BuyProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -15,13 +15,13 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/FeeLib.sol";
 
-contract MarketBuyProcessorRequestTest is Test {
+contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
 
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    MarketBuyProcessor issuer;
+    BuyProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
 
@@ -52,7 +52,7 @@ contract MarketBuyProcessorRequestTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new MarketBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

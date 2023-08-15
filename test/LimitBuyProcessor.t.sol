@@ -5,21 +5,21 @@ import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/orders/LimitBuyProcessor.sol";
+import "../src/orders/BuyProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract LimitBuyProcessorTest is Test {
+contract BuyProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
 
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    LimitBuyProcessor issuer;
+    BuyProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -42,7 +42,7 @@ contract LimitBuyProcessorTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new LimitBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
 
@@ -54,7 +54,7 @@ contract LimitBuyProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
-    function createOrder(uint256 orderAmount, uint256 price)
+    function createLimitOrder(uint256 orderAmount, uint256 price)
         internal
         view
         returns (IOrderProcessor.Order memory order)
@@ -75,7 +75,7 @@ contract LimitBuyProcessorTest is Test {
     function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        IOrderProcessor.Order memory order = createOrder(orderAmount, _price);
+        IOrderProcessor.Order memory order = createLimitOrder(orderAmount, _price);
 
         paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.startPrank(user);
@@ -85,7 +85,7 @@ contract LimitBuyProcessorTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             issuer.requestOrder(order);
         } else if (_price == 0) {
-            vm.expectRevert(LimitBuyProcessor.LimitPriceNotSet.selector);
+            vm.expectRevert(BuyProcessor.LimitPriceNotSet.selector);
             issuer.requestOrder(order);
         } else {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -114,7 +114,7 @@ contract LimitBuyProcessorTest is Test {
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
-        IOrderProcessor.Order memory order = createOrder(orderAmount, _price);
+        IOrderProcessor.Order memory order = createLimitOrder(orderAmount, _price);
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
@@ -138,7 +138,7 @@ contract LimitBuyProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
-            vm.expectRevert(LimitBuyProcessor.OrderFillBelowLimitPrice.selector);
+            vm.expectRevert(BuyProcessor.OrderFillBelowLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {

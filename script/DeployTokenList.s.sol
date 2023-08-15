@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Script.sol";
 import {dShare} from "../src/dShare.sol";
 import {ITransferRestrictor} from "../src/ITransferRestrictor.sol";
-import {MarketBuyProcessor} from "../src/orders/MarketBuyProcessor.sol";
+import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {MarketSellProcessor} from "../src/orders/MarketSellProcessor.sol";
 import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
 
@@ -19,7 +19,7 @@ contract DeployTokenListScript is Script {
         // address owner = vm.addr(ownerKey);
 
         ITransferRestrictor restrictor = ITransferRestrictor(vm.envAddress("TRANSFER_RESTRICTOR"));
-        MarketBuyProcessor buyIssuer = MarketBuyProcessor(vm.envAddress("BUY_ISSUER"));
+        BuyProcessor buyIssuer = BuyProcessor(vm.envAddress("BUY_ISSUER"));
         MarketSellProcessor sellProcessor = MarketSellProcessor(vm.envAddress("SELL_PROCESSOR"));
         MarketBuyUnlockedProcessor directIssuer = MarketBuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
 

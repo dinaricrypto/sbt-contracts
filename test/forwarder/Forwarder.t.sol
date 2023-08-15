@@ -6,7 +6,7 @@ import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "../../src/common/Nonces.sol";
 import {OrderFees, IOrderFees} from "../../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {MarketBuyProcessor, OrderProcessor} from "../../src/orders/MarketBuyProcessor.sol";
+import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
 import {MarketSellProcessor} from "../../src/orders/MarketSellProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
@@ -29,7 +29,7 @@ contract ForwarderTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
 
     Forwarder public forwarder;
-    MarketBuyProcessor public issuer;
+    BuyProcessor public issuer;
     MarketSellProcessor public sellIssuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
@@ -77,7 +77,7 @@ contract ForwarderTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new MarketBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
         sellIssuer = new MarketSellProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
@@ -555,7 +555,7 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderModuleNotFound() public {
-        MarketBuyProcessor issuer1 = new MarketBuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        BuyProcessor issuer1 = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
         issuer1.grantRole(issuer1.FORWARDER_ROLE(), address(forwarder));
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);

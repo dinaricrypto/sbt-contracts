@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
-import {MarketBuyProcessor} from "../src/orders/MarketBuyProcessor.sol";
+import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {MarketSellProcessor} from "../src/orders/MarketSellProcessor.sol";
 import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
@@ -45,7 +45,7 @@ contract DeployAllScript is Script {
         IOrderFees orderFees = new OrderFees(cfg.owner, 1_000_000, 5_000);
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
 
-        MarketBuyProcessor buyProcessor = new MarketBuyProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+        BuyProcessor buyProcessor = new BuyProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
         MarketSellProcessor sellProcessor =
             new MarketSellProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);

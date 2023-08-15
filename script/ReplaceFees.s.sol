@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
 import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
-import {MarketBuyProcessor} from "../src/orders/MarketBuyProcessor.sol";
+import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {MarketSellProcessor} from "../src/orders/MarketSellProcessor.sol";
 import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
 
@@ -13,7 +13,7 @@ contract ReplaceFeesScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        MarketBuyProcessor buyIssuer = MarketBuyProcessor(vm.envAddress("BUY_ISSUER"));
+        BuyProcessor buyIssuer = BuyProcessor(vm.envAddress("BUY_ISSUER"));
         MarketSellProcessor sellProcessor = MarketSellProcessor(vm.envAddress("SELL_PROCESSOR"));
         MarketBuyUnlockedProcessor directIssuer = MarketBuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
 

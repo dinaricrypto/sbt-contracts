@@ -238,7 +238,7 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
      *
      * @param order The details of the order, including payment and asset tokens, and the quantity.
      * @param user The address of the user initiating the order.
-     * @param target The address of the target contract (e.g. MarketBuyProcessor or MarketSellProcessor) that will execute the order.
+     * @param target The address of the target contract (e.g. BuyProcessor or MarketSellProcessor) that will execute the order.
      */
     function _requestOrderPreparation(IOrderProcessor.Order memory order, address user, address target) internal {
         // Pull tokens from user and approve module to spend
