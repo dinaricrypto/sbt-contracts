@@ -6,6 +6,10 @@ import {IdShare} from "./IdShare.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
+interface IERC20Usdc {
+    function isBlacklisted(address account) external view returns (bool);
+}
+
 interface IERC20Usdt {
     function isBlackListed(address account) external view returns (bool);
 }
@@ -18,8 +22,7 @@ contract TokenLockCheck is ITokenLockCheck, Ownable {
     mapping(address => bytes4) public callSelector;
 
     constructor(address usdc, address usdt) {
-        // usdc is same as dShare
-        callSelector[usdc] = IdShare.isBlacklisted.selector;
+        callSelector[usdc] = IERC20Usdc.isBlacklisted.selector;
         callSelector[usdt] = IERC20Usdt.isBlackListed.selector;
     }
 
