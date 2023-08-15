@@ -137,7 +137,12 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
     /// ------------------------------- Forwarding -------------------------------
 
     /// @inheritdoc IForwarder
-    function forwardFunctionCall(ForwardRequest calldata metaTx) external onlyRelayer nonReentrant {
+    function forwardFunctionCall(ForwardRequest calldata metaTx)
+        external
+        onlyRelayer
+        nonReentrant
+        returns (bytes memory result)
+    {
         uint256 gasStart = gasleft();
         _validateForwardRequest(metaTx);
 
@@ -160,7 +165,7 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
         }
 
         // execute low level call to issuer
-        bytes memory result = metaTx.to.functionCall(metaTx.data);
+        result = metaTx.to.functionCall(metaTx.data);
 
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
             uint256 id = abi.decode(result, (uint256));
