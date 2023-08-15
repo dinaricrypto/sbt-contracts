@@ -209,11 +209,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     /// @notice Set token lock check contract
-    /// @param tokenLockCheck_ Token lock check contract
+    /// @param _tokenLockCheck Token lock check contract
     /// @dev Only callable by admin
-    function setTokenLockCheck(ITokenLockCheck tokenLockCheck_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        tokenLockCheck = tokenLockCheck_;
-        emit TokenLockCheckSet(tokenLockCheck_);
+    function setTokenLockCheck(ITokenLockCheck _tokenLockCheck) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        tokenLockCheck = _tokenLockCheck;
+        emit TokenLockCheckSet(_tokenLockCheck);
     }
 
     /// ------------------ Getters ------------------ ///
