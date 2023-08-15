@@ -8,6 +8,7 @@ import {OrderFees, IOrderFees} from "../../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../../src/orders/SellProcessor.sol";
+import {BuyUnlockedProcessor} from "../../src/orders/BuyUnlockedProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import "../utils/mocks/MockToken.sol";
@@ -27,12 +28,15 @@ contract ForwarderTest is Test {
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 newCancellationGasCost);
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
+    event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
+    event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
 
     error InsufficientBalance();
 
     Forwarder public forwarder;
     BuyProcessor public issuer;
     SellProcessor public sellIssuer;
+    BuyUnlockedProcessor public directBuyIssuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
     dShare public token;
@@ -81,6 +85,7 @@ contract ForwarderTest is Test {
 
         issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
         sellIssuer = new SellProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        directBuyIssuer = new BuyUnlockedProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -92,11 +97,15 @@ contract ForwarderTest is Test {
         sellIssuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         sellIssuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         sellIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        directBuyIssuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
+        directBuyIssuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
+        directBuyIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(priceRecencyThreshold);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(sellIssuer), true);
+        forwarder.setSupportedModule(address(directBuyIssuer), true);
         forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
@@ -104,6 +113,7 @@ contract ForwarderTest is Test {
         // set issuer forwarder role
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
         sellIssuer.grantRole(sellIssuer.FORWARDER_ROLE(), address(forwarder));
+        directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
         sigPrice = new SigPrice(forwarder.DOMAIN_SEPARATOR());
@@ -345,6 +355,111 @@ contract ForwarderTest is Test {
         assert(paymentTokenBalanceBefore > paymentTokenBalanceAfter);
         // cost should be < 1e6 for gas cost
         assertLt(paymentTokenBalanceBefore - paymentTokenBalanceAfter, 1e6);
+    }
+
+    function testTakeEscrowBuyUnlockedOrder(uint256 takeAmount) public {
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.paymentTokenQuantity);
+
+        uint256 quantityIn = dummyOrder.paymentTokenQuantity + fees;
+
+        IOrderProcessor.Order memory order = dummyOrder;
+
+        bytes memory data = abi.encodeWithSelector(directBuyIssuer.requestOrder.selector, order);
+
+        uint256 nonce = 0;
+
+        // 4. Mint tokens
+        deal(address(paymentToken), user, quantityIn * 1e6);
+
+        //  Prepare PriceAttestation
+        PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
+
+        //  Prepare ForwardRequest
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(directBuyIssuer), data, nonce, attestation, userPrivateKey);
+
+        // calldata
+        bytes[] memory multicalldata = new bytes[](2);
+        multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+
+        bytes32 id = directBuyIssuer.getOrderId(order.recipient, 0);
+
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
+
+        // test take escrow
+        if (takeAmount == 0) {
+            vm.expectRevert(OrderProcessor.ZeroValue.selector);
+            vm.prank(operator);
+            directBuyIssuer.takeEscrow(order, 0, takeAmount);
+        } else if (takeAmount > order.paymentTokenQuantity) {
+            vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
+            vm.prank(operator);
+            directBuyIssuer.takeEscrow(order, 0, takeAmount);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit EscrowTaken(order.recipient, 0, takeAmount);
+            vm.prank(operator);
+            directBuyIssuer.takeEscrow(order, 0, takeAmount);
+            assertEq(paymentToken.balanceOf(operator), takeAmount);
+            assertEq(directBuyIssuer.getOrderEscrow(id), order.paymentTokenQuantity - takeAmount);
+        }
+    }
+
+    function testReturnEscrowBuyUnlockedOrder(uint256 returnAmount) public {
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, dummyOrder.paymentTokenQuantity);
+
+        uint256 quantityIn = dummyOrder.paymentTokenQuantity + fees;
+
+        IOrderProcessor.Order memory order = dummyOrder;
+
+        bytes memory data = abi.encodeWithSelector(directBuyIssuer.requestOrder.selector, order);
+
+        uint256 nonce = 0;
+
+        // 4. Mint tokens
+        deal(address(paymentToken), user, quantityIn * 1e6);
+
+        //  Prepare PriceAttestation
+        PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
+
+        //  Prepare ForwardRequest
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(directBuyIssuer), data, nonce, attestation, userPrivateKey);
+
+        // calldata
+        bytes[] memory multicalldata = new bytes[](2);
+        multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+
+        bytes32 id = directBuyIssuer.getOrderId(order.recipient, 0);
+
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
+
+        vm.prank(operator);
+        directBuyIssuer.takeEscrow(order, 0, order.paymentTokenQuantity);
+
+        vm.prank(operator);
+        paymentToken.increaseAllowance(address(directBuyIssuer), returnAmount);
+
+        if (returnAmount == 0) {
+            vm.expectRevert(OrderProcessor.ZeroValue.selector);
+            vm.prank(operator);
+            directBuyIssuer.returnEscrow(order, 0, returnAmount);
+        } else if (returnAmount > order.paymentTokenQuantity) {
+            vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
+            vm.prank(operator);
+            directBuyIssuer.returnEscrow(order, 0, returnAmount);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit EscrowReturned(order.recipient, 0, returnAmount);
+            vm.prank(operator);
+            directBuyIssuer.returnEscrow(order, 0, returnAmount);
+            assertEq(directBuyIssuer.getOrderEscrow(id), returnAmount);
+            assertEq(paymentToken.balanceOf(address(directBuyIssuer)), fees + returnAmount);
+        }
     }
 
     function testRequestOrderNotApprovedByProcessorReverts() public {
