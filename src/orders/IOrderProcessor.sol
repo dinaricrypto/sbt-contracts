@@ -97,6 +97,11 @@ interface IOrderProcessor {
     /// @dev Fees zero if no orderFees contract is set
     function getFeeRatesForOrder(address token) external view returns (uint256, uint24);
 
+    /// @dev Returns `true` if `account` has been granted `role`.
+    function hasRole(bytes32 role, address account) external view returns (bool);
+
+    function FORWARDER_ROLE() external view returns (bytes32);
+
     /// ------------------ Actions ------------------ ///
 
     /// @notice Request an order

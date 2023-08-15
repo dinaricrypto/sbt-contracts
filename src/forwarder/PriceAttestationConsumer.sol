@@ -4,24 +4,13 @@ pragma solidity 0.8.19;
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
+import {IPriceAttestationConsumer} from "./IPriceAttestationConsumer.sol";
 
 /// @notice Base contract for verifying price attestations from trusted oracles
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/metatx/PriceAttestationConsumer.sol)
 /// @dev Oracles sign prices and publish them to be consumed by contracts that inherit from this one
-abstract contract PriceAttestationConsumer is Ownable, EIP712 {
+abstract contract PriceAttestationConsumer is IPriceAttestationConsumer, Ownable, EIP712 {
     /// ------------------------------- Types -------------------------------
-
-    struct PriceAttestation {
-        // Address of token whose price is being attested
-        address token;
-        // Price of 1 `token` in wei, accounting for token decimals
-        uint256 price;
-        // Timestamp when price was recorded
-        uint64 timestamp;
-        uint256 chainId;
-        // ECDSA signature of the oracle publishing the price.
-        bytes signature;
-    }
 
     error FuturePrice();
     error StalePrice();
@@ -39,10 +28,10 @@ abstract contract PriceAttestationConsumer is Ownable, EIP712 {
 
     /// ------------------------------- Storage -------------------------------
 
-    /// @notice Is the account a trusted oracle?
+    /// @inheritdoc IPriceAttestationConsumer
     mapping(address => bool) public isTrustedOracle;
 
-    /// @notice How old can a price be before it is considered stale?
+    /// @inheritdoc IPriceAttestationConsumer
     uint64 public priceRecencyThreshold;
 
     /// ------------------------------- Initialization -------------------------------

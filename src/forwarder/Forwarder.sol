@@ -14,41 +14,30 @@ import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {FeeLib} from "../../src/FeeLib.sol";
+import {IForwarder} from "./IForwarder.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
-/// @author Dinari (https://github.com/dinaricrypto/orders-contracts/blob/main/src/orders/OrderProcessor.sol)
-contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, SelfPermit, ReentrancyGuard {
+/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
+contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Multicall, SelfPermit, ReentrancyGuard {
     using SafeERC20 for IERC20Permit;
     using SafeERC20 for IERC20;
     using Address for address;
 
     /// ------------------------------- Types -------------------------------
 
-    struct ForwardRequest {
-        address user; // The address of the user initiating the meta-transaction.
-        address to; // The address of the target contract (e.g., OrderProcessor)
-            // to which the meta-transaction should be forwarded.
-        bytes data; // Encoded function call that the user wants to execute
-            // through the meta-transaction.
-        uint64 deadline; // The time by which the meta-transaction must be mined.
-        uint256 nonce; // A nonce to prevent replay attacks. It must be unique
-            // for each meta-transaction made by the user.
-        PriceAttestation paymentTokenOraclePrice; // Oracle signed price of the ERC20 token that the user wants to
-            // use for paying the transaction fees.
-        bytes signature; // ECDSA signature of the user authorizing the meta-transaction.
-    }
-
     error UserNotRelayer();
     error InvalidSigner();
     error InvalidAmount();
     error ExpiredRequest();
     error UnsupportedCall();
+    error FeeTooHigh();
+    error ForwarderNotApprovedByProcessor();
     error NotSupportedModule();
 
     event RelayerSet(address indexed relayer, bool isRelayer);
     event SupportedModuleSet(address indexed module, bool isSupported);
-    event FeeUpdated(uint256 newFeeBps);
-    event CancellationFeeUpdated(uint256 newCancellationFee);
+    event FeeUpdated(uint256 feeBps);
+    event CancellationGasCostUpdated(uint256 gas);
 
     /// ------------------------------- Constants -------------------------------
 
@@ -64,20 +53,20 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
 
     /// ------------------------------- Storage -------------------------------
 
-    /// @notice The fee rate in basis points (1 basis point = 0.01%) for paying gas fees in tokens.
-    uint256 public feeBps;
+    /// @inheritdoc IForwarder
+    uint16 public feeBps;
 
-    /// @notice Gas cost estimate added to cover oder cancellations.
+    /// @inheritdoc IForwarder
     uint256 public cancellationGasCost;
 
     /// @notice The set of supported modules.
     mapping(address => bool) public isSupportedModule;
 
-    /// @notice The mapping of relayer addresses authorize to send meta transactions.
+    /// @inheritdoc IForwarder
     mapping(address => bool) public isRelayer;
 
-    /// @notice The mapping of order IDs to signers used for order cancellation protection.
-    mapping(bytes32 => address) public orderSigners;
+    /// @inheritdoc IForwarder
+    mapping(bytes32 => address) public orderSigner;
 
     /// ------------------------------- Modifiers -------------------------------
 
@@ -120,30 +109,34 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
     /// @notice Updates the fee rate.
     /// @dev Only callable by the contract owner.
     /// @param newFeeBps The new fee rate in basis points.
-    function setFeeBps(uint256 newFeeBps) external onlyOwner {
-        require(newFeeBps <= 10000, "Fee cannot be more than 100%");
+    function setFeeBps(uint16 newFeeBps) external onlyOwner {
+        if (newFeeBps > 10000) revert FeeTooHigh();
+
         feeBps = newFeeBps;
         emit FeeUpdated(newFeeBps);
     }
 
-    /// @notice Updates the cancellation fee.
+    /// @notice Updates the cancellation gas cost estimate.
     /// @dev Only callable by the contract owner.
     /// @param newCancellationGasCost The new cancellation fee.
-    function setCancellationFee(uint256 newCancellationGasCost) external onlyOwner {
+    function setCancellationGasCost(uint256 newCancellationGasCost) external onlyOwner {
         cancellationGasCost = newCancellationGasCost;
-        emit CancellationFeeUpdated(newCancellationGasCost);
+        emit CancellationGasCostUpdated(newCancellationGasCost);
+    }
+
+    /**
+     * @notice Rescue ERC20 tokens locked up in this contract.
+     * @param tokenContract ERC20 token contract address
+     * @param to        Recipient address
+     * @param amount    Amount to withdraw
+     */
+    function rescueERC20(IERC20 tokenContract, address to, uint256 amount) external onlyOwner {
+        tokenContract.safeTransfer(to, amount);
     }
 
     /// ------------------------------- Forwarding -------------------------------
 
-    /**
-     * @notice Forwards a meta transaction to an OrderProcessor contract.
-     * @dev Validates the meta transaction signature, then forwards the call to the target OrderProcessor.
-     * The relayer's address is used for EIP-712 compliant signature verification.
-     * This function should only be called by the authorized relayer.
-     * @param metaTx The meta transaction containing the user address, target contract, encoded function call data,
-     * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
-     */
+    /// @inheritdoc IForwarder
     function forwardFunctionCall(ForwardRequest calldata metaTx) external onlyRelayer nonReentrant {
         uint256 gasStart = gasleft();
         _validateForwardRequest(metaTx);
@@ -161,20 +154,19 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
             // Get data from metaTx
             (address recipient, uint256 index) = abi.decode(metaTx.data[4:], (address, uint256));
             bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(recipient, index);
-            if (orderSigners[orderId] != metaTx.user) revert InvalidSigner();
+            if (orderSigner[orderId] != metaTx.user) revert InvalidSigner();
         } else {
             revert UnsupportedCall();
         }
 
         // execute low level call to issuer
-        // slither-disable-next-line unused-return
         bytes memory result = metaTx.to.functionCall(metaTx.data);
 
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
             uint256 id = abi.decode(result, (uint256));
             // get order ID
             bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, id);
-            orderSigners[orderId] = metaTx.user;
+            orderSigner[orderId] = metaTx.user;
         }
 
         // handle transaction payment
@@ -204,6 +196,11 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
 
         address signer = ECDSA.recover(typedDataHash, metaTx.signature);
         if (signer != metaTx.user) revert InvalidSigner();
+
+        // Verify that orderprocessor has approved this as forwarder
+        if (!IOrderProcessor(metaTx.to).hasRole(IOrderProcessor(metaTx.to).FORWARDER_ROLE(), address(this))) {
+            revert ForwarderNotApprovedByProcessor();
+        }
     }
 
     function _signedPriceAttestationHash(PriceAttestation calldata priceAttestation) internal pure returns (bytes32) {
@@ -219,6 +216,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
         );
     }
 
+    /// @inheritdoc IForwarder
     function forwardRequestHash(ForwardRequest calldata metaTx) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
@@ -270,6 +268,7 @@ contract Forwarder is Ownable, PriceAttestationConsumer, Nonces, Multicall, Self
      */
     function _handlePayment(address user, address paymentToken, uint256 paymentTokenPrice, uint256 gasStart) internal {
         uint256 gasUsed = gasStart - gasleft();
+        // TODO: Test that Arbitrum returns reasonable gasUsed and gasprice values
         uint256 totalGasCostInWei = (gasUsed + cancellationGasCost) * tx.gasprice;
         uint256 paymentAmount = totalGasCostInWei / paymentTokenPrice;
 
