@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
-import {MarketSellProcessor} from "../src/orders/MarketSellProcessor.sol";
+import {SellProcessor} from "../src/orders/SellProcessor.sol";
 import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 
@@ -47,8 +47,7 @@ contract DeployAllScript is Script {
 
         BuyProcessor buyProcessor = new BuyProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
-        MarketSellProcessor sellProcessor =
-            new MarketSellProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+        SellProcessor sellProcessor = new SellProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
 
         MarketBuyUnlockedProcessor directBuyIssuer =
             new MarketBuyUnlockedProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);

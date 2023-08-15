@@ -6,20 +6,20 @@ import {MockToken} from "./utils/mocks/MockToken.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/orders/LimitSellProcessor.sol";
+import "../src/orders/SellProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract LimitSellProcessorTest is Test {
+contract SellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
 
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    LimitSellProcessor issuer;
+    SellProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -39,7 +39,7 @@ contract LimitSellProcessorTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new LimitSellProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new SellProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -80,7 +80,7 @@ contract LimitSellProcessorTest is Test {
             vm.prank(user);
             issuer.requestOrder(order);
         } else if (_price == 0) {
-            vm.expectRevert(LimitSellProcessor.LimitPriceNotSet.selector);
+            vm.expectRevert(SellProcessor.LimitPriceNotSet.selector);
             vm.prank(user);
             issuer.requestOrder(order);
         } else {
@@ -133,7 +133,7 @@ contract LimitSellProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) {
-            vm.expectRevert(LimitSellProcessor.OrderFillAboveLimitPrice.selector);
+            vm.expectRevert(SellProcessor.OrderFillAboveLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {

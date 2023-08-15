@@ -7,7 +7,7 @@ import {Nonces} from "../../src/common/Nonces.sol";
 import {OrderFees, IOrderFees} from "../../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
-import {MarketSellProcessor} from "../../src/orders/MarketSellProcessor.sol";
+import {SellProcessor} from "../../src/orders/SellProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import "../utils/mocks/MockToken.sol";
@@ -30,7 +30,7 @@ contract ForwarderTest is Test {
 
     Forwarder public forwarder;
     BuyProcessor public issuer;
-    MarketSellProcessor public sellIssuer;
+    SellProcessor public sellIssuer;
     OrderFees public orderFees;
     MockToken public paymentToken;
     dShare public token;
@@ -78,7 +78,7 @@ contract ForwarderTest is Test {
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
         issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
-        sellIssuer = new MarketSellProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        sellIssuer = new SellProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
