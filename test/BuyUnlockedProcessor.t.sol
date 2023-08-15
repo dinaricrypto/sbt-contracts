@@ -6,7 +6,6 @@ import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
 import "../src/orders/BuyUnlockedProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
-import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
@@ -23,7 +22,6 @@ contract BuyUnlockedProcessorTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     dShare token;
-    OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
     BuyUnlockedProcessor issuer;
     MockToken paymentToken;
@@ -46,11 +44,9 @@ contract BuyUnlockedProcessorTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken();
 
-        orderFees = new OrderFees(address(this), 1 ether, 5_000);
-
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyUnlockedProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyUnlockedProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

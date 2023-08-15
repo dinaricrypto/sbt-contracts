@@ -11,11 +11,10 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
 import "prb-math/Common.sol" as PrbMath;
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
-import {IOrderFees} from "./IOrderFees.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {dShare} from "../dShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
-import {IMintBurn} from "../IMintBurn.sol";
+import {IdShare} from "../IdShare.sol";
 import {FeeLib} from "../FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 
@@ -85,8 +84,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
-    /// @dev Emitted when `orderFees` is set
-    event OrderFeesSet(IOrderFees indexed orderFees);
+    /// @dev Emitted when `perOrderFee` and `percentageFeeRate` are set
+    event FeeSet(uint64 perOrderFee, uint24 percentageFeeRate);
     /// @dev Emitted when orders are paused/unpaused
     event OrdersPaused(bool paused);
     /// @dev Emitted when token lock check contract is set
@@ -104,7 +103,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Payment token role for whitelisting payment tokens
     bytes32 public constant PAYMENTTOKEN_ROLE = keccak256("PAYMENTTOKEN_ROLE");
     /// @notice Asset token role for whitelisting asset tokens
-    /// @dev Tokens with decimals > 18 are not supported by current OrderFees implementation
+    /// @dev Tokens with decimals > 18 are not supported by current implementation
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
     /// @notice Forwarder role for forwarding context awareness
     bytes32 public constant FORWARDER_ROLE = keccak256("FORWARDER_ROLE");
@@ -114,8 +113,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Address to receive fees
     address public treasury;
 
-    /// @notice Fee specification contract
-    IOrderFees public orderFees;
+    /// @notice Flat fee per order in ethers decimals
+    uint64 public perOrderFee;
+
+    /// @notice Percentage fee take per order in bps
+    uint24 public percentageFeeRate;
 
     /// @notice Transfer restrictor checker
     ITokenLockCheck public tokenLockCheck;
@@ -139,20 +141,28 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @notice Initialize contract
     /// @param _owner Owner of contract
-    /// @param treasury_ Address to receive fees
-    /// @param orderFees_ Fee specification contract
+    /// @param _treasury Address to receive fees
+    /// @param _perOrderFee Base flat fee per order in ethers decimals
+    /// @param _percentageFeeRate Percentage fee take per order in bps
+    /// @param _tokenLockCheck Token lock check contract
     /// @dev Treasury cannot be zero address
-    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        AccessControlDefaultAdminRules(0, _owner)
-    {
+    constructor(
+        address _owner,
+        address _treasury,
+        uint64 _perOrderFee,
+        uint24 _percentageFeeRate,
+        ITokenLockCheck _tokenLockCheck
+    ) AccessControlDefaultAdminRules(0, _owner) {
         // Don't send fees to zero address
-        if (treasury_ == address(0)) revert ZeroAddress();
+        if (_treasury == address(0)) revert ZeroAddress();
+        // Check percentage fee is less than 100%
+        FeeLib.checkPercentageFeeRate(_percentageFeeRate);
 
-        // Initialize treasury and order fees
-        treasury = treasury_;
-        orderFees = orderFees_;
-
-        tokenLockCheck = tokenLockCheck_;
+        // Initialize
+        treasury = _treasury;
+        perOrderFee = _perOrderFee;
+        percentageFeeRate = _percentageFeeRate;
+        tokenLockCheck = _tokenLockCheck;
     }
 
     /// ------------------ Administration ------------------ ///
@@ -175,12 +185,19 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TreasurySet(account);
     }
 
-    /// @notice Set order fees contract
-    /// @param fees Order fees contract
-    /// @dev Only callable by admin
-    function setOrderFees(IOrderFees fees) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        orderFees = fees;
-        emit OrderFeesSet(fees);
+    /// @notice Set the base and percentage fees
+    /// @param _perOrderFee Base flat fee per order in ethers decimals
+    /// @param _percentageFeeRate Percentage fee per order in bps
+    /// @dev Only callable by owner
+    function setFees(uint64 _perOrderFee, uint24 _percentageFeeRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Check percentage fee is less than 100%
+        FeeLib.checkPercentageFeeRate(_percentageFeeRate);
+
+        // Update fees
+        perOrderFee = _perOrderFee;
+        percentageFeeRate = _percentageFeeRate;
+        // Emit new fees
+        emit FeeSet(_perOrderFee, _percentageFeeRate);
     }
 
     /// @notice Pause/unpause orders
@@ -192,11 +209,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     /// @notice Set token lock check contract
-    /// @param tokenLockCheck_ Token lock check contract
+    /// @param _tokenLockCheck Token lock check contract
     /// @dev Only callable by admin
-    function setTokenLockCheck(ITokenLockCheck tokenLockCheck_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        tokenLockCheck = tokenLockCheck_;
-        emit TokenLockCheckSet(tokenLockCheck_);
+    function setTokenLockCheck(ITokenLockCheck _tokenLockCheck) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        tokenLockCheck = _tokenLockCheck;
+        emit TokenLockCheckSet(_tokenLockCheck);
     }
 
     /// ------------------ Getters ------------------ ///
@@ -250,17 +267,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Get fee rates for an order
     /// @param token Payment token for order
     /// @return flatFee Flat fee for order
-    /// @return percentageFeeRate Percentage fee rate for order
-    /// @dev Fees zero if no orderFees contract is set
-    function getFeeRatesForOrder(address token) public view returns (uint256 flatFee, uint24 percentageFeeRate) {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) {
-            return (0, 0);
-        }
-
+    /// @return _percentageFeeRate Percentage fee rate for order
+    function getFeeRatesForOrder(address token) public view returns (uint256 flatFee, uint24 _percentageFeeRate) {
         // Get fee rates
-        flatFee = FeeLib.flatFeeForOrder(token, orderFees.perOrderFee());
-        percentageFeeRate = orderFees.percentageFeeRate();
+        flatFee = FeeLib.flatFeeForOrder(token, perOrderFee);
+        _percentageFeeRate = percentageFeeRate;
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -285,9 +296,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
         index = _nextOrderIndex[order.recipient]++;
         bytes32 id = getOrderId(order.recipient, index);
-        // Get fees for order
-        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(order.paymentToken);
         // Calculate fees
+        uint256 flatFee = FeeLib.flatFeeForOrder(order.paymentToken, perOrderFee);
         uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, order.paymentTokenQuantity);
         // Check values
         _requestOrderAccounting(id, order, totalFees);
@@ -413,7 +423,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // update escrowed balance
             escrowedBalanceOf[order.assetToken][order.recipient] -= fillAmount;
             // Burn the filled quantity from the asset token
-            IMintBurn(order.assetToken).burn(fillAmount);
+            IdShare(order.assetToken).burn(fillAmount);
 
             // Transfer the received amount from the filler to this contract
             IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
@@ -429,7 +439,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
 
             // Mint asset
-            IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
+            IdShare(order.assetToken).mint(order.recipient, receivedAmount);
         }
 
         // If there are fees from the order, transfer them to the treasury

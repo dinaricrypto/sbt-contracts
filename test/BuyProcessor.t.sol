@@ -2,12 +2,12 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
+import "solady/test/utils/mocks/MockERC20.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
 import "./utils/SigUtils.sol";
 import "../src/orders/BuyProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
-import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -16,7 +16,7 @@ import {FeeLib} from "../src/FeeLib.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
-    event OrderFeesSet(IOrderFees indexed orderFees);
+    event FeeSet(uint64 perOrderFee, uint24 percentageFeeRate);
     event OrdersPaused(bool paused);
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
 
@@ -27,7 +27,6 @@ contract BuyProcessorTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     dShare token;
-    OrderFees orderFees;
     BuyProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
@@ -52,12 +51,10 @@ contract BuyProcessorTest is Test {
         paymentToken = new MockToken();
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new OrderFees(address(this), 1 ether, 5_000);
-
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(50));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -96,11 +93,30 @@ contract BuyProcessorTest is Test {
         issuer.setTreasury(address(0));
     }
 
-    function testSetFees(IOrderFees fees) public {
-        vm.expectEmit(true, true, true, true);
-        emit OrderFeesSet(fees);
-        issuer.setOrderFees(fees);
-        assertEq(address(issuer.orderFees()), address(fees));
+    function testSetFee(uint64 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
+        if (percentageFee >= 1_000_000) {
+            vm.expectRevert(FeeLib.FeeTooLarge.selector);
+            issuer.setFees(perOrderFee, percentageFee);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit FeeSet(perOrderFee, percentageFee);
+            issuer.setFees(perOrderFee, percentageFee);
+            assertEq(issuer.perOrderFee(), perOrderFee);
+            assertEq(issuer.percentageFeeRate(), percentageFee);
+            assertEq(
+                FeeLib.percentageFeeForValue(value, issuer.percentageFeeRate()),
+                PrbMath.mulDiv(value, percentageFee, 1_000_000)
+            );
+            MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
+            if (tokenDecimals > 18) {
+                vm.expectRevert(FeeLib.DecimalsTooLarge.selector);
+                this.wrapFlatFeeForOrder(address(newToken), perOrderFee);
+            } else {
+                assertEq(
+                    wrapFlatFeeForOrder(address(newToken), perOrderFee), decimalAdjust(newToken.decimals(), perOrderFee)
+                );
+            }
+        }
     }
 
     function testSetTokenLockCheck(ITokenLockCheck _tokenLockCheck) public {
@@ -110,24 +126,10 @@ contract BuyProcessorTest is Test {
         assertEq(address(issuer.tokenLockCheck()), address(_tokenLockCheck));
     }
 
-    function testNoFees(uint256 value) public {
-        issuer.setOrderFees(IOrderFees(address(0)));
-
-        (uint256 inputValue, uint256 _flatFee, uint256 percentageFee) =
-            issuer.getInputValueForOrderValue(address(paymentToken), value);
-        assertEq(inputValue, value);
-        assertEq(_flatFee, 0);
-        assertEq(percentageFee, 0);
-        (uint256 flatFee2, uint256 percentageFee2) = issuer.getFeeRatesForOrder(address(paymentToken));
-        assertEq(flatFee2, 0);
-        assertEq(percentageFee2, 0);
-    }
-
     function testGetInputValue(uint24 perOrderFee, uint24 _percentageFeeRate, uint128 orderValue) public {
         // uint128 used to avoid overflow when calculating larger raw input value
         vm.assume(_percentageFeeRate < 1_000_000);
-        OrderFees fees = new OrderFees(address(this), perOrderFee, _percentageFeeRate);
-        issuer.setOrderFees(fees);
+        issuer.setFees(perOrderFee, _percentageFeeRate);
         (uint256 inputValue, uint256 _flatFee, uint256 percentageFee) =
             issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
         assertEq(inputValue - _flatFee - percentageFee, orderValue);
@@ -505,5 +507,21 @@ contract BuyProcessorTest is Test {
         vm.expectRevert(OrderProcessor.OrderNotFound.selector);
         vm.prank(operator);
         issuer.cancelOrder(dummyOrder, index, "msg");
+    }
+
+    // ------------------ utils ------------------
+
+    function wrapFlatFeeForOrder(address newToken, uint64 perOrderFee) public view returns (uint256) {
+        return FeeLib.flatFeeForOrder(newToken, perOrderFee);
+    }
+
+    function decimalAdjust(uint8 decimals, uint256 fee) internal pure returns (uint256) {
+        uint256 adjFee = fee;
+        if (decimals < 18) {
+            adjFee /= 10 ** (18 - decimals);
+        } else if (decimals > 18) {
+            adjFee *= 10 ** (decimals - 18);
+        }
+        return adjFee;
     }
 }

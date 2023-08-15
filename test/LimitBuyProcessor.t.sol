@@ -7,7 +7,6 @@ import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import "./utils/mocks/MockdShare.sol";
 import "../src/orders/BuyProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
-import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
 import {FeeLib} from "../src/FeeLib.sol";
@@ -17,7 +16,6 @@ contract BuyProcessorTest is Test {
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
 
     dShare token;
-    OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
     BuyProcessor issuer;
     MockToken paymentToken;
@@ -38,11 +36,9 @@ contract BuyProcessorTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken();
 
-        orderFees = new OrderFees(address(this), 1 ether, 5_000);
-
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
 

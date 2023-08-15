@@ -9,7 +9,6 @@ import "../utils/mocks/MockdShare.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/BuyProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
-import {OrderFees, IOrderFees} from "../../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
@@ -19,7 +18,6 @@ contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
 
     dShare token;
-    OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
     BuyProcessor issuer;
     MockToken paymentToken;
@@ -48,11 +46,9 @@ contract BuyProcessorRequestTest is Test {
         paymentToken = new MockToken();
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        orderFees = new OrderFees(address(this), 1 ether, 5_000);
-
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

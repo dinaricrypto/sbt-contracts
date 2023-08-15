@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../src/orders/SellProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
@@ -18,6 +17,9 @@ contract DeployAllScript is Script {
         address usdc;
         address usdt;
     }
+
+    uint64 constant perOrderFee = 1_000_000;
+    uint24 constant percentageFeeRate = 5_000;
 
     function run() external {
         // load env variables
@@ -41,16 +43,17 @@ contract DeployAllScript is Script {
         // deploy transfer restrictor
         new TransferRestrictor(cfg.owner);
 
-        // deploy fee manager
-        IOrderFees orderFees = new OrderFees(cfg.owner, 1_000_000, 5_000);
+        // deploy blacklist prechecker
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
 
-        BuyProcessor buyProcessor = new BuyProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+        BuyProcessor buyProcessor =
+            new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
-        SellProcessor sellProcessor = new SellProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+        SellProcessor sellProcessor =
+            new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
         BuyUnlockedProcessor directBuyIssuer =
-            new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, orderFees, tokenLockCheck);
+            new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
         // config operator
         buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);

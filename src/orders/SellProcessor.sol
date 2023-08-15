@@ -3,8 +3,6 @@ pragma solidity 0.8.19;
 
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
-import {IMintBurn} from "../IMintBurn.sol";
-import {IOrderFees} from "./IOrderFees.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/SellProcessor.sol)
@@ -18,9 +16,13 @@ contract SellProcessor is OrderProcessor {
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();
 
-    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
-    {}
+    constructor(
+        address _owner,
+        address _treasury,
+        uint64 _perOrderFee,
+        uint24 _percentageFeeRate,
+        ITokenLockCheck _tokenLockCheck
+    ) OrderProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 

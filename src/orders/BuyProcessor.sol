@@ -3,8 +3,6 @@ pragma solidity 0.8.19;
 
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
-import {IMintBurn} from "../IMintBurn.sol";
-import {IOrderFees} from "./IOrderFees.sol";
 import {FeeLib} from "../FeeLib.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
@@ -18,9 +16,13 @@ contract BuyProcessor is OrderProcessor {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
 
-    constructor(address _owner, address treasury_, IOrderFees orderFees_, ITokenLockCheck tokenLockCheck_)
-        OrderProcessor(_owner, treasury_, orderFees_, tokenLockCheck_)
-    {}
+    constructor(
+        address _owner,
+        address _treasury,
+        uint64 _perOrderFee,
+        uint24 _percentageFeeRate,
+        ITokenLockCheck _tokenLockCheck
+    ) OrderProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
 
     /// ------------------ Fee Helpers ------------------ ///
 
@@ -30,22 +32,18 @@ contract BuyProcessor is OrderProcessor {
     /// @return inputValue Total input value subject to fees
     /// @return flatFee Flat fee for order
     /// @return percentageFee Percentage fee for order
-    /// @dev Fees zero if no orderFees contract is set
     function getInputValueForOrderValue(address token, uint256 orderValue)
         external
         view
         returns (uint256 inputValue, uint256 flatFee, uint256 percentageFee)
     {
-        // Check if fee contract is set
-        if (address(orderFees) == address(0)) {
-            return (orderValue, 0, 0);
-        }
-
+        // load fee rate
+        uint24 _percentageFeeRate = percentageFeeRate;
         // Calculate input value after flat fee
-        uint256 recoveredValue = FeeLib.recoverInputValueFromRemaining(orderValue, orderFees.percentageFeeRate());
+        uint256 recoveredValue = FeeLib.recoverInputValueFromRemaining(orderValue, _percentageFeeRate);
         // Calculate fees
-        percentageFee = FeeLib.percentageFeeForValue(recoveredValue, orderFees.percentageFeeRate());
-        flatFee = FeeLib.flatFeeForOrder(token, orderFees.perOrderFee());
+        percentageFee = FeeLib.percentageFeeForValue(recoveredValue, _percentageFeeRate);
+        flatFee = FeeLib.flatFeeForOrder(token, perOrderFee);
         // Calculate raw input value
         inputValue = recoveredValue + flatFee;
     }
