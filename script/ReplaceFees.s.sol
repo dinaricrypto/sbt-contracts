@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../src/orders/SellProcessor.sol";
-import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
+import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 
 contract ReplaceFeesScript is Script {
     // This script will deploy a new IORderFees and replace existing fee contract for issuers.
@@ -15,7 +15,7 @@ contract ReplaceFeesScript is Script {
         address deployer = vm.addr(deployerPrivateKey);
         BuyProcessor buyIssuer = BuyProcessor(vm.envAddress("BUY_ISSUER"));
         SellProcessor sellProcessor = SellProcessor(vm.envAddress("SELL_PROCESSOR"));
-        MarketBuyUnlockedProcessor directIssuer = MarketBuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
+        BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
 
         vm.startBroadcast(deployerPrivateKey);
 

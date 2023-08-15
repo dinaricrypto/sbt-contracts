@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Script.sol";
 import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../src/orders/SellProcessor.sol";
-import {MarketBuyUnlockedProcessor} from "../src/orders/MarketBuyUnlockedProcessor.sol";
+import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 
 contract AddOperatorsScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
@@ -12,7 +12,7 @@ contract AddOperatorsScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         BuyProcessor buyIssuer = BuyProcessor(vm.envAddress("BUY_ISSUER"));
         SellProcessor sellProcessor = SellProcessor(vm.envAddress("SELL_PROCESSOR"));
-        MarketBuyUnlockedProcessor directIssuer = MarketBuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
+        BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
 
         address[1] memory operators = [
             // add operator wallets here

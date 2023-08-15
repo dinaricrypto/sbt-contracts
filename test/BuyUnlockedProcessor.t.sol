@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/MockdShare.sol";
-import "../src/orders/MarketBuyUnlockedProcessor.sol";
+import "../src/orders/BuyUnlockedProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
 import {OrderFees, IOrderFees} from "../src/orders/OrderFees.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
@@ -12,7 +12,7 @@ import {NumberUtils} from "./utils/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {FeeLib} from "../src/FeeLib.sol";
 
-contract MarketBuyUnlockedProcessorTest is Test {
+contract BuyUnlockedProcessorTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
 
@@ -25,7 +25,7 @@ contract MarketBuyUnlockedProcessorTest is Test {
     dShare token;
     OrderFees orderFees;
     TokenLockCheck tokenLockCheck;
-    MarketBuyUnlockedProcessor issuer;
+    BuyUnlockedProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -50,7 +50,7 @@ contract MarketBuyUnlockedProcessorTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new MarketBuyUnlockedProcessor(address(this), treasury, orderFees, tokenLockCheck);
+        issuer = new BuyUnlockedProcessor(address(this), treasury, orderFees, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -257,7 +257,7 @@ contract MarketBuyUnlockedProcessorTest is Test {
         vm.prank(operator);
         issuer.takeEscrow(order, index, takeAmount);
 
-        vm.expectRevert(MarketBuyUnlockedProcessor.UnreturnedEscrow.selector);
+        vm.expectRevert(BuyUnlockedProcessor.UnreturnedEscrow.selector);
         vm.prank(operator);
         issuer.cancelOrder(order, index, "");
     }
