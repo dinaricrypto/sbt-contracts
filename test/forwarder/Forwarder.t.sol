@@ -28,6 +28,8 @@ contract ForwarderTest is Test {
     event CancellationGasCostUpdated(uint256 newCancellationGasCost);
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
 
+    error InsufficientBalance();
+
     Forwarder public forwarder;
     BuyProcessor public issuer;
     SellProcessor public sellIssuer;
@@ -301,7 +303,6 @@ contract ForwarderTest is Test {
         uint256 nonce = 0;
 
         deal(address(token), user, order.assetTokenQuantity * 1e6);
-        deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         //  Prepare PriceAttestation
         PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
@@ -322,6 +323,13 @@ contract ForwarderTest is Test {
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(order.recipient, 0, order);
+
+        vm.expectRevert(InsufficientBalance.selector);
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
+
+        // mint paymentToken Balance ex: USDC
+        deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
