@@ -14,7 +14,7 @@ import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {dShare} from "../dShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
-import {IMintBurn} from "../IMintBurn.sol";
+import {IdShare} from "../IdShare.sol";
 import {FeeLib} from "../FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 
@@ -423,7 +423,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // update escrowed balance
             escrowedBalanceOf[order.assetToken][order.recipient] -= fillAmount;
             // Burn the filled quantity from the asset token
-            IMintBurn(order.assetToken).burn(fillAmount);
+            IdShare(order.assetToken).burn(fillAmount);
 
             // Transfer the received amount from the filler to this contract
             IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
@@ -439,7 +439,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
 
             // Mint asset
-            IMintBurn(order.assetToken).mint(order.recipient, receivedAmount);
+            IdShare(order.assetToken).mint(order.recipient, receivedAmount);
         }
 
         // If there are fees from the order, transfer them to the treasury

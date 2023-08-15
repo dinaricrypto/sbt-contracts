@@ -45,7 +45,7 @@
 | 295565                                                 | 1609            |       |        |       |         |
 | Function Name                                          | min             | avg   | median | max   | # calls |
 | isBlacklisted                                          | 597             | 2019  | 2597   | 2597  | 45      |
-| requireNotRestricted                                   | 692             | 3046  | 2859   | 4859  | 52      |
+| requireNotRestricted                                   | 692             | 3088  | 2859   | 4859  | 51      |
 | restrict                                               | 23864           | 25464 | 25864  | 25864 | 5       |
 | unrestrict                                             | 1532            | 1532  | 1532   | 1532  | 1       |
 | src/dShare.sol:dShare contract |                 |       |        |       |         |
@@ -123,7 +123,7 @@
 | cancelOrder                                       | 14336           | 21469  | 20556  | 29517  | 3       |
 | cancelRequested                                   | 520             | 520    | 520    | 520    | 3       |
 | escrowedBalanceOf                                 | 799             | 799    | 799    | 799    | 5       |
-| fillOrder                                         | 5303            | 114279 | 154806 | 160792 | 5       |
+| fillOrder                                         | 5303            | 114599 | 154806 | 161806 | 5       |
 | getFeeRatesForOrder                               | 2278            | 2802   | 2278   | 6278   | 61      |
 | getInputValueForOrderValue                        | 7603            | 7603   | 7603   | 7603   | 1       |
 | getOrderId                                        | 638             | 638    | 638    | 638    | 24      |
@@ -132,11 +132,11 @@
 | grantRole                                         | 27675           | 27675  | 27675  | 27675  | 177     |
 | hasRole                                           | 722             | 2055   | 2722   | 2722   | 15      |
 | isOrderActive                                     | 557             | 557    | 557    | 557    | 5       |
-| multicall                                         | 302245          | 310474 | 307387 | 321790 | 3       |
+| multicall                                         | 301951          | 310376 | 307387 | 321790 | 3       |
 | numOpenOrders                                     | 360             | 360    | 360    | 360    | 6       |
 | ordersPaused                                      | 405             | 405    | 405    | 405    | 1       |
 | requestCancel                                     | 822             | 15615  | 22798  | 26798  | 8       |
-| requestOrder                                      | 569             | 160431 | 210659 | 257121 | 27      |
+| requestOrder                                      | 569             | 160433 | 210659 | 257121 | 27      |
 | revokeRole                                        | 10012           | 10012  | 10012  | 10012  | 1       |
 | selfPermit                                        | 56575           | 58450  | 59075  | 59075  | 4       |
 | setFees                                           | 2856            | 6065   | 6065   | 9275   | 2       |
@@ -154,16 +154,16 @@
 | FORWARDER_ROLE                                                    | 285             | 285    | 285    | 285    | 21      |
 | OPERATOR_ROLE                                                     | 305             | 305    | 305    | 305    | 5       |
 | PAYMENTTOKEN_ROLE                                                 | 285             | 285    | 285    | 285    | 5       |
-| cancelOrder                                                       | 6672            | 18482  | 18482  | 30292  | 2       |
-| fillOrder                                                         | 4768            | 74964  | 74964  | 145160 | 2       |
+| cancelOrder                                                       | 6672            | 18364  | 18364  | 30056  | 2       |
+| fillOrder                                                         | 4768            | 44673  | 44673  | 84578  | 2       |
 | getFeeRatesForOrder                                               | 2278            | 3420   | 2278   | 6278   | 7       |
-| getOrderEscrow                                                    | 552             | 552    | 552    | 552    | 3       |
+| getOrderEscrow                                                    | 552             | 552    | 552    | 552    | 2       |
 | getOrderId                                                        | 660             | 660    | 660    | 660    | 7       |
 | grantRole                                                         | 27697           | 27697  | 27697  | 27697  | 91      |
 | hasRole                                                           | 2722            | 2722   | 2722   | 2722   | 2       |
-| requestOrder                                                      | 232906          | 234409 | 234906 | 235200 | 7       |
+| requestOrder                                                      | 232906          | 234283 | 234906 | 234906 | 7       |
 | returnEscrow                                                      | 3434            | 14361  | 14361  | 25289  | 2       |
-| takeEscrow                                                        | 27792           | 32754  | 34739  | 34739  | 7       |
+| takeEscrow                                                        | 5163            | 28529  | 34739  | 34739  | 7       |
 | src/orders/SellProcessor.sol:SellProcessor contract |                 |        |        |        |         |
 |-----------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                     | Deployment Size |        |        |        |         |
@@ -173,13 +173,13 @@
 | FORWARDER_ROLE                                      | 263             | 263    | 263    | 263    | 25      |
 | OPERATOR_ROLE                                       | 283             | 283    | 283    | 283    | 6       |
 | PAYMENTTOKEN_ROLE                                   | 285             | 285    | 285    | 285    | 6       |
-| cancelOrder                                         | 30067           | 30067  | 30067  | 30067  | 1       |
+| cancelOrder                                         | 30274           | 30274  | 30274  | 30274  | 1       |
 | escrowedBalanceOf                                   | 799             | 799    | 799    | 799    | 4       |
-| fillOrder                                           | 6435            | 71606  | 90012  | 111551 | 5       |
+| fillOrder                                           | 6435            | 50566  | 57664  | 92432  | 5       |
 | getFeeRatesForOrder                                 | 2278            | 2278   | 2278   | 2278   | 4       |
 | getOrderId                                          | 638             | 638    | 638    | 638    | 10      |
-| getRemainingOrder                                   | 557             | 557    | 557    | 557    | 7       |
-| getTotalReceived                                    | 512             | 512    | 512    | 512    | 3       |
+| getRemainingOrder                                   | 557             | 557    | 557    | 557    | 6       |
+| getTotalReceived                                    | 512             | 512    | 512    | 512    | 2       |
 | grantRole                                           | 27675           | 27675  | 27675  | 27675  | 106     |
 | hasRole                                             | 2722            | 2722   | 2722   | 2722   | 3       |
 | isOrderActive                                       | 557             | 557    | 557    | 557    | 4       |
@@ -211,7 +211,7 @@
 | DOMAIN_SEPARATOR                                  | 1222            | 1222  | 1222   | 1222  | 49      |
 | allowance                                         | 679             | 2512  | 2679   | 2679  | 12      |
 | approve                                           | 22326           | 22326 | 22326  | 22326 | 11      |
-| balanceOf                                         | 577             | 1046  | 577    | 2577  | 115     |
+| balanceOf                                         | 577             | 1077  | 577    | 2577  | 112     |
 | blackList                                         | 20519           | 20519 | 20519  | 20519 | 1       |
 | blacklist                                         | 20540           | 21540 | 21540  | 22540 | 2       |
 | decimals                                          | 379             | 928   | 379    | 2379  | 131     |
@@ -221,8 +221,8 @@
 | mint                                              | 46604           | 46604 | 46604  | 46604 | 23      |
 | nonces                                            | 599             | 1580  | 599    | 2599  | 53      |
 | permit                                            | 14239           | 49739 | 51239  | 51239 | 26      |
-| transfer                                          | 2332            | 20605 | 23815  | 24815 | 26      |
-| transferFrom                                      | 2740            | 21851 | 20260  | 29986 | 55      |
+| transfer                                          | 2332            | 20272 | 22815  | 24815 | 23      |
+| transferFrom                                      | 2740            | 21881 | 20260  | 29986 | 54      |
 | test/utils/mocks/MockdShare.sol:MockdShare contract |                 |       |        |       |         |
 |-----------------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                                     | Deployment Size |       |        |       |         |
@@ -233,12 +233,12 @@
 | MINTER_ROLE                                         | 306             | 306   | 306    | 306   | 92      |
 | allowance                                           | 2695            | 2695  | 2695   | 2695  | 2       |
 | approve                                             | 22343           | 22343 | 22343  | 22343 | 2       |
-| balanceOf                                           | 583             | 1065  | 583    | 2583  | 29      |
-| burn                                                | 3827            | 6044  | 6783   | 6783  | 4       |
+| balanceOf                                           | 583             | 1101  | 583    | 2583  | 27      |
+| burn                                                | 3827            | 5797  | 6783   | 6783  | 3       |
 | grantRole                                           | 25588           | 26828 | 27588  | 27588 | 137     |
 | increaseAllowance                                   | 24512           | 24512 | 24512  | 24512 | 6       |
 | isBlacklisted                                       | 1708            | 4138  | 3708   | 8208  | 43      |
-| mint                                                | 50647           | 55554 | 56810  | 59147 | 11      |
+| mint                                                | 19347           | 51935 | 56810  | 57147 | 11      |
 | nonces                                              | 605             | 1605  | 1605   | 2605  | 4       |
 | permit                                              | 51295           | 51295 | 51295  | 51295 | 2       |
 | transfer                                            | 19474           | 19474 | 19474  | 19474 | 1       |
