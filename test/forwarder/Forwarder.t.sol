@@ -330,9 +330,12 @@ contract ForwarderTest is Test {
 
         // mint paymentToken Balance ex: USDC
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
+        uint256 paymentTokenBalanceBefore = paymentToken.balanceOf(user);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
+
+        uint256 paymentTokenBalanceAfter = paymentToken.balanceOf(user);
 
         assertTrue(sellIssuer.isOrderActive(id));
         assertEq(sellIssuer.getRemainingOrder(id), order.assetTokenQuantity);
@@ -341,6 +344,9 @@ contract ForwarderTest is Test {
         assertEq(token.balanceOf(user), userBalanceBefore - order.assetTokenQuantity);
         assertEq(token.balanceOf(address(sellIssuer)), issuerBalanceBefore + order.assetTokenQuantity);
         assertEq(sellIssuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
+        assert(paymentTokenBalanceBefore > paymentTokenBalanceAfter);
+        // cost should be < 1e6 for gas cost
+        assertLt(paymentTokenBalanceBefore - paymentTokenBalanceAfter, 1e6);
     }
 
     function testRequestOrderNotApprovedByProcessorReverts() public {
