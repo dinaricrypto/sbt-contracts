@@ -7,15 +7,19 @@ import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../src/orders/SellProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
+import {Forwarder} from "../src/forwarder/Forwarder.sol";
+import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 
 contract DeployAllScript is Script {
     struct DeployConfig {
         address deployer;
-        address owner;
+        // address owner;
         address treasury;
         address operator;
         address usdc;
         address usdt;
+        address relayer;
+        address oracle;
     }
 
     uint64 constant perOrderFee = 1_000_000;
@@ -24,24 +28,25 @@ contract DeployAllScript is Script {
     function run() external {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
-        uint256 ownerKey = vm.envUint("OWNER_KEY");
+        // uint256 ownerKey = vm.envUint("OWNER_KEY");
         DeployConfig memory cfg = DeployConfig({
             deployer: vm.addr(deployerPrivateKey),
-            owner: vm.addr(ownerKey),
+            // owner: vm.addr(ownerKey),
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
             usdc: vm.envAddress("USDC"),
-            usdt: vm.envAddress("USDT")
+            usdt: vm.envAddress("USDT"),
+            relayer: vm.envAddress("RELAYER"),
+            oracle: vm.envAddress("ORACLE")
         });
 
         console.log("deployer: %s", cfg.deployer);
-        console.log("owner: %s", cfg.owner);
+        // console.log("owner: %s", cfg.owner);
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
-        // deploy transfer restrictor
-        new TransferRestrictor(cfg.owner);
+        /// ------------------ order processors ------------------
 
         // deploy blacklist prechecker
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
@@ -59,11 +64,40 @@ contract DeployAllScript is Script {
         buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);
         sellProcessor.grantRole(sellProcessor.OPERATOR_ROLE(), cfg.operator);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
+        address op2 = 0x874c1606c678cdA1d0f054f5123567198B13fedF;
+        buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), op2);
+        sellProcessor.grantRole(sellProcessor.OPERATOR_ROLE(), op2);
+        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), op2);
 
         // config payment token
         buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
+
+        /// ------------------ forwarder ------------------
+
+        Forwarder forwarder = new Forwarder(5 minutes);
+        forwarder.setFeeBps(2000);
+
+        forwarder.setSupportedModule(address(buyProcessor), true);
+        forwarder.setSupportedModule(address(sellProcessor), true);
+        forwarder.setSupportedModule(address(directBuyIssuer), true);
+
+        forwarder.setRelayer(cfg.relayer, true);
+
+        forwarder.setTrustedOracle(cfg.oracle, true);
+
+        buyProcessor.grantRole(buyProcessor.FORWARDER_ROLE(), address(forwarder));
+        sellProcessor.grantRole(sellProcessor.FORWARDER_ROLE(), address(forwarder));
+        directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
+
+        /// ------------------ dividend distributor ------------------
+
+        // new DividendDistribution(cfg.deployer);
+
+        // add dividend operator
+
+        /// ------------------ dShares ------------------
 
         // transfer ownership
         // buyProcessor.beginDefaultAdminTransfer(owner);
