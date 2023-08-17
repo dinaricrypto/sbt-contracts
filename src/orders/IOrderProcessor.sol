@@ -50,7 +50,7 @@ interface IOrderProcessor {
         TIF tif;
     }
 
-    /// @dev Fully specifies order details and salt used to generate order ID
+    /// @dev Fully specifies order details and index used to generate order ID
     event OrderRequested(address indexed recipient, uint256 indexed index, Order order);
     /// @dev Emitted for each fill
     event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
@@ -65,6 +65,10 @@ interface IOrderProcessor {
 
     /// @notice Total number of open orders
     function numOpenOrders() external view returns (uint256);
+
+    /// @notice Next order index to use for onchain enumeration of orders per recipient
+    /// @param recipient Recipient of order fills
+    function nextOrderIndex(address recipient) external view returns (uint256);
 
     /// @notice Get order ID from order recipient and index
     /// @param recipient Recipient of order fills
@@ -95,6 +99,12 @@ interface IOrderProcessor {
     /// @return flatFee Flat fee for order
     /// @return percentageFeeRate Percentage fee rate for order
     function getFeeRatesForOrder(address token) external view returns (uint256, uint24);
+
+    /// @notice Get total fees for an order
+    /// @param token Payment token for order
+    /// @param quantity Order quantity
+    /// @return totalFees Total fees for order
+    function estimateTotalFeesForOrder(address token, uint256 quantity) external view returns (uint256 totalFees);
 
     /// @dev Returns `true` if `account` has been granted `role`.
     function hasRole(bytes32 role, address account) external view returns (bool);

@@ -128,8 +128,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @dev Total number of active orders. Onchain enumeration not supported.
     uint256 private _numOpenOrders;
 
-    /// @dev Next order index to use for onchain enumeration of orders per recipient
-    mapping(address => uint256) private _nextOrderIndex;
+    /// @inheritdoc IOrderProcessor
+    mapping(address => uint256) public nextOrderIndex;
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
@@ -264,14 +264,19 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         return _orders[id].cancellationInitiated;
     }
 
-    /// @notice Get fee rates for an order
-    /// @param token Payment token for order
-    /// @return flatFee Flat fee for order
-    /// @return _percentageFeeRate Percentage fee rate for order
+    /// @inheritdoc IOrderProcessor
     function getFeeRatesForOrder(address token) public view returns (uint256 flatFee, uint24 _percentageFeeRate) {
         // Get fee rates
         flatFee = FeeLib.flatFeeForOrder(token, perOrderFee);
         _percentageFeeRate = percentageFeeRate;
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function estimateTotalFeesForOrder(address token, uint256 quantity) public view returns (uint256 totalFees) {
+        // Get fee rates
+        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(token);
+        // Calculate total fees
+        totalFees = FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, quantity);
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -294,7 +299,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
                 || tokenLockCheck.isTransferLocked(order.paymentToken, msg.sender)
         ) revert Blacklist();
 
-        index = _nextOrderIndex[order.recipient]++;
+        index = nextOrderIndex[order.recipient]++;
         bytes32 id = getOrderId(order.recipient, index);
         // Calculate fees
         uint256 flatFee = FeeLib.flatFeeForOrder(order.paymentToken, perOrderFee);
@@ -380,7 +385,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     {
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
-        if (_nextOrderIndex[order.recipient] == 0) revert OrderNotFound();
+        if (nextOrderIndex[order.recipient] == 0) revert OrderNotFound();
         bytes32 id = getOrderId(order.recipient, index);
         OrderState memory orderState = _orders[id];
         // Order must exist
