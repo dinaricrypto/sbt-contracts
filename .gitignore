@@ -29,6 +29,7 @@ metrics.html
 # logs
 *.log
 trace.json
+errors.json
 
 # python
 __pycache__/
