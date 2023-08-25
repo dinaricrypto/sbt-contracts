@@ -3,10 +3,38 @@ import { ethers } from "ethers";
 
 async function main() {
 
+  // ------------------ Setup ------------------
+
   // nonces abi
   const noncesAbi = [
     "function nonces(address owner) external view returns (uint256)",
   ];
+
+  // permit EIP712 signature data type
+  const permitTypes = {
+    Permit: [
+      {
+        name: "owner",
+        type: "address"
+      },
+      {
+        name: "spender",
+        type: "address"
+      },
+      {
+        name: "value",
+        type: "uint256"
+      },
+      {
+        name: "nonce",
+        type: "uint256"
+      },
+      {
+        name: "deadline",
+        type: "uint256"
+      }
+    ],
+  };
 
   // setup values
   const privateKey = process.env.PRIVATE_KEY;
@@ -35,6 +63,8 @@ async function main() {
     signer,
   );
 
+  // ------------------ Configure Order ------------------
+
   // order amount
   const orderAmount = ethers.utils.parseEther("10");
 
@@ -44,67 +74,46 @@ async function main() {
   const fees = flatFee.add(orderAmount.mul(_percentageFeeRate).div(10000));
   const totalSpendAmount = orderAmount.add(fees);
 
-  // sign permit to spend payment token
-  const domain = {
+  // ------------------ Configure Permit ------------------
+
+  // permit nonce for user
+  const nonce = await paymentToken.nonces(signer.address);
+  // 5 minute deadline from current blocktime
+  const deadline = (await provider.getBlock(await provider.getBlockNumber())).timestamp + 60 * 5;
+
+  // unique signature domain for payment token
+  const permitDomain = {
     name: 'USD Coin',
     version: '1',
     chainId: provider.network.chainId,
-    verifyingContract: paymentTokenAddress,  // Address of the contract
+    verifyingContract: paymentTokenAddress,
   };
 
-  const types = {
-      // EIP712Domain: [
-      //     { name: 'name', type: 'string' },
-      //     { name: 'version', type: 'string' },
-      //     { name: 'chainId', type: 'uint256' },
-      //     { name: 'verifyingContract', type: 'address' },
-      // ],
-      Permit: [
-        {
-          name: "owner",
-          type: "address"
-        },
-        {
-          name: "spender",
-          type: "address"
-        },
-        {
-          name: "value",
-          type: "uint256"
-        },
-        {
-          name: "nonce",
-          type: "uint256"
-        },
-        {
-          name: "deadline",
-          type: "uint256"
-        }
-      ],
+  // permit message to sign
+  const permitMessage = {
+    owner: signer.address,
+    spender: buyProcessor.address,
+    value: totalSpendAmount,
+    nonce: nonce,
+    deadline: deadline
   };
 
-  const nonce = await paymentToken.nonces(signer.address);
-  const deadline = (await provider.getBlock(await provider.getBlockNumber())).timestamp + 60 * 5; // 5 minutes
-  const message = {
-      owner: signer.address,
-      spender: buyProcessor.address,
-      value: totalSpendAmount,
-      nonce: nonce,
-      deadline: deadline
-  };
-
-  const permitSignatureBytes = await signer._signTypedData(domain, types, message);
+  // sign permit to spend payment token
+  const permitSignatureBytes = await signer._signTypedData(permitDomain, permitTypes, permitMessage);
   const permitSignature = ethers.utils.splitSignature(permitSignatureBytes);
 
-  // permit and request order multicall
+  // submit permit + request order multicall transaction
   const tx = await buyProcessor.multicall([
     buyProcessor.interface.encodeFunctionData("selfPermit", [
       paymentToken.address,
-      message.owner,
-      message.value,
-      message.deadline,
-      permitSignature.v,permitSignature.r,permitSignature.s
+      permitMessage.owner,
+      permitMessage.value,
+      permitMessage.deadline,
+      permitSignature.v,
+      permitSignature.r,
+      permitSignature.s
     ]),
+    // see IOrderProcessor.Order struct for order parameters
     buyProcessor.interface.encodeFunctionData("requestOrder", [[
       signer.address,
       assetToken,
@@ -128,8 +137,8 @@ main()
 
 
 
-  function getBuyProcessorAbi() {
-    return `[
+function getBuyProcessorAbi() {
+  return `[
       {
         "inputs": [
           {
@@ -1658,4 +1667,4 @@ main()
         "type": "function"
       }
     ]`;
-  }
+}
