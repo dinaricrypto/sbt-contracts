@@ -79,7 +79,8 @@ async function main() {
   // permit nonce for user
   const nonce = await paymentToken.nonces(signer.address);
   // 5 minute deadline from current blocktime
-  const deadline = (await provider.getBlock(await provider.getBlockNumber())).timestamp + 60 * 5;
+  const blockNumber = await provider.getBlockNumber();
+  const deadline = (await provider.getBlock(blockNumber)).timestamp + 60 * 5;
 
   // unique signature domain for payment token
   const permitDomain = {
@@ -102,29 +103,37 @@ async function main() {
   const permitSignatureBytes = await signer._signTypedData(permitDomain, permitTypes, permitMessage);
   const permitSignature = ethers.utils.splitSignature(permitSignatureBytes);
 
+  // create selfPermit call data
+  const selfPermitData = buyProcessor.interface.encodeFunctionData("selfPermit", [
+    paymentToken.address,
+    permitMessage.owner,
+    permitMessage.value,
+    permitMessage.deadline,
+    permitSignature.v,
+    permitSignature.r,
+    permitSignature.s
+  ]);
+
+  // ------------------ Submit Order ------------------
+
+  // create requestOrder call data
+  // see IOrderProcessor.Order struct for order parameters
+  const requestOrderData = buyProcessor.interface.encodeFunctionData("requestOrder", [[
+    signer.address,
+    assetToken,
+    paymentToken.address,
+    false,
+    0,
+    0,
+    orderAmount, // fees will be added to this amount
+    0,
+    1,
+  ]]);
+
   // submit permit + request order multicall transaction
   const tx = await buyProcessor.multicall([
-    buyProcessor.interface.encodeFunctionData("selfPermit", [
-      paymentToken.address,
-      permitMessage.owner,
-      permitMessage.value,
-      permitMessage.deadline,
-      permitSignature.v,
-      permitSignature.r,
-      permitSignature.s
-    ]),
-    // see IOrderProcessor.Order struct for order parameters
-    buyProcessor.interface.encodeFunctionData("requestOrder", [[
-      signer.address,
-      assetToken,
-      paymentToken.address,
-      false,
-      0,
-      0,
-      orderAmount, // fees will be added to this amount
-      0,
-      1,
-    ]]),
+    selfPermitData,
+    requestOrderData,
   ]);
 }
 
