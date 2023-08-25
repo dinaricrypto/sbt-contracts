@@ -22,13 +22,13 @@ contract TokenLockCheck is ITokenLockCheck, Ownable {
     mapping(address => bytes4) public callSelector;
 
     constructor(address usdc, address usdt) {
-        callSelector[usdc] = IERC20Usdc.isBlacklisted.selector;
-        callSelector[usdt] = IERC20Usdt.isBlackListed.selector;
+        if (usdc != address(0)) setCallSelector(usdc, IERC20Usdc.isBlacklisted.selector);
+        if (usdt != address(0)) setCallSelector(usdt, IERC20Usdt.isBlackListed.selector);
     }
 
-    function setCallSelector(address token, bytes4 selector) external onlyOwner {
+    function setCallSelector(address token, bytes4 selector) public onlyOwner {
         // if token is a contract, it must implement the selector
-        _checkTransferLocked(token, address(this), selector);
+        if (selector != 0) _checkTransferLocked(token, address(this), selector);
 
         callSelector[token] = selector;
     }

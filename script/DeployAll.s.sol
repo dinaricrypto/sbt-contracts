@@ -22,7 +22,7 @@ contract DeployAllScript is Script {
         address oracle;
     }
 
-    uint64 constant perOrderFee = 1_000_000;
+    uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
 
     function run() external {

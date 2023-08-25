@@ -20,11 +20,11 @@ contract AddTokensScript is Script {
         ];
 
         address[5] memory assetTokens = [
-            0x50d0A27B24423D27c8dba04213cd22f2Aa067683,
-            0x3A775507F2f90BBFf1d313cC149bcbB48f0C7315,
-            0x0a98264bE733302AC44aFEE7906cEc1F42CF6E3c,
-            0x914A2410127cbe1f08b873358225B1A053b7b5d5,
-            0x9A940A40650c0d4B8128316739cDE69EA54aEF08
+            0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D,
+            0x1128E84D3Feae1FAb65c36508bCA6E1FA55a7172,
+            0xd75870ab648E5158E07Fe0A3141AbcBd4Ac329aa,
+            0x54c0f59d9a8CF63423A7137e6bcD8e9bA169216e,
+            0x0c55e03b976a57B13Bf7Faa592e5df367c57f1F1
         ];
 
         vm.startBroadcast(deployerPrivateKey);

@@ -49,7 +49,7 @@ contract BuyProcessorTest is Test {
         paymentToken = new MockToken();
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(50));
+        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
