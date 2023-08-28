@@ -103,8 +103,7 @@ interface IOrderProcessor {
     /// @notice Get total fees for an order
     /// @param token Payment token for order
     /// @param quantity Order quantity
-    /// @return totalFees Total fees for order
-    function estimateTotalFeesForOrder(address token, uint256 quantity) external view returns (uint256 totalFees);
+    function estimateTotalFeesForOrder(address token, uint256 quantity) external view returns (uint256);
 
     /// @dev Returns `true` if `account` has been granted `role`.
     function hasRole(bytes32 role, address account) external view returns (bool);
