@@ -12,7 +12,7 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
-import {FeeLib} from "../src/FeeLib.sol";
+import {FeeLib} from "../src/common/FeeLib.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -121,19 +121,6 @@ contract BuyProcessorTest is Test {
         emit TokenLockCheckSet(_tokenLockCheck);
         issuer.setTokenLockCheck(_tokenLockCheck);
         assertEq(address(issuer.tokenLockCheck()), address(_tokenLockCheck));
-    }
-
-    function testGetInputValue(uint24 perOrderFee, uint24 _percentageFeeRate, uint128 orderValue) public {
-        // uint128 used to avoid overflow when calculating larger raw input value
-        vm.assume(_percentageFeeRate < 1_000_000);
-        issuer.setFees(perOrderFee, _percentageFeeRate);
-        (uint256 inputValue, uint256 _flatFee, uint256 percentageFee) =
-            issuer.getInputValueForOrderValue(address(paymentToken), orderValue);
-        assertEq(inputValue - _flatFee - percentageFee, orderValue);
-        (uint256 flatFee2, uint24 percentageFeeRate2) = issuer.getFeeRatesForOrder(address(paymentToken));
-        uint256 totalFees = FeeLib.estimateTotalFees(flatFee2, percentageFeeRate2, inputValue);
-        assertEq(_flatFee, flatFee2);
-        assertEq(totalFees, _flatFee + percentageFee);
     }
 
     function testSetOrdersPaused(bool pause) public {

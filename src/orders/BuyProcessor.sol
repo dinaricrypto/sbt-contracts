@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
-import {FeeLib} from "../FeeLib.sol";
+import {FeeLib} from "../common/FeeLib.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BuyProcessor.sol)
@@ -23,30 +23,6 @@ contract BuyProcessor is OrderProcessor {
         uint24 _percentageFeeRate,
         ITokenLockCheck _tokenLockCheck
     ) OrderProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
-
-    /// ------------------ Fee Helpers ------------------ ///
-
-    /// @notice Get the raw input value and fees that produce a final order value
-    /// @param token Payment token for order
-    /// @param orderValue Final order value
-    /// @return inputValue Total input value subject to fees
-    /// @return flatFee Flat fee for order
-    /// @return percentageFee Percentage fee for order
-    function getInputValueForOrderValue(address token, uint256 orderValue)
-        external
-        view
-        returns (uint256 inputValue, uint256 flatFee, uint256 percentageFee)
-    {
-        // load fee rate
-        uint24 _percentageFeeRate = percentageFeeRate;
-        // Calculate input value after flat fee
-        uint256 recoveredValue = FeeLib.recoverInputValueFromRemaining(orderValue, _percentageFeeRate);
-        // Calculate fees
-        percentageFee = FeeLib.percentageFeeForValue(recoveredValue, _percentageFeeRate);
-        flatFee = FeeLib.flatFeeForOrder(token, perOrderFee);
-        // Calculate raw input value
-        inputValue = recoveredValue + flatFee;
-    }
 
     /// ------------------ Order Lifecycle ------------------ ///
 

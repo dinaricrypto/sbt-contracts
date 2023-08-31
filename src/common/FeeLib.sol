@@ -22,17 +22,6 @@ library FeeLib {
         return percentageFeeRate != 0 ? PrbMath.mulDiv(value, percentageFeeRate, _ONEHUNDRED_PERCENT) : 0;
     }
 
-    function recoverInputValueFromRemaining(uint256 remainingValue, uint24 percentageFeeRate)
-        internal
-        pure
-        returns (uint256)
-    {
-        if (percentageFeeRate >= _ONEHUNDRED_PERCENT) revert FeeTooLarge();
-        return percentageFeeRate == 0
-            ? remainingValue
-            : PrbMath.mulDiv(remainingValue, _ONEHUNDRED_PERCENT, _ONEHUNDRED_PERCENT - percentageFeeRate);
-    }
-
     function flatFeeForOrder(address token, uint64 perOrderFee) internal view returns (uint256 flatFee) {
         uint8 decimals = IERC20Metadata(token).decimals();
         if (decimals > 18) revert DecimalsTooLarge();
@@ -42,14 +31,14 @@ library FeeLib {
         }
     }
 
-    function estimateTotalFees(uint256 flatFee, uint24 percentageFeeRate, uint256 inputValue)
+    function estimateTotalFees(uint256 flatFee, uint24 percentageFeeRate, uint256 orderValue)
         internal
         pure
         returns (uint256 totalFees)
     {
         totalFees = flatFee;
-        if (inputValue > flatFee && percentageFeeRate != 0) {
-            totalFees += PrbMath.mulDiv(inputValue - flatFee, percentageFeeRate, _ONEHUNDRED_PERCENT);
+        if (percentageFeeRate != 0) {
+            totalFees += PrbMath.mulDiv(orderValue, percentageFeeRate, _ONEHUNDRED_PERCENT);
         }
     }
 }
