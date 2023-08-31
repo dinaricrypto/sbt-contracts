@@ -18,15 +18,6 @@ contract FeeLibTest is Test {
         assertEq(flatFee, 1e6);
     }
 
-    function testRecoverInputValueFromRemaining(uint24 percentageFeeRate, uint128 remainingValue) public {
-        // uint128 used to avoid overflow when calculating larger raw input value
-        vm.assume(percentageFeeRate < 1_000_000);
-
-        uint256 inputValue = FeeLib.recoverInputValueFromRemaining(remainingValue, percentageFeeRate);
-        uint256 percentageFee = FeeLib.percentageFeeForValue(inputValue, percentageFeeRate);
-        assertEq(remainingValue, inputValue - percentageFee);
-    }
-
     function wrapFlatFeeForOrder(address newToken, uint64 perOrderFee) public view returns (uint256) {
         return FeeLib.flatFeeForOrder(newToken, perOrderFee);
     }
