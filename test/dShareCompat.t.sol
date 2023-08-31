@@ -15,7 +15,7 @@ import "./utils/SigPrice.sol";
 import "../src/forwarder/PriceAttestationConsumer.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {FeeLib} from "../src/FeeLib.sol";
+import {FeeLib} from "../src/common/FeeLib.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 
 // test that forwarder and processors do not assume dShares are dShares

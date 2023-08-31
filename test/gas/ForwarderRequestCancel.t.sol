@@ -14,7 +14,7 @@ import "../utils/SigMeta.sol";
 import "../utils/SigPrice.sol";
 import "../../src/forwarder/PriceAttestationConsumer.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {FeeLib} from "../../src/FeeLib.sol";
+import {FeeLib} from "../../src/common/FeeLib.sol";
 
 // additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {

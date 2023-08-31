@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
-import {FeeLib} from "../src/FeeLib.sol";
+import {FeeLib} from "../src/common/FeeLib.sol";
 
 contract FeeLibTest is Test {
     MockERC20 usdc;

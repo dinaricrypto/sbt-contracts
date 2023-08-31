@@ -17,7 +17,7 @@ import "../utils/SigPrice.sol";
 import "../../src/forwarder/PriceAttestationConsumer.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {FeeLib} from "../../src/FeeLib.sol";
+import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);

@@ -15,7 +15,7 @@ import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {dShare} from "../dShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IdShare} from "../IdShare.sol";
-import {FeeLib} from "../FeeLib.sol";
+import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 
 /// @notice Base contract managing orders for bridged assets
@@ -272,11 +272,15 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     /// @inheritdoc IOrderProcessor
-    function estimateTotalFeesForOrder(address token, uint256 quantity) public view returns (uint256 totalFees) {
+    function estimateTotalFeesForOrder(address paymentToken, uint256 paymentTokenOrderValue)
+        public
+        view
+        returns (uint256 totalFees)
+    {
         // Get fee rates
-        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(token);
+        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(paymentToken);
         // Calculate total fees
-        totalFees = FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, quantity);
+        totalFees = FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, paymentTokenOrderValue);
     }
 
     /// ------------------ Order Lifecycle ------------------ ///

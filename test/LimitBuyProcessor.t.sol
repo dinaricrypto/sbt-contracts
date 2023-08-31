@@ -9,7 +9,7 @@ import "../src/orders/BuyProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {NumberUtils} from "./utils/NumberUtils.sol";
-import {FeeLib} from "../src/FeeLib.sol";
+import {FeeLib} from "../src/common/FeeLib.sol";
 
 contract BuyProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);

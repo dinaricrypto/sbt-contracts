@@ -16,6 +16,7 @@ contract DeployAllScript is Script {
         // address owner;
         address treasury;
         address operator;
+        address operator2;
         address usdc;
         address usdt;
         address relayer;
@@ -34,8 +35,11 @@ contract DeployAllScript is Script {
             // owner: vm.addr(ownerKey),
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
-            usdc: vm.envAddress("USDC"),
-            usdt: vm.envAddress("USDT"),
+            operator2: vm.envAddress("OPERATOR2"),
+            // usdc: vm.envAddress("USDC"),
+            usdc: address(0),
+            // usdt: vm.envAddress("USDT"),
+            usdt: address(0),
             relayer: vm.envAddress("RELAYER"),
             oracle: vm.envAddress("ORACLE")
         });
@@ -64,10 +68,9 @@ contract DeployAllScript is Script {
         buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);
         sellProcessor.grantRole(sellProcessor.OPERATOR_ROLE(), cfg.operator);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
-        address op2 = 0x874c1606c678cdA1d0f054f5123567198B13fedF;
-        buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), op2);
-        sellProcessor.grantRole(sellProcessor.OPERATOR_ROLE(), op2);
-        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), op2);
+        buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator2);
+        sellProcessor.grantRole(sellProcessor.OPERATOR_ROLE(), cfg.operator2);
+        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator2);
 
         // config payment token
         buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);

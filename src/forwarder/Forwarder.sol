@@ -13,7 +13,7 @@ import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
 import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
-import {FeeLib} from "../../src/FeeLib.sol";
+import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "./IForwarder.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.

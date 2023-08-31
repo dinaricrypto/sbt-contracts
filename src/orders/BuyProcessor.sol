@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
-import {FeeLib} from "../FeeLib.sol";
+import {FeeLib} from "../common/FeeLib.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BuyProcessor.sol)
