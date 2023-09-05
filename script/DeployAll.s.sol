@@ -36,8 +36,7 @@ contract DeployAllScript is Script {
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
             operator2: vm.envAddress("OPERATOR2"),
-            // usdc: vm.envAddress("USDC"),
-            usdc: address(0),
+            usdc: vm.envAddress("USDC"),
             // usdt: vm.envAddress("USDT"),
             usdt: address(0),
             relayer: vm.envAddress("RELAYER"),
@@ -53,7 +52,7 @@ contract DeployAllScript is Script {
         /// ------------------ order processors ------------------
 
         // deploy blacklist prechecker
-        TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
+        TokenLockCheck tokenLockCheck = new TokenLockCheck(address(0), cfg.usdt);
 
         BuyProcessor buyProcessor =
             new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
@@ -76,6 +75,10 @@ contract DeployAllScript is Script {
         buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
+
+        // buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
+        // sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
+        // directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdt);
 
         /// ------------------ forwarder ------------------
 
