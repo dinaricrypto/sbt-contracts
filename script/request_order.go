@@ -5,7 +5,6 @@ import (
     "os"
     "log"
 	"math/big"
-	"encoding/json"
 	"crypto/ecdsa"
 	"strings"
 	"context"
@@ -14,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/crypto"
+	// "github.com/ethereum/go-ethereum/signer/core/apitypes"
+    // "github.com/ethersphere/bee/pkg/crypto/eip712"
 )
 
 const (
@@ -58,24 +59,6 @@ type OrderStruct struct {
     PaymentTokenQuantity *big.Int
     Price               *big.Int
     Tif                 uint8
-}
-
-
-
-func constructEIP712DomainSeparator(name, version string, chainID *big.Int, verifyingContract common.Address) []byte {
-    domain := map[string]interface{}{
-        "name":              name,
-        "version":           version,
-        "chainId":           chainID,
-        "verifyingContract": verifyingContract.Hex(),
-    }
-
-    domainData, err := json.Marshal(domain)
-    if err != nil {
-        log.Fatalf("Failed to marshal domain: %v", err)
-    }
-
-    return crypto.Keccak256([]byte(domainData))
 }
 
 
@@ -167,148 +150,13 @@ func main() {
 
 	fmt.Println("Deadline:", deadline)
 
-	// Permit Message
-
 	chainID, err := client.NetworkID(context.Background())
 	if err != nil {
 		log.Fatalf("Failed to get network ID: %v", err)
 	}
 
-	domainSeparator := constructEIP712DomainSeparator("USD Coin", "1", chainID, common.HexToAddress(PaymentTokenAddress))
-
-	permitMessage := PermitMessage{
-        Owner:    fromAddress,
-        Spender:  processorAddress,
-        Value:    totalSpendAmount,
-        Nonce:    nonce,
-        Deadline: deadline,
-    }
-
-	typedData := map[string]interface{}{
-		"types": map[string]interface{}{
-			"EIP712Domain": []map[string]string{
-				{"name": "name", "type": "string"},
-				{"name": "version", "type": "string"},
-				{"name": "chainId", "type": "uint256"},
-				{"name": "verifyingContract", "type": "address"},
-			},
-			"PermitMessage": []map[string]string{
-				{"name": "owner", "type": "address"},
-				{"name": "spender", "type": "address"},
-				{"name": "value", "type": "uint256"},
-				{"name": "nonce", "type": "uint256"},
-				{"name": "deadline", "type": "uint256"},
-			},
-		},
-		"primaryType": "PermitMessage",
-		"domain":      domainSeparator,
-		"message":     permitMessage,
-	}	
-
-	// Convert the typed data to its raw form
-    data, err := json.Marshal(typedData)
-    if err != nil {
-        log.Fatalf("Failed to marshal typed data: %v", err)
-    }
-
-    // Hash the data and sign it
-    hashedData := crypto.Keccak256(data)
-    signature, err := crypto.Sign(hashedData, privateKey)
-    if err != nil {
-        log.Fatalf("Failed to sign typed data: %v", err)
-    }
-
-    // Split the signature
-    if len(signature) != 65 {
-        log.Fatal("Signature length is wrong")
-    }
-    r := signature[:32]
-    s := signature[32:64]
-    v := signature[64]
-
-    fmt.Println("R:", r)
-    fmt.Println("S:", s)
-    fmt.Println("V:", v)
-
-
-	var rArray, sArray [32]byte
-	copy(rArray[:], r)
-	copy(sArray[:], s)
-
-	deadlineBigInt := new(big.Int).SetUint64(permitMessage.Deadline)
-
-	selfPermitData, err := buyProcessorAbi.Pack(
-		"selfPermit", 
-		paymentTokenAddr,
-		permitMessage.Owner,
-		permitMessage.Value,
-		deadlineBigInt,
-		v,
-		rArray,
-		sArray,
-	)
-
-	if err != nil {
-		log.Fatalf("Failed to encode function data: %v", err)
-	}
-
-	// encode requestOrder
-	order := OrderStruct{
-		Recipient:           fromAddress,
-		AssetToken:          common.HexToAddress(AssetToken),
-		PaymentToken:        paymentTokenAddr,
-		Sell:                false,
-		OrderType:           0,  
-		AssetTokenQuantity:  orderAmount,
-		PaymentTokenQuantity: big.NewInt(0), 
-		Price:               big.NewInt(0), 
-		Tif:                 1,
-	}
-
-	requestOrderData, err := buyProcessorAbi.Pack(
-		"requestOrder",
-		order,
-	)
-	if err != nil {
-		log.Fatalf("Failed to encode requestOrder function data: %v", err)
-	}
-	
-
-	// multi call
-	multicallArgs := [][]byte{
-		selfPermitData,
-		requestOrderData,
-	}
-
-	gasPrice, err := client.SuggestGasPrice(context.Background())
-	if err != nil {
-		log.Fatalf("Failed to suggest gas price: %v", err)
-	}
-
-	opts := &bind.TransactOpts{
-		From:     fromAddress,
-		Signer:   auth.Signer,
-		GasLimit: 6721975,
-		GasPrice: gasPrice,
-		Value:    big.NewInt(0),
-	}
-
-	tx, err := processorContract.Transact(opts, "multicall", multicallArgs)
-	if err != nil {
-		log.Fatalf("Failed to submit multicall transaction: %v", err)
-	}
-	
-	// tx receipt
-	receipt, err := bind.WaitMined(context.Background(), client, tx)
-	if err != nil {
-		log.Fatalf("Failed to get transaction receipt: %v", err)
-	}
-
-	if receipt.Status == 0 {
-		log.Fatal("Transaction failed!")
-	} else {
-		fmt.Printf("Transaction successful with hash: %s\n", tx.Hash().Hex())
-	}	
+	_ = chainID
+		
 }
 
 const NoncesAbiString = `[
