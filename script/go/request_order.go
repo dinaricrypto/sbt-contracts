@@ -373,7 +373,7 @@ func main() {
 	}
 
 	if receipt.Status == 0 {
-		log.Fatal("Transaction failed!")
+		log.Fatalf("Transaction failed with receipt: %v", receipt)
 	} else {
 		fmt.Printf("Transaction successful with hash: %s\n", tx.Hash().Hex())
 	}
