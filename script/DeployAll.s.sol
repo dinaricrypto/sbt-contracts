@@ -10,7 +10,6 @@ import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 
-
 contract DeployAllScript is Script {
     struct DeployConfig {
         address deployer;
@@ -25,7 +24,7 @@ contract DeployAllScript is Script {
     }
 
     // Tether
-    mapping (address => bool) public isBlocked;
+    mapping(address => bool) public isBlocked;
 
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
