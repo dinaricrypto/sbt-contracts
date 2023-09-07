@@ -1,25 +1,26 @@
 package main
 
 import (
-    "fmt"
-    "os"
-    "log"
-	"math/big"
-	"crypto/ecdsa"
-	"strings"
 	"context"
-    "github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/common"
+	"crypto/ecdsa"
+	"fmt"
+	"log"
+	"math/big"
+	"os"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/joho/godotenv"
 )
 
 const (
-	// Addresses for the BuyProcessor, AssetToken and PaymentToken
-    BuyProcessorAddress = "0x1754422ef9910572cCde378a9C07d717eC8D48A0"
-    AssetToken = "0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D"
-    PaymentTokenAddress = "0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F"
+	BuyProcessorAddress = "0x1754422ef9910572cCde378a9C07d717eC8D48A0"
+	AssetToken          = "0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D"
+	PaymentTokenAddress = "0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F"
 )
 
 // The structure to represent FeeRates, EIP712Domain, etc.
@@ -30,70 +31,68 @@ type FeeRates struct {
 }
 
 type EIP712Domain struct {
-	Name              string 
-	Version           string 
-	ChainId           *big.Int   
+	Name              string
+	Version           string
+	ChainId           *big.Int
 	VerifyingContract string
 }
 
 type PermitMessage struct {
-	Owner   common.Address
-	Spender common.Address 
-	Value   *big.Int       
-	Nonce   *big.Int       
+	Owner    common.Address
+	Spender  common.Address
+	Value    *big.Int
+	Nonce    *big.Int
 	Deadline *big.Int
 }
 
 type OrderStruct struct {
-    Recipient           common.Address
-    AssetToken          common.Address
-    PaymentToken        common.Address
-    Sell                bool
-    OrderType           uint8
-    AssetTokenQuantity  *big.Int
-    PaymentTokenQuantity *big.Int
-    Price               *big.Int
-    Tif                 uint8
+	Recipient            common.Address
+	AssetToken           common.Address
+	PaymentToken         common.Address
+	Sell                 bool
+	OrderType            uint8
+	AssetTokenQuantity   *big.Int
+	PaymentTokenQuantity *big.Int
+	Price                *big.Int
+	Tif                  uint8
 }
 
 func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
-    domainType := []byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
-    permitType := []byte("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
+	domainType := []byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
+	permitType := []byte("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
 
-    domainTypeHash := crypto.Keccak256(domainType)
-    permitTypeHash := crypto.Keccak256(permitType)
+	domainTypeHash := crypto.Keccak256(domainType)
+	permitTypeHash := crypto.Keccak256(permitType)
 
-    encodedDomain, err := abiEncodeData([]interface{}{
-        domainTypeHash,
-        domain.Name,
-        domain.Version,
-        domain.ChainId,
-        domain.VerifyingContract,
-    })
-
-	if err != nil {
-		return nil, err
-	}
-	
-
-    encodedPermit, err := abiEncodeData([]interface{}{
-        permitTypeHash,
-        message.Owner,
-        message.Spender,
-        message.Value,
-        message.Nonce,
-        message.Deadline,
-    })
+	encodedDomain, err := abiEncodeData([]interface{}{
+		domainTypeHash,
+		domain.Name,
+		domain.Version,
+		domain.ChainId,
+		domain.VerifyingContract,
+	})
 
 	if err != nil {
 		return nil, err
 	}
-	
 
-    domainHash := crypto.Keccak256(encodedDomain)
-    permitHash := crypto.Keccak256(encodedPermit)
+	encodedPermit, err := abiEncodeData([]interface{}{
+		permitTypeHash,
+		message.Owner,
+		message.Spender,
+		message.Value,
+		message.Nonce,
+		message.Deadline,
+	})
 
-    return crypto.Keccak256(append([]byte("\x19\x01"), append(domainHash, permitHash...)...)), nil
+	if err != nil {
+		return nil, err
+	}
+
+	domainHash := crypto.Keccak256(encodedDomain)
+	permitHash := crypto.Keccak256(encodedPermit)
+
+	return crypto.Keccak256(append([]byte("\x19\x01"), append(domainHash, permitHash...)...)), nil
 }
 
 // Simple encoding function, should be replaced with ABI encoding
@@ -153,37 +152,40 @@ func abiEncodeData(data []interface{}) ([]byte, error) {
 	return encoded, nil
 }
 
-
-
 func main() {
+	err := godotenv.Load("../../.env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
 	// Establishing connection with Ethereum client
-    rpcURL := os.Getenv("TEST_RPC_URL")
-    client, err := ethclient.Dial(rpcURL)
-    if err != nil {
-        log.Fatalf("Failed to connect to the Ethereum client: %v", err)
-    }
+	rpcURL := os.Getenv("TEST_RPC_URL")
+	client, err := ethclient.Dial(rpcURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
+	}
 	fmt.Println("we have a connection")
 
 	// Retrieving and setting up the private and public keys
 
 	privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
 	if err != nil {
-        log.Fatal(err)
-    }
+		log.Fatal(err)
+	}
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-    if !ok {
-        log.Fatal("error casting public key to ECDSA")
-    }
+	if !ok {
+		log.Fatal("error casting public key to ECDSA")
+	}
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	fmt.Println("Initializing request Order for user:",fromAddress)
+	fmt.Println("Initializing request Order for user:", fromAddress)
 
 	auth := bind.NewKeyedTransactor(privateKey)
 
 	// Setting up contract ABI and creating binded contract
 
 	processorAddress := common.HexToAddress(BuyProcessorAddress)
-	fmt.Println("buy processor address at:",processorAddress)
+	fmt.Println("buy processor address at:", processorAddress)
 
 	buyProcessorAbi, err := abi.JSON(strings.NewReader(buyProcessorAbiString))
 	if err != nil {
@@ -196,7 +198,7 @@ func main() {
 
 	// Calling the getFeeRatesForOrder method on the processor contract
 
-	feeRates:= &FeeRates{}
+	feeRates := &FeeRates{}
 	result = append(result, feeRates)
 	paymentTokenAddr := common.HexToAddress(PaymentTokenAddress)
 	err = processorContract.Call(&bind.CallOpts{}, &result, "getFeeRatesForOrder", paymentTokenAddr)
@@ -255,7 +257,7 @@ func main() {
 	}
 
 	// Creating EIP-712 hash
-	
+
 	typedHash, err := EIP712Hash(
 		EIP712Domain{
 			Name:              "USD Coin",
@@ -276,7 +278,7 @@ func main() {
 	}
 
 	// Signing the hash and constructing R, S and V components of the signature
-	
+
 	signature, err := crypto.Sign(typedHash, privateKey)
 	if err != nil {
 		log.Fatalf("Failed to sign EIP-712 hash: %v", err)
@@ -284,7 +286,7 @@ func main() {
 	if signature[64] < 27 {
 		signature[64] += 27
 	}
-	
+
 	fmt.Printf("EIP-712 Signature: 0x%x\n", signature)
 
 	r := signature[:32]
@@ -301,7 +303,7 @@ func main() {
 	copy(sArray[:], s)
 
 	selfPermitData, err := buyProcessorAbi.Pack(
-		"selfPermit", 
+		"selfPermit",
 		paymentTokenAddr,
 		fromAddress,
 		totalSpendAmount,
@@ -314,20 +316,20 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to pack data for selfPermit function: %v", err)
 	}
-	
+
 	fmt.Printf("selfPermit Data: 0x%x\n", selfPermitData)
 
 	// Constructing function data for requestOrder
 	order := OrderStruct{
-		Recipient:           fromAddress,
-		AssetToken:          common.HexToAddress(AssetToken),
-		PaymentToken:        paymentTokenAddr,
-		Sell:                false,
-		OrderType:           0,  
-		AssetTokenQuantity:  orderAmount,
-		PaymentTokenQuantity: big.NewInt(0), 
-		Price:               big.NewInt(0), 
-		Tif:                 1,
+		Recipient:            fromAddress,
+		AssetToken:           common.HexToAddress(AssetToken),
+		PaymentToken:         paymentTokenAddr,
+		Sell:                 false,
+		OrderType:            0,
+		AssetTokenQuantity:   orderAmount,
+		PaymentTokenQuantity: big.NewInt(0),
+		Price:                big.NewInt(0),
+		Tif:                  1,
 	}
 
 	requestOrderData, err := buyProcessorAbi.Pack(
@@ -337,7 +339,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to encode requestOrder function data: %v", err)
 	}
-	
+
 	// Multicall - executing multiple transactions in one call
 	multicallArgs := [][]byte{
 		selfPermitData,
@@ -363,7 +365,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to submit multicall transaction: %v", err)
 	}
-	
+
 	// Verifying transaction status and printing result
 	receipt, err := bind.WaitMined(context.Background(), client, tx)
 	if err != nil {
@@ -371,7 +373,7 @@ func main() {
 	}
 
 	if receipt.Status == 0 {
-		log.Fatal("Transaction failed!")
+		log.Fatalf("Transaction failed with receipt: %v", receipt)
 	} else {
 		fmt.Printf("Transaction successful with hash: %s\n", tx.Hash().Hex())
 	}
@@ -415,7 +417,6 @@ const NoncesAbiString = `[
       "type": "function"
     }
 ]`
-
 
 const buyProcessorAbiString = `[
 	{
