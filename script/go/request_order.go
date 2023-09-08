@@ -65,14 +65,14 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 	domainTypeHash := crypto.Keccak256(domainType)
 	permitTypeHash := crypto.Keccak256(permitType)
 
-	// domainTypeBytes32 := "0x" + hex.EncodeToString(domainTypeHash)
-	// permitBytes32 := "0x" + hex.EncodeToString(permitTypeHash)
+	domainTypeBytes32 := "0x" + hex.EncodeToString(domainTypeHash)
+	permitBytes32 := "0x" + hex.EncodeToString(permitTypeHash)
 
 	nameHashed := crypto.Keccak256([]byte(domain.Name))
 	versionHashed := crypto.Keccak256([]byte(domain.Version))
 
 	encodedDomain, err := abiEncodeData([]interface{}{
-		domainTypeHash,
+		domainTypeBytes32,
 		nameHashed,
 		versionHashed,
 		domain.ChainId,
@@ -84,7 +84,7 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 	}
 
 	encodedPermit, err := abiEncodeData([]interface{}{
-		permitTypeHash,
+		permitBytes32,
 		message.Owner,
 		message.Spender,
 		message.Value,
@@ -96,10 +96,56 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 		return nil, err
 	}
 
+	mockAddress := common.HexToAddress("0x27a1876A09581E02E583E002E42EC1322abE9655")
+
+	encodeData, err := abiEncodeData([]interface{}{
+		permitBytes32,
+		domain.Name,
+		domain.Version,
+		domain.ChainId,
+		mockAddress,
+	})
+
+	fmt.Println("encode Data is ", hex.EncodeToString(encodeData))
+
 	domainHash := crypto.Keccak256(encodedDomain)
 	permitHash := crypto.Keccak256(encodedPermit)
 
-	return crypto.Keccak256(append([]byte("\x19\x01"), append(domainHash, permitHash...)...)), nil
+	// fmt.Println("d", hex.EncodeToString(domainHash))
+	// fmt.Println("p", hex.EncodeToString(permitHash))
+
+	encodePackedData, err := encodePacked([]byte("\x19\x01"), domainHash, permitHash)
+
+	return crypto.Keccak256(encodePackedData), nil
+}
+
+func encodePacked(args ...interface{}) ([]byte, error) {
+	var packed []byte
+
+	for _, arg := range args {
+		switch v := arg.(type) {
+		case []byte:
+			packed = append(packed, v...)
+		case string:
+			packed = append(packed, []byte(v)...)
+		case common.Address:
+			packed = append(packed, v.Bytes()...)
+		case *big.Int:
+			if v.Sign() == -1 {
+				return nil, fmt.Errorf("cannot encode negative big.Int")
+			}
+			b := v.Bytes()
+			// Prepend with zeros if less than 32 bytes.
+			for i := 0; i < 32-len(b); i++ {
+				packed = append(packed, 0)
+			}
+			packed = append(packed, b...)
+		default:
+			return nil, fmt.Errorf("unsupported type %T", v)
+		}
+	}
+
+	return packed, nil
 }
 
 // Simple encoding function, should be replaced with ABI encoding
