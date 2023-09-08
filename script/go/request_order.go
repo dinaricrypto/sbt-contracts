@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"math/big"
@@ -64,10 +65,16 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 	domainTypeHash := crypto.Keccak256(domainType)
 	permitTypeHash := crypto.Keccak256(permitType)
 
+	// domainTypeBytes32 := "0x" + hex.EncodeToString(domainTypeHash)
+	// permitBytes32 := "0x" + hex.EncodeToString(permitTypeHash)
+
+	nameHashed := crypto.Keccak256([]byte(domain.Name))
+	versionHashed := crypto.Keccak256([]byte(domain.Version))
+
 	encodedDomain, err := abiEncodeData([]interface{}{
 		domainTypeHash,
-		domain.Name,
-		domain.Version,
+		nameHashed,
+		versionHashed,
 		domain.ChainId,
 		domain.VerifyingContract,
 	})
@@ -180,8 +187,6 @@ func main() {
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 	fmt.Println("Initializing request Order for user:", fromAddress)
 
-	auth := bind.NewKeyedTransactor(privateKey)
-
 	// Setting up contract ABI and creating binded contract
 
 	processorAddress := common.HexToAddress(BuyProcessorAddress)
@@ -256,6 +261,7 @@ func main() {
 		log.Fatalf("Failed to get network ID: %v", err)
 	}
 
+	auth, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
 	// Creating EIP-712 hash
 
 	typedHash, err := EIP712Hash(
@@ -287,7 +293,9 @@ func main() {
 		signature[64] += 27
 	}
 
-	fmt.Printf("EIP-712 Signature: 0x%x\n", signature)
+	fmt.Printf("EIP-712 Signature: 0x%x\n", hex.EncodeToString(signature))
+
+	_ = auth
 
 	r := signature[:32]
 	s := signature[32:64]
