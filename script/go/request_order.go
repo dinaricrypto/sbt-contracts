@@ -58,19 +58,38 @@ type OrderStruct struct {
 	Tif                  uint8
 }
 
+// EIP712Hash computes the hash of the given EIP-712 domain and message.
+// It follows the EIP-712 specification, first hashing the domain and the message individually,
+// and then computing the hash of the combined result.
+//
+// Parameters:
+// - domain: Contains data about the signing domain, such as the Dapp's name, version, etc.
+// - message: The PermitMessage struct containing data related to a specific transaction.
+//
+// Returns:
+// - The EIP-712 hash of the given domain and message.
+// - Any error that might occur during the computation.
 func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
+
+	// Define the EIP-712 type for the domain.
 	domainType := []byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
+
+	// Define the EIP-712 type for the permit.
 	permitType := []byte("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
 
+	// Compute the Keccak256 hash of the domain and permit types.
 	domainTypeHash := crypto.Keccak256(domainType)
 	permitTypeHash := crypto.Keccak256(permitType)
 
+	// Convert the domain and permit type hashes to hex strings.
 	domainTypeBytes32 := "0x" + hex.EncodeToString(domainTypeHash)
 	permitBytes32 := "0x" + hex.EncodeToString(permitTypeHash)
 
+	// Hash the domain's name and version.
 	nameHashed := crypto.Keccak256([]byte(domain.Name))
 	versionHashed := crypto.Keccak256([]byte(domain.Version))
 
+	// ABI encode the domain data.
 	encodedDomain, err := abiEncodeData([]interface{}{
 		domainTypeBytes32,
 		nameHashed,
@@ -78,11 +97,11 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 		domain.ChainId,
 		domain.VerifyingContract,
 	})
-
 	if err != nil {
 		return nil, err
 	}
 
+	// ABI encode the permit data.
 	encodedPermit, err := abiEncodeData([]interface{}{
 		permitBytes32,
 		message.Owner,
@@ -91,13 +110,14 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 		message.Nonce,
 		message.Deadline,
 	})
-
 	if err != nil {
 		return nil, err
 	}
 
+	// A mock address used for some internal operations.
 	mockAddress := common.HexToAddress("0x27a1876A09581E02E583E002E42EC1322abE9655")
 
+	// ABI encode some data (purpose of this part is not clear from the given code context).
 	encodeData, err := abiEncodeData([]interface{}{
 		permitBytes32,
 		domain.Name,
@@ -105,20 +125,44 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 		domain.ChainId,
 		mockAddress,
 	})
+	if err != nil {
+		return nil, err
+	}
 
+	// Log the encoded data for debugging purposes.
 	fmt.Println("encode Data is ", hex.EncodeToString(encodeData))
 
+	// Compute the Keccak256 hash of the encoded domain and permit data.
 	domainHash := crypto.Keccak256(encodedDomain)
 	permitHash := crypto.Keccak256(encodedPermit)
 
-	// fmt.Println("d", hex.EncodeToString(domainHash))
-	// fmt.Println("p", hex.EncodeToString(permitHash))
+	// Log the domain and permit hashes for debugging purposes.
+	fmt.Println("d", hex.EncodeToString(domainHash))
+	fmt.Println("p", hex.EncodeToString(permitHash))
 
+	// Concatenate and encode the domain and permit hashes.
 	encodePackedData, err := encodePacked([]byte("\x19\x01"), domainHash, permitHash)
+	if err != nil {
+		return nil, err
+	}
 
+	// Log the packed data for debugging purposes.
+	fmt.Println(hex.EncodeToString(encodePackedData))
+
+	// Return the final Keccak256 hash of the packed data.
 	return crypto.Keccak256(encodePackedData), nil
 }
 
+// encodePacked encodes the given arguments in a packed format.
+// It supports a variety of types: []byte, string, common.Address, and *big.Int.
+// The function performs a direct concatenation of the bytes representation of each argument.
+//
+// Parameters:
+// - args: A variadic list of arguments of different types to be packed.
+//
+// Returns:
+// - A byte slice containing the packed representation of the arguments.
+// - An error if there's any issue encoding or if an unsupported type is encountered.
 func encodePacked(args ...interface{}) ([]byte, error) {
 	var packed []byte
 
@@ -148,8 +192,19 @@ func encodePacked(args ...interface{}) ([]byte, error) {
 	return packed, nil
 }
 
-// Simple encoding function, should be replaced with ABI encoding
+// abiEncodeData encodes a given list of data using ABI encoding.
+// It attempts to determine the appropriate ABI type for each item in the list.
+// Supported types include string, bytes, uint256, and address.
+//
+// Parameters:
+// - data: A list of data items to be ABI encoded.
+//
+// Returns:
+// - A byte slice containing the ABI encoded representation of the data.
+// - An error if there's any issue during the encoding or if an unsupported type is encountered.
 func abiEncodeData(data []interface{}) ([]byte, error) {
+
+	// Define ABI types
 	stringType, err := abi.NewType("string", "", nil)
 	if err != nil {
 		return nil, err
@@ -173,6 +228,7 @@ func abiEncodeData(data []interface{}) ([]byte, error) {
 	var argumentTypes []abi.Type
 	var argumentValues []interface{}
 
+	// Determine the appropriate ABI type for each data item
 	for _, item := range data {
 		switch v := item.(type) {
 		case []byte:
@@ -192,11 +248,13 @@ func abiEncodeData(data []interface{}) ([]byte, error) {
 		}
 	}
 
+	// Create an ABI arguments representation
 	arguments := abi.Arguments{}
 	for _, t := range argumentTypes {
 		arguments = append(arguments, abi.Argument{Type: t})
 	}
 
+	// Pack the arguments using ABI encoding
 	encoded, err := arguments.Pack(argumentValues...)
 	if err != nil {
 		return nil, err
