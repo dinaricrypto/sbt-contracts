@@ -31,6 +31,7 @@ abstract contract xERC4626 is ERC4626 {
     constructor(uint32 _rewardsCycleLength) {
         rewardsCycleLength = _rewardsCycleLength;
         // seed initial rewardsCycleEnd
+        // slither-disable-next-line divide-before-multiply
         rewardsCycleEnd = (block.timestamp.toUint32() / rewardsCycleLength) * rewardsCycleLength;
     }
 
@@ -80,6 +81,7 @@ abstract contract xERC4626 is ERC4626 {
 
         storedTotalAssets = storedTotalAssets_ + lastRewardAmount_; // SSTORE
 
+        // slither-disable-next-line divide-before-multiply
         uint32 end = ((timestamp + rewardsCycleLength) / rewardsCycleLength) * rewardsCycleLength;
 
         // Combined single SSTORE
