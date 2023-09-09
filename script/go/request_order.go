@@ -85,15 +85,22 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 	domainTypeBytes32 := "0x" + hex.EncodeToString(domainTypeHash)
 	permitBytes32 := "0x" + hex.EncodeToString(permitTypeHash)
 
+	fmt.Println("EIP712 Hash", domainTypeBytes32)
+
 	// Hash the domain's name and version.
 	nameHashed := crypto.Keccak256([]byte(domain.Name))
 	versionHashed := crypto.Keccak256([]byte(domain.Version))
 
+	vHashed := "0x" + hex.EncodeToString(versionHashed)
+	nHashed := "0x" + hex.EncodeToString(nameHashed)
+
+	fmt.Println("Version Hash", vHashed)
+
 	// ABI encode the domain data.
 	encodedDomain, err := abiEncodeData([]interface{}{
 		domainTypeBytes32,
-		nameHashed,
-		versionHashed,
+		nHashed,
+		vHashed,
 		domain.ChainId,
 		domain.VerifyingContract,
 	})
@@ -113,24 +120,6 @@ func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// A mock address used for some internal operations.
-	mockAddress := common.HexToAddress("0x27a1876A09581E02E583E002E42EC1322abE9655")
-
-	// ABI encode some data (purpose of this part is not clear from the given code context).
-	encodeData, err := abiEncodeData([]interface{}{
-		permitBytes32,
-		domain.Name,
-		domain.Version,
-		domain.ChainId,
-		mockAddress,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Log the encoded data for debugging purposes.
-	fmt.Println("encode Data is ", hex.EncodeToString(encodeData))
 
 	// Compute the Keccak256 hash of the encoded domain and permit data.
 	domainHash := crypto.Keccak256(encodedDomain)
