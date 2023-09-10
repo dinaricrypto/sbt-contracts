@@ -13,8 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/joho/godotenv"
 )
 
@@ -34,13 +36,13 @@ type FeeRates struct {
 type EIP712Domain struct {
 	Name              string
 	Version           string
-	ChainId           *big.Int
+	ChainId           int64
 	VerifyingContract string
 }
 
 type PermitMessage struct {
-	Owner    common.Address
-	Spender  common.Address
+	Owner    string
+	Spender  string
 	Value    *big.Int
 	Nonce    *big.Int
 	Deadline *big.Int
@@ -58,207 +60,119 @@ type OrderStruct struct {
 	Tif                  uint8
 }
 
-// EIP712Hash computes the hash of the given EIP-712 domain and message.
-// It follows the EIP-712 specification, first hashing the domain and the message individually,
-// and then computing the hash of the combined result.
+var typesStandard = apitypes.Types{
+	"EIP712Domain": {
+		{
+			Name: "name",
+			Type: "string",
+		},
+		{
+			Name: "version",
+			Type: "string",
+		},
+		{
+			Name: "chainId",
+			Type: "uint256",
+		},
+		{
+			Name: "verifyingContract",
+			Type: "address",
+		},
+	},
+	"Permit": {
+		{
+			Name: "owner",
+			Type: "address",
+		},
+		{
+			Name: "spender",
+			Type: "address",
+		},
+		{
+			Name: "value",
+			Type: "uint256",
+		},
+		{
+			Name: "nonce",
+			Type: "uint256",
+		},
+		{
+			Name: "deadline",
+			Type: "uint256",
+		},
+	},
+}
+
+// EIP712Hash calculates the EIP-712 compliant hash of the provided domain and message data.
 //
 // Parameters:
-// - domain: Contains data about the signing domain, such as the Dapp's name, version, etc.
-// - message: The PermitMessage struct containing data related to a specific transaction.
+// - domain: The EIP712Domain containing details about the domain in which this message will be used.
+//   - Name: A user-readable name of the domain.
+//   - Version: The domain's schema version.
+//   - ChainId: The ID of the blockchain network on which the message is relevant.
+//   - VerifyingContract: The address of the contract for which this message is intended.
+//
+// - message: The PermitMessage containing the actual data we want to sign and hash.
+//   - Owner: Address of the entity granting permission.
+//   - Spender: Address of the entity receiving permission.
+//   - Value: Amount of tokens for which permission is granted.
+//   - Nonce: A unique value to prevent replay attacks.
+//   - Deadline: The timestamp after which the message is considered expired.
 //
 // Returns:
-// - The EIP-712 hash of the given domain and message.
-// - Any error that might occur during the computation.
+// - []byte: The EIP-712 compliant hash of the provided data.
+// - error: An error object indicating any issues encountered during hashing.
 func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
 
-	// Define the EIP-712 type for the domain.
-	domainType := []byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")
+	// Create the domain struct based on EIP712 requirements
+	domainStruct := apitypes.TypedDataDomain{
+		Name:              domain.Name,
+		Version:           domain.Version,
+		ChainId:           math.NewHexOrDecimal256(domain.ChainId),
+		VerifyingContract: domain.VerifyingContract,
+	}
 
-	// Define the EIP-712 type for the permit.
-	permitType := []byte("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
+	// Create the message struct for hashing
+	permitStruct := map[string]interface{}{
+		"owner":    message.Owner,
+		"spender":  message.Spender,
+		"value":    message.Value,
+		"nonce":    message.Nonce,
+		"deadline": message.Deadline,
+	}
 
-	// Compute the Keccak256 hash of the domain and permit types.
-	domainTypeHash := crypto.Keccak256(domainType)
-	permitTypeHash := crypto.Keccak256(permitType)
+	// Define the DataTypes using previously defined types and the constructed structs
+	DataTypes := apitypes.TypedData{
+		Types:       typesStandard, // This should be defined elsewhere (or passed as an argument if dynamic)
+		PrimaryType: "Permit",
+		Domain:      domainStruct,
+		Message:     permitStruct,
+	}
 
-	// Convert the domain and permit type hashes to hex strings.
-	domainTypeBytes32 := "0x" + hex.EncodeToString(domainTypeHash)
-	permitBytes32 := "0x" + hex.EncodeToString(permitTypeHash)
-
-	fmt.Println("EIP712 Hash", domainTypeBytes32)
-
-	// Hash the domain's name and version.
-	nameHashed := crypto.Keccak256([]byte(domain.Name))
-	versionHashed := crypto.Keccak256([]byte(domain.Version))
-
-	vHashed := "0x" + hex.EncodeToString(versionHashed)
-	nHashed := "0x" + hex.EncodeToString(nameHashed)
-
-	fmt.Println("Version Hash", vHashed)
-
-	// ABI encode the domain data.
-	encodedDomain, err := abiEncodeData([]interface{}{
-		domainTypeBytes32,
-		nHashed,
-		vHashed,
-		domain.ChainId,
-		domain.VerifyingContract,
-	})
+	// Hash the domain struct
+	domainHash, err := DataTypes.HashStruct("EIP712Domain", domainStruct.Map())
 	if err != nil {
 		return nil, err
 	}
 
-	// ABI encode the permit data.
-	encodedPermit, err := abiEncodeData([]interface{}{
-		permitBytes32,
-		message.Owner,
-		message.Spender,
-		message.Value,
-		message.Nonce,
-		message.Deadline,
-	})
+	// Hash the message struct
+	messageHash, err := DataTypes.HashStruct("Permit", permitStruct)
 	if err != nil {
 		return nil, err
 	}
 
-	// Compute the Keccak256 hash of the encoded domain and permit data.
-	domainHash := crypto.Keccak256(encodedDomain)
-	permitHash := crypto.Keccak256(encodedPermit)
-
-	// Log the domain and permit hashes for debugging purposes.
-	fmt.Println("d", hex.EncodeToString(domainHash))
-	fmt.Println("p", hex.EncodeToString(permitHash))
-
-	// Concatenate and encode the domain and permit hashes.
-	encodePackedData, err := encodePacked([]byte("\x19\x01"), domainHash, permitHash)
-	if err != nil {
-		return nil, err
-	}
-
-	// Log the packed data for debugging purposes.
-	fmt.Println(hex.EncodeToString(encodePackedData))
-
-	// Return the final Keccak256 hash of the packed data.
-	return crypto.Keccak256(encodePackedData), nil
-}
-
-// encodePacked encodes the given arguments in a packed format.
-// It supports a variety of types: []byte, string, common.Address, and *big.Int.
-// The function performs a direct concatenation of the bytes representation of each argument.
-//
-// Parameters:
-// - args: A variadic list of arguments of different types to be packed.
-//
-// Returns:
-// - A byte slice containing the packed representation of the arguments.
-// - An error if there's any issue encoding or if an unsupported type is encountered.
-func encodePacked(args ...interface{}) ([]byte, error) {
-	var packed []byte
-
-	for _, arg := range args {
-		switch v := arg.(type) {
-		case []byte:
-			packed = append(packed, v...)
-		case string:
-			packed = append(packed, []byte(v)...)
-		case common.Address:
-			packed = append(packed, v.Bytes()...)
-		case *big.Int:
-			if v.Sign() == -1 {
-				return nil, fmt.Errorf("cannot encode negative big.Int")
-			}
-			b := v.Bytes()
-			// Prepend with zeros if less than 32 bytes.
-			for i := 0; i < 32-len(b); i++ {
-				packed = append(packed, 0)
-			}
-			packed = append(packed, b...)
-		default:
-			return nil, fmt.Errorf("unsupported type %T", v)
-		}
-	}
-
-	return packed, nil
-}
-
-// abiEncodeData encodes a given list of data using ABI encoding.
-// It attempts to determine the appropriate ABI type for each item in the list.
-// Supported types include string, bytes, uint256, and address.
-//
-// Parameters:
-// - data: A list of data items to be ABI encoded.
-//
-// Returns:
-// - A byte slice containing the ABI encoded representation of the data.
-// - An error if there's any issue during the encoding or if an unsupported type is encountered.
-func abiEncodeData(data []interface{}) ([]byte, error) {
-
-	// Define ABI types
-	stringType, err := abi.NewType("string", "", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	bytesType, err := abi.NewType("bytes", "", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	uint256Type, err := abi.NewType("uint256", "", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	addressType, err := abi.NewType("address", "", nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var argumentTypes []abi.Type
-	var argumentValues []interface{}
-
-	// Determine the appropriate ABI type for each data item
-	for _, item := range data {
-		switch v := item.(type) {
-		case []byte:
-			argumentTypes = append(argumentTypes, bytesType)
-			argumentValues = append(argumentValues, v)
-		case string:
-			argumentTypes = append(argumentTypes, stringType)
-			argumentValues = append(argumentValues, v)
-		case *big.Int:
-			argumentTypes = append(argumentTypes, uint256Type)
-			argumentValues = append(argumentValues, v)
-		case common.Address:
-			argumentTypes = append(argumentTypes, addressType)
-			argumentValues = append(argumentValues, v)
-		default:
-			return nil, fmt.Errorf("unsupported type %T", v)
-		}
-	}
-
-	// Create an ABI arguments representation
-	arguments := abi.Arguments{}
-	for _, t := range argumentTypes {
-		arguments = append(arguments, abi.Argument{Type: t})
-	}
-
-	// Pack the arguments using ABI encoding
-	encoded, err := arguments.Pack(argumentValues...)
-	if err != nil {
-		return nil, err
-	}
-
-	return encoded, nil
+	// Combine and hash the domain and message hashes according to EIP-712 and return
+	return crypto.Keccak256(append([]byte("\x19\x01"), append(domainHash, messageHash...)...)), nil
 }
 
 func main() {
+	// Load environment variables from .env file
 	err := godotenv.Load("../../.env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
-	// Establishing connection with Ethereum client
+	// Establish a connection to the Ethereum client using the RPC URL from environment variables
 	rpcURL := os.Getenv("TEST_RPC_URL")
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
@@ -266,8 +180,7 @@ func main() {
 	}
 	fmt.Println("we have a connection")
 
-	// Retrieving and setting up the private and public keys
-
+	// Retrieve private key from environment variable and derive the public key & Ethereum address
 	privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
 	if err != nil {
 		log.Fatal(err)
@@ -280,22 +193,17 @@ func main() {
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
 	fmt.Println("Initializing request Order for user:", fromAddress)
 
-	// Setting up contract ABI and creating binded contract
-
+	// Setup the ABI (Application Binary Interface) and the contract binding for the processor contract
 	processorAddress := common.HexToAddress(BuyProcessorAddress)
 	fmt.Println("buy processor address at:", processorAddress)
-
 	buyProcessorAbi, err := abi.JSON(strings.NewReader(buyProcessorAbiString))
 	if err != nil {
 		log.Fatalf("Failed to parse contract ABI: %v", err)
 	}
-
 	processorContract := bind.NewBoundContract(processorAddress, buyProcessorAbi, client, client, client)
 
+	// Call the 'getFeeRatesForOrder' method on the contract to get fee rates
 	var result []interface{}
-
-	// Calling the getFeeRatesForOrder method on the processor contract
-
 	feeRates := &FeeRates{}
 	result = append(result, feeRates)
 	paymentTokenAddr := common.HexToAddress(PaymentTokenAddress)
@@ -303,70 +211,64 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to call getFeeRatesForOrder function: %v", err)
 	}
-
 	fmt.Println("processor fees:", feeRates.FlatFee, feeRates.PercentageFeeRate)
 
-	// Calculating total spend amount considering fee rates
-
-	orderAmount := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
-
+	// Calculate the total amount to spend considering fee rates
+	orderAmount := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e6))
 	fees := new(big.Int).Mul(orderAmount, feeRates.PercentageFeeRate)
 	fees.Div(fees, big.NewInt(10000))
 	fees.Add(fees, feeRates.FlatFee)
-
 	totalSpendAmount := new(big.Int).Add(orderAmount, fees)
-
 	fmt.Println("Total Spend Amount:", totalSpendAmount.String())
 
-	// Getting nonce and block related information
+	// Get nonce & block information to set up the transaction
 	noncesAbi, err := abi.JSON(strings.NewReader(NoncesAbiString))
 	if err != nil {
 		log.Fatalf("Failed to parse contract ABI: %v", err)
 	}
 	paymentTokenContract := bind.NewBoundContract(paymentTokenAddr, noncesAbi, client, client, client)
-
 	nonce := new(big.Int)
 	result = append(result, nonce)
 	err = paymentTokenContract.Call(&bind.CallOpts{}, &result, "nonces", fromAddress)
 	if err != nil {
 		log.Fatalf("Failed to call nonces function: %v", err)
 	}
-
 	fmt.Println("Nonce:", nonce)
 
+	// Fetch the current block number & its details to derive a deadline for the transaction
 	blockNumber, err := client.BlockNumber(context.Background())
 	if err != nil {
 		log.Fatalf("Failed to get block number: %v", err)
 	}
-
 	block, err := client.BlockByNumber(context.Background(), big.NewInt(int64(blockNumber)))
 	if err != nil {
 		log.Fatalf("Failed to get block details: %v", err)
 	}
-
 	deadline := block.Time() + 300
 	deadlineBigInt := new(big.Int).SetUint64(deadline)
-
 	fmt.Println("Deadline:", deadline)
 
+	// Get the current network ID for signing the transaction
 	chainID, err := client.NetworkID(context.Background())
 	if err != nil {
 		log.Fatalf("Failed to get network ID: %v", err)
 	}
 
+	// Create a signer for the transaction using the private key
 	auth, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+
 	// Creating EIP-712 hash
 
 	typedHash, err := EIP712Hash(
 		EIP712Domain{
 			Name:              "USD Coin",
 			Version:           "1",
-			ChainId:           chainID, // or a relevant ChainID value
+			ChainId:           chainID.Int64(), // or a relevant ChainID value
 			VerifyingContract: PaymentTokenAddress,
 		},
 		PermitMessage{
-			Owner:    fromAddress,
-			Spender:  processorAddress,
+			Owner:    fromAddress.String(),
+			Spender:  processorAddress.String(),
 			Value:    totalSpendAmount,
 			Nonce:    nonce,
 			Deadline: deadlineBigInt,
@@ -387,8 +289,6 @@ func main() {
 	}
 
 	fmt.Printf("EIP-712 Signature: 0x%x\n", hex.EncodeToString(signature))
-
-	_ = auth
 
 	r := signature[:32]
 	s := signature[32:64]
@@ -414,12 +314,6 @@ func main() {
 		sArray,
 	)
 
-	if err != nil {
-		log.Fatalf("Failed to pack data for selfPermit function: %v", err)
-	}
-
-	fmt.Printf("selfPermit Data: 0x%x\n", selfPermitData)
-
 	// Constructing function data for requestOrder
 	order := OrderStruct{
 		Recipient:            fromAddress,
@@ -427,8 +321,8 @@ func main() {
 		PaymentToken:         paymentTokenAddr,
 		Sell:                 false,
 		OrderType:            0,
-		AssetTokenQuantity:   orderAmount,
-		PaymentTokenQuantity: big.NewInt(0),
+		AssetTokenQuantity:   big.NewInt(0),
+		PaymentTokenQuantity: orderAmount,
 		Price:                big.NewInt(0),
 		Tif:                  1,
 	}
