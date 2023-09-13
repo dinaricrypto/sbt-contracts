@@ -26,24 +26,15 @@ const (
 	PaymentTokenAddress = "0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F"
 )
 
-// The structure to represent FeeRates, EIP712Domain, etc.
+// The structure to represent FeeRates, Message, OrderStruct.
 
 type FeeRates struct {
 	FlatFee           *big.Int
 	PercentageFeeRate *big.Int
 }
 
-type EIP712Domain struct {
-	Name              string
-	Version           string
-	ChainId           int64
-	VerifyingContract string
-}
-
-type PermitMessage struct {
+type Message struct {
 	Owner    string
-	Spender  string
-	Value    *big.Int
 	Nonce    *big.Int
 	Deadline *big.Int
 }
@@ -60,83 +51,75 @@ type OrderStruct struct {
 	Tif                  uint8
 }
 
-var typesStandard = apitypes.Types{
-	"EIP712Domain": {
-		{
-			Name: "name",
-			Type: "string",
-		},
-		{
-			Name: "version",
-			Type: "string",
-		},
-		{
-			Name: "chainId",
-			Type: "uint256",
-		},
-		{
-			Name: "verifyingContract",
-			Type: "address",
-		},
-	},
-	"Permit": {
-		{
-			Name: "owner",
-			Type: "address",
-		},
-		{
-			Name: "spender",
-			Type: "address",
-		},
-		{
-			Name: "value",
-			Type: "uint256",
-		},
-		{
-			Name: "nonce",
-			Type: "uint256",
-		},
-		{
-			Name: "deadline",
-			Type: "uint256",
-		},
-	},
-}
-
 // EIP712Hash calculates the EIP-712 compliant hash of the provided domain and message data.
 //
 // Parameters:
-// - domain: The EIP712Domain containing details about the domain in which this message will be used.
-//   - Name: A user-readable name of the domain.
-//   - Version: The domain's schema version.
-//   - ChainId: The ID of the blockchain network on which the message is relevant.
-//   - VerifyingContract: The address of the contract for which this message is intended.
-//
 // - message: The PermitMessage containing the actual data we want to sign and hash.
 //   - Owner: Address of the entity granting permission.
-//   - Spender: Address of the entity receiving permission.
-//   - Value: Amount of tokens for which permission is granted.
 //   - Nonce: A unique value to prevent replay attacks.
 //   - Deadline: The timestamp after which the message is considered expired.
 //
 // Returns:
 // - []byte: The EIP-712 compliant hash of the provided data.
 // - error: An error object indicating any issues encountered during hashing.
-func EIP712Hash(domain EIP712Domain, message PermitMessage) ([]byte, error) {
+func EIP712Hash(message Message, chainId int64) ([]byte, error) {
+
+	typesStandard := apitypes.Types{
+		"EIP712Domain": {
+			{
+				Name: "name",
+				Type: "string",
+			},
+			{
+				Name: "version",
+				Type: "string",
+			},
+			{
+				Name: "chainId",
+				Type: "uint256",
+			},
+			{
+				Name: "verifyingContract",
+				Type: "address",
+			},
+		},
+		"Permit": {
+			{
+				Name: "owner",
+				Type: "address",
+			},
+			{
+				Name: "spender",
+				Type: "address",
+			},
+			{
+				Name: "value",
+				Type: "uint256",
+			},
+			{
+				Name: "nonce",
+				Type: "uint256",
+			},
+			{
+				Name: "deadline",
+				Type: "uint256",
+			},
+		},
+	}
 
 	// Create the domain struct based on EIP712 requirements
 	domainStruct := apitypes.TypedDataDomain{
-		Name:              domain.Name,
-		Version:           domain.Version,
-		ChainId:           math.NewHexOrDecimal256(domain.ChainId),
-		VerifyingContract: domain.VerifyingContract,
+		Name:              "USD Coin",
+		Version:           "1",
+		ChainId:           math.NewHexOrDecimal256(chainId),
+		VerifyingContract: PaymentTokenAddress,
 	}
 
 	// Create the message struct for hashing
 	permitStruct := map[string]interface{}{
 		"owner":    message.Owner,
-		"spender":  message.Spender,
-		"value":    message.Value,
+		"spender":  BuyProcessorAddress,
+		"value":    0,
 		"nonce":    message.Nonce,
 		"deadline": message.Deadline,
 	}
@@ -260,19 +243,12 @@ func main() {
 	// Creating EIP-712 hash
 
 	typedHash, err := EIP712Hash(
-		EIP712Domain{
-			Name:              "USD Coin",
-			Version:           "1",
-			ChainId:           chainID.Int64(), // or a relevant ChainID value
-			VerifyingContract: PaymentTokenAddress,
-		},
-		PermitMessage{
+		Message{
 			Owner:    fromAddress.String(),
-			Spender:  processorAddress.String(),
-			Value:    totalSpendAmount,
 			Nonce:    nonce,
 			Deadline: deadlineBigInt,
 		},
+		chainID.Int64(),
 	)
 	if err != nil {
 		log.Fatalf("Failed to create EIP-712 hash: %v", err)
