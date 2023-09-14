@@ -11,7 +11,7 @@ contract xERC4626Test is Test {
 
     function setUp() public {
         token = new MockERC20("token", "TKN", 18);
-        xToken = new MockxERC4626(token, "xToken", "xTKN", 1000);
+        xToken = new MockxERC4626(token, 1000);
         token.mint(address(this), 100e18);
         token.approve(address(xToken), 100e18);
     }
