@@ -7,9 +7,7 @@ import {ERC20} from "solady/src/tokens/ERC20.sol";
 contract MockxERC4626 is xERC4626 {
     ERC20 public immutable _asset;
 
-    constructor(ERC20 _underlying, string memory _name, string memory _symbol, uint32 _rewardCycleLength)
-        xERC4626(_rewardCycleLength)
-    {
+    constructor(ERC20 _underlying, uint32 _rewardCycleLength) xERC4626(_rewardCycleLength) {
         _asset = _underlying;
     }
 
