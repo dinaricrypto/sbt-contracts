@@ -6,7 +6,7 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../src/orders/SellProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
+import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 
@@ -23,6 +23,9 @@ contract DeployAllScript is Script {
         address oracle;
     }
 
+    // Tether
+    mapping(address => bool) public isBlocked;
+
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
 
@@ -36,13 +39,14 @@ contract DeployAllScript is Script {
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
             operator2: vm.envAddress("OPERATOR2"),
-            // usdc: vm.envAddress("USDC"),
-            usdc: address(0),
-            // usdt: vm.envAddress("USDT"),
-            usdt: address(0),
+            usdc: vm.envAddress("USDC"),
+            usdt: vm.envAddress("USDT"),
+            // usdt: address(0),
             relayer: vm.envAddress("RELAYER"),
             oracle: vm.envAddress("ORACLE")
         });
+
+        address usdce = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 
         console.log("deployer: %s", cfg.deployer);
         // console.log("owner: %s", cfg.owner);
@@ -53,7 +57,11 @@ contract DeployAllScript is Script {
         /// ------------------ order processors ------------------
 
         // deploy blacklist prechecker
-        TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, cfg.usdt);
+        TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, address(0));
+        // add USDC.e
+        tokenLockCheck.setCallSelector(usdce, IERC20Usdc.isBlacklisted.selector);
+        // add USDT.e
+        tokenLockCheck.setCallSelector(cfg.usdt, this.isBlocked.selector);
 
         BuyProcessor buyProcessor =
             new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
@@ -76,6 +84,14 @@ contract DeployAllScript is Script {
         buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
+
+        buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
+        sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
+        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdt);
+
+        buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), usdce);
+        sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), usdce);
+        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), usdce);
 
         /// ------------------ forwarder ------------------
 
