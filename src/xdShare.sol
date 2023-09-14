@@ -7,8 +7,6 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
-
-
 /**
  * @title xdShare Contract
  * @dev This contract acts as a wrapper over the dShare token, providing additional functionalities.
@@ -17,7 +15,6 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
  */
 contract xdShare is Ownable, xERC4626 {
-
     /// @notice Reference to the underlying dShare contract.
     dShare public underlyingDShare;
 
@@ -80,4 +77,3 @@ contract xdShare is Ownable, xERC4626 {
         return restrictor.isBlacklisted(account);
     }
 }
-
