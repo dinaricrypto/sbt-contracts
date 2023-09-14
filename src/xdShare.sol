@@ -14,9 +14,11 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
  *         Additionally, it employs the ERC4626 standard for its operations.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
  */
+
+// slither-disable-next-line missing-inheritance
 contract xdShare is Ownable, xERC4626 {
     /// @notice Reference to the underlying dShare contract.
-    dShare public underlyingDShare;
+    dShare public immutable underlyingDShare;
 
     /**
      * @dev Initializes a new instance of the xdShare contract.
