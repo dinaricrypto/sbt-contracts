@@ -16,6 +16,13 @@ contract xERC4626Test is Test {
         token.approve(address(xToken), 100e18);
     }
 
+    function testMetadata() public {
+        assertEq(xToken.name(), "xtoken");
+        assertEq(xToken.symbol(), "TKN.x");
+        assertEq(xToken.decimals(), 18);
+        assertEq(xToken.asset(), address(token));
+    }
+
     function testTotalAssetsDuringRewardDistribution() public {
         // first seed pool with 50 tokens
         xToken.deposit(50e18, address(this));
@@ -39,17 +46,27 @@ contract xERC4626Test is Test {
         assertGt(xToken.totalAssets(), 50e18);
         assertLt(xToken.totalAssets(), 100e18);
         assertGt(xToken.convertToShares(100e18), 50e18);
+    }
 
-        // // accrue remaining rewards
-        // vm.warp(1000);
-        // assertEq(xToken.lastRewardAmount() , 100e18);
-        // assertEq(xToken.totalAssets() , 150e18);
-        // assertEq(xToken.convertToShares(150e18) , 50e18); // 1:3 now
+    function testWithdraw(uint256 amount) public {
+        vm.assume(amount < 100e18);
+        if (amount == 0) amount = 1;
+        uint256 shareAmount = xToken.deposit(amount, address(this));
+        assertEq(xToken.totalAssets(), amount, "seed");
 
-        // // accrue all and warp ahead 1 cycle
-        // vm.warp(2000);
-        // assertEq(xToken.lastRewardAmount() , 100e18);
-        // assertEq(xToken.totalAssets() , 150e18);
-        // assertEq(xToken.convertToShares(150e18) , 50e18); // 1:3 now
+        assertEq(shareAmount, amount);
+        assertEq(xToken.previewWithdraw(shareAmount), amount);
+        assertEq(xToken.totalSupply(), shareAmount);
+        assertEq(xToken.totalAssets(), amount);
+
+        assertEq(xToken.balanceOf(address(this)), shareAmount);
+        assertEq(xToken.convertToAssets(xToken.balanceOf(address(this))), amount);
+
+        assertEq(token.balanceOf(address(this)), 100e18 - amount);
+
+        xToken.withdraw(amount, address(this), address(this));
+        assertEq(xToken.balanceOf(address(this)), 0);
+        assertEq(xToken.convertToAssets(xToken.balanceOf(address(this))), 0);
+        assertEq(token.balanceOf(address(this)), 100e18);
     }
 }
