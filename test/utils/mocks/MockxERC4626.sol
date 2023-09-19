@@ -11,9 +11,13 @@ contract MockxERC4626 is xERC4626 {
         _asset = _underlying;
     }
 
-    function name() public view virtual override returns (string memory) {}
+    function name() public view virtual override returns (string memory) {
+        return string(abi.encodePacked("x", _asset.name()));
+    }
 
-    function symbol() public view virtual override returns (string memory) {}
+    function symbol() public view virtual override returns (string memory) {
+        return string(abi.encodePacked(_asset.symbol(), ".x"));
+    }
 
     function asset() public view virtual override returns (address) {
         return address(_asset);

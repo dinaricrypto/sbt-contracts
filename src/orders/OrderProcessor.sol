@@ -275,12 +275,12 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     function estimateTotalFeesForOrder(address paymentToken, uint256 paymentTokenOrderValue)
         public
         view
-        returns (uint256 totalFees)
+        returns (uint256)
     {
         // Get fee rates
         (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(paymentToken);
         // Calculate total fees
-        totalFees = FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, paymentTokenOrderValue);
+        return FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, paymentTokenOrderValue);
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
