@@ -7,10 +7,7 @@ import "solady/src/utils/SafeCastLib.sol";
 
 /// @notice ERC4626 tokenized Vault implementation.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xERC4626.sol)
-/// @author Modified from Solady (https://github.com/vectorized/solady/blob/main/src/tokens/ERC4626.sol)
-/// @author Modified from Solmate (https://github.com/transmissions11/solmate/blob/main/src/mixins/ERC4626.sol)
-/// @author Modified from OpenZeppelin (https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC20/extensions/ERC4626.sol)
-
+/// @author Modified from (https://github.com/fei-protocol/ERC4626/blob/main/src/xERC4626.sol)
 abstract contract xERC4626 is ERC4626 {
     using SafeCastLib for *;
 
