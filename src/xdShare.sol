@@ -59,8 +59,6 @@ contract xdShare is Ownable, xERC4626 {
      * @param to Address of the receiver.
      */
     function _beforeTokenTransfer(address from, address to, uint256) internal view override {
-        if (to == address(0)) revert dShare.Unauthorized();
-
         ITransferRestrictor restrictor = underlyingDShare.transferRestrictor();
 
         if (address(restrictor) != address(0)) {
