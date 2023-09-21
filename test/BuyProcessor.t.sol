@@ -501,6 +501,7 @@ contract BuyProcessorTest is Test {
         assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), 0);
         if (fillAmount > 0) {
             assertEq(paymentToken.balanceOf(address(user)), quantityIn - fillAmount - feesEarned);
+            assertEq(issuer.getOrderStatus(id).received, 100);
         } else {
             assertEq(paymentToken.balanceOf(address(user)), quantityIn);
         }

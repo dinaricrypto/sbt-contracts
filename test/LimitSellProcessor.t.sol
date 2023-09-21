@@ -147,6 +147,7 @@ contract SellProcessorTest is Test {
                 assertEq(issuer.getOrderStatus(id).isFulfilled, true);
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
+                assertEq(issuer.getOrderStatus(id).received, receivedAmount);
                 assertEq(issuer.getOrderStatus(id).isFulfilled, false);
                 // balances after
                 // assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore + receivedAmount);

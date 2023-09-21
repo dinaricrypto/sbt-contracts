@@ -152,8 +152,10 @@ contract BuyProcessorTest is Test {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
                 assertEq(issuer.getOrderStatus(id).isFulfilled, true);
+                assertEq(issuer.getOrderStatus(id).received, receivedAmount);
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
+                assertEq(issuer.getOrderStatus(id).received, receivedAmount);
                 // balances after
                 assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
                 assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount - feesEarned);

@@ -237,6 +237,7 @@ contract SellProcessorTest is Test {
         assertApproxEqAbs(paymentToken.balanceOf(treasury), feesEarned, 1);
         assertEq(issuer.getOrderStatus(id).isFulfilled, true);
         assertEq(issuer.getOrderStatus(id).isCancelled, false);
+        assertEq(issuer.getOrderStatus(id).received, receivedAmount);
     }
 
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, string calldata reason)
@@ -272,6 +273,7 @@ contract SellProcessorTest is Test {
 
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            assertEq(issuer.getOrderStatus(id).received, receivedAmount);
         }
 
         // balances before
@@ -287,6 +289,7 @@ contract SellProcessorTest is Test {
             assertEq(paymentToken.balanceOf(user), receivedAmount - feesEarned);
             assertEq(token.balanceOf(user), escrow);
             assertEq(paymentToken.balanceOf(treasury), feesEarned);
+            assertEq(issuer.getOrderStatus(id).received, receivedAmount);
         } else {
             assertEq(token.balanceOf(user), orderAmount);
         }

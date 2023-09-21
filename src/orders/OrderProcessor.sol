@@ -62,6 +62,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     struct OrderStatus {
+        uint256 received;
         // Flag to indicate if the order has been completely filled
         bool isFulfilled;
         // Flag to indicate if order has been cancel or not
@@ -426,6 +427,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
         // Update order state
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
+        // Update order history with filled amount
+        _orderStatus[id].received += receivedAmount;
         // If order is completely filled then clear order state
         if (remainingOrder == 0) {
             _orderStatus[id].isFulfilled = true;
@@ -514,9 +517,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
         // Notify order cancelled
         emit OrderCancelled(order.recipient, index, reason);
-
-        // The order was not fulfilled since it was canceled
-        _orderStatus[id].isFulfilled = false;
         // Order is cancelled
         _orderStatus[id].isCancelled = true;
         // Clear order state

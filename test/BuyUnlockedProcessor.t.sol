@@ -190,8 +190,10 @@ contract BuyUnlockedProcessorTest is Test {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
                 assertEq(issuer.getOrderStatus(id).isFulfilled, true);
+                assertEq(issuer.getOrderStatus(id).received, receivedAmount);
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
+                assertEq(issuer.getOrderStatus(id).received, receivedAmount);
             }
         }
     }
