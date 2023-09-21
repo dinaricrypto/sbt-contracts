@@ -144,11 +144,10 @@ contract SellProcessorTest is Test {
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
-                assertEq(issuer.getOrderHistory(id).isFulfilled, true);
+                assertEq(issuer.getOrderStatus(id).isFulfilled, true);
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
-                assertEq(issuer.getOrderHistory(id).received, receivedAmount);
-                assertEq(issuer.getOrderHistory(id).isFulfilled, false);
+                assertEq(issuer.getOrderStatus(id).isFulfilled, false);
                 // balances after
                 // assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore + receivedAmount);
                 assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);

@@ -189,10 +189,9 @@ contract BuyUnlockedProcessorTest is Test {
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
-                assertEq(issuer.getOrderHistory(id).isFulfilled, true);
+                assertEq(issuer.getOrderStatus(id).isFulfilled, true);
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
-                assertEq(issuer.getOrderHistory(id).received, receivedAmount);
             }
         }
     }
@@ -220,6 +219,8 @@ contract BuyUnlockedProcessorTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
+        bytes32 id = issuer.getOrderId(order.recipient, index);
+
         if (fillAmount > 0) {
             vm.prank(operator);
             issuer.takeEscrow(order, index, fillAmount);
@@ -232,6 +233,8 @@ contract BuyUnlockedProcessorTest is Test {
         emit OrderCancelled(order.recipient, index, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, index, reason);
+        assertEq(issuer.getOrderStatus(id).isFulfilled, false);
+        assertEq(issuer.getOrderStatus(id).isCancelled, true);
     }
 
     function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount) public {
