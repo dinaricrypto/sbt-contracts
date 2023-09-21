@@ -155,8 +155,11 @@ contract SellProcessorTest is Test {
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
+                assertEq(issuer.getOrderHistory(id).isFulfilled, true);
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
+                assertEq(issuer.getOrderHistory(id).received, receivedAmount);
+                assertEq(issuer.getOrderHistory(id).isFulfilled, false);
             }
         }
     }
@@ -221,6 +224,7 @@ contract SellProcessorTest is Test {
             emit OrderFulfilled(order.recipient, index);
             vm.prank(operator);
             issuer.fillOrder(order, index, orderAmount, receivedAmount);
+            assertEq(issuer.getOrderHistory(id).received, receivedAmount);
         }
         // order closed
         assertEq(issuer.getRemainingOrder(id), 0);
@@ -233,6 +237,10 @@ contract SellProcessorTest is Test {
         assertEq(token.balanceOf(address(issuer)), 0);
         assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
         assertApproxEqAbs(paymentToken.balanceOf(treasury), feesEarned, 1);
+        assertEq(issuer.getOrderHistory(id).isFulfilled, true);
+        assertEq(issuer.getOrderHistory(id).isCancelled, false);
+        assertEq(issuer.getOrderHistory(id).requester, user);
+        assertEq(issuer.getOrderHistory(id).orderHash, issuer.hashOrder(order));
     }
 
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, string calldata reason)
@@ -250,6 +258,7 @@ contract SellProcessorTest is Test {
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
+        bytes32 id = issuer.getOrderId(order.recipient, index);
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
@@ -285,5 +294,8 @@ contract SellProcessorTest is Test {
         } else {
             assertEq(token.balanceOf(user), orderAmount);
         }
+        assertEq(issuer.getOrderHistory(id).isCancelled, true);
+        assertEq(issuer.getOrderHistory(id).isFulfilled, false);
+        assertEq(issuer.getOrderHistory(id).received, 0);
     }
 }

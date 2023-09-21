@@ -61,6 +61,19 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         bool cancellationInitiated;
     }
 
+    struct OrderHistory {
+        // Account that requested the order
+        bytes32 orderHash;
+        // Account that requested the order
+        address requester;
+        // Accumulated tokens received due to fills
+        uint256 received;
+        // Flag to indicate if the order has been completely filled
+        bool isFulfilled;
+        // Flag to indicate if order has been cancel or not
+        bool isCancelled;
+    }
+
     /// @dev Zero address
     error ZeroAddress();
     /// @dev Orders are paused
@@ -133,6 +146,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @dev Active orders
     mapping(bytes32 => OrderState) private _orders;
+
+    mapping(bytes32 => OrderHistory) private _orderHistory;
 
     /// @inheritdoc IOrderProcessor
     mapping(address => mapping(address => uint256)) public escrowedBalanceOf;
@@ -217,6 +232,15 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     /// ------------------ Getters ------------------ ///
+
+    /**
+     * @notice Retrieves the history of a given order.
+     * @param id The unique identifier of the order.
+     * @return An OrderHistory struct containing details about the order's history.
+     */
+    function getOrderHistory(bytes32 id) external view returns (OrderHistory memory) {
+        return _orderHistory[id];
+    }
 
     /// @inheritdoc IOrderProcessor
     function numOpenOrders() external view returns (uint256) {
@@ -408,8 +432,13 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
         // Update order state
         uint256 remainingOrder = orderState.remainingOrder - fillAmount;
+        // Update order history
+        _orderHistory[id].orderHash = orderState.orderHash;
+        _orderHistory[id].requester = orderState.requester;
+        _orderHistory[id].received = receivedAmount;
         // If order is completely filled then clear order state
         if (remainingOrder == 0) {
+            _orderHistory[id].isFulfilled = true;
             // Notify order fulfilled
             emit OrderFulfilled(order.recipient, index);
             // Clear order state
@@ -495,6 +524,17 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
         // Notify order cancelled
         emit OrderCancelled(order.recipient, index, reason);
+
+        // Check if this order has a history
+        if (_orderHistory[id].requester == address(0)) {
+            // No history yet
+            _orderHistory[id].orderHash = orderState.orderHash;
+            _orderHistory[id].requester = orderState.requester;
+        }
+
+        _orderHistory[id].received = 0; // Reset fills as funds are being reimbursed
+        _orderHistory[id].isFulfilled = false; // The order was not fulfilled since it was canceled
+        _orderHistory[id].isCancelled = true; // Order is cancelled
 
         // Clear order state
         delete _orders[id];

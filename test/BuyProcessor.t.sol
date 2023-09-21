@@ -364,7 +364,11 @@ contract BuyProcessorTest is Test {
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
+                // if order is fullfilled in on time
+                assertEq(issuer.getOrderHistory(id).isFulfilled, true);
             } else {
+                assertEq(issuer.getOrderHistory(id).isFulfilled, false);
+                assertEq(issuer.getOrderHistory(id).received, receivedAmount);
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
                 assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn - feesEarned - fillAmount);
             }
@@ -406,6 +410,11 @@ contract BuyProcessorTest is Test {
         assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - quantityIn);
         assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + orderAmount);
         assertEq(paymentToken.balanceOf(treasury), treasuryPaymentBefore + fees);
+        assertEq(issuer.getOrderHistory(id).isFulfilled, true);
+        assertEq(issuer.getOrderHistory(id).received, receivedAmount);
+        assertEq(issuer.getOrderHistory(id).isCancelled, false);
+        assertEq(issuer.getOrderHistory(id).requester, user);
+        assertEq(issuer.getOrderHistory(id).orderHash, issuer.hashOrder(order));
     }
 
     function testFillorderNoOrderReverts(uint256 index) public {
@@ -443,8 +452,12 @@ contract BuyProcessorTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(dummyOrder);
 
+        bytes32 id = issuer.getOrderId(dummyOrder.recipient, index);
+
         vm.expectRevert(OrderProcessor.NotRequester.selector);
         issuer.requestCancel(dummyOrder.recipient, index);
+
+        assertEq(issuer.getOrderHistory(id).requester, address(0));
     }
 
     function testRequestCancelNotFoundReverts(uint256 index) public {
@@ -471,6 +484,8 @@ contract BuyProcessorTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
+        bytes32 id = issuer.getOrderId(order.recipient, index);
+
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
             feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
@@ -492,6 +507,9 @@ contract BuyProcessorTest is Test {
         } else {
             assertEq(paymentToken.balanceOf(address(user)), quantityIn);
         }
+        assertEq(issuer.getOrderHistory(id).isCancelled, true);
+        assertEq(issuer.getOrderHistory(id).isFulfilled, false);
+        assertEq(issuer.getOrderHistory(id).received, 0);
     }
 
     function testCancelOrderNotFoundReverts(uint256 index) public {
