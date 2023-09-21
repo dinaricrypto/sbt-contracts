@@ -252,9 +252,8 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
             IERC20(order.assetToken).safeTransferFrom(user, address(this), order.assetTokenQuantity);
             IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
         } else {
-            (uint256 flatFee, uint24 percentageRateFee) =
-                IOrderProcessor(target).getFeeRatesForOrder(order.paymentToken);
-            uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageRateFee, order.paymentTokenQuantity);
+            uint256 fees =
+                IOrderProcessor(target).estimateTotalFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);
             IERC20(order.paymentToken).safeIncreaseAllowance(target, order.paymentTokenQuantity + fees);
