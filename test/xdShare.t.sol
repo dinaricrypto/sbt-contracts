@@ -35,6 +35,66 @@ contract xdShareTest is Test {
         assertEq(xToken.asset(), address(token));
     }
 
+    function testLockMint(uint128 amount, address user, address receiver) public {
+        vm.assume(user != address(0));
+        assertEq(xToken.balanceOf(user), 0);
+
+        token.mint(user, amount);
+
+        vm.prank(user);
+        token.approve(address(xToken), amount);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultLocked();
+        xToken.lock();
+
+        vm.prank(user);
+        vm.expectRevert(xdShare.MintPaused.selector);
+        xToken.mint(amount, receiver);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultUnlocked();
+        xToken.unlock();
+
+        vm.prank(user);
+        uint256 assets = xToken.deposit(amount, receiver);
+
+        assertEq(xToken.balanceOf(receiver), assets);
+    }
+
+
+    function testRedeemLock(uint128 amount, address user, address receiver) public {
+        vm.assume(user != address(0));
+        assertEq(xToken.balanceOf(user), 0);
+
+        token.mint(user, amount);
+
+        vm.prank(user);
+        token.approve(address(xToken), amount);
+
+        vm.prank(user);
+        uint256 assets = xToken.mint(amount, receiver);
+        assertEq(token.balanceOf(user), 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultLocked();
+        xToken.lock();
+
+        vm.prank(receiver);
+        vm.expectRevert(xdShare.RedeemPaused.selector);
+        xToken.redeem(assets, user, receiver);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultUnlocked();
+        xToken.unlock();
+
+        vm.prank(receiver);
+        xToken.redeem(assets, user, receiver);
+
+        assertEq(xToken.balanceOf(receiver), 0);
+        assertEq(token.balanceOf(user), amount);
+    } 
+
     function testLockDeposit(uint128 amount, address user) public {
         vm.assume(user != address(0));
         assertEq(xToken.balanceOf(user), 0);

@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import {dShare} from "./dShare.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {Pausable} from "openzeppelin-contracts/contracts/security/Pausable.sol";
 import {ERC4626} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
@@ -16,7 +15,7 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
  */
 
 // slither-disable-next-line missing-inheritance
-contract xdShare is Ownable, ERC4626, Pausable {
+contract xdShare is Ownable, ERC4626 {
     /// @notice Reference to the underlying dShare contract.
     dShare public immutable underlyingDShare;
 
@@ -24,6 +23,8 @@ contract xdShare is Ownable, ERC4626, Pausable {
 
     error DepositPaused();
     error WithdrawalPaused();
+    error MintPaused();
+    error RedeemPaused();
 
     event VaultLocked();
     event VaultUnlocked();
@@ -80,7 +81,7 @@ contract xdShare is Ownable, ERC4626, Pausable {
 
     /**
      * @dev Allows a user to deposit assets into the contract.
-     * Reverts if the contract is locked.
+     * Reverts if the contract is locked with a "DepositPaused" error.
      * @param assets The amount of assets to deposit.
      * @param to The address to credit the deposit to.
      * @return shares The amount of shares received in exchange for the deposit.
@@ -91,8 +92,33 @@ contract xdShare is Ownable, ERC4626, Pausable {
     }
 
     /**
+     * @dev Allows minting of shares in the contract.
+     * Reverts if the contract is locked with a "MintPaused" error.
+     * @param shares The amount of shares to mint.
+     * @param to The address to which the minted shares will be credited.
+     * @return assets The amount of assets that correspond to the minted shares.
+     */
+    function mint(uint256 shares, address to) public virtual override returns (uint256 assets) {
+        if (isLocked) revert MintPaused();
+        assets = super.mint(shares, to);
+    }
+
+    /**
+     * @dev Allows redemption of shares in exchange for assets.
+     * Reverts if the contract is locked with a "RedeemPaused" error.
+     * @param shares The amount of shares to redeem.
+     * @param to The address to which the redeemed assets will be sent.
+     * @param owner The owner address for this redemption operation. Typically used for permissions or validation.
+     * @return assets The amount of assets that correspond to the redeemed shares.
+     */
+    function redeem(uint256 shares, address to, address owner) public virtual override returns (uint256 assets) {
+        if (isLocked) revert RedeemPaused();
+        assets = super.redeem(shares, to, owner);
+    }
+
+    /**
      * @dev Allows a user to withdraw assets from the contract.
-     * Reverts if the contract is locked.
+     * Reverts if the contract is locked with a "WithdrawalPaused" error.
      * @param assets The amount of assets to withdraw.
      * @param to The address to send the withdrawn assets to.
      * @param owner The owner address for this withdrawal operation. Typically used for permissions or validation.
