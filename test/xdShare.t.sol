@@ -49,7 +49,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.MintPaused.selector);
+        vm.expectRevert(xdShare.DepositsPaused.selector);
         xToken.mint(amount, receiver);
 
         vm.expectEmit(true, true, true, true);
@@ -80,7 +80,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(receiver);
-        vm.expectRevert(xdShare.RedeemPaused.selector);
+        vm.expectRevert(xdShare.WithdrawalsPaused.selector);
         xToken.redeem(assets, user, receiver);
 
         vm.expectEmit(true, true, true, true);
@@ -108,7 +108,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.DepositPaused.selector);
+        vm.expectRevert(xdShare.DepositsPaused.selector);
         xToken.deposit(amount, user);
 
         vm.expectEmit(true, true, true, true);
@@ -143,7 +143,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.WithdrawalPaused.selector);
+        vm.expectRevert(xdShare.WithdrawalsPaused.selector);
         xToken.withdraw(shares, user, user);
 
         vm.expectEmit(true, true, true, true);

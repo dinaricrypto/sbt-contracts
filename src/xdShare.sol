@@ -21,10 +21,8 @@ contract xdShare is Ownable, ERC4626 {
 
     bool isLocked;
 
-    error DepositPaused();
-    error WithdrawalPaused();
-    error MintPaused();
-    error RedeemPaused();
+    error DepositsPaused();
+    error WithdrawalsPaused();
 
     event VaultLocked();
     event VaultUnlocked();
@@ -79,54 +77,24 @@ contract xdShare is Ownable, ERC4626 {
         emit VaultUnlocked();
     }
 
-    /**
-     * @dev Allows a user to deposit assets into the contract.
-     * Reverts if the contract is locked with a "DepositPaused" error.
-     * @param assets The amount of assets to deposit.
-     * @param to The address to credit the deposit to.
-     * @return shares The amount of shares received in exchange for the deposit.
-     */
-    function deposit(uint256 assets, address to) public virtual override returns (uint256 shares) {
-        if (isLocked) revert DepositPaused();
-        shares = super.deposit(assets, to);
+    /// @dev For deposits and mints.
+    ///
+    /// Emits a {Deposit} event.
+    function _deposit(address by, address to, uint256 assets, uint256 shares) internal virtual override {
+        if (isLocked) revert DepositsPaused();
+        super._deposit(by, to, assets, shares);
     }
 
-    /**
-     * @dev Allows minting of shares in the contract.
-     * Reverts if the contract is locked with a "MintPaused" error.
-     * @param shares The amount of shares to mint.
-     * @param to The address to which the minted shares will be credited.
-     * @return assets The amount of assets that correspond to the minted shares.
-     */
-    function mint(uint256 shares, address to) public virtual override returns (uint256 assets) {
-        if (isLocked) revert MintPaused();
-        assets = super.mint(shares, to);
-    }
-
-    /**
-     * @dev Allows redemption of shares in exchange for assets.
-     * Reverts if the contract is locked with a "RedeemPaused" error.
-     * @param shares The amount of shares to redeem.
-     * @param to The address to which the redeemed assets will be sent.
-     * @param owner The owner address for this redemption operation. Typically used for permissions or validation.
-     * @return assets The amount of assets that correspond to the redeemed shares.
-     */
-    function redeem(uint256 shares, address to, address owner) public virtual override returns (uint256 assets) {
-        if (isLocked) revert RedeemPaused();
-        assets = super.redeem(shares, to, owner);
-    }
-
-    /**
-     * @dev Allows a user to withdraw assets from the contract.
-     * Reverts if the contract is locked with a "WithdrawalPaused" error.
-     * @param assets The amount of assets to withdraw.
-     * @param to The address to send the withdrawn assets to.
-     * @param owner The owner address for this withdrawal operation. Typically used for permissions or validation.
-     * @return shares The amount of shares that will be burned in exchange for the withdrawal.
-     */
-    function withdraw(uint256 assets, address to, address owner) public virtual override returns (uint256 shares) {
-        if (isLocked) revert WithdrawalPaused();
-        shares = super.withdraw(assets, to, owner);
+    /// @dev For withdrawals and redemptions.
+    ///
+    /// Emits a {Withdraw} event.
+    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares)
+        internal
+        virtual
+        override
+    {
+        if (isLocked) revert WithdrawalsPaused();
+        super._withdraw(by, to, owner, assets, shares);
     }
 
     /**
