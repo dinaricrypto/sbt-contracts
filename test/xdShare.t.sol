@@ -62,7 +62,6 @@ contract xdShareTest is Test {
         assertEq(xToken.balanceOf(receiver), assets);
     }
 
-
     function testRedeemLock(uint128 amount, address user, address receiver) public {
         vm.assume(user != address(0));
         assertEq(xToken.balanceOf(user), 0);
@@ -93,7 +92,7 @@ contract xdShareTest is Test {
 
         assertEq(xToken.balanceOf(receiver), 0);
         assertEq(token.balanceOf(user), amount);
-    } 
+    }
 
     function testLockDeposit(uint128 amount, address user) public {
         vm.assume(user != address(0));
