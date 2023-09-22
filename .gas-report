@@ -51,7 +51,7 @@
 | src/dShare.sol:dShare contract |                 |       |        |       |         |
 |--------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                | Deployment Size |       |        |       |         |
-| 2090511                        | 11605           |       |        |       |         |
+| 2110513                        | 11637           |       |        |       |         |
 | Function Name                  | min             | avg   | median | max   | # calls |
 | BURNER_ROLE                    | 263             | 263   | 263    | 263   | 3       |
 | DEFAULT_ADMIN_ROLE             | 263             | 263   | 263    | 263   | 2       |
@@ -92,14 +92,14 @@
 | src/forwarder/Forwarder.sol:Forwarder contract |                 |        |        |        |         |
 |------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                | Deployment Size |        |        |        |         |
-| 2490684                                        | 13328           |        |        |        |         |
+| 2416994                                        | 12960           |        |        |        |         |
 | Function Name                                  | min             | avg    | median | max    | # calls |
 | DOMAIN_SEPARATOR                               | 376             | 376    | 376    | 376    | 47      |
 | feeBps                                         | 2359            | 2359   | 2359   | 2359   | 1       |
-| forwardFunctionCall                            | 2567            | 214304 | 237410 | 406951 | 26      |
+| forwardFunctionCall                            | 2567            | 214308 | 237409 | 406955 | 26      |
 | isSupportedModule                              | 615             | 615    | 615    | 615    | 2       |
 | isTrustedOracle                                | 615             | 615    | 615    | 615    | 1       |
-| multicall                                      | 50199           | 285150 | 416035 | 538126 | 25      |
+| multicall                                      | 50203           | 285154 | 416038 | 538138 | 25      |
 | nonces                                         | 2609            | 2609   | 2609   | 2609   | 1       |
 | orderSigner                                    | 566             | 566    | 566    | 566    | 2       |
 | owner                                          | 2388            | 2388   | 2388   | 2388   | 1       |
@@ -123,9 +123,9 @@
 | cancelOrder                                       | 14249           | 21549  | 20556  | 29844  | 3       |
 | cancelRequested                                   | 520             | 520    | 520    | 520    | 3       |
 | escrowedBalanceOf                                 | 799             | 799    | 799    | 799    | 5       |
-| estimateTotalFeesForOrder                         | 2678            | 3678   | 2678   | 9178   | 26      |
+| estimateTotalFeesForOrder                         | 2678            | 4335   | 2678   | 9178   | 35      |
 | fillOrder                                         | 5303            | 83420  | 91892  | 158882 | 5       |
-| getFeeRatesForOrder                               | 2278            | 3431   | 2278   | 8778   | 39      |
+| getFeeRatesForOrder                               | 2278            | 2711   | 2278   | 8778   | 30      |
 | getOrderId                                        | 638             | 638    | 638    | 638    | 24      |
 | getRemainingOrder                                 | 557             | 557    | 557    | 557    | 7       |
 | getTotalReceived                                  | 512             | 512    | 512    | 512    | 2       |
@@ -157,8 +157,9 @@
 | OPERATOR_ROLE                                                     | 305             | 305    | 305    | 305    | 5       |
 | PAYMENTTOKEN_ROLE                                                 | 263             | 263    | 263    | 263    | 5       |
 | cancelOrder                                                       | 6654            | 18095  | 18095  | 29537  | 2       |
+| estimateTotalFeesForOrder                                         | 6723            | 6723   | 6723   | 6723   | 2       |
 | fillOrder                                                         | 4746            | 74392  | 74392  | 144038 | 2       |
-| getFeeRatesForOrder                                               | 2322            | 3464   | 2322   | 6322   | 7       |
+| getFeeRatesForOrder                                               | 2322            | 2322   | 2322   | 2322   | 5       |
 | getOrderEscrow                                                    | 552             | 552    | 552    | 552    | 2       |
 | getOrderId                                                        | 638             | 638    | 638    | 638    | 7       |
 | grantRole                                                         | 27697           | 27697  | 27697  | 27697  | 91      |
