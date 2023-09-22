@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import {dShare} from "../src/dShare.sol";
 import {xdShare} from "../src/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
-import {ERC4626} from "../src/xERC4626.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract xdShareTest is Test {
@@ -13,7 +12,8 @@ contract xdShareTest is Test {
     dShare public token;
     xdShare public xToken;
 
-    error TransferFailed();
+    event VaultLocked();
+    event VaultUnlocked();
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
@@ -25,7 +25,7 @@ contract xdShareTest is Test {
             restrictor
         );
 
-        xToken = new xdShare(token, 1000);
+        xToken = new xdShare(token);
     }
 
     function testMetadata() public {
@@ -35,60 +35,126 @@ contract xdShareTest is Test {
         assertEq(xToken.asset(), address(token));
     }
 
-    function testSingleMintRedeem(uint128 amount) public {
-        if (amount == 0) amount = 1;
+    function testLockMint(uint128 amount, address user, address receiver) public {
+        vm.assume(user != address(0));
+        assertEq(xToken.balanceOf(user), 0);
 
-        uint256 aliceShareAmount = amount;
+        token.mint(user, amount);
 
-        address alice = address(0xABCD);
+        vm.prank(user);
+        token.approve(address(xToken), amount);
 
-        token.mint(alice, aliceShareAmount);
+        vm.expectEmit(true, true, true, true);
+        emit VaultLocked();
+        xToken.lock();
 
-        vm.prank(alice);
-        token.approve(address(xToken), aliceShareAmount);
-        assertEq(token.allowance(alice, address(xToken)), aliceShareAmount);
+        vm.prank(user);
+        vm.expectRevert(xdShare.DepositsPaused.selector);
+        xToken.mint(amount, receiver);
 
-        uint256 alicePreDepositBal = token.balanceOf(alice);
+        vm.expectEmit(true, true, true, true);
+        emit VaultUnlocked();
+        xToken.unlock();
 
-        vm.prank(alice);
-        uint256 aliceUnderlyingAmount = xToken.mint(aliceShareAmount, alice);
+        vm.prank(user);
+        uint256 assets = xToken.deposit(amount, receiver);
 
-        // Expect exchange rate to be 1:1 on initial mint.
-        assertEq(aliceShareAmount, aliceUnderlyingAmount);
-        assertEq(xToken.previewWithdraw(aliceShareAmount), aliceUnderlyingAmount);
-        assertEq(xToken.previewDeposit(aliceUnderlyingAmount), aliceShareAmount);
-        assertEq(xToken.totalSupply(), aliceShareAmount);
-        assertEq(xToken.totalAssets(), aliceUnderlyingAmount);
-        assertEq(xToken.balanceOf(alice), aliceUnderlyingAmount);
-        assertEq(xToken.convertToAssets(xToken.balanceOf(alice)), aliceUnderlyingAmount);
-        assertEq(token.balanceOf(alice), alicePreDepositBal - aliceUnderlyingAmount);
-
-        vm.prank(alice);
-        xToken.redeem(aliceShareAmount, alice, alice);
-
-        assertEq(xToken.totalAssets(), 0);
-        assertEq(xToken.balanceOf(alice), 0);
-        assertEq(xToken.convertToAssets(xToken.balanceOf(alice)), 0);
-        assertEq(token.balanceOf(alice), alicePreDepositBal);
+        assertEq(xToken.balanceOf(receiver), assets);
     }
 
-    function testWithdrawWithNotEnoughUnderlyingAmountReverts() public {
-        token.mint(address(this), 0.5e18);
-        token.approve(address(xToken), 0.5e18);
+    function testRedeemLock(uint128 amount, address user, address receiver) public {
+        vm.assume(user != address(0));
+        assertEq(xToken.balanceOf(user), 0);
 
-        xToken.deposit(0.5e18, address(this));
+        token.mint(user, amount);
 
-        vm.expectRevert(ERC4626.WithdrawMoreThanMax.selector);
-        xToken.withdraw(1e18, address(this), address(this));
+        vm.prank(user);
+        token.approve(address(xToken), amount);
+
+        vm.prank(user);
+        uint256 assets = xToken.mint(amount, receiver);
+        assertEq(token.balanceOf(user), 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultLocked();
+        xToken.lock();
+
+        vm.prank(receiver);
+        vm.expectRevert(xdShare.WithdrawalsPaused.selector);
+        xToken.redeem(assets, user, receiver);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultUnlocked();
+        xToken.unlock();
+
+        vm.prank(receiver);
+        xToken.redeem(assets, user, receiver);
+
+        assertEq(xToken.balanceOf(receiver), 0);
+        assertEq(token.balanceOf(user), amount);
     }
 
-    function testMintZero() public {
-        xToken.mint(0, address(this));
+    function testLockDeposit(uint128 amount, address user) public {
+        vm.assume(user != address(0));
+        assertEq(xToken.balanceOf(user), 0);
 
-        assertEq(xToken.balanceOf(address(this)), 0);
-        assertEq(xToken.convertToAssets(xToken.balanceOf(address(this))), 0);
-        assertEq(xToken.totalSupply(), 0);
-        assertEq(xToken.totalAssets(), 0);
+        token.mint(user, amount);
+
+        vm.prank(user);
+        token.approve(address(xToken), amount);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultLocked();
+        xToken.lock();
+
+        vm.prank(user);
+        vm.expectRevert(xdShare.DepositsPaused.selector);
+        xToken.deposit(amount, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultUnlocked();
+        xToken.unlock();
+
+        vm.prank(user);
+        uint256 shares = xToken.deposit(amount, user);
+
+        assertEq(xToken.balanceOf(user), shares);
+    }
+
+    function testLockWithdrawal(uint128 amount, address user) public {
+        vm.assume(user != address(0));
+        vm.assume(amount > 0);
+        assertEq(xToken.balanceOf(user), 0);
+
+        token.mint(user, amount);
+        uint256 balanceBefore = token.balanceOf(user);
+        assertEq(balanceBefore, amount);
+
+        vm.prank(user);
+        token.approve(address(xToken), amount);
+
+        vm.prank(user);
+        uint256 shares = xToken.deposit(amount, user);
+        assertEq(xToken.balanceOf(user), shares);
+        assertEq(token.balanceOf(user), 0);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultLocked();
+        xToken.lock();
+
+        vm.prank(user);
+        vm.expectRevert(xdShare.WithdrawalsPaused.selector);
+        xToken.withdraw(shares, user, user);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultUnlocked();
+        xToken.unlock();
+
+        vm.prank(user);
+        xToken.withdraw(shares, user, user);
+
+        assertEq(xToken.balanceOf(user), 0);
+        token.approve(address(xToken), amount);
     }
 
     function testTransferRestrictedToReverts(uint128 amount, address user) public {
@@ -114,18 +180,9 @@ contract xdShareTest is Test {
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         xToken.transfer(user, amount);
 
-        vm.prank(alice);
-        // transfer will failed first accountRestricted - second TransferFailed from ERC20 error
-        vm.expectRevert(TransferFailed.selector);
-        xToken.redeem(aliceShareAmount, user, alice);
-
         // check if address is blacklist
         assertEq(xToken.isBlacklisted(user), true);
-
-        // unrestrict user
         restrictor.unrestrict(user);
-        vm.prank(alice);
-        xToken.redeem((aliceShareAmount / 2), user, alice);
 
         vm.prank(alice);
         xToken.transfer(user, (aliceShareAmount / 2));

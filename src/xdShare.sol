@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {xERC4626} from "./xERC4626.sol";
 import {dShare} from "./dShare.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {ERC20} from "solady/src/tokens/ERC20.sol";
+import {ERC4626} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /**
@@ -16,16 +15,23 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
  */
 
 // slither-disable-next-line missing-inheritance
-contract xdShare is Ownable, xERC4626 {
+contract xdShare is Ownable, ERC4626 {
     /// @notice Reference to the underlying dShare contract.
     dShare public immutable underlyingDShare;
+
+    bool isLocked;
+
+    error DepositsPaused();
+    error WithdrawalsPaused();
+
+    event VaultLocked();
+    event VaultUnlocked();
 
     /**
      * @dev Initializes a new instance of the xdShare contract.
      * @param _dShare The address of the underlying dShare token.
-     * @param _rewardsCycleLength Length of the rewards cycle.
      */
-    constructor(dShare _dShare, uint32 _rewardsCycleLength) xERC4626(_rewardsCycleLength) {
+    constructor(dShare _dShare) {
         underlyingDShare = _dShare;
     }
 
@@ -51,6 +57,44 @@ contract xdShare is Ownable, xERC4626 {
      */
     function asset() public view virtual override returns (address) {
         return address(underlyingDShare);
+    }
+
+    /**
+     * @dev Locks the contract to prevent deposit and withdrawal operations.
+     * Can only be called by the owner of the contract.
+     */
+    function lock() public onlyOwner {
+        isLocked = true;
+        emit VaultLocked();
+    }
+
+    /**
+     * @dev Unlocks the contract to allow deposit and withdrawal operations.
+     * Can only be called by the owner of the contract.
+     */
+    function unlock() public onlyOwner {
+        isLocked = false;
+        emit VaultUnlocked();
+    }
+
+    /// @dev For deposits and mints.
+    ///
+    /// Emits a {Deposit} event.
+    function _deposit(address by, address to, uint256 assets, uint256 shares) internal virtual override {
+        if (isLocked) revert DepositsPaused();
+        super._deposit(by, to, assets, shares);
+    }
+
+    /// @dev For withdrawals and redemptions.
+    ///
+    /// Emits a {Withdraw} event.
+    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares)
+        internal
+        virtual
+        override
+    {
+        if (isLocked) revert WithdrawalsPaused();
+        super._withdraw(by, to, owner, assets, shares);
     }
 
     /**
