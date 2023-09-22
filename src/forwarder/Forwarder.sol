@@ -13,7 +13,6 @@ import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
 import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
-import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "./IForwarder.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
@@ -252,9 +251,8 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
             IERC20(order.assetToken).safeTransferFrom(user, address(this), order.assetTokenQuantity);
             IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
         } else {
-            (uint256 flatFee, uint24 percentageRateFee) =
-                IOrderProcessor(target).getFeeRatesForOrder(order.paymentToken);
-            uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageRateFee, order.paymentTokenQuantity);
+            uint256 fees =
+                IOrderProcessor(target).estimateTotalFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);
             IERC20(order.paymentToken).safeIncreaseAllowance(target, order.paymentTokenQuantity + fees);
