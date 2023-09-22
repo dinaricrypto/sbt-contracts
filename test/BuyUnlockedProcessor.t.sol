@@ -185,15 +185,14 @@ contract BuyUnlockedProcessorTest is Test {
             emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
-            assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
+            assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
-                assertEq(issuer.getOrderStatus(id).isFulfilled, true);
-                assertEq(issuer.getOrderStatus(id).received, receivedAmount);
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
-                assertEq(issuer.getOrderStatus(id).received, receivedAmount);
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
             }
         }
     }
@@ -235,8 +234,7 @@ contract BuyUnlockedProcessorTest is Test {
         emit OrderCancelled(order.recipient, index, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, index, reason);
-        assertEq(issuer.getOrderStatus(id).isFulfilled, false);
-        assertEq(issuer.getOrderStatus(id).isCancelled, true);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 
     function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount) public {

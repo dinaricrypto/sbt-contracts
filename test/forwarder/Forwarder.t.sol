@@ -238,8 +238,8 @@ contract ForwarderTest is Test {
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
-        assertTrue(issuer.isOrderActive(id));
-        assertEq(issuer.getRemainingOrder(id), dummyOrder.paymentTokenQuantity);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(id), dummyOrder.paymentTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
 
         assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
@@ -342,8 +342,8 @@ contract ForwarderTest is Test {
 
         uint256 paymentTokenBalanceAfter = paymentToken.balanceOf(user);
 
-        assertTrue(sellIssuer.isOrderActive(id));
-        assertEq(sellIssuer.getRemainingOrder(id), order.assetTokenQuantity);
+        assertEq(uint8(sellIssuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(sellIssuer.getUnfilledAmount(id), order.assetTokenQuantity);
         assertEq(sellIssuer.numOpenOrders(), 1);
         assertEq(token.balanceOf(address(sellIssuer)), order.assetTokenQuantity);
         assertEq(token.balanceOf(user), userBalanceBefore - order.assetTokenQuantity);

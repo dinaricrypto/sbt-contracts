@@ -87,8 +87,8 @@ contract SellProcessorTest is Test {
             emit OrderRequested(order.recipient, 0, order);
             vm.prank(user);
             issuer.requestOrder(order);
-            assertTrue(issuer.isOrderActive(id));
-            assertEq(issuer.getRemainingOrder(id), quantityIn);
+            assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+            assertEq(issuer.getUnfilledAmount(id), quantityIn);
             assertEq(issuer.numOpenOrders(), 1);
             assertEq(token.balanceOf(address(issuer)), quantityIn);
             // balances after
@@ -146,7 +146,7 @@ contract SellProcessorTest is Test {
             emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
-            assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
+            assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             // balances after
             assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - feesEarned);
             assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
@@ -155,10 +155,10 @@ contract SellProcessorTest is Test {
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
-                assertEq(issuer.getOrderStatus(id).isFulfilled, true);
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
-                assertEq(issuer.getOrderStatus(id).isFulfilled, false);
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
             }
         }
     }
@@ -209,7 +209,7 @@ contract SellProcessorTest is Test {
             emit OrderFill(order.recipient, index, firstFillAmount, firstReceivedAmount);
             vm.prank(operator);
             issuer.fillOrder(order, index, firstFillAmount, firstReceivedAmount);
-            assertEq(issuer.getRemainingOrder(id), orderAmount - firstFillAmount);
+            assertEq(issuer.getUnfilledAmount(id), orderAmount - firstFillAmount);
             assertEq(issuer.numOpenOrders(), 1);
             assertEq(issuer.getTotalReceived(id), firstReceivedAmount);
 
@@ -225,7 +225,7 @@ contract SellProcessorTest is Test {
             issuer.fillOrder(order, index, orderAmount, receivedAmount);
         }
         // order closed
-        assertEq(issuer.getRemainingOrder(id), 0);
+        assertEq(issuer.getUnfilledAmount(id), 0);
         assertEq(issuer.numOpenOrders(), 0);
         assertEq(issuer.getTotalReceived(id), 0);
         // balances after
@@ -235,9 +235,7 @@ contract SellProcessorTest is Test {
         assertEq(token.balanceOf(address(issuer)), 0);
         assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
         assertApproxEqAbs(paymentToken.balanceOf(treasury), feesEarned, 1);
-        assertEq(issuer.getOrderStatus(id).isFulfilled, true);
-        assertEq(issuer.getOrderStatus(id).isCancelled, false);
-        assertEq(issuer.getOrderStatus(id).received, receivedAmount);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
     }
 
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, string calldata reason)
@@ -273,7 +271,7 @@ contract SellProcessorTest is Test {
 
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
-            assertEq(issuer.getOrderStatus(id).received, receivedAmount);
+            assertEq(issuer.getTotalReceived(id), receivedAmount);
         }
 
         // balances before
@@ -289,11 +287,10 @@ contract SellProcessorTest is Test {
             assertEq(paymentToken.balanceOf(user), receivedAmount - feesEarned);
             assertEq(token.balanceOf(user), escrow);
             assertEq(paymentToken.balanceOf(treasury), feesEarned);
-            assertEq(issuer.getOrderStatus(id).received, receivedAmount);
+            assertEq(issuer.getTotalReceived(id), 0);
         } else {
             assertEq(token.balanceOf(user), orderAmount);
         }
-        assertEq(issuer.getOrderStatus(id).isCancelled, true);
-        assertEq(issuer.getOrderStatus(id).isFulfilled, false);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 }
