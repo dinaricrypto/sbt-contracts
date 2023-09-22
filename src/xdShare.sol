@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {xERC4626} from "./xERC4626.sol";
 import {dShare} from "./dShare.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {ERC20} from "solady/src/tokens/ERC20.sol";
+import {Pausable} from "openzeppelin-contracts/contracts/security/Pausable.sol";
+import {ERC4626} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /**
@@ -16,16 +16,23 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
  */
 
 // slither-disable-next-line missing-inheritance
-contract xdShare is Ownable, xERC4626 {
+contract xdShare is Ownable, ERC4626, Pausable {
     /// @notice Reference to the underlying dShare contract.
     dShare public immutable underlyingDShare;
+
+    bool isLocked;
+
+    error DepositPaused();
+    error WithdrawalPaused();
+
+    event VaultLocked();
+    event VaultUnlocked();
 
     /**
      * @dev Initializes a new instance of the xdShare contract.
      * @param _dShare The address of the underlying dShare token.
-     * @param _rewardsCycleLength Length of the rewards cycle.
      */
-    constructor(dShare _dShare, uint32 _rewardsCycleLength) xERC4626(_rewardsCycleLength) {
+    constructor(dShare _dShare) {
         underlyingDShare = _dShare;
     }
 
@@ -51,6 +58,49 @@ contract xdShare is Ownable, xERC4626 {
      */
     function asset() public view virtual override returns (address) {
         return address(underlyingDShare);
+    }
+
+    /**
+     * @dev Locks the contract to prevent deposit and withdrawal operations.
+     * Can only be called by the owner of the contract.
+     */
+    function lock() public onlyOwner {
+        isLocked = true;
+        emit VaultLocked();
+    }
+
+    /**
+     * @dev Unlocks the contract to allow deposit and withdrawal operations.
+     * Can only be called by the owner of the contract.
+     */
+    function unlock() public onlyOwner {
+        isLocked = false;
+        emit VaultUnlocked();
+    }
+
+    /**
+     * @dev Allows a user to deposit assets into the contract.
+     * Reverts if the contract is locked.
+     * @param assets The amount of assets to deposit.
+     * @param to The address to credit the deposit to.
+     * @return shares The amount of shares received in exchange for the deposit.
+     */
+    function deposit(uint256 assets, address to) public virtual override returns (uint256 shares) {
+        if (isLocked) revert DepositPaused();
+        shares = super.deposit(assets, to);
+    }
+
+    /**
+     * @dev Allows a user to withdraw assets from the contract.
+     * Reverts if the contract is locked.
+     * @param assets The amount of assets to withdraw.
+     * @param to The address to send the withdrawn assets to.
+     * @param owner The owner address for this withdrawal operation. Typically used for permissions or validation.
+     * @return shares The amount of shares that will be burned in exchange for the withdrawal.
+     */
+    function withdraw(uint256 assets, address to, address owner) public virtual override returns (uint256 shares) {
+        if (isLocked) revert WithdrawalPaused();
+        shares = super.withdraw(assets, to, owner);
     }
 
     /**
