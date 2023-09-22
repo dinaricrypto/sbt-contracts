@@ -35,6 +35,7 @@ contract BuyProcessor is OrderProcessor {
         bytes32,
         Order calldata order,
         OrderState memory orderState,
+        uint256,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
@@ -56,7 +57,7 @@ contract BuyProcessor is OrderProcessor {
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(bytes32, Order calldata order, OrderState memory orderState)
+    function _cancelOrderAccounting(bytes32, Order calldata order, OrderState memory orderState, uint256 unfilledAmount)
         internal
         virtual
         override
@@ -65,7 +66,7 @@ contract BuyProcessor is OrderProcessor {
         uint256 totalFees =
             FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
         // If no fills, then full refund
-        refund = orderState.remainingOrder + totalFees;
+        refund = unfilledAmount + totalFees;
         if (refund < order.paymentTokenQuantity + totalFees) {
             // Refund remaining order and fees
             refund -= orderState.feesPaid;

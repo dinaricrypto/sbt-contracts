@@ -41,7 +41,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// ------------------ Types ------------------ ///
 
-    // Order state accounting variables
+    // Order state cleared after order is fulfilled or cancelled.
     struct OrderState {
         // Hash of order data used to validate order details stored offchain
         bytes32 orderHash;
@@ -51,8 +51,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         uint256 flatFee;
         // Percentage fee rate at time of order request
         uint24 percentageFeeRate;
-        // Amount of order token remaining to be used
-        uint256 remainingOrder;
         // Total amount of received token due to fills
         uint256 received;
         // Total fees paid to treasury
@@ -61,12 +59,12 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         bool cancellationInitiated;
     }
 
-    struct OrderStatus {
-        uint256 received;
-        // Flag to indicate if the order has been completely filled
-        bool isFulfilled;
-        // Flag to indicate if order has been cancel or not
-        bool isCancelled;
+    // Order state not cleared after order is fulfilled or cancelled.
+    struct OrderInfo {
+        // Amount of order token remaining to be used
+        uint256 unfilledAmount;
+        // Status of order
+        OrderStatus status;
     }
 
     /// @dev Zero address
@@ -139,10 +137,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @inheritdoc IOrderProcessor
     mapping(address => uint256) public nextOrderIndex;
 
-    /// @dev Active orders
+    /// @dev Active order state
     mapping(bytes32 => OrderState) private _orders;
 
-    mapping(bytes32 => OrderStatus) private _orderStatus;
+    /// @dev Persisted order state
+    mapping(bytes32 => OrderInfo) private _orderInfo;
 
     /// @inheritdoc IOrderProcessor
     mapping(address => mapping(address => uint256)) public escrowedBalanceOf;
@@ -228,15 +227,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// ------------------ Getters ------------------ ///
 
-    /**
-     * @notice Retrieves the history of a given order.
-     * @param id The unique identifier of the order.
-     * @return An OrderHistory struct containing details about the order's history.
-     */
-    function getOrderStatus(bytes32 id) external view returns (OrderStatus memory) {
-        return _orderStatus[id];
-    }
-
     /// @inheritdoc IOrderProcessor
     function numOpenOrders() external view returns (uint256) {
         return _numOpenOrders;
@@ -248,18 +238,24 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     /// @inheritdoc IOrderProcessor
-    function isOrderActive(bytes32 id) public view returns (bool) {
-        return _orders[id].remainingOrder > 0;
+    function getOrderStatus(bytes32 id) external view returns (OrderStatus) {
+        return _orderInfo[id].status;
     }
 
     /// @inheritdoc IOrderProcessor
-    function getRemainingOrder(bytes32 id) public view returns (uint256) {
-        return _orders[id].remainingOrder;
+    function getUnfilledAmount(bytes32 id) public view returns (uint256) {
+        return _orderInfo[id].unfilledAmount;
     }
 
     /// @inheritdoc IOrderProcessor
     function getTotalReceived(bytes32 id) public view returns (uint256) {
         return _orders[id].received;
+    }
+
+    /// @notice Has order cancellation been requested?
+    /// @param id Order ID
+    function cancelRequested(bytes32 id) external view returns (bool) {
+        return _orders[id].cancellationInitiated;
     }
 
     function _getOrderHash(bytes32 id) internal view returns (bytes32) {
@@ -273,14 +269,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         returns (bool)
     {
         return super.hasRole(role, account);
-    }
-
-    /**
-     *
-     * @param id Order ID
-     */
-    function cancelRequested(bytes32 id) external view returns (bool) {
-        return _orders[id].cancellationInitiated;
     }
 
     /// @inheritdoc IOrderProcessor
@@ -339,11 +327,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             requester: msg.sender,
             flatFee: flatFee,
             percentageFeeRate: percentageFeeRate,
-            remainingOrder: orderAmount,
             received: 0,
             feesPaid: 0,
             cancellationInitiated: false
         });
+        _orderInfo[id] = OrderInfo({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
         _numOpenOrders++;
 
         if (order.sell) {
@@ -416,22 +404,22 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Verify order data
         if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
         // Fill cannot exceed remaining order
-        if (fillAmount > orderState.remainingOrder) revert AmountTooLarge();
+        OrderInfo memory orderInfo = _orderInfo[id];
+        if (fillAmount > orderInfo.unfilledAmount) revert AmountTooLarge();
 
         // Calculate earned fees and handle any unique checks
         (uint256 paymentEarned, uint256 feesEarned) =
-            _fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
+            _fillOrderAccounting(id, order, orderState, orderInfo.unfilledAmount, fillAmount, receivedAmount);
 
         // Notify order filled
         emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
 
         // Update order state
-        uint256 remainingOrder = orderState.remainingOrder - fillAmount;
-        // Update order history with filled amount
-        _orderStatus[id].received += receivedAmount;
+        uint256 unfilledAmount = orderInfo.unfilledAmount - fillAmount;
+        _orderInfo[id].unfilledAmount = unfilledAmount;
         // If order is completely filled then clear order state
-        if (remainingOrder == 0) {
-            _orderStatus[id].isFulfilled = true;
+        if (unfilledAmount == 0) {
+            _orderInfo[id].status = OrderStatus.FULFILLED;
             // Notify order fulfilled
             emit OrderFulfilled(order.recipient, index);
             // Clear order state
@@ -444,7 +432,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
                 FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
             uint256 feesPaid = orderState.feesPaid + feesEarned;
             assert(order.sell || feesPaid <= estimatedTotalFees);
-            _orders[id].remainingOrder = remainingOrder;
             _orders[id].received = orderState.received + receivedAmount;
             _orders[id].feesPaid = feesPaid;
         }
@@ -518,14 +505,14 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Notify order cancelled
         emit OrderCancelled(order.recipient, index, reason);
         // Order is cancelled
-        _orderStatus[id].isCancelled = true;
+        _orderInfo[id].status = OrderStatus.CANCELLED;
         // Clear order state
 
         delete _orders[id];
         _numOpenOrders--;
 
         // Calculate refund
-        uint256 refund = _cancelOrderAccounting(id, order, orderState);
+        uint256 refund = _cancelOrderAccounting(id, order, orderState, _orderInfo[id].unfilledAmount);
 
         address refundToken = order.sell ? order.assetToken : order.paymentToken;
         // update escrowed balance
@@ -557,6 +544,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @param id Order ID
     /// @param order Order to fill
     /// @param orderState Order state
+    /// @param unfilledAmount Amount of order token remaining to be used
     /// @param fillAmount Amount of order token filled
     /// @param receivedAmount Amount of received token
     /// @return paymentEarned Amount of payment token earned to be paid to operator or recipient
@@ -565,6 +553,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         bytes32 id,
         Order calldata order,
         OrderState memory orderState,
+        uint256 unfilledAmount,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual returns (uint256 paymentEarned, uint256 feesEarned);
@@ -573,9 +562,12 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @param id Order ID
     /// @param order Order to cancel
     /// @param orderState Order state
+    /// @param unfilledAmount Amount of order token remaining to be used
     /// @return refund Amount of order token to refund to user
-    function _cancelOrderAccounting(bytes32 id, Order calldata order, OrderState memory orderState)
-        internal
-        virtual
-        returns (uint256 refund);
+    function _cancelOrderAccounting(
+        bytes32 id,
+        Order calldata order,
+        OrderState memory orderState,
+        uint256 unfilledAmount
+    ) internal virtual returns (uint256 refund);
 }
