@@ -156,8 +156,8 @@ contract BuyProcessorTest is Test {
             vm.prank(user);
             uint256 index = issuer.requestOrder(order);
             assertEq(index, 0);
-            assertTrue(issuer.isOrderActive(id));
-            assertEq(issuer.getRemainingOrder(id), order.paymentTokenQuantity);
+            assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+            assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
             assertEq(issuer.numOpenOrders(), 1);
             // balances after
             assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - (quantityIn));
@@ -301,8 +301,8 @@ contract BuyProcessorTest is Test {
         issuer.multicall(calls);
         assertEq(paymentToken.nonces(user), 1);
         assertEq(paymentToken.allowance(user, address(issuer)), 0);
-        assertTrue(issuer.isOrderActive(id));
-        assertEq(issuer.getRemainingOrder(id), dummyOrder.paymentTokenQuantity);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(id), dummyOrder.paymentTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
         // balances after
         assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
@@ -355,7 +355,7 @@ contract BuyProcessorTest is Test {
             emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
-            assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
+            assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             // balances after
             assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
             assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount - feesEarned);
@@ -364,7 +364,10 @@ contract BuyProcessorTest is Test {
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
+                // if order is fullfilled in on time
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
             } else {
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
                 assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn - feesEarned - fillAmount);
             }
@@ -398,7 +401,7 @@ contract BuyProcessorTest is Test {
         emit OrderFulfilled(order.recipient, index);
         vm.prank(operator);
         issuer.fillOrder(order, index, orderAmount, receivedAmount);
-        assertEq(issuer.getRemainingOrder(id), 0);
+        assertEq(issuer.getUnfilledAmount(id), 0);
         assertEq(issuer.numOpenOrders(), 0);
         assertEq(issuer.getTotalReceived(id), 0);
         // balances after
@@ -406,6 +409,7 @@ contract BuyProcessorTest is Test {
         assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - quantityIn);
         assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + orderAmount);
         assertEq(paymentToken.balanceOf(treasury), treasuryPaymentBefore + fees);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
     }
 
     function testFillorderNoOrderReverts(uint256 index) public {
@@ -443,8 +447,12 @@ contract BuyProcessorTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(dummyOrder);
 
+        bytes32 id = issuer.getOrderId(dummyOrder.recipient, index);
+
         vm.expectRevert(OrderProcessor.NotRequester.selector);
         issuer.requestCancel(dummyOrder.recipient, index);
+
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
     }
 
     function testRequestCancelNotFoundReverts(uint256 index) public {
@@ -471,6 +479,8 @@ contract BuyProcessorTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
+        bytes32 id = issuer.getOrderId(order.recipient, index);
+
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
             feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
@@ -485,6 +495,7 @@ contract BuyProcessorTest is Test {
         issuer.cancelOrder(order, index, reason);
         assertEq(paymentToken.balanceOf(address(issuer)), 0);
         assertEq(paymentToken.balanceOf(treasury), feesEarned);
+        assertEq(issuer.getTotalReceived(id), 0);
         // balances after
         assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), 0);
         if (fillAmount > 0) {
@@ -492,6 +503,7 @@ contract BuyProcessorTest is Test {
         } else {
             assertEq(paymentToken.balanceOf(address(user)), quantityIn);
         }
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 
     function testCancelOrderNotFoundReverts(uint256 index) public {
