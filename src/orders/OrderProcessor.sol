@@ -122,7 +122,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Flat fee per order in ethers decimals
     uint64 public perOrderFee;
 
-    /// @notice Percentage fee take per order in bps
+    /// @notice Percentage fee take per order in hundredths of a bp
     uint24 public percentageFeeRate;
 
     /// @notice Transfer restrictor checker
@@ -152,7 +152,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @param _owner Owner of contract
     /// @param _treasury Address to receive fees
     /// @param _perOrderFee Base flat fee per order in ethers decimals
-    /// @param _percentageFeeRate Percentage fee take per order in bps
+    /// @param _percentageFeeRate Percentage fee take per order in hundredths of a bp
     /// @param _tokenLockCheck Token lock check contract
     /// @dev Treasury cannot be zero address
     constructor(
@@ -196,7 +196,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @notice Set the base and percentage fees
     /// @param _perOrderFee Base flat fee per order in ethers decimals
-    /// @param _percentageFeeRate Percentage fee per order in bps
+    /// @param _percentageFeeRate Percentage fee per order in hundredths of a bp
     /// @dev Only callable by owner
     function setFees(uint64 _perOrderFee, uint24 _percentageFeeRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
         // Check percentage fee is less than 100%
