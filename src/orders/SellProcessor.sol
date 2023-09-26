@@ -35,6 +35,7 @@ contract SellProcessor is OrderProcessor {
         bytes32,
         Order calldata order,
         OrderState memory orderState,
+        uint256,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
@@ -75,12 +76,12 @@ contract SellProcessor is OrderProcessor {
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(bytes32, Order calldata, OrderState memory orderState)
+    function _cancelOrderAccounting(bytes32, Order calldata, OrderState memory, uint256 unfilledAmount)
         internal
         virtual
         override
         returns (uint256 refund)
     {
-        refund = orderState.remainingOrder;
+        refund = unfilledAmount;
     }
 }
