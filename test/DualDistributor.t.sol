@@ -117,7 +117,7 @@ contract DualDistributorTest is Test {
         dualDistributor.distribute(address(dtoken), amountA, amountB);
 
         xToken.unlock();
-        
+
         vm.prank(distributor);
         dualDistributor.distribute(address(dtoken), amountA, amountB);
     }
