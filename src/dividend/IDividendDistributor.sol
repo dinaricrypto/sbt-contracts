@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 interface IDividendDistributor {
+    function nextDistributionId() external returns (uint256);
     function createDistribution(address token, uint256 totalDistribution, uint256 endTime)
         external
         returns (uint256 distributionId);

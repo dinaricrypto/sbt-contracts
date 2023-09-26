@@ -34,17 +34,17 @@ contract DualDistributor is AccessControlDefaultAdminRules {
 
     /// ------------------- Setter ------------------- ///
 
-    function setUSDC(address _USDC) external onlyRole(DISTRIBUTOR_ROLE) {
+    function setUSDC(address _USDC) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_USDC == address(0)) revert ZeroAddress();
         USDC = _USDC;
     }
 
-    function setNewDividendAddress(address _dividendAddress) external onlyRole(DISTRIBUTOR_ROLE) {
+    function setNewDividendAddress(address _dividendAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dividendAddress == address(0)) revert ZeroAddress();
         dividendDistrubtion = _dividendAddress;
     }
 
-    function addDShareXdSharePair(address _dShare, address _xdShare) external onlyRole(DISTRIBUTOR_ROLE) {
+    function addDShareXdSharePair(address _dShare, address _xdShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dShare == address(0) || _xdShare == address(0)) revert ZeroAddress();
         dShareToXdShare[_dShare] = _xdShare;
     }
@@ -57,9 +57,12 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         address xdShare = dShareToXdShare[dShare];
         if (xdShare == address(0)) revert ZeroAddress();
         if (!IxdShare(xdShare).isLocked()) revert XdshareIsNotLocked();
+        // slither-disable-next-line reentrancy-events
         IERC20(dShare).safeTransfer(xdShare, dShareAmount);
         IERC20(USDC).safeApprove(dividendDistrubtion, usdcAmount);
-        uint256 distributionId = IDividendDistributor(dividendDistrubtion).createDistribution(USDC, usdcAmount, endTime);
-        emit NewDistribution(distributionId, dShare, usdcAmount, dShareAmount);
+        uint256 nextId = IDividendDistributor(dividendDistrubtion).nextDistributionId();
+        emit NewDistribution(nextId, dShare, usdcAmount, dShareAmount);
+        // slither-disable-next-line unused-return
+        IDividendDistributor(dividendDistrubtion).createDistribution(USDC, usdcAmount, endTime);
     }
 }

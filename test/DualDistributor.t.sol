@@ -64,15 +64,13 @@ contract DualDistributorTest is Test {
 
     function testSetter(address _newUSDC, address _dShare, address _xdShare, address _newDividend) public {
         vm.startPrank(user);
-        vm.expectRevert(accessErrorString(user, distribution.DISTRIBUTOR_ROLE()));
+        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
         dualDistributor.setUSDC(_newUSDC);
-        vm.expectRevert(accessErrorString(user, distribution.DISTRIBUTOR_ROLE()));
+        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
         dualDistributor.setNewDividendAddress(_newDividend);
-        vm.expectRevert(accessErrorString(user, distribution.DISTRIBUTOR_ROLE()));
+        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
         dualDistributor.addDShareXdSharePair(_dShare, _xdShare);
         vm.stopPrank();
-
-        vm.startPrank(distributor);
 
         if (_newUSDC == address(0)) {
             vm.expectRevert(DualDistributor.ZeroAddress.selector);
@@ -95,8 +93,6 @@ contract DualDistributorTest is Test {
             assertEq(dualDistributor.dividendDistrubtion(), _newDividend);
             assertEq(dualDistributor.dShareToXdShare(_dShare), _xdShare);
         }
-
-        vm.stopPrank();
     }
 
     function testDistribute(uint256 amountA, uint256 amountB, uint256 endTime) public {
@@ -111,7 +107,6 @@ contract DualDistributorTest is Test {
         vm.expectRevert(DualDistributor.ZeroAddress.selector);
         dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
-        vm.prank(distributor);
         dualDistributor.addDShareXdSharePair(address(dtoken), address(xToken));
 
         vm.prank(distributor);
