@@ -21,22 +21,17 @@ import (
 )
 
 const (
-	BuyProcessorAddress = "0x1754422ef9910572cCde378a9C07d717eC8D48A0"
+	BuyProcessorAddress = "0x5d9f4c7C59bfbfBd8b6EAED616466F673E8daa12"
 	AssetToken          = "0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D"
 	PaymentTokenAddress = "0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F"
 )
 
-// The structure to represent FeeRates, Message, OrderStruct.
-
-type FeeRates struct {
-	FlatFee           *big.Int
-	PercentageFeeRate *big.Int
+type OrderFee struct {
+	TotalFee *big.Int
 }
 
-type Message struct {
-	Owner    string
-	Nonce    *big.Int
-	Deadline *big.Int
+type NonceData struct {
+	Nonce *big.Int
 }
 
 type OrderStruct struct {
@@ -51,20 +46,10 @@ type OrderStruct struct {
 	Tif                  uint8
 }
 
-// EIP712Hash calculates the EIP-712 compliant hash of the provided domain and message data.
-//
-// Parameters:
-// - message: The PermitMessage containing the actual data we want to sign and hash.
-//   - Owner: Address of the entity granting permission.
-//   - Nonce: A unique value to prevent replay attacks.
-//   - Deadline: The timestamp after which the message is considered expired.
-//
-// Returns:
-// - []byte: The EIP-712 compliant hash of the provided data.
-// - error: An error object indicating any issues encountered during hashing.
-func EIP712Hash(message Message, chainId int64) ([]byte, error) {
+func main() {
+	// ------------------ Setup ------------------
 
-	typesStandard := apitypes.Types{
+	permitTypes := apitypes.Types{
 		"EIP712Domain": {
 			{
 				Name: "name",
@@ -107,48 +92,6 @@ func EIP712Hash(message Message, chainId int64) ([]byte, error) {
 		},
 	}
 
-	// Create the domain struct based on EIP712 requirements
-	domainStruct := apitypes.TypedDataDomain{
-		Name:              "USD Coin",
-		Version:           "1",
-		ChainId:           math.NewHexOrDecimal256(chainId),
-		VerifyingContract: PaymentTokenAddress,
-	}
-
-	// Create the message struct for hashing
-	permitStruct := map[string]interface{}{
-		"owner":    message.Owner,
-		"spender":  BuyProcessorAddress,
-		"value":    0,
-		"nonce":    message.Nonce,
-		"deadline": message.Deadline,
-	}
-
-	// Define the DataTypes using previously defined types and the constructed structs
-	DataTypes := apitypes.TypedData{
-		Types:       typesStandard, // This should be defined elsewhere (or passed as an argument if dynamic)
-		PrimaryType: "Permit",
-		Domain:      domainStruct,
-		Message:     permitStruct,
-	}
-
-	// Hash the domain struct
-	domainHash, err := DataTypes.HashStruct("EIP712Domain", domainStruct.Map())
-	if err != nil {
-		return nil, err
-	}
-
-	// Hash the message struct
-	messageHash, err := DataTypes.HashStruct("Permit", permitStruct)
-	if err != nil {
-		return nil, err
-	}
-
-	// Combine and hash the domain and message hashes according to EIP-712 and return
-	return crypto.Keccak256(append([]byte("\x19\x01"), append(domainHash, messageHash...)...)), nil
-}
-
-func main() {
 	// Load environment variables from .env file
 	err := godotenv.Load("../../.env")
 	if err != nil {
@@ -174,7 +117,17 @@ func main() {
 		log.Fatal("error casting public key to ECDSA")
 	}
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	fmt.Println("Initializing request Order for user:", fromAddress)
+	fmt.Println("User:", fromAddress)
+
+	// Get the current network ID for signing the transaction
+	chainID, err := client.ChainID(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to get network ID: %v", err)
+	}
+	fmt.Println("chainID:", chainID)
+
+	// Create a signer for the transaction using the private key
+	wallet, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
 
 	// Setup the ABI (Application Binary Interface) and the contract binding for the processor contract
 	processorAddress := common.HexToAddress(BuyProcessorAddress)
@@ -185,38 +138,43 @@ func main() {
 	}
 	processorContract := bind.NewBoundContract(processorAddress, buyProcessorAbi, client, client, client)
 
-	// Call the 'getFeeRatesForOrder' method on the contract to get fee rates
-	var result []interface{}
-	feeRates := &FeeRates{}
-	result = append(result, feeRates)
+	// ------------------ Configure Order ------------------
+
+	// Set order amount
+	orderAmount := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e6))
+	fmt.Println("Order Amount:", orderAmount.String())
+
+	// Call the 'estimateTotalFeesForOrder' method on the contract to get total fees
+	var feeTxResult []interface{}
+	fees := new(OrderFee)
+	feeTxResult = append(feeTxResult, fees)
 	paymentTokenAddr := common.HexToAddress(PaymentTokenAddress)
-	err = processorContract.Call(&bind.CallOpts{}, &result, "getFeeRatesForOrder", paymentTokenAddr)
+	err = processorContract.Call(&bind.CallOpts{}, &feeTxResult, "estimateTotalFeesForOrder", paymentTokenAddr, orderAmount)
 	if err != nil {
-		log.Fatalf("Failed to call getFeeRatesForOrder function: %v", err)
+		log.Fatalf("Failed to call estimateTotalFeesForOrder function: %v", err)
 	}
-	fmt.Println("processor fees:", feeRates.FlatFee, feeRates.PercentageFeeRate)
+	fmt.Println("processor fees:", fees.TotalFee)
 
 	// Calculate the total amount to spend considering fee rates
-	orderAmount := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e6))
-	fees := new(big.Int).Mul(orderAmount, feeRates.PercentageFeeRate)
-	fees.Div(fees, big.NewInt(10000))
-	fees.Add(fees, feeRates.FlatFee)
-	totalSpendAmount := new(big.Int).Add(orderAmount, fees)
+	totalSpendAmount := new(big.Int).Add(orderAmount, fees.TotalFee)
 	fmt.Println("Total Spend Amount:", totalSpendAmount.String())
 
+	// ------------------ Configure Permit ------------------
+
 	// Get nonce & block information to set up the transaction
-	noncesAbi, err := abi.JSON(strings.NewReader(NoncesAbiString))
+	noncesAbi, err := abi.JSON(strings.NewReader(noncesAbiString))
 	if err != nil {
 		log.Fatalf("Failed to parse contract ABI: %v", err)
 	}
 	paymentTokenContract := bind.NewBoundContract(paymentTokenAddr, noncesAbi, client, client, client)
-	nonce := new(big.Int)
-	result = append(result, nonce)
-	err = paymentTokenContract.Call(&bind.CallOpts{}, &result, "nonces", fromAddress)
+	var nonceTxResult []interface{}
+	nonce := new(NonceData)
+	nonceTxResult = append(nonceTxResult, nonce)
+	err = paymentTokenContract.Call(&bind.CallOpts{}, &nonceTxResult, "nonces", fromAddress)
 	if err != nil {
 		log.Fatalf("Failed to call nonces function: %v", err)
 	}
-	fmt.Println("Nonce:", nonce)
+	fmt.Println("Nonce:", nonce.Nonce)
 
 	// Fetch the current block number & its details to derive a deadline for the transaction
 	blockNumber, err := client.BlockNumber(context.Background())
@@ -231,31 +189,51 @@ func main() {
 	deadlineBigInt := new(big.Int).SetUint64(deadline)
 	fmt.Println("Deadline:", deadline)
 
-	// Get the current network ID for signing the transaction
-	chainID, err := client.NetworkID(context.Background())
-	if err != nil {
-		log.Fatalf("Failed to get network ID: %v", err)
+	// Create the domain struct based on EIP712 requirements
+	domainStruct := apitypes.TypedDataDomain{
+		Name:              "USD Coin",
+		Version:           "1",
+		ChainId:           math.NewHexOrDecimal256(chainID.Int64()),
+		VerifyingContract: PaymentTokenAddress,
 	}
 
-	// Create a signer for the transaction using the private key
-	auth, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+	// Create the message struct for hashing
+	permitDataStruct := map[string]interface{}{
+		"owner":    fromAddress.String(),
+		"spender":  BuyProcessorAddress,
+		"value":    totalSpendAmount,
+		"nonce":    nonce.Nonce,
+		"deadline": deadlineBigInt,
+	}
 
-	// Creating EIP-712 hash
+	// Define the DataTypes using previously defined types and the constructed structs
+	DataTypes := apitypes.TypedData{
+		Types:       permitTypes, // This should be defined elsewhere (or passed as an argument if dynamic)
+		PrimaryType: "Permit",
+		Domain:      domainStruct,
+		Message:     permitDataStruct,
+	}
 
-	typedHash, err := EIP712Hash(
-		Message{
-			Owner:    fromAddress.String(),
-			Nonce:    nonce,
-			Deadline: deadlineBigInt,
-		},
-		chainID.Int64(),
-	)
+	// Hash the domain struct
+	domainHash, err := DataTypes.HashStruct("EIP712Domain", domainStruct.Map())
+	if err != nil {
+		log.Fatalf("Failed to create EIP-712 domain hash: %v", err)
+	}
+	fmt.Println("Domain Separator: ", domainHash.String())
+
+	// Hash the message struct
+	permitTypeHash := DataTypes.TypeHash("Permit")
+	fmt.Println("Permit Type Hash: ", permitTypeHash.String())
+	messageHash, err := DataTypes.HashStruct("Permit", permitDataStruct)
 	if err != nil {
 		log.Fatalf("Failed to create EIP-712 hash: %v", err)
 	}
+	fmt.Println("Permit Message Hash: ", messageHash.String())
 
-	// Signing the hash and constructing R, S and V components of the signature
+	// Combine and hash the domain and message hashes according to EIP-712
+	typedHash := crypto.Keccak256(append([]byte("\x19\x01"), append(domainHash, messageHash...)...))
 
+	// Sign the hash and construct R, S and V components of the signature
 	signature, err := crypto.Sign(typedHash, privateKey)
 	if err != nil {
 		log.Fatalf("Failed to sign EIP-712 hash: %v", err)
@@ -263,7 +241,6 @@ func main() {
 	if signature[64] < 27 {
 		signature[64] += 27
 	}
-
 	fmt.Printf("EIP-712 Signature: 0x%x\n", hex.EncodeToString(signature))
 
 	r := signature[:32]
@@ -289,6 +266,11 @@ func main() {
 		rArray,
 		sArray,
 	)
+	if err != nil {
+		log.Fatalf("Failed to encode selfPermit function data: %v", err)
+	}
+
+	// ------------------ Submit Order ------------------
 
 	// Constructing function data for requestOrder
 	order := OrderStruct{
@@ -317,6 +299,7 @@ func main() {
 		requestOrderData,
 	}
 
+	// Estimate gas limit for the transaction
 	gasPrice, err := client.SuggestGasPrice(context.Background())
 	if err != nil {
 		log.Fatalf("Failed to suggest gas price: %v", err)
@@ -324,14 +307,13 @@ func main() {
 
 	opts := &bind.TransactOpts{
 		From:     fromAddress,
-		Signer:   auth.Signer,
-		GasLimit: 6721975,
+		Signer:   wallet.Signer,
+		GasLimit: 6721975, // Could be replaced with EstimateGas
 		GasPrice: gasPrice,
 		Value:    big.NewInt(0),
 	}
 
 	// Submitting the transaction and waiting for it to be mined
-
 	tx, err := processorContract.Transact(opts, "multicall", multicallArgs)
 	if err != nil {
 		log.Fatalf("Failed to submit multicall transaction: %v", err)
@@ -344,14 +326,13 @@ func main() {
 	}
 
 	if receipt.Status == 0 {
-		log.Fatalf("Transaction failed with receipt: %v", receipt)
+		log.Fatalf("Transaction failed with hash: %s\n", tx.Hash().Hex())
 	} else {
 		fmt.Printf("Transaction successful with hash: %s\n", tx.Hash().Hex())
 	}
-
 }
 
-const NoncesAbiString = `[
+const noncesAbiString = `[
     {
       "inputs": [
         {
@@ -1121,6 +1102,30 @@ const buyProcessorAbiString = `[
 	{
 	  "inputs": [
 		{
+		  "internalType": "address",
+		  "name": "paymentToken",
+		  "type": "address"
+		},
+		{
+		  "internalType": "uint256",
+		  "name": "paymentTokenOrderValue",
+		  "type": "uint256"
+		}
+	  ],
+	  "name": "estimateTotalFeesForOrder",
+	  "outputs": [
+		{
+		  "internalType": "uint256",
+		  "name": "totalFees",
+		  "type": "uint256"
+		}
+	  ],
+	  "stateMutability": "view",
+	  "type": "function"
+	},
+	{
+	  "inputs": [
+		{
 		  "components": [
 			{
 			  "internalType": "address",
@@ -1212,40 +1217,6 @@ const buyProcessorAbiString = `[
 		  "internalType": "uint24",
 		  "name": "_percentageFeeRate",
 		  "type": "uint24"
-		}
-	  ],
-	  "stateMutability": "view",
-	  "type": "function"
-	},
-	{
-	  "inputs": [
-		{
-		  "internalType": "address",
-		  "name": "token",
-		  "type": "address"
-		},
-		{
-		  "internalType": "uint256",
-		  "name": "orderValue",
-		  "type": "uint256"
-		}
-	  ],
-	  "name": "getInputValueForOrderValue",
-	  "outputs": [
-		{
-		  "internalType": "uint256",
-		  "name": "inputValue",
-		  "type": "uint256"
-		},
-		{
-		  "internalType": "uint256",
-		  "name": "flatFee",
-		  "type": "uint256"
-		},
-		{
-		  "internalType": "uint256",
-		  "name": "percentageFee",
-		  "type": "uint256"
 		}
 	  ],
 	  "stateMutability": "view",
@@ -1542,6 +1513,25 @@ const buyProcessorAbiString = `[
 		}
 	  ],
 	  "stateMutability": "nonpayable",
+	  "type": "function"
+	},
+	{
+	  "inputs": [
+		{
+		  "internalType": "address",
+		  "name": "",
+		  "type": "address"
+		}
+	  ],
+	  "name": "nextOrderIndex",
+	  "outputs": [
+		{
+		  "internalType": "uint256",
+		  "name": "",
+		  "type": "uint256"
+		}
+	  ],
+	  "stateMutability": "view",
 	  "type": "function"
 	},
 	{
