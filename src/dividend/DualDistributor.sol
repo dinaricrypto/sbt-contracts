@@ -5,13 +5,15 @@ import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IxdShare} from "../IxdShare.sol";
+import {IDividendDistributor} from "./IDividendDistributor.sol";
 
 contract DualDistributor is AccessControlDefaultAdminRules {
     using SafeERC20 for IERC20;
 
+    event NewDistribution(uint256 distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount);
+
     error ZeroAddress();
-    error InvalidxDshare();
-    error XdshareIsLocked();
+    error XdshareIsNotLocked();
     /// ------------------ Constants ------------------ ///
 
     /// @notice Role for approved distributors
@@ -48,11 +50,16 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     }
 
     /// ------------------- Distribution Lifecycle ------------------- ///
-    function distribute(address dShare, uint256 usdcAmount, uint256 dShareAmount) external onlyRole(DISTRIBUTOR_ROLE) {
+    function distribute(address dShare, uint256 usdcAmount, uint256 dShareAmount, uint256 endTime)
+        external
+        onlyRole(DISTRIBUTOR_ROLE)
+    {
         address xdShare = dShareToXdShare[dShare];
-        if (xdShare == address(0)) revert InvalidxDshare();
-        if (IxdShare(xdShare).isLocked()) revert XdshareIsLocked();
-        IERC20(USDC).safeTransfer(dividendDistrubtion, usdcAmount);
+        if (xdShare == address(0)) revert ZeroAddress();
+        if (!IxdShare(xdShare).isLocked()) revert XdshareIsNotLocked();
         IERC20(dShare).safeTransfer(xdShare, dShareAmount);
+        IERC20(USDC).safeApprove(dividendDistrubtion, usdcAmount);
+        uint256 distributionId = IDividendDistributor(dividendDistrubtion).createDistribution(USDC, usdcAmount, endTime);
+        emit NewDistribution(distributionId, dShare, usdcAmount, dShareAmount);
     }
 }

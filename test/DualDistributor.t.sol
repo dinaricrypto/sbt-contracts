@@ -26,6 +26,8 @@ contract DualDistributorTest is Test {
     address public user2 = address(2);
     address public distributor = address(4);
 
+    event NewDistribution(uint256 distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount);
+
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         token = new MockERC20("Money", "$", 6);
@@ -41,9 +43,9 @@ contract DualDistributorTest is Test {
         distribution = new DividendDistribution(address(this));
 
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
-
         dualDistributor = new DualDistributor(address(this), address(token), address(distribution));
         dualDistributor.grantRole(dualDistributor.DISTRIBUTOR_ROLE(), distributor);
+        distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), address(dualDistributor));
     }
 
     function accessErrorString(address account, bytes32 role) internal pure returns (bytes memory) {
@@ -97,28 +99,30 @@ contract DualDistributorTest is Test {
         vm.stopPrank();
     }
 
-    function testDistribute(uint256 amountA, uint256 amountB) public {
+    function testDistribute(uint256 amountA, uint256 amountB, uint256 endTime) public {
         token.mint(address(dualDistributor), amountA);
         dtoken.mint(address(dualDistributor), amountB);
-        xToken.lock();
+        vm.assume(endTime > block.timestamp);
 
         vm.expectRevert(accessErrorString(address(this), distribution.DISTRIBUTOR_ROLE()));
-        dualDistributor.distribute(address(dtoken), amountA, amountB);
+        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
         vm.prank(distributor);
-        vm.expectRevert(DualDistributor.InvalidxDshare.selector);
-        dualDistributor.distribute(address(dtoken), amountA, amountB);
+        vm.expectRevert(DualDistributor.ZeroAddress.selector);
+        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
         vm.prank(distributor);
         dualDistributor.addDShareXdSharePair(address(dtoken), address(xToken));
 
         vm.prank(distributor);
-        vm.expectRevert(DualDistributor.XdshareIsLocked.selector);
-        dualDistributor.distribute(address(dtoken), amountA, amountB);
+        vm.expectRevert(DualDistributor.XdshareIsNotLocked.selector);
+        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
-        xToken.unlock();
+        xToken.lock();
 
         vm.prank(distributor);
-        dualDistributor.distribute(address(dtoken), amountA, amountB);
+        vm.expectEmit(true, true, true, true);
+        emit NewDistribution(0, address(dtoken), amountA, amountB);
+        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
     }
 }
