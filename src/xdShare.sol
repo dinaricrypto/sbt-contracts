@@ -19,7 +19,7 @@ contract xdShare is Ownable, ERC4626 {
     /// @notice Reference to the underlying dShare contract.
     dShare public immutable underlyingDShare;
 
-    bool isLocked;
+    bool public isLocked;
 
     error DepositsPaused();
     error WithdrawalsPaused();
