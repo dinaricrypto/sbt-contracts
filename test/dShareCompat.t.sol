@@ -78,10 +78,9 @@ contract dShareCompatTest is Test {
         sellIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(priceRecencyThreshold);
+        forwarder = new Forwarder();
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(sellIssuer), true);
-        forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
 
@@ -90,7 +89,6 @@ contract dShareCompatTest is Test {
         sellIssuer.grantRole(sellIssuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
-        sigPrice = new SigPrice(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
@@ -123,15 +121,12 @@ contract dShareCompatTest is Test {
 
         uint256 nonce = 0;
 
-        // 4. Mint tokens
+        // Mint tokens
         deal(address(paymentToken), user, quantityIn * 1e6);
-
-        //  Prepare PriceAttestation
-        PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
 
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), data, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -168,12 +163,9 @@ contract dShareCompatTest is Test {
         deal(address(token), user, order.assetTokenQuantity * 1e6);
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
-        //  Prepare PriceAttestation
-        PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
-
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(sellIssuer), data, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(sellIssuer), address(paymentToken), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
@@ -207,12 +199,9 @@ contract dShareCompatTest is Test {
 
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
-        //  Prepare PriceAttestation
-        IPriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
-
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), data, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -225,7 +214,7 @@ contract dShareCompatTest is Test {
         nonce += 1;
         bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
         Forwarder.ForwardRequest memory metaTx1 =
-            prepareForwardRequest(user, address(issuer), dataCancel, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx1);
 
@@ -280,18 +269,18 @@ contract dShareCompatTest is Test {
     function prepareForwardRequest(
         address _user,
         address to,
+        address _paymentToken,
         bytes memory data,
         uint256 nonce,
-        IPriceAttestationConsumer.PriceAttestation memory attestation,
         uint256 _privateKey
     ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
         SigMeta.ForwardRequest memory MetaTx = SigMeta.ForwardRequest({
             user: _user,
             to: to,
+            paymentToken: _paymentToken,
             data: data,
             deadline: 30 days,
-            nonce: nonce,
-            paymentTokenOraclePrice: attestation
+            nonce: nonce
         });
 
         bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
@@ -300,10 +289,10 @@ contract dShareCompatTest is Test {
         metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
+            paymentToken: _paymentToken,
             data: data,
             deadline: 30 days,
             nonce: nonce,
-            paymentTokenOraclePrice: attestation,
             signature: abi.encodePacked(r2, s2, v2)
         });
     }

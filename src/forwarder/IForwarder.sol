@@ -10,13 +10,12 @@ interface IForwarder {
         address user; // The address of the user initiating the meta-transaction.
         address to; // The address of the target contract (e.g., OrderProcessor)
             // to which the meta-transaction should be forwarded.
+        address paymentToken; // token use to pay transaction
         bytes data; // Encoded function call that the user wants to execute
             // through the meta-transaction.
         uint64 deadline; // The time by which the meta-transaction must be mined.
         uint256 nonce; // A nonce to prevent replay attacks. It must be unique
             // for each meta-transaction made by the user.
-        IPriceAttestationConsumer.PriceAttestation paymentTokenOraclePrice; // Oracle signed price of the ERC20 token that the user wants to
-            // use for paying the transaction fees.
         bytes signature; // ECDSA signature of the user authorizing the meta-transaction.
     }
 

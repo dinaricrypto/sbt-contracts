@@ -76,9 +76,8 @@ contract ForwarderRequestCancelTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(priceRecencyThreshold);
+        forwarder = new Forwarder();
         forwarder.setSupportedModule(address(issuer), true);
-        forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
 
@@ -120,7 +119,7 @@ contract ForwarderRequestCancelTest is Test {
         attestation = preparePriceAttestation();
 
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), dataRequest, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), dataRequest, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -136,7 +135,7 @@ contract ForwarderRequestCancelTest is Test {
         uint256 nonce = 1;
 
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), dataCancel, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -192,18 +191,18 @@ contract ForwarderRequestCancelTest is Test {
     function prepareForwardRequest(
         address _user,
         address to,
+        address _paymentToken,
         bytes memory data,
         uint256 nonce,
-        IPriceAttestationConsumer.PriceAttestation memory _attestation,
         uint256 _privateKey
     ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
         SigMeta.ForwardRequest memory MetaTx = SigMeta.ForwardRequest({
             user: _user,
             to: to,
+            paymentToken: _paymentToken,
             data: data,
             deadline: 30 days,
-            nonce: nonce,
-            paymentTokenOraclePrice: _attestation
+            nonce: nonce
         });
 
         bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
@@ -212,10 +211,10 @@ contract ForwarderRequestCancelTest is Test {
         metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
+            paymentToken: _paymentToken,
             data: data,
             deadline: 30 days,
             nonce: nonce,
-            paymentTokenOraclePrice: _attestation,
             signature: abi.encodePacked(r2, s2, v2)
         });
     }

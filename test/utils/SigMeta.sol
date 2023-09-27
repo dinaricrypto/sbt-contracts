@@ -5,13 +5,8 @@ import {PriceAttestationConsumer} from "../../src/forwarder/PriceAttestationCons
 
 contract SigMeta {
     bytes32 internal immutable DOMAIN_SEPARATOR;
-    bytes private constant SIGNEDPRICEATTESTATION_TYPE = abi.encodePacked(
-        "PriceAttestation(address token,uint256 price,uint64 timestamp,uint256 chainId,bytes signature)"
-    );
-    bytes32 private constant SIGNEDPRICEATTESTATION_TYPEHASH = keccak256(SIGNEDPRICEATTESTATION_TYPE);
     bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
-        "ForwardRequest(address user,address to,bytes data,uint64 deadline,uint256 nonce,PriceAttestation paymentTokenOraclePrice)",
-        SIGNEDPRICEATTESTATION_TYPE
+        "ForwardRequest(address user,address to, address paymentToken, bytes data,uint64 deadline,uint256 nonce,PriceAttestation paymentTokenOraclePrice)"
     );
     bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
 
@@ -22,28 +17,12 @@ contract SigMeta {
     struct ForwardRequest {
         address user;
         address to;
+        address paymentToken;
         bytes data;
         uint64 deadline;
         uint256 nonce;
-        PriceAttestationConsumer.PriceAttestation paymentTokenOraclePrice;
     }
-
-    function _signedPriceAttestationHash(PriceAttestationConsumer.PriceAttestation calldata priceAttestation)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(
-            abi.encode(
-                SIGNEDPRICEATTESTATION_TYPEHASH,
-                priceAttestation.token,
-                priceAttestation.price,
-                priceAttestation.timestamp,
-                priceAttestation.chainId,
-                keccak256(priceAttestation.signature)
-            )
-        );
-    }
+    // PriceAttestationConsumer.PriceAttestation paymentTokenOraclePrice;
 
     function _hashForwardRequest(ForwardRequest calldata metaTx) internal pure returns (bytes32) {
         return keccak256(
@@ -51,10 +30,10 @@ contract SigMeta {
                 FORWARDREQUEST_TYPEHASH,
                 metaTx.user,
                 metaTx.to,
+                metaTx.paymentToken,
                 keccak256(metaTx.data),
                 metaTx.deadline,
-                metaTx.nonce,
-                _signedPriceAttestationHash(metaTx.paymentTokenOraclePrice)
+                metaTx.nonce
             )
         );
     }

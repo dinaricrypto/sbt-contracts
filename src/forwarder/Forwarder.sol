@@ -9,15 +9,15 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
-import {PriceAttestationConsumer} from "./PriceAttestationConsumer.sol";
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IForwarder} from "./IForwarder.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
-contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Multicall, SelfPermit, ReentrancyGuard {
+contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20Permit;
     using SafeERC20 for IERC20;
     using Address for address;
@@ -37,18 +37,16 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
+    event NewPaymentOracleAdded(address paymentToken, address oracle);
 
     /// ------------------------------- Constants -------------------------------
 
-    bytes private constant SIGNEDPRICEATTESTATION_TYPE = abi.encodePacked(
-        "PriceAttestation(address token,uint256 price,uint64 timestamp,uint256 chainId,bytes signature)"
-    );
-    bytes32 private constant SIGNEDPRICEATTESTATION_TYPEHASH = keccak256(SIGNEDPRICEATTESTATION_TYPE);
     bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
-        "ForwardRequest(address user,address to,bytes data,uint64 deadline,uint256 nonce,PriceAttestation paymentTokenOraclePrice)",
-        SIGNEDPRICEATTESTATION_TYPE
+        "ForwardRequest(address user,address to, address paymentToken, bytes data,uint64 deadline,uint256 nonce)"
     );
     bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
+
+    address private constant ETH_USD_ORACLE = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
 
     /// ------------------------------- Storage -------------------------------
 
@@ -67,6 +65,8 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
     /// @inheritdoc IForwarder
     mapping(bytes32 => address) public orderSigner;
 
+    mapping(address => address) public paymentOracle;
+
     /// ------------------------------- Modifiers -------------------------------
 
     modifier onlyRelayer() {
@@ -80,11 +80,7 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
 
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
-    /// @param _priceRecencyThreshold The maximum age of a price oracle attestation that is considered valid.
-    constructor(uint64 _priceRecencyThreshold)
-        PriceAttestationConsumer(_priceRecencyThreshold)
-        EIP712("Forwarder", "1")
-    {
+    constructor() EIP712("Forwarder", "1") {
         feeBps = 0;
         cancellationGasCost = 0;
     }
@@ -124,6 +120,16 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
     }
 
     /**
+     * @dev add oracle for a payment token
+     * @param _paymentAsset asset to add oracle
+     * @param _oracle chainlink oracle address
+     */
+    function addOracle(address _paymentAsset, address _oracle) external onlyOwner {
+        paymentOracle[_paymentAsset] = _oracle;
+        emit NewPaymentOracleAdded(_paymentAsset, _oracle);
+    }
+
+    /**
      * @notice Rescue ERC20 tokens locked up in this contract.
      * @param tokenContract ERC20 token contract address
      * @param to        Recipient address
@@ -131,6 +137,18 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
      */
     function rescueERC20(IERC20 tokenContract, address to, uint256 amount) external onlyOwner {
         tokenContract.safeTransfer(to, amount);
+    }
+
+    /**
+     * @dev get the latest price of a token
+     * @param _asset asset to get the price
+     */
+    function getPaymentPriceInWei(address _asset) public view returns (uint256) {
+        address _oracle = paymentOracle[_asset];
+        (, int256 paymentPrice,,,) = AggregatorV3Interface(_oracle).latestRoundData();
+        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ETH_USD_ORACLE).latestRoundData();
+        uint256 paymentPriceInWei = (uint256(paymentPrice) * 1 ether) / uint256(ethUSDPrice);
+        return paymentPriceInWei;
     }
 
     /// ------------------------------- Forwarding -------------------------------
@@ -175,9 +193,8 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
 
         // handle transaction payment
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            _handlePayment(
-                metaTx.user, metaTx.paymentTokenOraclePrice.token, metaTx.paymentTokenOraclePrice.price, gasStart
-            );
+            uint256 assetPriceInWei = getPaymentPriceInWei(metaTx.paymentToken);
+            _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
         }
     }
 
@@ -191,7 +208,7 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
         if (metaTx.deadline < block.timestamp) revert ExpiredRequest();
         if (!isSupportedModule[metaTx.to]) revert NotSupportedModule();
 
-        _verifyPriceAttestation(metaTx.paymentTokenOraclePrice);
+        // _verifyPriceAttestation(metaTx.paymentTokenOraclePrice);
 
         // slither-disable-next-line unused-return
         _useCheckedNonce(metaTx.user, metaTx.nonce);
@@ -207,19 +224,6 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
         }
     }
 
-    function _signedPriceAttestationHash(PriceAttestation calldata priceAttestation) internal pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                SIGNEDPRICEATTESTATION_TYPEHASH,
-                priceAttestation.token,
-                priceAttestation.price,
-                priceAttestation.timestamp,
-                priceAttestation.chainId,
-                keccak256(priceAttestation.signature)
-            )
-        );
-    }
-
     /// @inheritdoc IForwarder
     function forwardRequestHash(ForwardRequest calldata metaTx) public pure returns (bytes32) {
         return keccak256(
@@ -227,10 +231,10 @@ contract Forwarder is IForwarder, Ownable, PriceAttestationConsumer, Nonces, Mul
                 FORWARDREQUEST_TYPEHASH,
                 metaTx.user,
                 metaTx.to,
+                metaTx.paymentToken,
                 keccak256(metaTx.data),
                 metaTx.deadline,
-                metaTx.nonce,
-                _signedPriceAttestationHash(metaTx.paymentTokenOraclePrice)
+                metaTx.nonce
             )
         );
     }
