@@ -5,6 +5,7 @@ import {dShare} from "./dShare.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC4626} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
+import {IxdShare} from "./IxdShare.sol";
 
 /**
  * @title xdShare Contract
@@ -15,7 +16,7 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
  */
 
 // slither-disable-next-line missing-inheritance
-contract xdShare is Ownable, ERC4626 {
+contract xdShare is Ownable, ERC4626, IxdShare {
     /// @notice Reference to the underlying dShare contract.
     dShare public immutable underlyingDShare;
 
@@ -59,23 +60,21 @@ contract xdShare is Ownable, ERC4626 {
         return address(underlyingDShare);
     }
 
-    /**
-     * @dev Locks the contract to prevent deposit and withdrawal operations.
-     * Can only be called by the owner of the contract.
-     */
+    /// ------------------- Locking Mechanism Lifecycle ------------------- ///
+
+    /// @inheritdoc IxdShare
     function lock() public onlyOwner {
         isLocked = true;
         emit VaultLocked();
     }
 
-    /**
-     * @dev Unlocks the contract to allow deposit and withdrawal operations.
-     * Can only be called by the owner of the contract.
-     */
+    /// @inheritdoc IxdShare
     function unlock() public onlyOwner {
         isLocked = false;
         emit VaultUnlocked();
     }
+
+    /// ------------------- Vault Operations Lifecycle ------------------- ///
 
     /// @dev For deposits and mints.
     ///
@@ -110,11 +109,9 @@ contract xdShare is Ownable, ERC4626 {
         }
     }
 
-    /**
-     * @dev Checks if an account is blacklisted in the underlying dShare contract.
-     * @param account Address of the account to check.
-     * @return True if the account is blacklisted, false otherwise.
-     */
+    /// ------------------- Transfer Restrictions Lifecycle ------------------- ///
+
+    /// @inheritdoc IxdShare
     function isBlacklisted(address account) external view returns (bool) {
         ITransferRestrictor restrictor = underlyingDShare.transferRestrictor();
         if (address(restrictor) == address(0)) return false;
