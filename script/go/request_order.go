@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"log"
@@ -18,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/joho/godotenv"
+	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 )
 
 const (
@@ -106,18 +106,25 @@ func main() {
 	}
 	fmt.Println("we have a connection")
 
-	// Retrieve private key from environment variable and derive the public key & Ethereum address
-	privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATE_KEY"))
+	// Retrieve mnemonic from environment variable and initialize an account
+	mnemonic := os.Getenv("MNEMONIC")
+	wallet, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
 		log.Fatal(err)
 	}
-	publicKey := privateKey.Public()
-	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-	if !ok {
-		log.Fatal("error casting public key to ECDSA")
+
+	path := hdwallet.MustParseDerivationPath("m/44'/60'/0'/0/0")
+	account, err := wallet.Derive(path, true)
+	if err != nil {
+		log.Fatal(err)
 	}
-	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	fmt.Println("User:", fromAddress)
+	fmt.Println("User:", account.Address)
+
+	// Retrieve private key for signing
+	privateKey, err := wallet.PrivateKey(account)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Get the current network ID for signing the transaction
 	chainID, err := client.ChainID(context.Background())
@@ -127,7 +134,7 @@ func main() {
 	fmt.Println("chainID:", chainID)
 
 	// Create a signer for the transaction using the private key
-	wallet, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
+	signer, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
 
 	// Setup the ABI (Application Binary Interface) and the contract binding for the processor contract
 	processorAddress := common.HexToAddress(BuyProcessorAddress)
@@ -170,7 +177,7 @@ func main() {
 	var nonceTxResult []interface{}
 	nonce := new(NonceData)
 	nonceTxResult = append(nonceTxResult, nonce)
-	err = paymentTokenContract.Call(&bind.CallOpts{}, &nonceTxResult, "nonces", fromAddress)
+	err = paymentTokenContract.Call(&bind.CallOpts{}, &nonceTxResult, "nonces", account.Address)
 	if err != nil {
 		log.Fatalf("Failed to call nonces function: %v", err)
 	}
@@ -199,7 +206,7 @@ func main() {
 
 	// Create the message struct for hashing
 	permitDataStruct := map[string]interface{}{
-		"owner":    fromAddress.String(),
+		"owner":    account.Address.String(),
 		"spender":  BuyProcessorAddress,
 		"value":    totalSpendAmount,
 		"nonce":    nonce.Nonce,
@@ -259,7 +266,7 @@ func main() {
 	selfPermitData, err := buyProcessorAbi.Pack(
 		"selfPermit",
 		paymentTokenAddr,
-		fromAddress,
+		account.Address,
 		totalSpendAmount,
 		deadlineBigInt,
 		v,
@@ -274,7 +281,7 @@ func main() {
 
 	// Constructing function data for requestOrder
 	order := OrderStruct{
-		Recipient:            fromAddress,
+		Recipient:            account.Address,
 		AssetToken:           common.HexToAddress(AssetToken),
 		PaymentToken:         paymentTokenAddr,
 		Sell:                 false,
@@ -306,8 +313,8 @@ func main() {
 	}
 
 	opts := &bind.TransactOpts{
-		From:     fromAddress,
-		Signer:   wallet.Signer,
+		From:     account.Address,
+		Signer:   signer.Signer,
 		GasLimit: 6721975, // Could be replaced with EstimateGas
 		GasPrice: gasPrice,
 		Value:    big.NewInt(0),
