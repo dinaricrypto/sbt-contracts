@@ -82,6 +82,7 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     function distribute(address dShare, uint256 usdcAmount, uint256 dShareAmount, uint256 endTime)
         external
         onlyRole(DISTRIBUTOR_ROLE)
+        returns (uint256)
     {
         address xdShare = dShareToXdShare[dShare];
         if (xdShare == address(0)) revert ZeroAddress();
@@ -93,6 +94,6 @@ contract DualDistributor is AccessControlDefaultAdminRules {
 
         IERC20(dShare).safeTransfer(xdShare, dShareAmount);
         IERC20(USDC).safeApprove(dividendDistrubtion, usdcAmount);
-        IDividendDistributor(dividendDistrubtion).createDistribution(USDC, usdcAmount, endTime);
+        return IDividendDistributor(dividendDistrubtion).createDistribution(USDC, usdcAmount, endTime);
     }
 }
