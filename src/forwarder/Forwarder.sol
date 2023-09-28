@@ -39,7 +39,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
     event NewPaymentOracleAdded(address paymentToken, address oracle);
-    event ChainlinkPrice(uint256 price);
 
     /// ------------------------------- Constants -------------------------------
 
@@ -198,7 +197,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         // handle transaction payment
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
             uint256 assetPriceInWei = getPaymentPriceInWei(metaTx.paymentToken);
-            emit ChainlinkPrice(assetPriceInWei);
             _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
         }
     }

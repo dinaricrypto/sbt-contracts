@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-
 contract SigMeta {
     bytes32 internal immutable DOMAIN_SEPARATOR;
     bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
