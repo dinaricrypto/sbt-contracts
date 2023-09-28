@@ -11,8 +11,6 @@ import "./utils/SigUtils.sol";
 import "../src/orders/IOrderProcessor.sol";
 import "./utils/mocks/MockToken.sol";
 import "./utils/SigMeta.sol";
-import "./utils/SigPrice.sol";
-import "../src/forwarder/PriceAttestationConsumer.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../src/common/FeeLib.sol";
@@ -27,7 +25,6 @@ contract dShareCompatTest is Test {
     ERC20 public token;
 
     SigMeta public sigMeta;
-    SigPrice public sigPrice;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
@@ -48,6 +45,8 @@ contract dShareCompatTest is Test {
     address public owner;
     address constant treasury = address(4);
     address constant operator = address(3);
+    address constant ethUSDOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
+    address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
     uint64 priceRecencyThreshold = 30 seconds;
 
@@ -82,6 +81,7 @@ contract dShareCompatTest is Test {
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(sellIssuer), true);
         forwarder.setRelayer(relayer, true);
+        forwarder.addOracle(address(paymentToken), usdcPriceOracle);
         vm.stopPrank();
 
         // set issuer forwarder role
@@ -225,25 +225,6 @@ contract dShareCompatTest is Test {
 
     // utils functions
 
-    function preparePriceAttestation() internal view returns (IPriceAttestationConsumer.PriceAttestation memory) {
-        SigPrice.PriceAttestation memory priceAttestation = SigPrice.PriceAttestation({
-            token: address(paymentToken),
-            price: paymentTokenPrice,
-            timestamp: uint64(block.timestamp),
-            chainId: block.chainid
-        });
-        bytes32 digestPrice = sigPrice.getTypedDataHashForPriceAttestation(priceAttestation);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(relayerPrivateKey, digestPrice);
-        IPriceAttestationConsumer.PriceAttestation memory attestation = IPriceAttestationConsumer.PriceAttestation({
-            token: priceAttestation.token,
-            price: priceAttestation.price,
-            timestamp: priceAttestation.timestamp,
-            chainId: priceAttestation.chainId,
-            signature: abi.encodePacked(r, s, v)
-        });
-        return attestation;
-    }
-
     // set Permit for user
     function preparePermitCall(
         SigUtils permitSigUtils,
@@ -257,7 +238,7 @@ contract dShareCompatTest is Test {
             spender: address(forwarder),
             value: type(uint256).max,
             nonce: _nonce,
-            deadline: 30 days
+            deadline: block.timestamp + 30 days
         });
         bytes32 digest = permitSigUtils.getTypedDataHash(sigPermit);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
@@ -279,7 +260,7 @@ contract dShareCompatTest is Test {
             to: to,
             paymentToken: _paymentToken,
             data: data,
-            deadline: 30 days,
+            deadline: block.timestamp + 30 days,
             nonce: nonce
         });
 
@@ -291,7 +272,7 @@ contract dShareCompatTest is Test {
             to: to,
             paymentToken: _paymentToken,
             data: data,
-            deadline: 30 days,
+            deadline: block.timestamp + 30 days,
             nonce: nonce,
             signature: abi.encodePacked(r2, s2, v2)
         });

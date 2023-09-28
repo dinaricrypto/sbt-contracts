@@ -44,7 +44,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     /// ------------------------------- Constants -------------------------------
 
     bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
-        "ForwardRequest(address user,address to, address paymentToken, bytes data,uint64 deadline,uint256 nonce)"
+        "ForwardRequest(address user,address to, address paymentToken, bytes data,uint256 deadline,uint256 nonce)"
     );
     bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
 
@@ -145,13 +145,14 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      * @dev get the latest price of a token
      * @param _asset asset to get the price
      */
-    function getPaymentPriceInWei(address _asset) public returns (uint256) {
+    function getPaymentPriceInWei(address _asset) public view returns (uint256) {
         address _oracle = paymentOracle[_asset];
+        // slither-disable-next-line unused-return
         (, int256 paymentPrice,,,) = AggregatorV3Interface(_oracle).latestRoundData();
-        emit ChainlinkPrice(uint256(paymentPrice));
-        // (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ETH_USD_ORACLE).latestRoundData();
-        // uint256 paymentPriceInWei = PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
-        return uint256(paymentPrice);
+        // slither-disable-next-line unused-return
+        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ETH_USD_ORACLE).latestRoundData();
+        uint256 paymentPriceInWei = PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
+        return uint256(paymentPriceInWei);
     }
 
     /// ------------------------------- Forwarding -------------------------------
@@ -198,7 +199,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
             uint256 assetPriceInWei = getPaymentPriceInWei(metaTx.paymentToken);
             emit ChainlinkPrice(assetPriceInWei);
-            //     _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
+            _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
         }
     }
 
@@ -282,6 +283,9 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         // TODO: Test that Arbitrum returns reasonable gasUsed and gasprice values
         uint256 totalGasCostInWei = (gasUsed + cancellationGasCost) * tx.gasprice;
         uint256 paymentAmount = totalGasCostInWei / paymentTokenPrice;
+        if (paymentAmount == 0) {
+            paymentAmount = paymentTokenPrice;
+        }
 
         // Calculate fee amount
         // slither-disable-next-line divide-before-multiply

@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
-import {PriceAttestationConsumer} from "../../src/forwarder/PriceAttestationConsumer.sol";
 
 contract SigMeta {
     bytes32 internal immutable DOMAIN_SEPARATOR;
     bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
-        "ForwardRequest(address user,address to, address paymentToken, bytes data,uint64 deadline,uint256 nonce)"
+        "ForwardRequest(address user,address to, address paymentToken, bytes data,uint256 deadline,uint256 nonce)"
     );
     bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
 
@@ -19,7 +18,7 @@ contract SigMeta {
         address to;
         address paymentToken;
         bytes data;
-        uint64 deadline;
+        uint256 deadline;
         uint256 nonce;
     }
 

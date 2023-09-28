@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {IPriceAttestationConsumer} from "./IPriceAttestationConsumer.sol";
-
 /// @notice Contract interface for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/forwarder/IForwarder.sol)
 interface IForwarder {
@@ -13,7 +11,7 @@ interface IForwarder {
         address paymentToken; // token use to pay transaction
         bytes data; // Encoded function call that the user wants to execute
             // through the meta-transaction.
-        uint64 deadline; // The time by which the meta-transaction must be mined.
+        uint256 deadline; // The time by which the meta-transaction must be mined.
         uint256 nonce; // A nonce to prevent replay attacks. It must be unique
             // for each meta-transaction made by the user.
         bytes signature; // ECDSA signature of the user authorizing the meta-transaction.
