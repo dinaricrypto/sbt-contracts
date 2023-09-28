@@ -51,20 +51,25 @@ contract ForwarderTest is Test {
     uint256 flatFee;
     uint256 dummyOrderFees;
     // price of payment token in wei, accounting for decimals
-    uint256 paymentTokenPrice;
+    // uint256 paymentTokenPrice;
+
+    uint256 arbitrumFork;
 
     address public user;
     address public relayer;
     address public owner;
     address constant treasury = address(4);
     address constant operator = address(3);
+    address constant ethUSDOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
+    address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
+    address constant usdc = 0xaf88d065e77c8cC2239327C5EDb3A432268e5831;
 
-    uint64 priceRecencyThreshold = 30 seconds;
+    string ARBITRUM_MAINNET_FORK = vm.envString("ARBITRUM_MAINNET_FORK");
 
     function setUp() public {
-        userPrivateKey = 0x01;
-        relayerPrivateKey = 0x02;
-        ownerPrivateKey = 0x03;
+        userPrivateKey = 0x1;
+        relayerPrivateKey = 0x2;
+        ownerPrivateKey = 0x3;
         relayer = vm.addr(relayerPrivateKey);
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
@@ -72,10 +77,11 @@ contract ForwarderTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken();
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        arbitrumFork = vm.createFork(ARBITRUM_MAINNET_FORK);
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
-        paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
+        // paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
         sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
@@ -130,12 +136,14 @@ contract ForwarderTest is Test {
         // set fees
         vm.prank(owner);
         forwarder.setFeeBps(100);
+        vm.prank(owner);
+        forwarder.addOracle(address(paymentToken), usdcPriceOracle);
     }
 
     function testDeployment(uint256 cancellationCost) public {
         assertEq(forwarder.owner(), owner);
         assertEq(forwarder.feeBps(), 100);
-        
+
         vm.expectRevert("Ownable: caller is not the owner");
         forwarder.setFeeBps(200);
 
@@ -693,7 +701,7 @@ contract ForwarderTest is Test {
             spender: address(forwarder),
             value: type(uint256).max,
             nonce: _nonce,
-            deadline: 30 days
+            deadline: block.timestamp + 30 days
         });
         bytes32 digest = permitSigUtils.getTypedDataHash(sigPermit);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);

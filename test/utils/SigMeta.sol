@@ -6,7 +6,7 @@ import {PriceAttestationConsumer} from "../../src/forwarder/PriceAttestationCons
 contract SigMeta {
     bytes32 internal immutable DOMAIN_SEPARATOR;
     bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
-        "ForwardRequest(address user,address to, address paymentToken, bytes data,uint64 deadline,uint256 nonce,PriceAttestation paymentTokenOraclePrice)"
+        "ForwardRequest(address user,address to, address paymentToken, bytes data,uint64 deadline,uint256 nonce)"
     );
     bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
 
@@ -22,7 +22,6 @@ contract SigMeta {
         uint64 deadline;
         uint256 nonce;
     }
-    // PriceAttestationConsumer.PriceAttestation paymentTokenOraclePrice;
 
     function _hashForwardRequest(ForwardRequest calldata metaTx) internal pure returns (bytes32) {
         return keccak256(

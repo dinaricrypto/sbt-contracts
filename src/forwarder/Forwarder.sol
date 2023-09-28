@@ -11,6 +11,7 @@ import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
+import "prb-math/Common.sol" as PrbMath;
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IForwarder} from "./IForwarder.sol";
@@ -38,6 +39,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
     event NewPaymentOracleAdded(address paymentToken, address oracle);
+    event ChainlinkPrice(uint256 price);
 
     /// ------------------------------- Constants -------------------------------
 
@@ -143,12 +145,13 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      * @dev get the latest price of a token
      * @param _asset asset to get the price
      */
-    function getPaymentPriceInWei(address _asset) public view returns (uint256) {
+    function getPaymentPriceInWei(address _asset) public returns (uint256) {
         address _oracle = paymentOracle[_asset];
         (, int256 paymentPrice,,,) = AggregatorV3Interface(_oracle).latestRoundData();
-        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ETH_USD_ORACLE).latestRoundData();
-        uint256 paymentPriceInWei = (uint256(paymentPrice) * 1 ether) / uint256(ethUSDPrice);
-        return paymentPriceInWei;
+        emit ChainlinkPrice(uint256(paymentPrice));
+        // (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ETH_USD_ORACLE).latestRoundData();
+        // uint256 paymentPriceInWei = PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
+        return uint256(paymentPrice);
     }
 
     /// ------------------------------- Forwarding -------------------------------
@@ -194,7 +197,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         // handle transaction payment
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
             uint256 assetPriceInWei = getPaymentPriceInWei(metaTx.paymentToken);
-            _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
+            emit ChainlinkPrice(assetPriceInWei);
+            //     _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
         }
     }
 
