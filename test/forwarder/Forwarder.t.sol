@@ -51,20 +51,13 @@ contract ForwarderTest is Test {
     uint256 public ownerPrivateKey;
     uint256 flatFee;
     uint256 dummyOrderFees;
-    // price of payment token in wei, accounting for decimals
-    // uint256 paymentTokenPrice;
-
-    uint256 arbitrumFork;
 
     address public user;
     address public relayer;
     address public owner;
     address constant treasury = address(4);
     address constant operator = address(3);
-    address constant ethUSDOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
     address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
-
-    string ARBITRUM_MAINNET_FORK = vm.envString("ARBITRUM_MAINNET_FORK");
 
     function setUp() public {
         userPrivateKey = 0x1;
@@ -77,11 +70,6 @@ contract ForwarderTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken();
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        arbitrumFork = vm.createFork(ARBITRUM_MAINNET_FORK);
-
-        // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
-        // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
-        // paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
         sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
