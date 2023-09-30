@@ -6,6 +6,7 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC4626} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {IxdShare} from "./IxdShare.sol";
+import {TokenManager} from "./TokenManager.sol";
 
 /**
  * @title xdShare Contract
@@ -19,6 +20,7 @@ import {IxdShare} from "./IxdShare.sol";
 contract xdShare is Ownable, ERC4626, IxdShare {
     /// @notice Reference to the underlying dShare contract.
     dShare public immutable underlyingDShare;
+    TokenManager public tokenManager;
 
     bool public isLocked;
 
@@ -32,8 +34,9 @@ contract xdShare is Ownable, ERC4626, IxdShare {
      * @dev Initializes a new instance of the xdShare contract.
      * @param _dShare The address of the underlying dShare token.
      */
-    constructor(dShare _dShare) {
+    constructor(dShare _dShare, TokenManager _tokenManager) {
         underlyingDShare = _dShare;
+        tokenManager = _tokenManager;
     }
 
     /**
@@ -80,8 +83,28 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     ///
     /// Emits a {Deposit} event.
     function _deposit(address by, address to, uint256 assets, uint256 shares) internal virtual override {
+        // Revert the transaction if deposits are currently locked.
         if (isLocked) revert DepositsPaused();
-        super._deposit(by, to, assets, shares);
+
+        // Check if the underlying token is the current token.
+        // If not true, this means a token split has occurred and conversion logic needs to be applied.
+        if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
+            // Convert the assets to the current assets after the split using the convert function from the tokenManager.
+            // currentAssets holds the equivalent amount of assets in the current token after accounting for the split.
+            (, uint256 currentAssets) = tokenManager.convert(underlyingDShare, assets);
+
+            // Preview the amount of shares that should be issued for the converted assets.
+            // This step is crucial to ensure that the correct amount of shares are issued post-conversion.
+            uint256 currentShares = previewDeposit(currentAssets);
+
+            // Call the parent _deposit function with the converted assets and shares.
+            // This will handle the actual deposit logic with the updated values.
+            super._deposit(by, to, currentAssets, currentShares);
+        } else {
+            // If the token is current (no splits), call the parent _deposit function with the original assets and shares.
+            // This is the standard deposit logic without any conversion necessary.
+            super._deposit(by, to, assets, shares);
+        }
     }
 
     /// @dev For withdrawals and redemptions.

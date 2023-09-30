@@ -5,10 +5,12 @@ import "forge-std/Test.sol";
 import {dShare} from "../src/dShare.sol";
 import {xdShare} from "../src/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
+import {TokenManager} from "../src/TokenManager.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract xdShareTest is Test {
     TransferRestrictor public restrictor;
+    TokenManager tokenManager;
     dShare public token;
     xdShare public xToken;
 
@@ -17,20 +19,34 @@ contract xdShareTest is Test {
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
-        token = new dShare(
-            address(this),
-            "Dinari Token",
-            "dTKN",
-            "example.com",
-            restrictor
-        );
+        tokenManager = new TokenManager(restrictor);
+        // token = new dShare(
+        //     address(this),
+        //     "Dinari Token",
+        //     "dTKN",
+        //     "example.com",
+        //     restrictor
+        // );
+        token = tokenManager.deployNewToken(address(this), "Dinari Token", "dTKN");
+        token.grantRole(token.MINTER_ROLE(), address(this));
 
-        xToken = new xdShare(token);
+        xToken = new xdShare(token, tokenManager);
+    }
+
+    function overflowChecker(uint256 a, uint256 b) internal pure returns (bool) {
+        if (a == 0 || b == 0) {
+            return false;
+        }
+        uint256 c;
+        unchecked {
+            c = a * b;
+        }
+        return c / a != b;
     }
 
     function testMetadata() public {
-        assertEq(xToken.name(), "Reinvesting dTKN");
-        assertEq(xToken.symbol(), "dTKN.x");
+        assertEq(xToken.name(), "Reinvesting dTKN.d");
+        assertEq(xToken.symbol(), "dTKN.d.x");
         assertEq(xToken.decimals(), 18);
         assertEq(xToken.asset(), address(token));
     }
@@ -154,7 +170,37 @@ contract xdShareTest is Test {
         xToken.withdraw(shares, user, user);
 
         assertEq(xToken.balanceOf(user), 0);
-        token.approve(address(xToken), amount);
+    }
+
+    function testDepositSplit(address user, uint128 supply, uint8 multiple) public {
+        vm.assume(user != address(0));
+        vm.assume(supply > 0);
+        vm.assume(multiple > 2);
+        token.mint(user, supply);
+
+        // deposit and withdraw first
+        vm.prank(user);
+        token.approve(address(xToken), supply);
+
+        vm.prank(user);
+        uint256 shares = xToken.deposit(supply, user);
+        assertEq(xToken.balanceOf(user), shares);
+
+        vm.prank(user);
+        xToken.withdraw(shares, user, user);
+
+        if (overflowChecker(supply, multiple)) {
+            tokenManager.split(token, multiple, true);
+
+            vm.prank(user);
+            token.approve(address(xToken), supply);
+
+            vm.prank(user);
+            uint256 share1 = xToken.deposit(supply, user);
+            assertEq(xToken.balanceOf(user), share1);
+            assertLt(shares, share1);
+            assertEq(shares * multiple, share1);
+        }
     }
 
     function testTransferRestrictedToReverts(uint128 amount, address user) public {
