@@ -38,7 +38,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
-    event NewPaymentOracleAdded(address paymentToken, address oracle);
+    event PaymentOracleUpdated(address paymentToken, address oracle);
 
     /// ------------------------------- Constants -------------------------------
 
@@ -125,9 +125,9 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      * @param _paymentAsset asset to add oracle
      * @param _oracle chainlink oracle address
      */
-    function addOracle(address _paymentAsset, address _oracle) external onlyOwner {
+    function updateOracle(address _paymentAsset, address _oracle) external onlyOwner {
         paymentOracle[_paymentAsset] = _oracle;
-        emit NewPaymentOracleAdded(_paymentAsset, _oracle);
+        emit PaymentOracleUpdated(_paymentAsset, _oracle);
     }
 
     /**
@@ -210,9 +210,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     function _validateForwardRequest(ForwardRequest calldata metaTx) internal {
         if (metaTx.deadline < block.timestamp) revert ExpiredRequest();
         if (!isSupportedModule[metaTx.to]) revert NotSupportedModule();
-
-        // _verifyPriceAttestation(metaTx.paymentTokenOraclePrice);
-
         // slither-disable-next-line unused-return
         _useCheckedNonce(metaTx.user, metaTx.nonce);
 

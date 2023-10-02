@@ -81,7 +81,7 @@ contract dShareCompatTest is Test {
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(sellIssuer), true);
         forwarder.setRelayer(relayer, true);
-        forwarder.addOracle(address(paymentToken), usdcPriceOracle);
+        forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
         vm.stopPrank();
 
         // set issuer forwarder role

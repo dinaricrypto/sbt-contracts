@@ -79,7 +79,7 @@ contract ForwarderRequestCancelTest is Test {
         forwarder = new Forwarder();
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setRelayer(relayer, true);
-        forwarder.addOracle(address(paymentToken), usdcPriceOracle);
+        forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
         vm.stopPrank();
 
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));

@@ -125,7 +125,7 @@ contract ForwarderTest is Test {
         vm.prank(owner);
         forwarder.setFeeBps(100);
         vm.prank(owner);
-        forwarder.addOracle(address(paymentToken), usdcPriceOracle);
+        forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
     }
 
     function testDeployment(uint256 cancellationCost) public {
