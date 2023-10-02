@@ -170,6 +170,7 @@ contract xdShareTest is Test {
         xToken.withdraw(shares, user, user);
 
         assertEq(xToken.balanceOf(user), 0);
+        assertEq(token.balanceOf(address(xToken)), 0);
     }
 
     function testDepositSplit(address user, address user2, uint128 supply, uint8 multiple, bool reverse) public {
@@ -185,11 +186,18 @@ contract xdShareTest is Test {
             token.approve(address(xToken), supply);
 
             vm.prank(user);
-            uint256 shares = xToken.deposit(supply, user);
-            assertGt(shares, 0);
+            uint256 shares1 = xToken.deposit(supply, user);
+            assertGt(shares1, 0);
+
+            // withdraw
+            vm.prank(user);
+            xToken.withdraw(shares1, user, user);
+
+            assertEq(xToken.balanceOf(user), 0);
+            assertEq(token.balanceOf(address(xToken)), 0);
 
             assertEq(token.balanceOf(address(xToken)), supply);
-            assertEq(xToken.balanceOf(user), shares);
+            assertEq(xToken.balanceOf(user), shares1);
 
             (dShare newToken,) = tokenManager.split(token, multiple, reverse);
             tokenManager.convertVaultBalance(newToken, address(xToken));
@@ -207,14 +215,13 @@ contract xdShareTest is Test {
 
             uint256 splitAmount = tokenManager.splitAmount(multiple, reverse, supply);
 
-            // vm.prank(user);
-            // newToken.approve(address(xToken), 2**256 -1);
-
             vm.prank(user);
-            shares = xToken.deposit(supply, user);
+            uint256 shares2 = xToken.deposit(supply, user);
             assertEq(token.balanceOf(user), 0);
+            // token has been converted
+            assertEq(token.balanceOf(address(xToken)), 0);
             assertEq(newToken.balanceOf(address(xToken)), splitAmount);
-            assertLt(shares, xToken.balanceOf(user));
+            assert(shares1 != shares2);
         }
     }
 
