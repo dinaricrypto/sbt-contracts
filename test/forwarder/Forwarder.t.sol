@@ -723,7 +723,7 @@ contract ForwarderTest is Test {
             to: to,
             paymentToken: _paymentToken,
             data: data,
-            deadline: block.timestamp + 30 days,
+            deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
             signature: abi.encodePacked(r2, s2, v2)
         });

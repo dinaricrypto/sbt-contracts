@@ -11,7 +11,7 @@ interface IForwarder {
         address paymentToken; // token use to pay transaction
         bytes data; // Encoded function call that the user wants to execute
             // through the meta-transaction.
-        uint256 deadline; // The time by which the meta-transaction must be mined.
+        uint64 deadline; // The time by which the meta-transaction must be mined.
         uint256 nonce; // A nonce to prevent replay attacks. It must be unique
             // for each meta-transaction made by the user.
         bytes signature; // ECDSA signature of the user authorizing the meta-transaction.
