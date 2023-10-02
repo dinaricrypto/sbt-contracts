@@ -172,34 +172,55 @@ contract xdShareTest is Test {
         assertEq(xToken.balanceOf(user), 0);
     }
 
-    function testDepositSplit(address user, uint128 supply, uint8 multiple) public {
+    function testDepositSplit(address user, address user2, uint128 supply, uint8 multiple, bool reverse) public {
         vm.assume(user != address(0));
-        vm.assume(supply > 0);
-        vm.assume(multiple > 2);
+        vm.assume(user2 != address(0));
+        // vm.assume(supply > 0);
+        // vm.assume(multiple > 2);
         token.mint(user, supply);
+        token.mint(user2, supply);
 
         // deposit and withdraw first
         vm.prank(user);
         token.approve(address(xToken), supply);
 
         vm.prank(user);
-        uint256 shares = xToken.deposit(supply, user);
-        assertEq(xToken.balanceOf(user), shares);
+        xToken.deposit(supply, user);
 
-        vm.prank(user);
-        xToken.withdraw(shares, user, user);
+        assertEq(token.balanceOf(address(xToken)), supply);
 
-        if (overflowChecker(supply, multiple)) {
-            tokenManager.split(token, multiple, true);
+        // vm.prank(user);
+        // xToken.withdraw(shares, user, user);
 
-            vm.prank(user);
-            token.approve(address(xToken), supply);
+        if (supply > 0 && multiple > 2) {
+            (dShare newToken,) = tokenManager.split(token, multiple, reverse);
+            tokenManager.convertVaultBalance(newToken, address(xToken));
+            // check if token has been burn
+            assertEq(token.balanceOf(address(xToken)), 0);
+            vm.assume(overflowChecker(supply, multiple));
+            if (reverse) {
+                assertEq(newToken.balanceOf(address(xToken)), supply / multiple);        
+            } else {
+                assertEq(newToken.balanceOf(address(xToken)), supply * multiple);       
+            }
 
-            vm.prank(user);
-            uint256 share1 = xToken.deposit(supply, user);
-            assertEq(xToken.balanceOf(user), share1);
-            assertLt(shares, share1);
-            assertEq(shares * multiple, share1);
+            // vm.prank(user);
+            // token.approve(address(xToken), supply);
+
+            // uint256 splitAmount = tokenManager.splitAmount(multiple, reverse, supply);
+
+            
+
+            // vm.prank(user);
+            // newToken.approve(address(xToken), 2**256 -1);
+
+            // vm.prank(user);
+            // xToken.deposit(supply, user);
+            // assertEq(token.balanceOf(user), 0);
+            // assertEq(newToken.balanceOf(address(xToken)), splitAmount);
+            // assertEq(newToken.balanceOf(user), 0);
+            // assertLt(shares, share1);
+            // assertEq(shares * multiple * 2, share1);
         }
     }
 
