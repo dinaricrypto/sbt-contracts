@@ -177,7 +177,7 @@ contract ForwarderRequestCancelTest is Test {
             to: to,
             paymentToken: _paymentToken,
             data: data,
-            deadline: block.timestamp + 30 days,
+            deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
         });
 
