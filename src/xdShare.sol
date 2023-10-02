@@ -110,7 +110,9 @@ contract xdShare is Ownable, ERC4626, IxdShare {
             underlyingDShare.approve(address(tokenManager), assets);
             // convert dShare to current one
             (, uint256 currentAssets) = tokenManager.convert(underlyingDShare, assets);
-            // todo mint shares for user
+            shares = previewDeposit(currentAssets);
+            // mint
+            super._mint(to, shares);
         } else {
             // If the token is current (no splits), call the parent _deposit function with the original assets and shares.
             // This is the standard deposit logic without any conversion necessary.
