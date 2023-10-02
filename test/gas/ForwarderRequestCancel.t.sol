@@ -11,7 +11,6 @@ import "../../src/orders/IOrderProcessor.sol";
 import "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import "../utils/SigMeta.sol";
-import "../utils/SigPrice.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 
@@ -23,7 +22,6 @@ contract ForwarderRequestCancelTest is Test {
     dShare public token;
 
     SigMeta public sigMeta;
-    SigPrice public sigPrice;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
@@ -85,7 +83,6 @@ contract ForwarderRequestCancelTest is Test {
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
-        sigPrice = new SigPrice(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
