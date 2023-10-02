@@ -95,7 +95,7 @@ contract DeployAllScript is Script {
 
         /// ------------------ forwarder ------------------
 
-        Forwarder forwarder = new Forwarder(5 minutes);
+        Forwarder forwarder = new Forwarder();
         forwarder.setFeeBps(2000);
 
         forwarder.setSupportedModule(address(buyProcessor), true);
@@ -103,8 +103,6 @@ contract DeployAllScript is Script {
         forwarder.setSupportedModule(address(directBuyIssuer), true);
 
         forwarder.setRelayer(cfg.relayer, true);
-
-        forwarder.setTrustedOracle(cfg.oracle, true);
 
         buyProcessor.grantRole(buyProcessor.FORWARDER_ROLE(), address(forwarder));
         sellProcessor.grantRole(sellProcessor.FORWARDER_ROLE(), address(forwarder));

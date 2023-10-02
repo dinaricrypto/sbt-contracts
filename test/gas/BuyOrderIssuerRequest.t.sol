@@ -64,7 +64,7 @@ contract BuyProcessorRequestTest is Test {
             spender: address(issuer),
             value: type(uint256).max,
             nonce: 0,
-            deadline: 30 days
+            deadline: block.timestamp + 30 days
         });
 
         bytes32 digest = sigUtils.getTypedDataHash(permit);
@@ -86,14 +86,21 @@ contract BuyProcessorRequestTest is Test {
 
         calls = new bytes[](2);
         calls[0] = abi.encodeWithSelector(
-            issuer.selfPermit.selector, address(paymentToken), user, type(uint256).max, 30 days, v, r, s
+            issuer.selfPermit.selector,
+            address(paymentToken),
+            user,
+            type(uint256).max,
+            block.timestamp + 30 days,
+            v,
+            r,
+            s
         );
         calls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, order, bytes32("0x01"));
     }
 
     function testSelfPermit() public {
         vm.prank(user);
-        issuer.selfPermit(address(paymentToken), user, type(uint256).max, 30 days, v, r, s);
+        issuer.selfPermit(address(paymentToken), user, type(uint256).max, block.timestamp + 30 days, v, r, s);
     }
 
     function testRequestOrderWithPermitSingle() public {

@@ -11,8 +11,6 @@ import "./utils/SigUtils.sol";
 import "../src/orders/IOrderProcessor.sol";
 import "./utils/mocks/MockToken.sol";
 import "./utils/SigMeta.sol";
-import "./utils/SigPrice.sol";
-import "../src/forwarder/PriceAttestationConsumer.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../src/common/FeeLib.sol";
@@ -27,7 +25,6 @@ contract dShareCompatTest is Test {
     ERC20 public token;
 
     SigMeta public sigMeta;
-    SigPrice public sigPrice;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
@@ -48,6 +45,8 @@ contract dShareCompatTest is Test {
     address public owner;
     address constant treasury = address(4);
     address constant operator = address(3);
+    address constant ethUSDOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
+    address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
     uint64 priceRecencyThreshold = 30 seconds;
 
@@ -78,11 +77,11 @@ contract dShareCompatTest is Test {
         sellIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(priceRecencyThreshold);
+        forwarder = new Forwarder();
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(sellIssuer), true);
-        forwarder.setTrustedOracle(relayer, true);
         forwarder.setRelayer(relayer, true);
+        forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
         vm.stopPrank();
 
         // set issuer forwarder role
@@ -90,7 +89,6 @@ contract dShareCompatTest is Test {
         sellIssuer.grantRole(sellIssuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
-        sigPrice = new SigPrice(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
@@ -123,15 +121,12 @@ contract dShareCompatTest is Test {
 
         uint256 nonce = 0;
 
-        // 4. Mint tokens
+        // Mint tokens
         deal(address(paymentToken), user, quantityIn * 1e6);
-
-        //  Prepare PriceAttestation
-        PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
 
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), data, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -168,12 +163,9 @@ contract dShareCompatTest is Test {
         deal(address(token), user, order.assetTokenQuantity * 1e6);
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
-        //  Prepare PriceAttestation
-        PriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
-
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(sellIssuer), data, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(sellIssuer), address(paymentToken), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
@@ -207,12 +199,9 @@ contract dShareCompatTest is Test {
 
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
-        //  Prepare PriceAttestation
-        IPriceAttestationConsumer.PriceAttestation memory attestation = preparePriceAttestation();
-
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), data, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -225,7 +214,7 @@ contract dShareCompatTest is Test {
         nonce += 1;
         bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
         Forwarder.ForwardRequest memory metaTx1 =
-            prepareForwardRequest(user, address(issuer), dataCancel, nonce, attestation, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx1);
 
@@ -235,25 +224,6 @@ contract dShareCompatTest is Test {
     }
 
     // utils functions
-
-    function preparePriceAttestation() internal view returns (IPriceAttestationConsumer.PriceAttestation memory) {
-        SigPrice.PriceAttestation memory priceAttestation = SigPrice.PriceAttestation({
-            token: address(paymentToken),
-            price: paymentTokenPrice,
-            timestamp: uint64(block.timestamp),
-            chainId: block.chainid
-        });
-        bytes32 digestPrice = sigPrice.getTypedDataHashForPriceAttestation(priceAttestation);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(relayerPrivateKey, digestPrice);
-        IPriceAttestationConsumer.PriceAttestation memory attestation = IPriceAttestationConsumer.PriceAttestation({
-            token: priceAttestation.token,
-            price: priceAttestation.price,
-            timestamp: priceAttestation.timestamp,
-            chainId: priceAttestation.chainId,
-            signature: abi.encodePacked(r, s, v)
-        });
-        return attestation;
-    }
 
     // set Permit for user
     function preparePermitCall(
@@ -268,7 +238,7 @@ contract dShareCompatTest is Test {
             spender: address(forwarder),
             value: type(uint256).max,
             nonce: _nonce,
-            deadline: 30 days
+            deadline: block.timestamp + 30 days
         });
         bytes32 digest = permitSigUtils.getTypedDataHash(sigPermit);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, digest);
@@ -280,18 +250,18 @@ contract dShareCompatTest is Test {
     function prepareForwardRequest(
         address _user,
         address to,
+        address _paymentToken,
         bytes memory data,
         uint256 nonce,
-        IPriceAttestationConsumer.PriceAttestation memory attestation,
         uint256 _privateKey
     ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
         SigMeta.ForwardRequest memory MetaTx = SigMeta.ForwardRequest({
             user: _user,
             to: to,
+            paymentToken: _paymentToken,
             data: data,
-            deadline: 30 days,
-            nonce: nonce,
-            paymentTokenOraclePrice: attestation
+            deadline: uint64(block.timestamp + 30 days),
+            nonce: nonce
         });
 
         bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
@@ -300,10 +270,10 @@ contract dShareCompatTest is Test {
         metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
+            paymentToken: _paymentToken,
             data: data,
-            deadline: 30 days,
+            deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
-            paymentTokenOraclePrice: attestation,
             signature: abi.encodePacked(r2, s2, v2)
         });
     }

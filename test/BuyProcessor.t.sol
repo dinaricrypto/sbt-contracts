@@ -277,8 +277,13 @@ contract BuyProcessorTest is Test {
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
         paymentToken.mint(user, quantityIn * 1e6);
 
-        SigUtils.Permit memory permit =
-            SigUtils.Permit({owner: user, spender: address(issuer), value: quantityIn, nonce: 0, deadline: 30 days});
+        SigUtils.Permit memory permit = SigUtils.Permit({
+            owner: user,
+            spender: address(issuer),
+            value: quantityIn,
+            nonce: 0,
+            deadline: block.timestamp + 30 days
+        });
 
         bytes32 digest = sigUtils.getTypedDataHash(permit);
 
