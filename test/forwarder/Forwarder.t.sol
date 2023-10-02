@@ -28,6 +28,7 @@ contract ForwarderTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
+    event PaymentOracleUpdated(address paymentToken, address oracle);
 
     error InsufficientBalance();
 
@@ -126,6 +127,18 @@ contract ForwarderTest is Test {
         forwarder.setFeeBps(100);
         vm.prank(owner);
         forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
+    }
+
+
+    function testUpdateOracle(address _paymentToken, address _oracle) public {
+        vm.expectRevert("Ownable: caller is not the owner");
+        forwarder.updateOracle(_paymentToken, _oracle);
+
+        
+        vm.expectEmit(true, true, true, true);
+        emit PaymentOracleUpdated(_paymentToken, _oracle);
+        vm.prank(owner);
+        forwarder.updateOracle(_paymentToken, _oracle);
     }
 
     function testDeployment(uint256 cancellationCost) public {
