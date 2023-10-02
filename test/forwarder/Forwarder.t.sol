@@ -129,12 +129,10 @@ contract ForwarderTest is Test {
         forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
     }
 
-
     function testUpdateOracle(address _paymentToken, address _oracle) public {
         vm.expectRevert("Ownable: caller is not the owner");
         forwarder.updateOracle(_paymentToken, _oracle);
 
-        
         vm.expectEmit(true, true, true, true);
         emit PaymentOracleUpdated(_paymentToken, _oracle);
         vm.prank(owner);
