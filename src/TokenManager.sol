@@ -7,7 +7,7 @@ import {dShare} from "./dShare.sol";
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {IxdShare} from "./IxDShare.sol";
+import {IxdShare} from "./IxdShare.sol";
 
 // TODO: migrate existing tokens
 contract TokenManager is Ownable2Step {
