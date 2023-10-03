@@ -17,6 +17,7 @@ contract SellProcessorTest is Test {
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
+    event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
     dShare token;
     TokenLockCheck tokenLockCheck;
@@ -96,6 +97,32 @@ contract SellProcessorTest is Test {
             assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
             assertEq(issuer.escrowedBalanceOf(order.assetToken, user), quantityIn);
         }
+    }
+
+    function testInvalidPrecisionRequestOrder() public {
+        uint256 orderAmount = 100000255;
+        OrderProcessor.Order memory order = dummyOrder;
+
+        vm.expectEmit(true, true, true, true);
+        emit MaxOrderDecimalsSet(order.assetToken, 2);
+        issuer.setMaxOrderDecimals(order.assetToken, 2);
+        order.assetTokenQuantity = orderAmount;
+
+        token.mint(user, order.assetTokenQuantity);
+        vm.prank(user);
+        token.increaseAllowance(address(issuer), order.assetTokenQuantity);
+
+        vm.expectRevert(OrderProcessor.InvalidPrecision.selector);
+        vm.prank(user);
+        issuer.requestOrder(order);
+
+        // update OrderAmount
+        order.assetTokenQuantity = 100000;
+
+        token.increaseAllowance(address(issuer), order.assetTokenQuantity);
+
+        vm.prank(user);
+        issuer.requestOrder(order);
     }
 
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
