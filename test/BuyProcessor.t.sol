@@ -166,37 +166,6 @@ contract BuyProcessorTest is Test {
         }
     }
 
-    // function testInvalidPrecisionRequestOrder() public {
-    //     uint256 orderAmount = 100000255;
-    //     OrderProcessor.Order memory order = dummyOrder;
-    //     uint256 fees = issuer.estimateTotalFeesForOrder(address(paymentToken), orderAmount);
-
-    //     vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-
-    //     vm.expectEmit(true, true, true, true);
-    //     emit OrderDecimalsSet(order.paymentToken, 2);
-    //     issuer.setOrderDecimals(order.paymentToken, 2);
-    //     order.paymentTokenQuantity = orderAmount;
-    //     uint256 quantityIn = order.paymentTokenQuantity + fees;
-
-    //     paymentToken.mint(user, quantityIn);
-    //     vm.prank(user);
-    //     paymentToken.increaseAllowance(address(issuer), quantityIn);
-
-    //     vm.expectRevert(OrderProcessor.InvalidPrecision.selector);
-    //     vm.prank(user);
-    //     issuer.requestOrder(order);
-
-    //     // update OrderAmount
-    //     order.paymentTokenQuantity = 100000;
-    //     quantityIn = order.paymentTokenQuantity + fees;
-
-    //     paymentToken.increaseAllowance(address(issuer), quantityIn);
-
-    //     vm.prank(user);
-    //     issuer.requestOrder(order);
-    // }
-
     function testRequestOrderZeroAddressReverts() public {
         IOrderProcessor.Order memory order = dummyOrder;
         order.recipient = address(0);
