@@ -99,7 +99,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     /// @dev Emitted when OrderDecimal is set
-    event OrderDecimalsSet(address indexed assetToken, uint256 decimals);
+    event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
     /// ------------------ Constants ------------------ ///
 
@@ -151,7 +151,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     mapping(address => mapping(address => uint256)) public escrowedBalanceOf;
 
     /// @inheritdoc IOrderProcessor
-    mapping(address => uint256) public orderDecimals;
+    mapping(address => uint256) public maxOrderDecimals;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -232,9 +232,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
-    function setOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        orderDecimals[token] = decimals;
-        emit OrderDecimalsSet(token, decimals);
+    function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxOrderDecimals[token] = decimals;
+        emit MaxOrderDecimalsSet(token, decimals);
     }
 
     /// ------------------ Getters ------------------ ///
@@ -313,8 +313,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         if (orderAmount == 0) revert ZeroValue();
 
         // Precision checked for assetTokenQuantity
-        uint256 assetPrecision = 10 ** orderDecimals[order.paymentToken];
-        if (order.paymentTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
+        uint256 assetPrecision = 10 ** maxOrderDecimals[order.assetToken];
+        if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
 
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);
