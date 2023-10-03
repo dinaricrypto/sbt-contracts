@@ -39,7 +39,9 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
     event PaymentOracleUpdated(address paymentToken, address oracle);
-    event UserOperationSponsored(address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice);
+    event UserOperationSponsored(
+        address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice
+    );
 
     /// ------------------------------- Constants -------------------------------
 
