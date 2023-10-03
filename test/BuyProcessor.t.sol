@@ -25,6 +25,7 @@ contract BuyProcessorTest is Test {
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
+    event OrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
     dShare token;
     BuyProcessor issuer;
@@ -164,6 +165,37 @@ contract BuyProcessorTest is Test {
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + (quantityIn));
             assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn);
         }
+    }
+
+    function testInvalidPrecisionRequestOrder() public {
+        uint256 orderAmount = 100000255;
+        OrderProcessor.Order memory order = dummyOrder;
+        uint256 fees = issuer.estimateTotalFeesForOrder(address(paymentToken), orderAmount);
+
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+
+        vm.expectEmit(true, true, true, true);
+        emit OrderDecimalsSet(order.paymentToken, 2);
+        issuer.setOrderDecimals(order.paymentToken, 2);
+        order.paymentTokenQuantity = orderAmount;
+        uint256 quantityIn = order.paymentTokenQuantity + fees;
+
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
+
+        vm.expectRevert(OrderProcessor.InvalidPrecision.selector);
+        vm.prank(user);
+        issuer.requestOrder(order);
+
+        // update OrderAmount
+        order.paymentTokenQuantity = 100000;
+        quantityIn = order.paymentTokenQuantity + fees;
+
+        paymentToken.increaseAllowance(address(issuer), quantityIn);
+
+        vm.prank(user);
+        issuer.requestOrder(order);
     }
 
     function testRequestOrderZeroAddressReverts() public {
