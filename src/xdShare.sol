@@ -27,7 +27,6 @@ contract xdShare is Ownable, ERC4626, IxdShare {
 
     bool public isLocked;
 
-
     error DepositsPaused();
     error WithdrawalsPaused();
 
