@@ -294,7 +294,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         emit UserOperationSponsored(user, actualTokenCharge, totalGasCostInWei, paymentTokenPrice);
         // Transfer the payment for gas fees
         // slither-disable-next-line arbitrary-send-erc20
-        IERC20(paymentToken).safeTransferFrom(user, msg.sender, paymentAmount + fee);
+        IERC20(paymentToken).safeTransferFrom(user, msg.sender, actualTokenCharge);
     }
 
     // slither-disable-next-line naming-convention
