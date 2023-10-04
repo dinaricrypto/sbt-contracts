@@ -22,15 +22,14 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     using SafeERC20 for IERC20;
 
     /// @notice Reference to the underlying dShare contract.
-    dShare public immutable underlyingDShare;
+    dShare public underlyingDShare;
     TokenManager public tokenManager;
 
     bool public isLocked;
-    bool public split;
+
 
     error DepositsPaused();
     error WithdrawalsPaused();
-    error NotTokenManager();
 
     event VaultLocked();
     event VaultUnlocked();
@@ -83,13 +82,12 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     }
 
     /// ------------------- Splitting Operations Lifecycle ------------------- ///
-    function convertVaultBalance(dShare newToken) public {
-        if (msg.sender != address(tokenManager)) revert NotTokenManager();
-        if (address(tokenManager.parentToken(newToken)) != address(0) && !split) {
-            split = true;
-            underlyingDShare.approve(address(tokenManager), underlyingDShare.balanceOf(address(this)));
+    function _convertVaultBalance() internal {
+        underlyingDShare.approve(address(tokenManager), underlyingDShare.balanceOf(address(this)));
+        (dShare newUnderlyingDShare,) =
             tokenManager.convert(underlyingDShare, underlyingDShare.balanceOf(address(this)));
-        }
+        // update underlyDshare
+        underlyingDShare = newUnderlyingDShare;
     }
 
     /// ------------------- Vault Operations Lifecycle ------------------- ///
@@ -112,7 +110,9 @@ contract xdShare is Ownable, ERC4626, IxdShare {
             (, uint256 currentAssets) = tokenManager.convert(underlyingDShare, assets);
             shares = previewDeposit(currentAssets);
             // mint
-            super._mint(to, shares);
+            super._mint(by, shares);
+            // convert vault and update new dShare
+            _convertVaultBalance();
         } else {
             // If the token is current (no splits), call the parent _deposit function with the original assets and shares.
             // This is the standard deposit logic without any conversion necessary.
@@ -129,7 +129,11 @@ contract xdShare is Ownable, ERC4626, IxdShare {
         override
     {
         if (isLocked) revert WithdrawalsPaused();
-        super._withdraw(by, to, owner, assets, shares);
+        if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
+            super._withdraw(by, to, owner, assets, shares);
+        } else {
+            super._withdraw(by, to, owner, assets, shares);
+        }
     }
 
     /**

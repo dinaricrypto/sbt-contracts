@@ -7,7 +7,6 @@ import {dShare} from "./dShare.sol";
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {IxdShare} from "./IxdShare.sol";
 
 // TODO: migrate existing tokens
 contract TokenManager is Ownable2Step {
@@ -246,10 +245,6 @@ contract TokenManager is Ownable2Step {
         string memory timestamp = block.timestamp.toString();
         token.setName(string.concat(name, " - pre", timestamp));
         token.setSymbol(string.concat(symbol, ".p", timestamp));
-    }
-
-    function convertVaultBalance(dShare newToken, address xdShare) public {
-        IxdShare(address(xdShare)).convertVaultBalance(newToken);
     }
 
     /// @notice Convert a token amount to current token after split

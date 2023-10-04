@@ -18,8 +18,6 @@ interface IxdShare {
 
     /// @notice Unlocks the xdShare, making it operational.
     function unlock() external;
-
-    function convertVaultBalance(dShare newToken) external;
     /**
      * @param account The address of the account
      * @return Whether the account is blacklisted
