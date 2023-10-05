@@ -428,6 +428,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         (uint256 paymentEarned, uint256 feesEarned) =
             _fillOrderAccounting(id, order, orderState, orderInfo.unfilledAmount, fillAmount, receivedAmount);
 
+        // Notify order filled
+        emit OrderFill(order.recipient, index, fillAmount, receivedAmount, feesEarned);
+
         // Update order state
         uint256 unfilledAmount = orderInfo.unfilledAmount - fillAmount;
         _orderInfo[id].unfilledAmount = unfilledAmount;
@@ -449,9 +452,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             _orders[id].received = orderState.received + receivedAmount;
             _orders[id].feesPaid = feesPaid;
         }
-
-        // Notify order filled
-        emit OrderFill(order.recipient, index, fillAmount, receivedAmount, _orders[id].feesPaid);
 
         // Move tokens
         if (order.sell) {
