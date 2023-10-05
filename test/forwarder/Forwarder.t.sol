@@ -72,7 +72,7 @@ contract ForwarderTest is Test {
         owner = vm.addr(ownerPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
