@@ -57,7 +57,7 @@ contract ForwarderRequestCancelTest is Test {
         owner = vm.addr(ownerPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)

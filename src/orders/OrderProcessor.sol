@@ -87,6 +87,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     error Blacklist();
     /// @dev Custom error when an order cancellation has already been initiated
     error OrderCancellationInitiated();
+    /// @dev Thrown when assetTokenQuantity's precision doesn't match the expected precision in orderDecimals.
+    error InvalidPrecision();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -96,6 +98,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     event OrdersPaused(bool paused);
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
+    /// @dev Emitted when OrderDecimal is set
+    event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
     /// ------------------ Constants ------------------ ///
 
@@ -145,6 +149,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @inheritdoc IOrderProcessor
     mapping(address => mapping(address => uint256)) public escrowedBalanceOf;
+
+    /// @inheritdoc IOrderProcessor
+    mapping(address => uint256) public maxOrderDecimals;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -225,6 +232,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
+    function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxOrderDecimals[token] = decimals;
+        emit MaxOrderDecimalsSet(token, decimals);
+    }
+
     /// ------------------ Getters ------------------ ///
 
     /// @inheritdoc IOrderProcessor
@@ -299,6 +311,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
         if (orderAmount == 0) revert ZeroValue();
+
+        // Precision checked for assetTokenQuantity
+        uint256 assetPrecision = 10 ** maxOrderDecimals[order.assetToken];
+        if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
+
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
