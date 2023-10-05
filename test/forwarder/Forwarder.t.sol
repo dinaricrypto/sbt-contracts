@@ -29,6 +29,9 @@ contract ForwarderTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
     event PaymentOracleUpdated(address paymentToken, address oracle);
+    event UserOperationSponsored(
+        address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice
+    );
 
     error InsufficientBalance();
 
@@ -228,6 +231,42 @@ contract ForwarderTest is Test {
         assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
         assertLt(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
         assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn);
+    }
+
+    function testRequestUserOperationEvent() public {
+        uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
+
+        IOrderProcessor.Order memory order = dummyOrder;
+
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
+        uint256 nonce = 0;
+
+        // 4. Mint tokens
+        deal(address(paymentToken), user, quantityIn * 1e6);
+
+        //  Prepare ForwardRequest
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
+
+        // calldata
+        bytes[] memory multicalldata = new bytes[](2);
+        multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+
+        uint256 totalGasCostInWei = (gasleft() + forwarder.cancellationGasCost()) * tx.gasprice;
+
+        // 1. Request order
+        vm.expectEmit(true, true, true, false);
+        // emit doesn't check data, just event has been emit
+        emit UserOperationSponsored(
+            metaTx.user,
+            order.paymentTokenQuantity,
+            totalGasCostInWei,
+            forwarder.getPaymentPriceInWei(order.paymentToken)
+        );
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
     }
 
     function testForwarderCancellationFeeSet(uint256 cancellationCost) public {

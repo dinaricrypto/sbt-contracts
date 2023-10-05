@@ -39,6 +39,9 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
     event PaymentOracleUpdated(address paymentToken, address oracle);
+    event UserOperationSponsored(
+        address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice
+    );
 
     /// ------------------------------- Constants -------------------------------
 
@@ -286,9 +289,12 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         // slither-disable-next-line divide-before-multiply
         uint256 fee = (paymentAmount * feeBps) / 10000;
 
+        uint256 actualTokenCharge = paymentAmount + fee;
+
+        emit UserOperationSponsored(user, actualTokenCharge, totalGasCostInWei, paymentTokenPrice);
         // Transfer the payment for gas fees
         // slither-disable-next-line arbitrary-send-erc20
-        IERC20(paymentToken).safeTransferFrom(user, msg.sender, paymentAmount + fee);
+        IERC20(paymentToken).safeTransferFrom(user, msg.sender, actualTokenCharge);
     }
 
     // slither-disable-next-line naming-convention
