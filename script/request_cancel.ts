@@ -1,4 +1,4 @@
-require('dotenv').config({ path: '../.env' });
+import "dotenv/config";
 import { ethers } from "ethers";
 import fs from 'fs';
 
