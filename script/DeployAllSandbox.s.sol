@@ -20,7 +20,6 @@ contract DeployAllSandboxScript is Script {
         address operator;
         address distributor;
         address relayer;
-        address oracle;
     }
 
     uint64 constant perOrderFee = 1 ether;
@@ -35,8 +34,7 @@ contract DeployAllSandboxScript is Script {
             treasury: vm.envAddress("S_TREASURY"),
             operator: vm.envAddress("S_OPERATOR"),
             distributor: vm.envAddress("S_DISTRIBUTOR"),
-            relayer: vm.envAddress("S_RELAYER"),
-            oracle: vm.envAddress("S_ORACLE")
+            relayer: vm.envAddress("S_RELAYER")
         });
 
         console.log("deployer: %s", cfg.deployer);
@@ -141,7 +139,7 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ forwarder ------------------
 
-        Forwarder forwarder = new Forwarder(5 minutes);
+        Forwarder forwarder = new Forwarder();
         forwarder.setFeeBps(2000);
 
         forwarder.setSupportedModule(address(buyProcessor), true);
@@ -149,8 +147,6 @@ contract DeployAllSandboxScript is Script {
         forwarder.setSupportedModule(address(directBuyIssuer), true);
 
         forwarder.setRelayer(cfg.relayer, true);
-
-        forwarder.setTrustedOracle(cfg.oracle, true);
 
         buyProcessor.grantRole(buyProcessor.FORWARDER_ROLE(), address(forwarder));
         sellProcessor.grantRole(sellProcessor.FORWARDER_ROLE(), address(forwarder));

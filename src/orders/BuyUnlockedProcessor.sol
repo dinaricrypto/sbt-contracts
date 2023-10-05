@@ -92,10 +92,10 @@ contract BuyUnlockedProcessor is BuyProcessor {
         bytes32 orderHash = _getOrderHash(id);
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
         // Can only return unused amount
-        uint256 remainingOrder = getRemainingOrder(id);
+        uint256 unfilledAmount = getUnfilledAmount(id);
         uint256 escrow = getOrderEscrow[id];
         // Unused amount = remaining order - remaining escrow
-        if (escrow + amount > remainingOrder) revert AmountTooLarge();
+        if (escrow + amount > unfilledAmount) revert AmountTooLarge();
 
         // Update escrow tracking
         getOrderEscrow[id] = escrow + amount;
@@ -120,32 +120,33 @@ contract BuyUnlockedProcessor is BuyProcessor {
         bytes32 id,
         Order calldata order,
         OrderState memory orderState,
+        uint256 unfilledAmount,
         uint256 fillAmount,
         uint256 receivedAmount
     ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
         // Can't fill more than payment previously taken from escrow
         uint256 escrow = getOrderEscrow[id];
-        if (fillAmount > orderState.remainingOrder - escrow) revert AmountTooLarge();
+        if (fillAmount > unfilledAmount - escrow) revert AmountTooLarge();
 
         paymentEarned = 0;
-        (, feesEarned) = super._fillOrderAccounting(id, order, orderState, fillAmount, receivedAmount);
+        (, feesEarned) = super._fillOrderAccounting(id, order, orderState, unfilledAmount, fillAmount, receivedAmount);
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(bytes32 id, Order calldata order, OrderState memory orderState)
-        internal
-        virtual
-        override
-        returns (uint256 refund)
-    {
+    function _cancelOrderAccounting(
+        bytes32 id,
+        Order calldata order,
+        OrderState memory orderState,
+        uint256 unfilledAmount
+    ) internal virtual override returns (uint256 refund) {
         // Prohibit cancel if escrowed payment has been taken and not returned or filled
         uint256 escrow = getOrderEscrow[id];
-        if (orderState.remainingOrder != escrow) revert UnreturnedEscrow();
+        if (unfilledAmount != escrow) revert UnreturnedEscrow();
 
         // Clear the escrow record
         delete getOrderEscrow[id];
 
         // Standard buy order accounting
-        refund = super._cancelOrderAccounting(id, order, orderState);
+        refund = super._cancelOrderAccounting(id, order, orderState, unfilledAmount);
     }
 }

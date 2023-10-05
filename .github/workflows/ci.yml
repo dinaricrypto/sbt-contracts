@@ -86,8 +86,10 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test -vvv
+          forge test -f $RPC_ARBITRUM -vvv
         id: test
+        env: 
+          RPC_ARBITRUM: ${{ secrets.RPC_ARBITRUM }}
 
   coverage:
     name: Forge Coverage

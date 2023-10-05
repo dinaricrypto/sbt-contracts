@@ -28,6 +28,17 @@ interface IOrderProcessor {
         FOK
     }
 
+    // Order status enum
+    enum OrderStatus
+    // Order is active
+    {
+        ACTIVE,
+        // Order is completely filled
+        FULFILLED,
+        // Order is cancelled
+        CANCELLED
+    }
+
     // Emitted order data for off-chain order fulfillment
     struct Order {
         // Recipient of order fills
@@ -76,13 +87,13 @@ interface IOrderProcessor {
     /// @dev Order ID is used as key to store order state
     function getOrderId(address recipient, uint256 index) external pure returns (bytes32);
 
-    /// @notice Active status of order
+    /// @notice Status of a given order
     /// @param id Order ID
-    function isOrderActive(bytes32 id) external view returns (bool);
+    function getOrderStatus(bytes32 id) external view returns (OrderStatus);
 
     /// @notice Get remaining order quantity to fill
     /// @param id Order ID
-    function getRemainingOrder(bytes32 id) external view returns (uint256);
+    function getUnfilledAmount(bytes32 id) external view returns (uint256);
 
     /// @notice Get total received for order
     /// @param id Order ID
@@ -93,6 +104,11 @@ interface IOrderProcessor {
     /// @param user The address of the user for which the escrowed balance is fetched
     /// @return Returns the total amount of the specific token held in escrow for the given user
     function escrowedBalanceOf(address token, address user) external view returns (uint256);
+
+    /// @notice This function retrieves the number of decimal places configured for a given token
+    /// @param token The address of the token for which the number of decimal places is fetched
+    /// @return Returns the number of decimal places set for the specified token
+    function maxOrderDecimals(address token) external view returns (uint256);
 
     /// @notice Get fee rates for an order
     /// @param token Payment token for order
