@@ -42,7 +42,7 @@ contract BuyUnlockedProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("USD Coin", "USDC");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 

@@ -46,7 +46,7 @@ contract BuyProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("USD Coin", "USDC");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
@@ -227,7 +227,7 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrderUnsupportedPaymentReverts() public {
-        address tryPaymentToken = address(new MockToken());
+        address tryPaymentToken = address(new MockToken("USD Coin", "USDC"));
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;

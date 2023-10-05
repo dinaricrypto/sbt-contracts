@@ -13,8 +13,8 @@ contract TokenLockTest is Test {
 
     function setUp() public {
         user = address(1);
-        token = new MockToken();
-        token2 = new MockToken();
+        token = new MockToken("USD Coin", "USDC");
+        token2 = new MockToken("USD Coin", "USDC");
         tokenLockCheck = new TokenLockCheck(address(token), address(token2));
     }
 

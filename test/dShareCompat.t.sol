@@ -59,7 +59,7 @@ contract dShareCompatTest is Test {
         owner = vm.addr(ownerPrivateKey);
 
         token = new MockERC20("Money", "$", 6);
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("USD Coin", "USDC");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
