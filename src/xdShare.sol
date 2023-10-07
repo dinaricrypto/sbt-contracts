@@ -133,8 +133,9 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     }
 
     function migrateOldShareToNewShare() public {
-        if (userMigrationCount[msg.sender] + 1 > migrationCount) revert MigrationAlreadyDone();
+        if (userMigrationCount[msg.sender] >= migrationCount - 1) revert MigrationAlreadyDone();
         _migrateOldShareToNewShare();
+        userMigrationCount[msg.sender] += 1;
     }
 
     /// @dev For withdrawals and redemptions.
