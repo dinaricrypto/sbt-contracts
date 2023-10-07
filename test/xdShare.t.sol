@@ -182,7 +182,7 @@ contract xdShareTest is Test {
         bool reverse
     ) public {
         if (user != address(0) && user2 != address(0) && user3 != address(0)) {
-            vm.assume(supply > 0);
+            vm.assume(supply > 2);
             token.mint(user, supply);
             token.mint(user2, supply);
             token.mint(user3, supply);
@@ -195,39 +195,34 @@ contract xdShareTest is Test {
             vm.startPrank(user);
             token.approve(address(xToken), supply);
 
-            xToken.deposit(supply, user);
+            uint256 share1 = xToken.deposit(supply, user);
 
             assertGt(xToken.balanceOf(user), 0);
             vm.stopPrank();
 
-            // second user deposit after split
+            // deposit after split
             vm.assume(multiple > 2);
-            (dShare newToken,) = tokenManager.split(token, multiple, reverse);
+            tokenManager.split(token, multiple, reverse);
 
-            vm.startPrank(user2);
+            vm.prank(user);
+
+            uint256 share2 = xToken.deposit(0, user);
+            assertEq(share2, 0);
+
+            if (reverse) {
+                assert(xToken.balanceOf(user) < share1);
+                assertEq(xToken.balanceOf(user), share1 / multiple);
+            } else {
+                assert(xToken.balanceOf(user) > share1);
+                assertEq(xToken.balanceOf(user), share1 * multiple);
+            }
+
+            vm.prank(user2);
             token.approve(address(xToken), supply);
 
+            vm.prank(user2);
+            vm.expectRevert(xdShare.DepositsPaused.selector);
             xToken.deposit(supply, user2);
-            vm.stopPrank();
-
-            // let's user 3 deposit
-            vm.startPrank(user3);
-            token.approve(address(tokenManager), supply);
-
-            tokenManager.convert(token, supply);
-
-            uint256 newBalance = newToken.balanceOf(user3);
-
-            // deposit new token
-            newToken.approve(address(xToken), newBalance);
-
-            xToken.deposit(newBalance, user3);
-            vm.stopPrank();
-
-            if (!reverse) {
-                assertGt(xToken.balanceOf(user2), 0);
-                assertGt(xToken.balanceOf(user3), 0);
-            }
         }
     }
 

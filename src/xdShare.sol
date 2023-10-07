@@ -25,10 +25,16 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     dShare public underlyingDShare;
     TokenManager public tokenManager;
 
+    uint8 public totalMutiple = 1;
+    uint8 public migrationCount;
+
     bool public isLocked;
+
+    mapping(address => uint8) private userMigrationCount;
 
     error DepositsPaused();
     error WithdrawalsPaused();
+    error MigrationAlreadyDone();
 
     event VaultLocked();
     event VaultUnlocked();
@@ -70,7 +76,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
 
     /// @inheritdoc IxdShare
     function lock() public onlyOwner {
-        isLocked = true;
+        _lock();
         emit VaultLocked();
     }
 
@@ -101,6 +107,13 @@ contract xdShare is Ownable, ERC4626, IxdShare {
         // Check if the underlying token is the current token.
         // If not true, this means a token split has occurred and conversion logic needs to be applied.
         if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
+            // lock the vault
+            _lock();
+            // update migration count
+            migrationCount += 1;
+            userMigrationCount[to] += 1;
+            // migrate OldDShare to NewDShare
+            _migrateOldShareToNewShare();
             // transfer assets to vault
             IERC20(address(underlyingDShare)).safeTransferFrom(by, address(this), assets);
             // approve token manager to spend dShare
@@ -119,6 +132,11 @@ contract xdShare is Ownable, ERC4626, IxdShare {
         }
     }
 
+    function migrateOldShareToNewShare() public {
+        if (userMigrationCount[msg.sender] + 1 > migrationCount) revert MigrationAlreadyDone();
+        _migrateOldShareToNewShare();
+    }
+
     /// @dev For withdrawals and redemptions.
     ///
     /// Emits a {Withdraw} event.
@@ -129,6 +147,8 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     {
         if (isLocked) revert WithdrawalsPaused();
         if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
+            // convert vault balance
+            _convertVaultBalance();
             super._withdraw(by, to, owner, assets, shares);
         } else {
             super._withdraw(by, to, owner, assets, shares);
@@ -146,6 +166,41 @@ contract xdShare is Ownable, ERC4626, IxdShare {
         if (address(restrictor) != address(0)) {
             restrictor.requireNotRestricted(from, to);
         }
+    }
+
+    /**
+     * @dev Migrate old shares to new shares based on token splits.
+     * @return newShares The adjusted amount of new shares.
+     */
+    function _migrateOldShareToNewShare() internal returns (uint256 newShares) {
+        // Get split information from the TokenManager
+        (, uint8 multiple, bool reverse) = tokenManager.splits(underlyingDShare);
+
+        // Get the balance of the user
+        uint256 userBalance = balanceOf(msg.sender);
+
+        // Calculate newShares based on splits
+        if (reverse) {
+            newShares = userBalance - userBalance / multiple;
+        } else {
+            newShares = userBalance * multiple - userBalance;
+        }
+
+        // Only proceed if newShares is greater than 0
+        if (newShares > 0) {
+            // Adjust user balances by burning or minting newShares
+            if (reverse) {
+                _burn(msg.sender, newShares);
+            } else {
+                _mint(msg.sender, newShares);
+            }
+        }
+        // Return the adjusted amount of new shares
+        return newShares;
+    }
+
+    function _lock() internal {
+        isLocked = true;
     }
 
     /// ------------------- Transfer Restrictions Lifecycle ------------------- ///
