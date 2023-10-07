@@ -6,7 +6,7 @@ import path from 'path';
 const buyProcessorDataPath = path.resolve(__dirname, 'sbt-deployments/src/v0.1.0/buy_processor.json');
 const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
 const buyProcessorAbi = buyProcessorData.abi;
-const buyProcessorAddress =  buyProcessorData.defaultAddress;
+const networkAddresses = buyProcessorData.networkAddresses;
 
 async function main() {
 
@@ -21,10 +21,11 @@ async function main() {
   // setup provider and signer
   const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
+  const chainId = (await provider.getNetwork()).chainId;
 
   // connect signer to buy processor contract
   const buyProcessor = new ethers.Contract(
-    buyProcessorAddress,
+    networkAddresses[chainId],
     buyProcessorAbi,
     signer,
   );

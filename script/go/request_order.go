@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -176,9 +177,29 @@ func main() {
 	}
 
 	// Use the default address from the loaded data if available, otherwise use the constant BuyProcessorAddress
-	processorAddressStr, ok := contractData["defaultAddress"].(string)
+	// Use networkAddresses map from JSON data
+	networkAddresses, ok := contractData["networkAddresses"].(map[string]interface{})
 	if !ok {
-		log.Fatal("defaultAddress not found or not a string in the JSON data")
+		log.Fatal("networkAddresses not found or not a valid map in contract data")
+	}
+
+	// Get the chain ID
+	chainID, err = client.ChainID(context.Background())
+	if err != nil {
+		log.Fatal("Failed to get chain ID:", err)
+	}
+
+	// Convert chain ID to string
+	chainIDStr := strconv.FormatUint(chainID.Uint64(), 10)
+
+	// Get the contract address for the specific chain ID
+	processorAddressStr, ok := networkAddresses[chainIDStr].(string)
+	if !ok {
+		// If the specific chain ID is not found, use the default address
+		processorAddressStr, ok = networkAddresses["default"].(string)
+		if !ok {
+			log.Fatal("Contract address not found for the chain ID or default")
+		}
 	}
 
 	processorAddress := common.HexToAddress(processorAddressStr)
