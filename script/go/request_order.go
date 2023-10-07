@@ -23,7 +23,6 @@ import (
 )
 
 const (
-	BuyProcessorAddress = "0x5d9f4c7C59bfbfBd8b6EAED616466F673E8daa12"
 	AssetToken          = "0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D"
 	PaymentTokenAddress = "0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F"
 )
@@ -165,18 +164,46 @@ func main() {
 	signer, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
 
 	// Setup the ABI (Application Binary Interface) and the contract binding for the processor contract
-	processorAddress := common.HexToAddress(BuyProcessorAddress)
-	fmt.Println("buy processor address at:", processorAddress)
-	// Load ABI from file
-	abiString, err := loadABI("../sbt-deployments/src/v0.1.0/buy_processor.json")
+	data, err := ioutil.ReadFile("../sbt-deployments/src/v0.1.0/buy_processor.json")
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	var contractData map[string]interface{}
+	err = json.Unmarshal(data, &contractData)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Use the default address from the loaded data if available, otherwise use the constant BuyProcessorAddress
+	processorAddressStr, ok := contractData["defaultAddress"].(string)
+	if !ok {
+		log.Fatal("defaultAddress not found or not a string in the JSON data")
+	}
+
+	processorAddress := common.HexToAddress(processorAddressStr)
+	fmt.Println("buy processor address at:", processorAddress)
+
+	// Load ABI from file
+	abiArray, ok := contractData["abi"].([]interface{})
+	if !ok {
+		log.Fatal("ABI not found or not a valid array in contract data")
+	}
+
+	// Convert the array to a JSON string
+	abiBytes, err := json.Marshal(abiArray)
+	if err != nil {
+		log.Fatal("Failed to marshal ABI array to bytes:", err)
+	}
+
+	abiString := string(abiBytes)
 
 	buyProcessorAbi, err := abi.JSON(strings.NewReader(abiString))
 	if err != nil {
 		log.Fatalf("Failed to parse contract ABI: %v", err)
 	}
+
+	// Create the processor contract instance
 	processorContract := bind.NewBoundContract(processorAddress, buyProcessorAbi, client, client, client)
 
 	// ------------------ Configure Order ------------------
@@ -241,7 +268,7 @@ func main() {
 	// Create the message struct for hashing
 	permitDataStruct := map[string]interface{}{
 		"owner":    account.Address.String(),
-		"spender":  BuyProcessorAddress,
+		"spender":  processorAddress.String(),
 		"value":    totalSpendAmount,
 		"nonce":    nonce.Nonce,
 		"deadline": deadlineBigInt,

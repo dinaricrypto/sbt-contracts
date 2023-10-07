@@ -1,11 +1,12 @@
 import "dotenv/config";
 import { ethers } from "ethers";
 import fs from 'fs';
+import path from 'path';
 
-const buyProcessorDataPath = './sbt-deployments/src/v0.1.0/buy_processor.json';
+const buyProcessorDataPath = path.resolve(__dirname, 'sbt-deployments/src/v0.1.0/buy_processor.json');
 const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
 const buyProcessorAbi = buyProcessorData.abi;
-const buyProcessorAddress = "0x1754422ef9910572cCde378a9C07d717eC8D48A0"; 
+const buyProcessorAddress =  buyProcessorData.defaultAddress;
 
 async function main() {
 
