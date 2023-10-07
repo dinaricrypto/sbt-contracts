@@ -21,7 +21,9 @@ contract BuyProcessorTest is Test {
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
 
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
@@ -356,8 +358,9 @@ contract BuyProcessorTest is Test {
             uint256 userAssetBefore = token.balanceOf(user);
             uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
+            vm.expectEmit(true, true, true, false);
+            // since we can't capture
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);

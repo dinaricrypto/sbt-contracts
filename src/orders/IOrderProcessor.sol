@@ -64,7 +64,9 @@ interface IOrderProcessor {
     /// @dev Fully specifies order details and index used to generate order ID
     event OrderRequested(address indexed recipient, uint256 indexed index, Order order);
     /// @dev Emitted for each fill
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
     /// @dev Emitted when order is completely filled, terminal
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     /// @dev Emitted when order cancellation is requested
