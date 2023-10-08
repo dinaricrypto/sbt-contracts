@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
@@ -50,7 +49,7 @@ type OrderStruct struct {
 
 func loadABI(filePath string) (string, error) {
 	// Read the file
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +164,7 @@ func main() {
 	signer, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
 
 	// Setup the ABI (Application Binary Interface) and the contract binding for the processor contract
-	data, err := ioutil.ReadFile("../sbt-deployments/src/v0.1.0/buy_processor.json")
+	data, err := os.ReadFile("../sbt-deployments/src/v0.1.0/buy_processor.json")
 	if err != nil {
 		log.Fatal(err)
 	}
