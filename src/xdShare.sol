@@ -31,10 +31,12 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     bool public isLocked;
 
     mapping(address => uint8) private userMigrationCount;
+    mapping(address => mapping(uint8 => bool)) private userHasMigrated;
 
     error DepositsPaused();
     error WithdrawalsPaused();
     error MigrationAlreadyDone();
+    error UserLostMigrationRight();
 
     event VaultLocked();
     event VaultUnlocked();
@@ -112,6 +114,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
             // update migration count
             migrationCount += 1;
             userMigrationCount[to] += 1;
+            userHasMigrated[to][migrationCount] = true;
             // migrate OldDShare to NewDShare
             _migrateOldShareToNewShare();
             // transfer assets to vault
@@ -132,10 +135,26 @@ contract xdShare is Ownable, ERC4626, IxdShare {
         }
     }
 
-    function migrateOldShareToNewShare() public {
-        if (userMigrationCount[msg.sender] >= migrationCount - 1) revert MigrationAlreadyDone();
-        _migrateOldShareToNewShare();
+    /**
+     * @dev Migrate old shares to new shares based on the current split.
+     * Users can migrate only when their migration count matches the global migration count,
+     * and they haven't migrated for the current count before.
+     */
+    function migrateOldShareToNewShare() public returns (uint256 newShares) {
+        // Check if the user has the right to migrate at the current migration count
+        if (userMigrationCount[msg.sender] + 1 < migrationCount) revert UserLostMigrationRight();
+
+        // Check if the user has already migrated for the current count
+        if (userHasMigrated[msg.sender][migrationCount]) revert MigrationAlreadyDone();
+
+        // Mark that the user has migrated for the current count
+        userHasMigrated[msg.sender][migrationCount] = true;
+
+        // Increment the user's migration count
         userMigrationCount[msg.sender] += 1;
+
+        // Perform the actual migration
+        newShares = _migrateOldShareToNewShare();
     }
 
     /// @dev For withdrawals and redemptions.
@@ -148,9 +167,8 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     {
         if (isLocked) revert WithdrawalsPaused();
         if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
-            // convert vault balance
-            _convertVaultBalance();
-            super._withdraw(by, to, owner, assets, shares);
+            // _lock();
+            // _convertVaultBalance();
         } else {
             super._withdraw(by, to, owner, assets, shares);
         }
