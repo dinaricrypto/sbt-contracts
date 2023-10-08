@@ -429,7 +429,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             _fillOrderAccounting(id, order, orderState, orderInfo.unfilledAmount, fillAmount, receivedAmount);
 
         // Notify order filled
-        emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
+        emit OrderFill(order.recipient, index, fillAmount, receivedAmount, feesEarned);
 
         // Update order state
         uint256 unfilledAmount = orderInfo.unfilledAmount - fillAmount;
