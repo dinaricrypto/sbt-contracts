@@ -227,21 +227,43 @@ contract xdShareTest is Test {
             assertGt(xToken.balanceOf(user), 0);
             vm.stopPrank();
 
-            tokenManager.split(token, multiple, reverse);
+            (dShare newToken1, ) = tokenManager.split(token, multiple, reverse);
 
             vm.prank(user);
             uint256 newShare = xToken.migrateOldShareToNewShare();
+
+            vm.prank(user);
+            vm.expectRevert(xdShare.MigrationAlreadyDone.selector);
+            xToken.migrateOldShareToNewShare();
+
 
             uint256 xTokenBalance = xToken.balanceOf(user);
 
             if (reverse) {
                 assertLt(xTokenBalance, oldxTokenBalance);
                 assertEq(oldxTokenBalance - xTokenBalance, newShare);
-                // assertGt(oldxTokenBalance - xTokenBalance, expectedDifference - tolerance);
             } else {
                 assertGt(xTokenBalance, oldxTokenBalance);
                 assertEq(newShare, oldxTokenBalance * (multiple - 1)); // Expect the correct number of new shares to be minted
             }
+
+
+            (dShare newToken2, )  = tokenManager.split(newToken1, multiple, reverse);
+            tokenManager.split(newToken2, multiple, reverse);
+
+
+            deal(address(token), user, supply);
+            
+            vm.prank(user);
+            token.approve(address(xToken), supply);
+
+            vm.prank(user);
+            xToken.deposit(supply, user);
+
+
+            // vm.prank(user);
+            // vm.expectRevert(xdShare.UserLostMigrationRight.selector);
+            // xToken.migrateOldShareToNewShare();
         }
     }
 

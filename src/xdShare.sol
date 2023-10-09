@@ -34,6 +34,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     mapping(address => mapping(uint8 => bool)) private userHasMigrated;
 
     error DepositsPaused();
+    error MigrationLocked();
     error WithdrawalsPaused();
     error MigrationAlreadyDone();
     error UserLostMigrationRight();
@@ -167,10 +168,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     {
         if (isLocked) revert WithdrawalsPaused();
         if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
-            // convert vault balance
-            _convertVaultBalance();
-            // migrate user share
-            shares = _migrateOldShareToNewShare();
+        
         } else {
             super._withdraw(by, to, owner, assets, shares);
         }
