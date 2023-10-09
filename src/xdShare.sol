@@ -167,9 +167,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
         override
     {
         if (isLocked) revert WithdrawalsPaused();
-        if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
-        
-        } else {
+        if (!tokenManager.isCurrentToken(address(underlyingDShare))) {} else {
             super._withdraw(by, to, owner, assets, shares);
         }
     }
