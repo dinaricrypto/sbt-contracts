@@ -20,13 +20,6 @@ contract xdShareTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         tokenManager = new TokenManager(restrictor);
-        // token = new dShare(
-        //     address(this),
-        //     "Dinari Token",
-        //     "dTKN",
-        //     "example.com",
-        //     restrictor
-        // );
         token = tokenManager.deployNewToken(address(this), "Dinari Token", "dTKN");
         token.grantRole(token.MINTER_ROLE(), address(this));
 
@@ -173,23 +166,16 @@ contract xdShareTest is Test {
         assertEq(token.balanceOf(address(xToken)), 0);
     }
 
-    function testDepositWithdrawSplit(
-        address user,
-        address user2,
-        address user3,
-        uint128 supply,
-        uint8 multiple,
-        bool reverse
-    ) public {
-        if (user != address(0) && user2 != address(0) && user3 != address(0)) {
+    function testDepositWithdrawSplit(address user, address user2, uint128 supply, uint8 multiple, bool reverse)
+        public
+    {
+        if (user != address(0) && user2 != address(0)) {
             vm.assume(supply > 2);
             token.mint(user, supply);
             token.mint(user2, supply);
-            token.mint(user3, supply);
 
             assertEq(xToken.balanceOf(user), 0);
             assertEq(xToken.balanceOf(user2), 0);
-            assertEq(xToken.balanceOf(user3), 0);
 
             // first user deposit
             vm.startPrank(user);
@@ -223,6 +209,39 @@ contract xdShareTest is Test {
             vm.prank(user2);
             vm.expectRevert(xdShare.DepositsPaused.selector);
             xToken.deposit(supply, user2);
+        }
+    }
+
+    function testMigrateOldShareToNewShare(address user, uint128 supply, uint8 multiple, bool reverse) public {
+        if (user != address(0)) {
+            vm.assume(supply > 2);
+            vm.assume(multiple > 2);
+            token.mint(user, supply);
+
+            vm.startPrank(user);
+            token.approve(address(xToken), supply);
+
+            xToken.deposit(supply, user);
+            uint256 oldxTokenBalance = xToken.balanceOf(user);
+
+            assertGt(xToken.balanceOf(user), 0);
+            vm.stopPrank();
+
+            tokenManager.split(token, multiple, reverse);
+
+            vm.prank(user);
+            uint256 newShare = xToken.migrateOldShareToNewShare();
+
+            uint256 xTokenBalance = xToken.balanceOf(user);
+
+            if (reverse) {
+                assertLt(xTokenBalance, oldxTokenBalance);
+                assertEq(oldxTokenBalance - xTokenBalance, newShare);
+                // assertGt(oldxTokenBalance - xTokenBalance, expectedDifference - tolerance);
+            } else {
+                assertGt(xTokenBalance, oldxTokenBalance);
+                assertEq(newShare, oldxTokenBalance * (multiple - 1)); // Expect the correct number of new shares to be minted
+            }
         }
     }
 

@@ -167,8 +167,10 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     {
         if (isLocked) revert WithdrawalsPaused();
         if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
-            // _lock();
-            // _convertVaultBalance();
+            // convert vault balance
+            _convertVaultBalance();
+            // migrate user share
+            shares = _migrateOldShareToNewShare();
         } else {
             super._withdraw(by, to, owner, assets, shares);
         }
@@ -197,22 +199,21 @@ contract xdShare is Ownable, ERC4626, IxdShare {
 
         // Get the balance of the user
         uint256 userBalance = balanceOf(msg.sender);
-
         // Calculate newShares based on splits
         if (reverse) {
-            newShares = userBalance - userBalance / multiple;
-        } else {
-            newShares = userBalance * multiple - userBalance;
-        }
-
-        // Only proceed if newShares is greater than 0
-        if (newShares > 0) {
-            // Adjust user balances by burning or minting newShares
-            if (reverse) {
+            if (multiple > userBalance) {
+                // Handle the case where multiple is greater than or equal to userBalance
+                newShares = userBalance;
                 _burn(msg.sender, newShares);
             } else {
-                _mint(msg.sender, newShares);
+                uint256 amountToAdjust = userBalance / multiple;
+                newShares = userBalance - amountToAdjust;
+                _burn(msg.sender, newShares);
             }
+        } else {
+            uint256 amountToAdjust = userBalance * multiple;
+            newShares = amountToAdjust - userBalance;
+            _mint(msg.sender, newShares);
         }
         // Return the adjusted amount of new shares
         return newShares;
