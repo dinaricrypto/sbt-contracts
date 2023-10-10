@@ -21,7 +21,9 @@ contract BuyProcessorTest is Test {
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
 
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
@@ -46,7 +48,7 @@ contract BuyProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
@@ -227,7 +229,7 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrderUnsupportedPaymentReverts() public {
-        address tryPaymentToken = address(new MockToken());
+        address tryPaymentToken = address(new MockToken("Money", "$"));
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
@@ -277,8 +279,13 @@ contract BuyProcessorTest is Test {
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
         paymentToken.mint(user, quantityIn * 1e6);
 
-        SigUtils.Permit memory permit =
-            SigUtils.Permit({owner: user, spender: address(issuer), value: quantityIn, nonce: 0, deadline: 30 days});
+        SigUtils.Permit memory permit = SigUtils.Permit({
+            owner: user,
+            spender: address(issuer),
+            value: quantityIn,
+            nonce: 0,
+            deadline: block.timestamp + 30 days
+        });
 
         bytes32 digest = sigUtils.getTypedDataHash(permit);
 
@@ -351,8 +358,9 @@ contract BuyProcessorTest is Test {
             uint256 userAssetBefore = token.balanceOf(user);
             uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
+            vm.expectEmit(true, true, true, false);
+            // since we can't capture
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);

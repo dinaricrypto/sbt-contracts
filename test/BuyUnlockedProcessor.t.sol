@@ -16,7 +16,9 @@ contract BuyUnlockedProcessorTest is Test {
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
 
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
@@ -42,7 +44,7 @@ contract BuyUnlockedProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
@@ -181,8 +183,9 @@ contract BuyUnlockedProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
+            vm.expectEmit(true, true, true, false);
+            // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);

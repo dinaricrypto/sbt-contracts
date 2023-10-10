@@ -111,7 +111,7 @@
 | src/forwarder/Forwarder.sol:Forwarder contract |                 |        |        |        |         |
 |------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                | Deployment Size |        |        |        |         |
-| 2416994                                        | 12960           |        |        |        |         |
+| 2280319                                        | 12239           |        |        |        |         |
 | Function Name                                  | min             | avg    | median | max    | # calls |
 | DOMAIN_SEPARATOR                               | 376             | 376    | 376    | 376    | 47      |
 | feeBps                                         | 2359            | 2359   | 2359   | 2359   | 1       |
@@ -133,7 +133,7 @@
 | src/orders/BuyProcessor.sol:BuyProcessor contract |                 |        |        |        |         |
 |---------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                   | Deployment Size |        |        |        |         |
-| 3552982                                           | 18369           |        |        |        |         |
+| 3617463                                           | 18691           |        |        |        |         |
 | Function Name                                     | min             | avg    | median | max    | # calls |
 | ASSETTOKEN_ROLE                                   | 307             | 307    | 307    | 307    | 92      |
 | FORWARDER_ROLE                                    | 263             | 263    | 263    | 263    | 40      |
@@ -169,10 +169,10 @@
 | src/orders/BuyUnlockedProcessor.sol:BuyUnlockedProcessor contract |                 |        |        |        |         |
 |-------------------------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                                   | Deployment Size |        |        |        |         |
-| 3824159                                                           | 19733           |        |        |        |         |
+| 3874217                                                           | 19983           |        |        |        |         |
 | Function Name                                                     | min             | avg    | median | max    | # calls |
-| ASSETTOKEN_ROLE                                                   | 307             | 307    | 307    | 307    | 5       |
-| FORWARDER_ROLE                                                    | 285             | 285    | 285    | 285    | 21      |
+| ASSETTOKEN_ROLE                                                   | 285             | 285    | 285    | 285    | 5       |
+| FORWARDER_ROLE                                                    | 285             | 285    | 285    | 285    | 22      |
 | OPERATOR_ROLE                                                     | 305             | 305    | 305    | 305    | 5       |
 | PAYMENTTOKEN_ROLE                                                 | 308             | 308    | 308    | 308    | 5       |
 | cancelOrder                                                       | 22775           | 34411  | 34411  | 46048  | 2       |
@@ -181,8 +181,10 @@
 | getFeeRatesForOrder                                               | 2322            | 2322   | 2322   | 2322   | 5       |
 | getOrderEscrow                                                    | 552             | 552    | 552    | 552    | 2       |
 | getOrderId                                                        | 616             | 616    | 616    | 616    | 8       |
-| getOrderStatus                                                    | 566             | 566    | 566    | 566    | 1       |
-| grantRole                                                         | 27697           | 27697  | 27697  | 27697  | 91      |
+| getOrderStatus                                                    | 566             | 566    | 566    | 566    | 2       |
+| getTotalReceived                                                  | 557             | 557    | 557    | 557    | 1       |
+| getUnfilledAmount                                                 | 506             | 506    | 506    | 506    | 1       |
+| grantRole                                                         | 27697           | 27697  | 27697  | 27697  | 95      |
 | hasRole                                                           | 2745            | 2745   | 2745   | 2745   | 2       |
 | requestOrder                                                      | 235190          | 236618 | 237190 | 237190 | 7       |
 | returnEscrow                                                      | 3450            | 14376  | 14376  | 25302  | 2       |
@@ -190,7 +192,7 @@
 | src/orders/SellProcessor.sol:SellProcessor contract |                 |        |        |        |         |
 |-----------------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                                     | Deployment Size |        |        |        |         |
-| 3587831                                             | 18543           |        |        |        |         |
+| 3652312                                             | 18865           |        |        |        |         |
 | Function Name                                       | min             | avg    | median | max    | # calls |
 | ASSETTOKEN_ROLE                                     | 307             | 307    | 307    | 307    | 6       |
 | FORWARDER_ROLE                                      | 263             | 263    | 263    | 263    | 25      |
@@ -204,7 +206,7 @@
 | getOrderStatus                                      | 566             | 566    | 566    | 566    | 7       |
 | getTotalReceived                                    | 557             | 557    | 557    | 557    | 5       |
 | getUnfilledAmount                                   | 506             | 506    | 506    | 506    | 7       |
-| grantRole                                           | 27675           | 27675  | 27675  | 27675  | 106     |
+| grantRole                                           | 27675           | 27675  | 27675  | 27675  | 113     |
 | hasRole                                             | 2767            | 2767   | 2767   | 2767   | 3       |
 | numOpenOrders                                       | 404             | 404    | 404    | 404    | 6       |
 | requestOrder                                        | 216911          | 219857 | 220346 | 220863 | 9       |
@@ -239,15 +241,9 @@
 | test/utils/SigMeta.sol:SigMeta contract |                 |      |        |      |         |
 |-----------------------------------------|-----------------|------|--------|------|---------|
 | Deployment Cost                         | Deployment Size |      |        |      |         |
-| 291289                                  | 1592            |      |        |      |         |
+| 182384                                  | 1048            |      |        |      |         |
 | Function Name                           | min             | avg  | median | max  | # calls |
-| getHashToSign                           | 3500            | 3550 | 3563   | 3563 | 25      |
-| test/utils/SigPrice.sol:SigPrice contract |                 |      |        |      |         |
-|-------------------------------------------|-----------------|------|--------|------|---------|
-| Deployment Cost                           | Deployment Size |      |        |      |         |
-| 169772                                    | 985             |      |        |      |         |
-| Function Name                             | min             | avg  | median | max  | # calls |
-| getTypedDataHashForPriceAttestation       | 1559            | 1559 | 1559   | 1559 | 20      |
+| getHashToSign                           | 1918            | 1968 | 1981   | 1981 | 25      |
 | test/utils/SigUtils.sol:SigUtils contract |                 |      |        |      |         |
 |-------------------------------------------|-----------------|------|--------|------|---------|
 | Deployment Cost                           | Deployment Size |      |        |      |         |

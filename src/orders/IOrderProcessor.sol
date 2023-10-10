@@ -64,7 +64,9 @@ interface IOrderProcessor {
     /// @dev Fully specifies order details and index used to generate order ID
     event OrderRequested(address indexed recipient, uint256 indexed index, Order order);
     /// @dev Emitted for each fill
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
     /// @dev Emitted when order is completely filled, terminal
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     /// @dev Emitted when order cancellation is requested
@@ -104,6 +106,11 @@ interface IOrderProcessor {
     /// @param user The address of the user for which the escrowed balance is fetched
     /// @return Returns the total amount of the specific token held in escrow for the given user
     function escrowedBalanceOf(address token, address user) external view returns (uint256);
+
+    /// @notice This function retrieves the number of decimal places configured for a given token
+    /// @param token The address of the token for which the number of decimal places is fetched
+    /// @return Returns the number of decimal places set for the specified token
+    function maxOrderDecimals(address token) external view returns (uint256);
 
     /// @notice Get fee rates for an order
     /// @param token Payment token for order
