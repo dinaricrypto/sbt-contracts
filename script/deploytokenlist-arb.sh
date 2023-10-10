@@ -2,4 +2,4 @@
 
 source .env
 
-forge script script/DeployTokenList.s.sol:DeployTokenListScript --rpc-url $ARB_URL --etherscan-api-key $ARBISCAN_API_KEY --broadcast -vvvv
+forge script script/DeployTokenList.s.sol:DeployTokenListScript --rpc-url $RPC_ARBITRUM --etherscan-api-key $ARBISCAN_API_KEY --broadcast -vvvv

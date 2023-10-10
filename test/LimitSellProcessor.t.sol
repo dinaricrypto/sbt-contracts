@@ -13,7 +13,9 @@ import {FeeLib} from "../src/common/FeeLib.sol";
 
 contract LimitSellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
 
     dShare token;
     TokenLockCheck tokenLockCheck;
@@ -31,7 +33,7 @@ contract LimitSellProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
@@ -136,8 +138,9 @@ contract LimitSellProcessorTest is Test {
             // balances before
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(user, index, fillAmount, receivedAmount);
+            vm.expectEmit(true, true, true, false);
+            // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);

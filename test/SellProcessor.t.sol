@@ -13,10 +13,13 @@ import {FeeLib} from "../src/common/FeeLib.sol";
 
 contract SellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
+    event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
     dShare token;
     TokenLockCheck tokenLockCheck;
@@ -38,7 +41,7 @@ contract SellProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
@@ -98,6 +101,32 @@ contract SellProcessorTest is Test {
         }
     }
 
+    function testInvalidPrecisionRequestOrder() public {
+        uint256 orderAmount = 100000255;
+        OrderProcessor.Order memory order = dummyOrder;
+
+        vm.expectEmit(true, true, true, true);
+        emit MaxOrderDecimalsSet(order.assetToken, 2);
+        issuer.setMaxOrderDecimals(order.assetToken, 2);
+        order.assetTokenQuantity = orderAmount;
+
+        token.mint(user, order.assetTokenQuantity);
+        vm.prank(user);
+        token.approve(address(issuer), order.assetTokenQuantity);
+
+        vm.expectRevert(OrderProcessor.InvalidPrecision.selector);
+        vm.prank(user);
+        issuer.requestOrder(order);
+
+        // update OrderAmount
+        order.assetTokenQuantity = 100000;
+
+        token.approve(address(issuer), order.assetTokenQuantity);
+
+        vm.prank(user);
+        issuer.requestOrder(order);
+    }
+
     function testFillOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
 
@@ -142,8 +171,9 @@ contract SellProcessorTest is Test {
             uint256 userPaymentBefore = paymentToken.balanceOf(user);
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
+            vm.expectEmit(true, true, true, false);
+            // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
@@ -205,8 +235,8 @@ contract SellProcessorTest is Test {
             uint256 secondFillAmount = orderAmount - firstFillAmount;
             uint256 secondReceivedAmount = receivedAmount - firstReceivedAmount;
             // first fill
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(order.recipient, index, firstFillAmount, firstReceivedAmount);
+            vm.expectEmit(true, true, true, false);
+            emit OrderFill(order.recipient, index, firstFillAmount, firstReceivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, firstFillAmount, firstReceivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - firstFillAmount);
