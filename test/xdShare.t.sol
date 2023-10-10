@@ -17,6 +17,9 @@ contract xdShareTest is Test {
     event VaultLocked();
     event VaultUnlocked();
 
+    address user = address(1);
+    address user2 = address(2);
+
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         tokenManager = new TokenManager(restrictor);
@@ -51,8 +54,7 @@ contract xdShareTest is Test {
         assertEq(xToken.asset(), address(token));
     }
 
-    function testLockMint(uint128 amount, address user, address receiver) public {
-        vm.assume(user != address(0));
+    function testLockMint(uint128 amount, address receiver) public {
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);
@@ -65,7 +67,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.DepositsPaused.selector);
+        vm.expectRevert(xdShare.IssuancePaused.selector);
         xToken.mint(amount, receiver);
 
         vm.expectEmit(true, true, true, true);
@@ -78,8 +80,7 @@ contract xdShareTest is Test {
         assertEq(xToken.balanceOf(receiver), assets);
     }
 
-    function testRedeemLock(uint128 amount, address user, address receiver) public {
-        vm.assume(user != address(0));
+    function testRedeemLock(uint128 amount, address receiver) public {
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);
@@ -96,7 +97,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(receiver);
-        vm.expectRevert(xdShare.WithdrawalsPaused.selector);
+        vm.expectRevert(xdShare.IssuancePaused.selector);
         xToken.redeem(assets, user, receiver);
 
         vm.expectEmit(true, true, true, true);
@@ -110,8 +111,7 @@ contract xdShareTest is Test {
         assertEq(token.balanceOf(user), amount);
     }
 
-    function testLockDeposit(uint128 amount, address user) public {
-        vm.assume(user != address(0));
+    function testLockDeposit(uint128 amount) public {
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);
@@ -124,7 +124,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.DepositsPaused.selector);
+        vm.expectRevert(xdShare.IssuancePaused.selector);
         xToken.deposit(amount, user);
 
         vm.expectEmit(true, true, true, true);
@@ -137,8 +137,7 @@ contract xdShareTest is Test {
         assertEq(xToken.balanceOf(user), shares);
     }
 
-    function testLockWithdrawal(uint128 amount, address user) public {
-        vm.assume(user != address(0));
+    function testLockWithdrawal(uint128 amount) public {
         vm.assume(amount > 0);
         assertEq(xToken.balanceOf(user), 0);
 
@@ -159,7 +158,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.WithdrawalsPaused.selector);
+        vm.expectRevert(xdShare.IssuancePaused.selector);
         xToken.withdraw(shares, user, user);
 
         vm.expectEmit(true, true, true, true);
@@ -173,67 +172,49 @@ contract xdShareTest is Test {
         assertEq(token.balanceOf(address(xToken)), 0);
     }
 
-    function testDepositWithdrawSplit(
-        address user,
-        address user2,
-        address user3,
-        uint128 supply,
-        uint8 multiple,
-        bool reverse
-    ) public {
-        if (user != address(0) && user2 != address(0) && user3 != address(0)) {
-            vm.assume(supply > 0);
-            token.mint(user, supply);
-            token.mint(user2, supply);
-            token.mint(user3, supply);
+    function testDepositWithdrawSplit(uint128 supply, uint8 multiple, bool reverse) public {
+        vm.assume(supply > 0);
+        vm.assume(multiple > 2);
 
-            assertEq(xToken.balanceOf(user), 0);
-            assertEq(xToken.balanceOf(user2), 0);
-            assertEq(xToken.balanceOf(user3), 0);
+        token.mint(user, supply);
+        token.mint(user2, supply);
 
-            // first user deposit
-            vm.startPrank(user);
-            token.approve(address(xToken), supply);
+        assertEq(xToken.balanceOf(user), 0);
+        assertEq(xToken.balanceOf(user2), 0);
 
-            xToken.deposit(supply, user);
+        // first user deposit
+        vm.startPrank(user);
+        token.approve(address(xToken), supply);
 
-            assertGt(xToken.balanceOf(user), 0);
-            vm.stopPrank();
+        xToken.deposit(supply, user);
+        vm.stopPrank();
 
-            // second user deposit after split
-            vm.assume(multiple > 2);
-            (dShare newToken,) = tokenManager.split(token, multiple, reverse);
+        assertGt(xToken.balanceOf(user), 0);
 
-            vm.startPrank(user2);
-            token.approve(address(xToken), supply);
+        // split
+        (dShare newToken,) = tokenManager.split(token, multiple, reverse);
 
-            xToken.deposit(supply, user2);
-            vm.stopPrank();
+        // second user deposit after split
+        vm.startPrank(user2);
+        token.approve(address(tokenManager), supply);
 
-            // let's user 3 deposit
-            vm.startPrank(user3);
-            token.approve(address(tokenManager), supply);
+        tokenManager.convert(token, supply);
 
-            tokenManager.convert(token, supply);
+        uint256 newBalance = newToken.balanceOf(user2);
 
-            uint256 newBalance = newToken.balanceOf(user3);
+        // deposit new token
+        newToken.approve(address(xToken), newBalance);
 
-            // deposit new token
-            newToken.approve(address(xToken), newBalance);
+        xToken.deposit(newBalance, user2);
+        vm.stopPrank();
 
-            xToken.deposit(newBalance, user3);
-            vm.stopPrank();
-
-            if (!reverse) {
-                assertGt(xToken.balanceOf(user2), 0);
-                assertGt(xToken.balanceOf(user3), 0);
-            }
+        if (!reverse) {
+            assertGt(xToken.balanceOf(user2), 0);
         }
     }
 
-    function testTransferRestrictedToReverts(uint128 amount, address user) public {
-        if (amount == 0) amount = 1;
-        vm.assume(user != address(0));
+    function testTransferRestrictedToReverts(uint128 amount) public {
+        vm.assume(amount > 0);
 
         uint256 aliceShareAmount = amount;
 

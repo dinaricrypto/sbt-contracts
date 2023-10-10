@@ -25,10 +25,10 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     dShare public underlyingDShare;
     TokenManager public tokenManager;
 
+    /// @inheritdoc IxdShare
     bool public isLocked;
 
-    error DepositsPaused();
-    error WithdrawalsPaused();
+    error IssuancePaused();
 
     event VaultLocked();
     event VaultUnlocked();
@@ -81,12 +81,14 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     }
 
     /// ------------------- Splitting Operations Lifecycle ------------------- ///
-    function _convertVaultBalance() internal {
-        underlyingDShare.approve(address(tokenManager), underlyingDShare.balanceOf(address(this)));
-        (dShare newUnderlyingDShare,) =
-            tokenManager.convert(underlyingDShare, underlyingDShare.balanceOf(address(this)));
-        // update underlyDshare
-        underlyingDShare = newUnderlyingDShare;
+    function checkAndConvertVaultBalance() public {
+        if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
+            underlyingDShare.approve(address(tokenManager), underlyingDShare.balanceOf(address(this)));
+            (dShare newUnderlyingDShare,) =
+                tokenManager.convert(underlyingDShare, underlyingDShare.balanceOf(address(this)));
+            // update underlyDshare
+            underlyingDShare = newUnderlyingDShare;
+        }
     }
 
     /// ------------------- Vault Operations Lifecycle ------------------- ///
@@ -95,28 +97,14 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     ///
     /// Emits a {Deposit} event.
     function _deposit(address by, address to, uint256 assets, uint256 shares) internal virtual override {
-        // Revert the transaction if deposits are currently locked.
-        if (isLocked) revert DepositsPaused();
+        // Revert the transaction if issuance is currently locked.
+        if (isLocked) revert IssuancePaused();
 
         // Check if the underlying token is the current token.
         // If not true, this means a token split has occurred and conversion logic needs to be applied.
-        if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
-            // transfer assets to vault
-            IERC20(address(underlyingDShare)).safeTransferFrom(by, address(this), assets);
-            // approve token manager to spend dShare
-            underlyingDShare.approve(address(tokenManager), assets);
-            // convert dShare to current one
-            (, uint256 currentAssets) = tokenManager.convert(underlyingDShare, assets);
-            shares = previewDeposit(currentAssets);
-            // mint
-            super._mint(by, shares);
-            // convert vault and update new dShare
-            _convertVaultBalance();
-        } else {
-            // If the token is current (no splits), call the parent _deposit function with the original assets and shares.
-            // This is the standard deposit logic without any conversion necessary.
-            super._deposit(by, to, assets, shares);
-        }
+        checkAndConvertVaultBalance();
+
+        super._deposit(by, to, assets, shares);
     }
 
     /// @dev For withdrawals and redemptions.
@@ -127,13 +115,17 @@ contract xdShare is Ownable, ERC4626, IxdShare {
         virtual
         override
     {
-        if (isLocked) revert WithdrawalsPaused();
-        if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
-            super._withdraw(by, to, owner, assets, shares);
-        } else {
-            super._withdraw(by, to, owner, assets, shares);
-        }
+        // Revert the transaction if deposits are currently locked.
+        if (isLocked) revert IssuancePaused();
+
+        // Check if the underlying token is the current token.
+        // If not true, this means a token split has occurred and conversion logic needs to be applied.
+        checkAndConvertVaultBalance();
+
+        super._withdraw(by, to, owner, assets, shares);
     }
+
+    /// ------------------- Transfer Restrictions ------------------- ///
 
     /**
      * @dev Hook that is called before any token transfer. This includes minting and burning.
@@ -141,14 +133,12 @@ contract xdShare is Ownable, ERC4626, IxdShare {
      * @param to Address of the receiver.
      */
     function _beforeTokenTransfer(address from, address to, uint256) internal view override {
+        // Apply underlying transfer restrictions to this vault token.
         ITransferRestrictor restrictor = underlyingDShare.transferRestrictor();
-
         if (address(restrictor) != address(0)) {
             restrictor.requireNotRestricted(from, to);
         }
     }
-
-    /// ------------------- Transfer Restrictions Lifecycle ------------------- ///
 
     /// @inheritdoc IxdShare
     function isBlacklisted(address account) external view returns (bool) {
