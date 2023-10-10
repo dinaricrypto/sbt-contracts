@@ -140,7 +140,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
         if (orderAmount == 0) {
@@ -197,7 +197,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         assert(tokenLockCheck.isTransferLocked(address(token), user));
         vm.expectRevert(OrderProcessor.Blacklist.selector);
@@ -216,7 +216,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         paymentToken.blacklist(user);
         assert(tokenLockCheck.isTransferLocked(address(paymentToken), user));
@@ -331,7 +331,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -385,7 +385,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -422,7 +422,7 @@ contract BuyProcessorTest is Test {
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(dummyOrder);
@@ -442,7 +442,7 @@ contract BuyProcessorTest is Test {
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(dummyOrder);
@@ -474,7 +474,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
+import {ITokenManager} from "./ITokenManager.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {dShare} from "./dShare.sol";
 
@@ -9,7 +10,7 @@ import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 // TODO: migrate existing tokens
-contract TokenManager is Ownable2Step {
+contract TokenManager is ITokenManager, Ownable2Step {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for uint256;
 
@@ -87,8 +88,8 @@ contract TokenManager is Ownable2Step {
         return _currentTokens.values();
     }
 
-    /// @notice Check if token is current
-    function isCurrentToken(address token) external view returns (bool) {
+    /// @inheritdoc ITokenManager
+    function isCurrentToken(address token) public view returns (bool) {
         return _currentTokens.contains(token);
     }
 
@@ -147,7 +148,18 @@ contract TokenManager is Ownable2Step {
         emit NewToken(newToken);
     }
 
-    /// ------------------ Split ------------------ ///
+    /// ------------------ Split Views ------------------ ///
+
+    /// @notice Get active token for any parent token
+    /// @param token Token to get active token for
+    function getCurrentToken(dShare token) public view returns (dShare) {
+        dShare _token = token;
+        dShare _nextToken;
+        while (address(_nextToken = splits[_token].newToken) != address(0)) {
+            _token = _nextToken;
+        }
+        return _token;
+    }
 
     /// @notice Calculate total aggregate supply after split
     /// @param token Token to calculate supply expansion for
@@ -161,15 +173,35 @@ contract TokenManager is Ownable2Step {
         return splitAmount(multiple, reverseSplit, aggregateSupply);
     }
 
+    /// @notice Amount of token produced by a split
+    /// @param multiple Multiple to split by
+    /// @param reverseSplit Whether to perform a reverse split
+    /// @param amount Amount to split
+    function splitAmount(uint8 multiple, bool reverseSplit, uint256 amount) public pure returns (uint256) {
+        // Apply split
+        if (reverseSplit) {
+            return amount / multiple;
+        } else {
+            return amount * multiple;
+        }
+    }
+
+    /// @notice Get root parent token
+    /// @param token Token to get root parent for
+    function getRootParent(dShare token) public view returns (dShare) {
+        dShare _parentToken = token;
+        while (address(parentToken[_parentToken]) != address(0)) {
+            _parentToken = parentToken[_parentToken];
+        }
+        return _parentToken;
+    }
+
     /// @notice Calculate total aggregate supply
     /// @param token Token to calculate supply for
     /// @dev Accounts for all splits and supply volume conversions
     function getAggregateSupply(dShare token) public view returns (uint256 aggregateSupply) {
         // Get root parent
-        dShare _parentToken = token;
-        while (address(parentToken[_parentToken]) != address(0)) {
-            _parentToken = parentToken[_parentToken];
-        }
+        dShare _parentToken = getRootParent(token);
         // Accumulate supply expansion from parents
         aggregateSupply = 0;
         if (address(_parentToken) != address(token)) {
@@ -186,18 +218,29 @@ contract TokenManager is Ownable2Step {
         aggregateSupply += token.totalSupply();
     }
 
-    /// @notice Amount of token produced by a split
-    /// @param multiple Multiple to split by
-    /// @param reverseSplit Whether to perform a reverse split
-    /// @param amount Amount to split
-    function splitAmount(uint8 multiple, bool reverseSplit, uint256 amount) public pure returns (uint256) {
-        // Apply split
-        if (reverseSplit) {
-            return amount / multiple;
-        } else {
-            return amount * multiple;
+    /// @notice Calculate total aggregate balance of account after split
+    /// @param token Token to calculate balance expansion for
+    /// @param account Account to calculate balance for
+    function getAggregateBalanceOf(dShare token, address account) public view returns (uint256 aggregateBalance) {
+        // Get root parent
+        dShare _parentToken = getRootParent(token);
+        // Accumulate supply expansion from parents
+        aggregateBalance = 0;
+        if (address(_parentToken) != address(token)) {
+            SplitInfo memory _split = splits[_parentToken];
+            aggregateBalance = splitAmount(_split.multiple, _split.reverseSplit, _parentToken.balanceOf(account));
+            while (address(_split.newToken) != address(token)) {
+                // slither-disable-next-line calls-loop
+                aggregateBalance += _split.newToken.balanceOf(account);
+                _split = splits[_split.newToken];
+                aggregateBalance = splitAmount(_split.multiple, _split.reverseSplit, aggregateBalance);
+            }
         }
+        // Include current token balance
+        aggregateBalance += token.balanceOf(account);
     }
+
+    /// ------------------ Split ------------------ ///
 
     /// @notice Split a token
     /// @param token Token to split
@@ -247,13 +290,8 @@ contract TokenManager is Ownable2Step {
         token.setSymbol(string.concat(symbol, ".p", timestamp));
     }
 
-    /// @notice Convert a token amount to current token after split
-    /// @param token Token to convert
-    /// @param amount Amount to convert
-    /// @return currentToken Current token minted to user
-    /// @return resultAmount Amount of current token minted to user
-    /// @dev Accounts for multiple splits and returns the current token
-    function convert(dShare token, uint256 amount) external returns (dShare currentToken, uint256 resultAmount) {
+    /// @inheritdoc ITokenManager
+    function convert(dShare token, uint256 amount) public returns (dShare currentToken, uint256 resultAmount) {
         // Check if token has been split
         SplitInfo memory _split = splits[token];
         if (address(_split.newToken) == address(0)) revert SplitNotFound();
@@ -273,4 +311,12 @@ contract TokenManager is Ownable2Step {
         token.burn(amount);
         currentToken.mint(msg.sender, resultAmount);
     }
+
+    /// @inheritdoc ITokenManager
+    // function sweepConvert(dShare currentToken) external {
+    //     if (!isCurrentToken(address(currentToken))) revert TokenNotFound();
+
+    //     dShare _parentToken = getRootParent(currentToken);
+
+    // }
 }

@@ -7,8 +7,7 @@ pragma solidity 0.8.19;
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IxdShare.sol)
  */
 interface IxdShare {
-    /// @notice Checks if xdShare is currently locked.
-    /// @return True if locked, false otherwise
+    /// @notice Checks if minting and burning is currently paused
     function isLocked() external view returns (bool);
 
     /// @notice Locks xdShare, preventing deposit, withdrawal, and redeem operations until it's unlocked.
