@@ -17,7 +17,8 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
  */
 
-// slither-disable-next-line missing-inheritance
+// take index in original dshare and apply split multipliers to get current
+
 contract xdShare is Ownable, ERC4626, IxdShare {
     using SafeERC20 for IERC20;
 
@@ -29,6 +30,8 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     bool public isLocked;
 
     error IssuancePaused();
+    error SplitConversionNeeded();
+    error ConversionCurrent();
 
     event VaultLocked();
     event VaultUnlocked();
@@ -46,7 +49,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
      * @dev Returns the name of the xdShare token.
      * @return A string representing the name.
      */
-    function name() public view virtual override returns (string memory) {
+    function name() public view override returns (string memory) {
         return string(abi.encodePacked("Reinvesting ", underlyingDShare.symbol()));
     }
 
@@ -54,7 +57,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
      * @dev Returns the symbol of the xdShare token.
      * @return A string representing the symbol.
      */
-    function symbol() public view virtual override returns (string memory) {
+    function symbol() public view override returns (string memory) {
         return string(abi.encodePacked(underlyingDShare.symbol(), ".x"));
     }
 
@@ -62,8 +65,14 @@ contract xdShare is Ownable, ERC4626, IxdShare {
      * @dev Returns the address of the underlying asset.
      * @return The address of the underlying dShare token.
      */
-    function asset() public view virtual override returns (address) {
+    function asset() public view override returns (address) {
         return address(underlyingDShare);
+    }
+
+    // This offers inflation attack prevention
+    // TODO: fix split conversion math and turn on
+    function _useVirtualShares() internal pure override returns (bool) {
+        return false;
     }
 
     /// ------------------- Locking Mechanism Lifecycle ------------------- ///
@@ -81,14 +90,15 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     }
 
     /// ------------------- Splitting Operations Lifecycle ------------------- ///
-    function checkAndConvertVaultBalance() public {
-        if (!tokenManager.isCurrentToken(address(underlyingDShare))) {
-            underlyingDShare.approve(address(tokenManager), underlyingDShare.balanceOf(address(this)));
-            (dShare newUnderlyingDShare,) =
-                tokenManager.convert(underlyingDShare, underlyingDShare.balanceOf(address(this)));
-            // update underlyDshare
-            underlyingDShare = newUnderlyingDShare;
-        }
+
+    function convertVaultBalance() public {
+        if (tokenManager.isCurrentToken(address(underlyingDShare))) revert ConversionCurrent();
+
+        underlyingDShare.approve(address(tokenManager), underlyingDShare.balanceOf(address(this)));
+        (dShare newUnderlyingDShare,) =
+            tokenManager.convert(underlyingDShare, underlyingDShare.balanceOf(address(this)));
+        // update underlyDshare
+        underlyingDShare = newUnderlyingDShare;
     }
 
     /// ------------------- Vault Operations Lifecycle ------------------- ///
@@ -96,13 +106,8 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     /// @dev For deposits and mints.
     ///
     /// Emits a {Deposit} event.
-    function _deposit(address by, address to, uint256 assets, uint256 shares) internal virtual override {
-        // Revert the transaction if issuance is currently locked.
-        if (isLocked) revert IssuancePaused();
-
-        // Check if the underlying token is the current token.
-        // If not true, this means a token split has occurred and conversion logic needs to be applied.
-        checkAndConvertVaultBalance();
+    function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
+        _issuancePreCheck();
 
         super._deposit(by, to, assets, shares);
     }
@@ -110,19 +115,16 @@ contract xdShare is Ownable, ERC4626, IxdShare {
     /// @dev For withdrawals and redemptions.
     ///
     /// Emits a {Withdraw} event.
-    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares)
-        internal
-        virtual
-        override
-    {
-        // Revert the transaction if deposits are currently locked.
-        if (isLocked) revert IssuancePaused();
-
-        // Check if the underlying token is the current token.
-        // If not true, this means a token split has occurred and conversion logic needs to be applied.
-        checkAndConvertVaultBalance();
+    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
+        _issuancePreCheck();
 
         super._withdraw(by, to, owner, assets, shares);
+    }
+
+    function _issuancePreCheck() private view {
+        // Revert the transaction if deposits are currently locked.
+        if (isLocked) revert IssuancePaused();
+        if (!tokenManager.isCurrentToken(address(underlyingDShare))) revert SplitConversionNeeded();
     }
 
     /// ------------------- Transfer Restrictions ------------------- ///

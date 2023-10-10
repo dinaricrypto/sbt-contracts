@@ -153,12 +153,9 @@ contract TokenManager is Ownable2Step {
     /// @param token Token to get active token for
     function getCurrentToken(dShare token) public view returns (dShare) {
         dShare _token = token;
-        // dShare _nextToken;
-        // while (address(_nextToken = splits[_token].newToken) != address(0)) {
-        //     _token = _nextToken;
-        // }
-        while (address(splits[_token].newToken) != address(0)) {
-            _token = splits[_token].newToken;
+        dShare _nextToken;
+        while (address(_nextToken = splits[_token].newToken) != address(0)) {
+            _token = _nextToken;
         }
         return _token;
     }
@@ -173,6 +170,19 @@ contract TokenManager is Ownable2Step {
 
         // Apply current split
         return splitAmount(multiple, reverseSplit, aggregateSupply);
+    }
+
+    /// @notice Amount of token produced by a split
+    /// @param multiple Multiple to split by
+    /// @param reverseSplit Whether to perform a reverse split
+    /// @param amount Amount to split
+    function splitAmount(uint8 multiple, bool reverseSplit, uint256 amount) public pure returns (uint256) {
+        // Apply split
+        if (reverseSplit) {
+            return amount / multiple;
+        } else {
+            return amount * multiple;
+        }
     }
 
     /// @notice Calculate total aggregate supply
@@ -198,19 +208,6 @@ contract TokenManager is Ownable2Step {
         }
         // Include current token supply
         aggregateSupply += token.totalSupply();
-    }
-
-    /// @notice Amount of token produced by a split
-    /// @param multiple Multiple to split by
-    /// @param reverseSplit Whether to perform a reverse split
-    /// @param amount Amount to split
-    function splitAmount(uint8 multiple, bool reverseSplit, uint256 amount) public pure returns (uint256) {
-        // Apply split
-        if (reverseSplit) {
-            return amount / multiple;
-        } else {
-            return amount * multiple;
-        }
     }
 
     /// @notice Calculate total aggregate balance of account after split

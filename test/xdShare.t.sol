@@ -23,13 +23,6 @@ contract xdShareTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         tokenManager = new TokenManager(restrictor);
-        // token = new dShare(
-        //     address(this),
-        //     "Dinari Token",
-        //     "dTKN",
-        //     "example.com",
-        //     restrictor
-        // );
         token = tokenManager.deployNewToken(address(this), "Dinari Token", "dTKN");
         token.grantRole(token.MINTER_ROLE(), address(this));
 
@@ -172,45 +165,62 @@ contract xdShareTest is Test {
         assertEq(token.balanceOf(address(xToken)), 0);
     }
 
-    function testDepositWithdrawSplit(uint128 supply, uint8 multiple, bool reverse) public {
-        vm.assume(supply > 0);
+    function testDepositRedeemSplit(uint128 supply, uint8 multiple, bool reverse) public {
+        vm.assume(supply > 1);
         vm.assume(multiple > 2);
 
+        // user: mint -> deposit -> split -> withdraw
         token.mint(user, supply);
+        // user2: mint -> split -> convert
         token.mint(user2, supply);
 
         assertEq(xToken.balanceOf(user), 0);
         assertEq(xToken.balanceOf(user2), 0);
 
-        // first user deposit
+        // user deposit
         vm.startPrank(user);
         token.approve(address(xToken), supply);
-
         xToken.deposit(supply, user);
         vm.stopPrank();
-
-        assertGt(xToken.balanceOf(user), 0);
+        assertEq(xToken.balanceOf(user), supply);
 
         // split
         (dShare newToken,) = tokenManager.split(token, multiple, reverse);
 
-        // second user deposit after split
+        // user2 convert
         vm.startPrank(user2);
         token.approve(address(tokenManager), supply);
-
         tokenManager.convert(token, supply);
-
-        uint256 newBalance = newToken.balanceOf(user2);
-
-        // deposit new token
-        newToken.approve(address(xToken), newBalance);
-
-        xToken.deposit(newBalance, user2);
         vm.stopPrank();
 
-        if (!reverse) {
-            assertGt(xToken.balanceOf(user2), 0);
-        }
+        // user redeem reverts
+        vm.startPrank(user);
+        uint256 shares = xToken.balanceOf(user);
+        xToken.approve(address(xToken), shares);
+
+        vm.expectRevert(xdShare.SplitConversionNeeded.selector);
+        xToken.redeem(shares, user, user);
+        vm.stopPrank();
+
+        // check vault balances before conversion
+        console.log("supply", supply);
+        console.log("user assets in vault", xToken.convertToAssets(xToken.balanceOf(user)));
+        assertEq(xToken.convertToAssets(xToken.balanceOf(user)), supply);
+
+        // convert vault assets
+        xToken.convertVaultBalance();
+
+        console.log("user assets in vault after conversion", xToken.convertToAssets(xToken.balanceOf(user)));
+
+        // user redeem
+        vm.startPrank(user);
+        shares = xToken.balanceOf(user);
+        xToken.approve(address(xToken), shares);
+        xToken.redeem(shares, user, user);
+        vm.stopPrank();
+
+        // conversion in vault should equal standard conversion
+        assertEq(newToken.balanceOf(user), newToken.balanceOf(user2));
     }
 
     function testTransferRestrictedToReverts(uint128 amount) public {
