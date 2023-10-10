@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
+import {ITokenManager} from "./ITokenManager.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {dShare} from "./dShare.sol";
 
@@ -9,7 +10,7 @@ import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 // TODO: migrate existing tokens
-contract TokenManager is Ownable2Step {
+contract TokenManager is ITokenManager, Ownable2Step {
     using EnumerableSet for EnumerableSet.AddressSet;
     using Strings for uint256;
 
@@ -87,7 +88,7 @@ contract TokenManager is Ownable2Step {
         return _currentTokens.values();
     }
 
-    /// @notice Check if token is current
+    /// @inheritdoc ITokenManager
     function isCurrentToken(address token) external view returns (bool) {
         return _currentTokens.contains(token);
     }
@@ -285,12 +286,7 @@ contract TokenManager is Ownable2Step {
         token.setSymbol(string.concat(symbol, ".p", timestamp));
     }
 
-    /// @notice Convert a token amount to current token after split
-    /// @param token Token to convert
-    /// @param amount Amount to convert
-    /// @return currentToken Current token minted to user
-    /// @return resultAmount Amount of current token minted to user
-    /// @dev Accounts for multiple splits and returns the current token
+    /// @inheritdoc ITokenManager
     function convert(dShare token, uint256 amount) external returns (dShare currentToken, uint256 resultAmount) {
         // Check if token has been split
         SplitInfo memory _split = splits[token];

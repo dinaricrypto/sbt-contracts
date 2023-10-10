@@ -12,7 +12,7 @@
 | nonces                                                       | 533             | 1533  | 1533   | 2533  | 2       |
 | permit                                                       | 48366           | 48366 | 48366  | 48366 | 1       |
 | transfer                                                     | 18270           | 21553 | 21553  | 24837 | 2       |
-| transferFrom                                                 | 18677           | 20832 | 20277  | 25208 | 6       |
+| transferFrom                                                 | 18677           | 20813 | 20277  | 25208 | 6       |
 | src/TokenLockCheck.sol:TokenLockCheck contract |                 |       |        |       |         |
 |------------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                                | Deployment Size |       |        |       |         |
@@ -53,7 +53,7 @@
 | src/dShare.sol:dShare contract |                 |       |        |       |         |
 |--------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                | Deployment Size |       |        |       |         |
-| 2052268                        | 11414           |       |        |       |         |
+| 2072270                        | 11446           |       |        |       |         |
 | Function Name                  | min             | avg   | median | max   | # calls |
 | BURNER_ROLE                    | 263             | 263   | 263    | 263   | 3       |
 | DEFAULT_ADMIN_ROLE             | 263             | 263   | 263    | 263   | 2       |
@@ -88,7 +88,7 @@
 | Function Name                                                       | min             | avg   | median | max   | # calls |
 | DEFAULT_ADMIN_ROLE                                                  | 284             | 284   | 284    | 284   | 3       |
 | DISTRIBUTOR_ROLE                                                    | 283             | 283   | 283    | 283   | 14      |
-| createDistribution                                                  | 31623           | 82811 | 94808  | 96408 | 5       |
+| createDistribution                                                  | 31623           | 83543 | 96408  | 98471 | 5       |
 | distribute                                                          | 988             | 20750 | 29660  | 31602 | 3       |
 | distributions                                                       | 823             | 823   | 823    | 823   | 2       |
 | grantRole                                                           | 25567           | 26967 | 27567  | 27567 | 10      |
@@ -103,7 +103,7 @@
 | USDC                                                      | 404             | 1404  | 1404   | 2404   | 2       |
 | addDShareXdSharePair                                      | 23112           | 26620 | 25112  | 31637  | 3       |
 | dShareToXdShare                                           | 625             | 625   | 625    | 625    | 1       |
-| distribute                                                | 5023            | 48981 | 19972  | 150957 | 4       |
+| distribute                                                | 5023            | 48953 | 19972  | 150847 | 4       |
 | dividendDistrubtion                                       | 426             | 1426  | 1426   | 2426   | 2       |
 | grantRole                                                 | 27589           | 27589 | 27589  | 27589  | 3       |
 | setNewDividendAddress                                     | 5839            | 18709 | 18709  | 31579  | 2       |
@@ -218,7 +218,7 @@
 | approve                          | 2477            | 13477 | 13477  | 24477 | 2       |
 | asset                            | 422             | 422   | 422    | 422   | 1       |
 | balanceOf                        | 595             | 1300  | 595    | 2595  | 17      |
-| convertToAssets                  | 1645            | 1645  | 1645   | 1645  | 3       |
+| convertToAssets                  | 1645            | 1732  | 1645   | 1908  | 3       |
 | convertVaultBalance              | 72363           | 72363 | 72363  | 72363 | 1       |
 | decimals                         | 289             | 289   | 289    | 289   | 1       |
 | deposit                          | 2863            | 57168 | 70745  | 72345 | 5       |
@@ -227,7 +227,7 @@
 | lock                             | 6200            | 7400  | 8200   | 8200  | 5       |
 | mint                             | 2792            | 49656 | 72288  | 73888 | 3       |
 | name                             | 9520            | 9520  | 9520   | 9520  | 1       |
-| redeem                           | 2334            | 16113 | 16037  | 30045 | 4       |
+| redeem                           | 2334            | 16166 | 16037  | 30256 | 4       |
 | symbol                           | 3007            | 3007  | 3007   | 3007  | 1       |
 | transfer                         | 2684            | 14841 | 14841  | 26999 | 2       |
 | unlock                           | 1130            | 1130  | 1130   | 1130  | 4       |

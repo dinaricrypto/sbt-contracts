@@ -6,7 +6,7 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC4626} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {IxdShare} from "./IxdShare.sol";
-import {TokenManager} from "./TokenManager.sol";
+import {ITokenManager} from "./ITokenManager.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
@@ -24,7 +24,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
 
     /// @notice Reference to the underlying dShare contract.
     dShare public underlyingDShare;
-    TokenManager public tokenManager;
+    ITokenManager public tokenManager;
 
     /// @inheritdoc IxdShare
     bool public isLocked;
@@ -40,7 +40,7 @@ contract xdShare is Ownable, ERC4626, IxdShare {
      * @dev Initializes a new instance of the xdShare contract.
      * @param _dShare The address of the underlying dShare token.
      */
-    constructor(dShare _dShare, TokenManager _tokenManager) {
+    constructor(dShare _dShare, ITokenManager _tokenManager) {
         underlyingDShare = _dShare;
         tokenManager = _tokenManager;
     }

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {dShare} from "./dShare.sol";
-
 /**
  * @title IxdShare Interface
  * @dev Interface for the extended functionalities of the dShare token provided by the xdShare contract.
