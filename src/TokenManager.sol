@@ -89,7 +89,7 @@ contract TokenManager is ITokenManager, Ownable2Step {
     }
 
     /// @inheritdoc ITokenManager
-    function isCurrentToken(address token) external view returns (bool) {
+    function isCurrentToken(address token) public view returns (bool) {
         return _currentTokens.contains(token);
     }
 
@@ -186,15 +186,22 @@ contract TokenManager is ITokenManager, Ownable2Step {
         }
     }
 
+    /// @notice Get root parent token
+    /// @param token Token to get root parent for
+    function getRootParent(dShare token) public view returns (dShare) {
+        dShare _parentToken = token;
+        while (address(parentToken[_parentToken]) != address(0)) {
+            _parentToken = parentToken[_parentToken];
+        }
+        return _parentToken;
+    }
+
     /// @notice Calculate total aggregate supply
     /// @param token Token to calculate supply for
     /// @dev Accounts for all splits and supply volume conversions
     function getAggregateSupply(dShare token) public view returns (uint256 aggregateSupply) {
         // Get root parent
-        dShare _parentToken = token;
-        while (address(parentToken[_parentToken]) != address(0)) {
-            _parentToken = parentToken[_parentToken];
-        }
+        dShare _parentToken = getRootParent(token);
         // Accumulate supply expansion from parents
         aggregateSupply = 0;
         if (address(_parentToken) != address(token)) {
@@ -216,10 +223,7 @@ contract TokenManager is ITokenManager, Ownable2Step {
     /// @param account Account to calculate balance for
     function getAggregateBalanceOf(dShare token, address account) public view returns (uint256 aggregateBalance) {
         // Get root parent
-        dShare _parentToken = token;
-        while (address(parentToken[_parentToken]) != address(0)) {
-            _parentToken = parentToken[_parentToken];
-        }
+        dShare _parentToken = getRootParent(token);
         // Accumulate supply expansion from parents
         aggregateBalance = 0;
         if (address(_parentToken) != address(token)) {
@@ -287,7 +291,7 @@ contract TokenManager is ITokenManager, Ownable2Step {
     }
 
     /// @inheritdoc ITokenManager
-    function convert(dShare token, uint256 amount) external returns (dShare currentToken, uint256 resultAmount) {
+    function convert(dShare token, uint256 amount) public returns (dShare currentToken, uint256 resultAmount) {
         // Check if token has been split
         SplitInfo memory _split = splits[token];
         if (address(_split.newToken) == address(0)) revert SplitNotFound();
@@ -307,4 +311,12 @@ contract TokenManager is ITokenManager, Ownable2Step {
         token.burn(amount);
         currentToken.mint(msg.sender, resultAmount);
     }
+
+    /// @inheritdoc ITokenManager
+    // function sweepConvert(dShare currentToken) external {
+    //     if (!isCurrentToken(address(currentToken))) revert TokenNotFound();
+
+    //     dShare _parentToken = getRootParent(currentToken);
+
+    // }
 }

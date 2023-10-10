@@ -3,11 +3,12 @@ pragma solidity 0.8.19;
 
 import {dShare} from "./dShare.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
-import {ERC4626} from "solady/src/tokens/ERC4626.sol";
+import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {IxdShare} from "./IxdShare.sol";
 import {ITokenManager} from "./ITokenManager.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
 /**
  * @title xdShare Contract
@@ -16,15 +17,13 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
  *         Additionally, it employs the ERC4626 standard for its operations.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
  */
-
-// take index in original dshare and apply split multipliers to get current
-
-contract xdShare is Ownable, ERC4626, IxdShare {
+contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     using SafeERC20 for IERC20;
+
+    ITokenManager public immutable tokenManager;
 
     /// @notice Reference to the underlying dShare contract.
     dShare public underlyingDShare;
-    ITokenManager public tokenManager;
 
     /// @inheritdoc IxdShare
     bool public isLocked;
@@ -91,15 +90,23 @@ contract xdShare is Ownable, ERC4626, IxdShare {
 
     /// ------------------- Splitting Operations Lifecycle ------------------- ///
 
-    function convertVaultBalance() public {
+    function convertVaultBalance() external onlyOwner nonReentrant {
         if (tokenManager.isCurrentToken(address(underlyingDShare))) revert ConversionCurrent();
 
-        underlyingDShare.approve(address(tokenManager), underlyingDShare.balanceOf(address(this)));
+        SafeTransferLib.safeApprove(
+            address(underlyingDShare), address(tokenManager), underlyingDShare.balanceOf(address(this))
+        );
+        // slither-disable-next-line unused-return
         (dShare newUnderlyingDShare,) =
             tokenManager.convert(underlyingDShare, underlyingDShare.balanceOf(address(this)));
         // update underlyDshare
+        // slither-disable-next-line reentrancy-no-eth
         underlyingDShare = newUnderlyingDShare;
     }
+
+    /// @notice Converts all parent dshare vault balances to the current dShare token.
+    // TODO: call tokenmanager sweepconvert
+    // function sweepConvert() external onlyOwner {}
 
     /// ------------------- Vault Operations Lifecycle ------------------- ///
 
