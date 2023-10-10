@@ -125,6 +125,7 @@ contract TokenManagerTest is Test {
             assertEq(address(tokenManager.getTokenAt(0)), address(newToken));
             assertTrue(tokenManager.isCurrentToken(address(newToken)));
             assertFalse(tokenManager.isCurrentToken(address(token1)));
+            assertEq(address(tokenManager.getCurrentToken(token1)), address(newToken));
 
             // split restrictions
             vm.expectRevert(dShare.TokenSplit.selector);
@@ -196,6 +197,7 @@ contract TokenManagerTest is Test {
             tokenManager.convert(token1, convertAmount);
             vm.stopPrank();
             assertEq(tokenManager.getAggregateSupply(token1) + convertAmount, totalSupply);
+            assertEq(tokenManager.getAggregateBalanceOf(token1, user) + convertAmount, totalSupply);
             assertEq((totalSupply - convertAmount) * multiple, tokenManager.getSupplyExpansion(token1, multiple, false));
         }
     }

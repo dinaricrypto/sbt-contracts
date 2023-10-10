@@ -147,7 +147,21 @@ contract TokenManager is Ownable2Step {
         emit NewToken(newToken);
     }
 
-    /// ------------------ Split ------------------ ///
+    /// ------------------ Split Views ------------------ ///
+
+    /// @notice Get active token for any parent token
+    /// @param token Token to get active token for
+    function getCurrentToken(dShare token) public view returns (dShare) {
+        dShare _token = token;
+        // dShare _nextToken;
+        // while (address(_nextToken = splits[_token].newToken) != address(0)) {
+        //     _token = _nextToken;
+        // }
+        while (address(splits[_token].newToken) != address(0)) {
+            _token = splits[_token].newToken;
+        }
+        return _token;
+    }
 
     /// @notice Calculate total aggregate supply after split
     /// @param token Token to calculate supply expansion for
@@ -198,6 +212,33 @@ contract TokenManager is Ownable2Step {
             return amount * multiple;
         }
     }
+
+    /// @notice Calculate total aggregate balance of account after split
+    /// @param token Token to calculate balance expansion for
+    /// @param account Account to calculate balance for
+    function getAggregateBalanceOf(dShare token, address account) public view returns (uint256 aggregateBalance) {
+        // Get root parent
+        dShare _parentToken = token;
+        while (address(parentToken[_parentToken]) != address(0)) {
+            _parentToken = parentToken[_parentToken];
+        }
+        // Accumulate supply expansion from parents
+        aggregateBalance = 0;
+        if (address(_parentToken) != address(token)) {
+            SplitInfo memory _split = splits[_parentToken];
+            aggregateBalance = splitAmount(_split.multiple, _split.reverseSplit, _parentToken.balanceOf(account));
+            while (address(_split.newToken) != address(token)) {
+                // slither-disable-next-line calls-loop
+                aggregateBalance += _split.newToken.balanceOf(account);
+                _split = splits[_split.newToken];
+                aggregateBalance = splitAmount(_split.multiple, _split.reverseSplit, aggregateBalance);
+            }
+        }
+        // Include current token balance
+        aggregateBalance += token.balanceOf(account);
+    }
+
+    /// ------------------ Split ------------------ ///
 
     /// @notice Split a token
     /// @param token Token to split
