@@ -68,7 +68,7 @@ contract LimitSellProcessorTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
         if (orderAmount == 0) {
@@ -110,14 +110,14 @@ contract LimitSellProcessorTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
         paymentToken.mint(operator, receivedAmount); // Mint paymentTokens to operator to ensure they have enough
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(issuer), receivedAmount);
+        paymentToken.approve(address(issuer), receivedAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
         if (fillAmount == 0) {
