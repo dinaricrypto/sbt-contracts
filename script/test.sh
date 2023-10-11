@@ -1,5 +1,3 @@
 #!/bin/sh
 
-source .env
-
-forge test -f $RPC_ARBITRUM -vvv
+forge test --match-path test/main/**/\* -vvv

@@ -2,14 +2,14 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {MockToken} from "./utils/mocks/MockToken.sol";
-import "./utils/mocks/MockdShare.sol";
-import "./utils/SigUtils.sol";
-import "../src/orders/SellProcessor.sol";
-import "../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
+import "../utils/mocks/MockdShare.sol";
+import "../utils/SigUtils.sol";
+import "../../src/orders/SellProcessor.sol";
+import "../../src/orders/IOrderProcessor.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {FeeLib} from "../src/common/FeeLib.sol";
+import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract SellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);

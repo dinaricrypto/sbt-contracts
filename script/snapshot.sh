@@ -1,5 +1,3 @@
 #!/bin/sh
 
-source .env
-
-forge snapshot -f $RPC_ARBITRUM
+forge snapshot --match-path test/main/**/\*
