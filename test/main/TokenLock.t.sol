@@ -2,8 +2,8 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {MockToken} from "./utils/mocks/MockToken.sol";
-import {TokenLockCheck} from "../src/TokenLockCheck.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
+import {TokenLockCheck} from "../../src/TokenLockCheck.sol";
 
 contract TokenLockTest is Test {
     MockToken token;

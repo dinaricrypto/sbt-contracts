@@ -2,8 +2,8 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {dShare} from "../src/dShare.sol";
-import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
+import {dShare} from "../../src/dShare.sol";
+import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract dShareTest is Test {

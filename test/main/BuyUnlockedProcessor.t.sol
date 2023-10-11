@@ -2,14 +2,14 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {MockToken} from "./utils/mocks/MockToken.sol";
-import "./utils/mocks/MockdShare.sol";
-import "../src/orders/BuyUnlockedProcessor.sol";
-import "../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
-import {NumberUtils} from "./utils/NumberUtils.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
+import "../utils/mocks/MockdShare.sol";
+import "../../src/orders/BuyUnlockedProcessor.sol";
+import "../../src/orders/IOrderProcessor.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import {NumberUtils} from "../utils/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
-import {FeeLib} from "../src/common/FeeLib.sol";
+import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract BuyUnlockedProcessorTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
