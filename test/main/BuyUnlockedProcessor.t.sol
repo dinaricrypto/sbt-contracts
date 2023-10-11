@@ -2,21 +2,23 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {MockToken} from "./utils/mocks/MockToken.sol";
-import "./utils/mocks/MockdShare.sol";
-import "../src/orders/BuyUnlockedProcessor.sol";
-import "../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
-import {NumberUtils} from "./utils/NumberUtils.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
+import "../utils/mocks/MockdShare.sol";
+import "../../src/orders/BuyUnlockedProcessor.sol";
+import "../../src/orders/IOrderProcessor.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import {NumberUtils} from "../utils/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
-import {FeeLib} from "../src/common/FeeLib.sol";
+import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract BuyUnlockedProcessorTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
 
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
     event OrderFulfilled(address indexed recipient, uint256 indexed index);
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
@@ -42,7 +44,7 @@ contract BuyUnlockedProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
@@ -181,16 +183,19 @@ contract BuyUnlockedProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
         } else {
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(order.recipient, index, fillAmount, receivedAmount);
+            vm.expectEmit(true, true, true, false);
+            // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
-            assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
+            assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
             }
         }
     }
@@ -218,6 +223,8 @@ contract BuyUnlockedProcessorTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
+        bytes32 id = issuer.getOrderId(order.recipient, index);
+
         if (fillAmount > 0) {
             vm.prank(operator);
             issuer.takeEscrow(order, index, fillAmount);
@@ -230,6 +237,7 @@ contract BuyUnlockedProcessorTest is Test {
         emit OrderCancelled(order.recipient, index, reason);
         vm.prank(operator);
         issuer.cancelOrder(order, index, reason);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 
     function testCancelOrderUnreturnedEscrowReverts(uint256 orderAmount, uint256 takeAmount) public {

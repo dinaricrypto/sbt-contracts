@@ -2,18 +2,20 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {MockToken} from "./utils/mocks/MockToken.sol";
-import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
-import "./utils/mocks/MockdShare.sol";
-import "../src/orders/BuyProcessor.sol";
-import "../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
-import {NumberUtils} from "./utils/NumberUtils.sol";
-import {FeeLib} from "../src/common/FeeLib.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
+import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
+import "../utils/mocks/MockdShare.sol";
+import "../../src/orders/BuyProcessor.sol";
+import "../../src/orders/IOrderProcessor.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import {NumberUtils} from "../utils/NumberUtils.sol";
+import {FeeLib} from "../../src/common/FeeLib.sol";
 
-contract BuyProcessorTest is Test {
+contract LimitBuyProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
-    event OrderFill(address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount);
+    event OrderFill(
+        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+    );
 
     dShare token;
     TokenLockCheck tokenLockCheck;
@@ -34,7 +36,7 @@ contract BuyProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken();
+        paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
@@ -91,8 +93,8 @@ contract BuyProcessorTest is Test {
             uint256 index = issuer.requestOrder(order);
             bytes32 id = issuer.getOrderId(order.recipient, index);
             assertEq(index, 0);
-            assertTrue(issuer.isOrderActive(id));
-            assertEq(issuer.getRemainingOrder(id), order.paymentTokenQuantity);
+            assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+            assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
             assertEq(issuer.numOpenOrders(), 1);
             // balances after
             assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - (order.paymentTokenQuantity + fees));
@@ -143,14 +145,16 @@ contract BuyProcessorTest is Test {
             uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.assume(fillAmount < orderAmount);
-            vm.expectEmit(true, true, true, true);
-            emit OrderFill(user, index, fillAmount, receivedAmount);
+            vm.expectEmit(true, true, true, false);
+            // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
-            assertEq(issuer.getRemainingOrder(id), orderAmount - fillAmount);
+            assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
+                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
             } else {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
                 // balances after
