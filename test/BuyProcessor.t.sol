@@ -42,8 +42,6 @@ contract BuyProcessorTest is Test {
     address constant treasury = address(4);
     address public restrictor_role = address(1);
 
-    bytes32 public constant RESTRICTOR_ROLE = keccak256("RESTRICTOR_ROLE");
-
     uint256 dummyOrderFees;
     IOrderProcessor.Order dummyOrder;
 
