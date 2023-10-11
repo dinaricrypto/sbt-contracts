@@ -14,6 +14,7 @@ contract dShareTest is Test {
 
     TransferRestrictor public restrictor;
     dShare public token;
+    address public restrictor_role = address(1);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
@@ -24,6 +25,7 @@ contract dShareTest is Test {
             "example.com",
             restrictor
         );
+        restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
 
     function testSetName(string calldata name) public {
@@ -192,6 +194,7 @@ contract dShareTest is Test {
     function testTransferRestrictedToReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
+        vm.prank(restrictor_role);
         restrictor.restrict(address(1));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
@@ -201,6 +204,7 @@ contract dShareTest is Test {
     function testTransferRestrictedFromReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
+        vm.prank(restrictor_role);
         restrictor.restrict(address(this));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);

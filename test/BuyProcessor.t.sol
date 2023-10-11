@@ -33,12 +33,16 @@ contract BuyProcessorTest is Test {
     MockToken paymentToken;
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
+    TransferRestrictor restrictor;
 
     uint256 userPrivateKey;
     address user;
 
     address constant operator = address(3);
     address constant treasury = address(4);
+    address public restrictor_role = address(1);
+
+    bytes32 public constant RESTRICTOR_ROLE = keccak256("RESTRICTOR_ROLE");
 
     uint256 dummyOrderFees;
     IOrderProcessor.Order dummyOrder;
@@ -75,6 +79,8 @@ contract BuyProcessorTest is Test {
             price: 0,
             tif: IOrderProcessor.TIF.GTC
         });
+        restrictor = TransferRestrictor(address(token.transferRestrictor()));
+        restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
 
     function testSetTreasury(address account) public {
@@ -195,7 +201,8 @@ contract BuyProcessorTest is Test {
         order.paymentTokenQuantity = orderAmount;
 
         // restrict msg.sender
-        TransferRestrictor(address(token.transferRestrictor())).restrict(user);
+        vm.prank(restrictor_role);
+        restrictor.restrict(user);
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -249,7 +256,8 @@ contract BuyProcessorTest is Test {
     }
 
     function testBlackListAssetRevert() public {
-        TransferRestrictor(address(token.transferRestrictor())).restrict(dummyOrder.recipient);
+        vm.prank(restrictor_role);
+        restrictor.restrict(dummyOrder.recipient);
         vm.expectRevert(OrderProcessor.Blacklist.selector);
         vm.prank(user);
         issuer.requestOrder(dummyOrder);
