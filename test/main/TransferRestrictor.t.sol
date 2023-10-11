@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "../../src/TransferRestrictor.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract TransferRestrictorTest is Test {
     event Restricted(address indexed account);
