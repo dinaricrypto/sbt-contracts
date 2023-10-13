@@ -109,26 +109,6 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
         underlyingDShare = newUnderlyingDShare;
     }
 
-    function realToVirtual(uint256 realShares) public view returns (uint256) {
-        // slither-disable-next-line unused-return
-        (, uint8 multiple, bool reverse) = tokenManager.splits(underlyingDShare);
-        if (reverse) {
-            return realShares / multiple;
-        } else {
-            return realShares * multiple;
-        }
-    }
-
-    function virtualToReal(uint256 virtualShares) public view returns (uint256) {
-        // slither-disable-next-line unused-return
-        (, uint8 multiple, bool reverse) = tokenManager.splits(underlyingDShare);
-        if (reverse) {
-            return virtualShares / multiple;
-        } else {
-            return virtualShares * multiple;
-        }
-    }
-
     /// @notice Converts all parent dshare vault balances to the current dShare token.
     // TODO: call tokenmanager sweepconvert
     // function sweepConvert() external onlyOwner {}
