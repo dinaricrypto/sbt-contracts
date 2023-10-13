@@ -308,8 +308,9 @@ contract ForwarderTest is Test {
         bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
         Forwarder.ForwardRequest memory metaTx2 =
             prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
-        multicalldata = new bytes[](1);
-        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx2);
+        multicalldata = new bytes[](2);
+        multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx2);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);

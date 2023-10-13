@@ -34,6 +34,7 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
 
     event VaultLocked();
     event VaultUnlocked();
+    event VaultBalanceConverted(address oldToken, address newToken, uint256 amountConverted);
 
     /**
      * @dev Initializes a new instance of the xdShare contract.
@@ -99,9 +100,33 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
         // slither-disable-next-line unused-return
         (dShare newUnderlyingDShare,) =
             tokenManager.convert(underlyingDShare, underlyingDShare.balanceOf(address(this)));
+
+        emit VaultBalanceConverted(
+            address(underlyingDShare), address(newUnderlyingDShare), underlyingDShare.balanceOf(address(this))
+        );
         // update underlyDshare
         // slither-disable-next-line reentrancy-no-eth
         underlyingDShare = newUnderlyingDShare;
+    }
+
+    function realToVirtual(uint256 realShares) public view returns (uint256) {
+        // slither-disable-next-line unused-return
+        (, uint8 multiple, bool reverse) = tokenManager.splits(underlyingDShare);
+        if (reverse) {
+            return realShares / multiple;
+        } else {
+            return realShares * multiple;
+        }
+    }
+
+    function virtualToReal(uint256 virtualShares) public view returns (uint256) {
+        // slither-disable-next-line unused-return
+        (, uint8 multiple, bool reverse) = tokenManager.splits(underlyingDShare);
+        if (reverse) {
+            return virtualShares / multiple;
+        } else {
+            return virtualShares * multiple;
+        }
     }
 
     /// @notice Converts all parent dshare vault balances to the current dShare token.
