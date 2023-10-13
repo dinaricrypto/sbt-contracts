@@ -3,16 +3,16 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
-import {MockToken} from "./utils/mocks/MockToken.sol";
-import "./utils/mocks/MockdShare.sol";
-import "./utils/SigUtils.sol";
-import "../src/orders/BuyProcessor.sol";
-import "../src/orders/IOrderProcessor.sol";
-import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
+import "../utils/mocks/MockdShare.sol";
+import "../utils/SigUtils.sol";
+import "../../src/orders/BuyProcessor.sol";
+import "../../src/orders/IOrderProcessor.sol";
+import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {NumberUtils} from "./utils/NumberUtils.sol";
-import {FeeLib} from "../src/common/FeeLib.sol";
+import {NumberUtils} from "../utils/NumberUtils.sol";
+import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -33,12 +33,14 @@ contract BuyProcessorTest is Test {
     MockToken paymentToken;
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
+    TransferRestrictor restrictor;
 
     uint256 userPrivateKey;
     address user;
 
     address constant operator = address(3);
     address constant treasury = address(4);
+    address public restrictor_role = address(1);
 
     uint256 dummyOrderFees;
     IOrderProcessor.Order dummyOrder;
@@ -75,6 +77,8 @@ contract BuyProcessorTest is Test {
             price: 0,
             tif: IOrderProcessor.TIF.GTC
         });
+        restrictor = TransferRestrictor(address(token.transferRestrictor()));
+        restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
 
     function testSetTreasury(address account) public {
@@ -195,7 +199,8 @@ contract BuyProcessorTest is Test {
         order.paymentTokenQuantity = orderAmount;
 
         // restrict msg.sender
-        TransferRestrictor(address(token.transferRestrictor())).restrict(user);
+        vm.prank(restrictor_role);
+        restrictor.restrict(user);
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -249,7 +254,8 @@ contract BuyProcessorTest is Test {
     }
 
     function testBlackListAssetRevert() public {
-        TransferRestrictor(address(token.transferRestrictor())).restrict(dummyOrder.recipient);
+        vm.prank(restrictor_role);
+        restrictor.restrict(dummyOrder.recipient);
         vm.expectRevert(OrderProcessor.Blacklist.selector);
         vm.prank(user);
         issuer.requestOrder(dummyOrder);
