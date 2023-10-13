@@ -13,8 +13,9 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/Reentra
 /**
  * @title xdShare Contract
  * @dev This contract acts as a wrapper over the dShare token, providing additional functionalities.
- *         It serves as a reinvestment token that uses dShare as the underlying token.
- *         Additionally, it employs the ERC4626 standard for its operations.
+ *      It serves as a reinvestment token that uses dShare as the underlying token.
+ *      Additionally, it employs the ERC4626 standard for its operations.
+ *      If TokenManager is not used, make sure that dShare will never split.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
  */
 contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
@@ -28,6 +29,7 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     /// @inheritdoc IxdShare
     bool public isLocked;
 
+    error InvalidTokenManager();
     error IssuancePaused();
     error SplitConversionNeeded();
     error ConversionCurrent();
@@ -40,9 +42,16 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
      * @param _dShare The address of the underlying dShare token.
      */
     constructor(dShare _dShare, ITokenManager _tokenManager) {
+        // Verify tokenManager setup
+        if (address(_tokenManager) != address(0) && !_tokenManager.isCurrentToken(address(_dShare))) {
+            revert InvalidTokenManager();
+        }
+
         underlyingDShare = _dShare;
         tokenManager = _tokenManager;
     }
+
+    /// ------------------- Getters ------------------- ///
 
     /**
      * @dev Returns the name of the xdShare token.
@@ -91,7 +100,9 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     /// ------------------- Splitting Operations Lifecycle ------------------- ///
 
     function convertVaultBalance() external onlyOwner nonReentrant {
-        if (tokenManager.isCurrentToken(address(underlyingDShare))) revert ConversionCurrent();
+        if (address(tokenManager) == address(0) || tokenManager.isCurrentToken(address(underlyingDShare))) {
+            revert ConversionCurrent();
+        }
 
         SafeTransferLib.safeApprove(
             address(underlyingDShare), address(tokenManager), underlyingDShare.balanceOf(address(this))
@@ -131,7 +142,9 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     function _issuancePreCheck() private view {
         // Revert the transaction if deposits are currently locked.
         if (isLocked) revert IssuancePaused();
-        if (!tokenManager.isCurrentToken(address(underlyingDShare))) revert SplitConversionNeeded();
+        if (address(tokenManager) != address(0) && !tokenManager.isCurrentToken(address(underlyingDShare))) {
+            revert SplitConversionNeeded();
+        }
     }
 
     /// ------------------- Transfer Restrictions ------------------- ///
