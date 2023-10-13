@@ -2,14 +2,14 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
-import {DualDistributor} from "../src/dividend/DualDistributor.sol";
-import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
-import {xdShare} from "../src/xdShare.sol";
-import {dShare} from "../src/dShare.sol";
+import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
+import {DualDistributor} from "../../src/dividend/DualDistributor.sol";
+import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
+import {xdShare} from "../../src/xdShare.sol";
+import {dShare} from "../../src/dShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {TokenManager} from "../src/TokenManager.sol";
+import {TokenManager} from "../../src/TokenManager.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract DualDistributorTest is Test {
@@ -34,14 +34,10 @@ contract DualDistributorTest is Test {
         restrictor = new TransferRestrictor(address(this));
         token = new MockERC20("Money", "$", 6);
         tokenManager = new TokenManager(restrictor);
-        dtoken = new dShare(
-            address(this),
-            "Dinari Token",
-            "dTKN",
-            "example.com",
-            restrictor
-        );
+        dtoken = tokenManager.deployNewToken(address(this), "Dinari Token", "dTKN");
         xToken = new xdShare(dtoken, tokenManager);
+
+        dtoken.grantRole(dtoken.MINTER_ROLE(), address(this));
 
         distribution = new DividendDistribution(address(this));
 
@@ -99,9 +95,10 @@ contract DualDistributorTest is Test {
     }
 
     function testDistribute(uint256 amountA, uint256 amountB, uint256 endTime) public {
+        vm.assume(endTime > block.timestamp);
+
         token.mint(address(dualDistributor), amountA);
         dtoken.mint(address(dualDistributor), amountB);
-        vm.assume(endTime > block.timestamp);
 
         vm.expectRevert(accessErrorString(address(this), distribution.DISTRIBUTOR_ROLE()));
         dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
