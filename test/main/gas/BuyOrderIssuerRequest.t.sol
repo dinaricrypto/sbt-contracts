@@ -4,15 +4,15 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
-import "../utils/SigUtils.sol";
-import "../../src/orders/BuyProcessor.sol";
-import "../../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import {MockToken} from "../../utils/mocks/MockToken.sol";
+import "../../utils/mocks/MockdShare.sol";
+import "../../utils/SigUtils.sol";
+import "../../../src/orders/BuyProcessor.sol";
+import "../../../src/orders/IOrderProcessor.sol";
+import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {NumberUtils} from "../utils/NumberUtils.sol";
-import {FeeLib} from "../../src/common/FeeLib.sol";
+import {NumberUtils} from "../../utils/NumberUtils.sol";
+import {FeeLib} from "../../../src/common/FeeLib.sol";
 
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling

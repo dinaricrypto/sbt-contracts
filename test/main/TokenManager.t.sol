@@ -3,9 +3,9 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "prb-math/Common.sol" as PrbMath;
-import "../src/TokenManager.sol";
+import "../../src/TokenManager.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 
 contract TokenManagerTest is Test {
     using Strings for uint256;
