@@ -2,10 +2,10 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {dShare} from "../src/dShare.sol";
-import {xdShare} from "../src/xdShare.sol";
-import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
-import {TokenManager} from "../src/TokenManager.sol";
+import {dShare} from "../../src/dShare.sol";
+import {xdShare} from "../../src/xdShare.sol";
+import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
+import {TokenManager} from "../../src/TokenManager.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract xdShareTest is Test {
@@ -22,6 +22,7 @@ contract xdShareTest is Test {
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
+        restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), address(this));
         tokenManager = new TokenManager(restrictor);
         token = tokenManager.deployNewToken(address(this), "Dinari Token", "dTKN");
         token.grantRole(token.MINTER_ROLE(), address(this));

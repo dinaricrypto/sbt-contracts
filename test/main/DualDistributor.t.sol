@@ -2,14 +2,14 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
-import {DualDistributor} from "../src/dividend/DualDistributor.sol";
-import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
-import {xdShare} from "../src/xdShare.sol";
-import {dShare} from "../src/dShare.sol";
+import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
+import {DualDistributor} from "../../src/dividend/DualDistributor.sol";
+import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
+import {xdShare} from "../../src/xdShare.sol";
+import {dShare} from "../../src/dShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {TokenManager} from "../src/TokenManager.sol";
+import {TokenManager} from "../../src/TokenManager.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract DualDistributorTest is Test {
