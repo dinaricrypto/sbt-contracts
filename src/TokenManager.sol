@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 import {ITokenManager} from "./ITokenManager.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {dShare} from "./dShare.sol";
-import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
