@@ -17,7 +17,7 @@ interface ITokenManager {
 
     function getRootParent(dShare token) external view returns (dShare rootToken);
 
-    function parentToken(dShare token) external view returns (dShare parentToken);
+    function parentToken(dShare token) external view returns (dShare _parentToken);
 
     /// @notice Converts all pre-split token balances to the current token
     /// @param token The pre-split token to be converted
