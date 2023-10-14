@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {ITokenManager} from "./ITokenManager.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {dShare} from "./dShare.sol";
-
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -312,11 +312,13 @@ contract TokenManager is ITokenManager, Ownable2Step {
         currentToken.mint(msg.sender, resultAmount);
     }
 
-    /// @inheritdoc ITokenManager
-    // function sweepConvert(dShare currentToken) external {
-    //     if (!isCurrentToken(address(currentToken))) revert TokenNotFound();
-
-    //     dShare _parentToken = getRootParent(currentToken);
-
-    // }
+    // @inheritdoc ITokenManager
+    function sweepConvert(dShare currentToken) external {
+        dShare _parentToken = parentToken[currentToken];
+        while (address(_parentToken) != address(0)) {
+            uint256 parentBalance = _parentToken.balanceOf(msg.sender);
+            convert(_parentToken, parentBalance);
+            _parentToken = parentToken[_parentToken];
+        }
+    }
 }

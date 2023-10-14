@@ -224,6 +224,46 @@ contract xdShareTest is Test {
         assertEq(newToken.balanceOf(user), newToken.balanceOf(user2));
     }
 
+    function testSweepConvert(uint128 supply, uint8 multiple, bool reverse) public {
+        vm.assume(supply > 6);
+        vm.assume(multiple > 2);
+
+        // user: mint -> deposit -> split -> withdraw
+        token.mint(user, supply);
+        token.mint(user2, supply);
+
+        vm.startPrank(user);
+        token.approve(address(xToken), supply);
+        xToken.deposit(supply, user);
+        vm.stopPrank();
+        assertEq(xToken.balanceOf(user), supply);
+
+        // split old token
+        (dShare newToken,) = tokenManager.split(token, multiple, reverse);
+
+        // let convert vault token
+        xToken.convertVaultBalance();
+        assertEq(token.balanceOf(address(xToken)), 0);
+        uint256 newTokenBalanceVault1 = newToken.balanceOf(address(xToken));
+
+        // transfer to pre-split token to vault
+        vm.prank(user2);
+        token.transfer(address(xToken), supply);
+
+        assertEq(token.balanceOf(address(xToken)), supply);
+
+        // sweep token
+        xToken.sweepConvert();
+        assertEq(token.balanceOf(address(xToken)), 0);
+
+        uint256 newTokenBalanceVault2 = newToken.balanceOf(address(xToken));
+
+        if (newTokenBalanceVault1 > 0 && newTokenBalanceVault2 > 0) {
+            assert(newTokenBalanceVault1 != newTokenBalanceVault2);
+            assertLt(newTokenBalanceVault1, newTokenBalanceVault2);
+        }
+    }
+
     function testTransferRestrictedToReverts(uint128 amount) public {
         vm.assume(amount > 0);
 

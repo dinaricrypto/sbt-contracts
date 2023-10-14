@@ -36,6 +36,7 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
 
     event VaultLocked();
     event VaultUnlocked();
+    event Yep();
 
     /**
      * @dev Initializes a new instance of the xdShare contract.
@@ -115,9 +116,30 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
         underlyingDShare = newUnderlyingDShare;
     }
 
-    /// @notice Converts all parent dshare vault balances to the current dShare token.
-    // TODO: call tokenmanager sweepconvert
-    // function sweepConvert() external onlyOwner {}
+    /**
+     * @dev Convert all pre-split tokens held by the vault to the
+     * current version of the dShare token. It iteratively approves the TokenManager to handle
+     * the conversion of each parent token found, updating the references to the current and parent tokens
+     * at each iteration. Once all parent tokens have been processed, it triggers the conversion process
+     * in the TokenManager by calling its `sweepConvert` function.
+     */
+    function sweepConvert() external onlyOwner {
+        dShare currentToken = underlyingDShare;
+        dShare parentToken = tokenManager.parentToken(currentToken);
+        // approve all pre-split tokens
+        while (address(parentToken) != address(0)) {
+            uint256 parentBalance = parentToken.balanceOf(address(this));
+            if (parentBalance > 0) {
+                SafeTransferLib.safeApprove(address(parentToken), address(tokenManager), parentBalance);
+            }
+
+            // Update the currentToken and parentToken for the next iteration
+            currentToken = parentToken;
+            parentToken = tokenManager.parentToken(currentToken);
+        }
+        // start sweep convert
+        tokenManager.sweepConvert(underlyingDShare);
+    }
 
     /// ------------------- Vault Operations Lifecycle ------------------- ///
 
