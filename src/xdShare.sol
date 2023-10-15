@@ -124,20 +124,27 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
      * in the TokenManager by calling its `sweepConvert` function.
      */
     function sweepConvert() external onlyOwner {
+        // Set the initial token to the current underlying token of the vault
         dShare currentToken = underlyingDShare;
+        // Retrieve the parent token of the current token
         dShare parentToken = tokenManager.parentToken(currentToken);
-        // approve all pre-split tokens
+
+        // Continue to approve each parent token for as long as a parent token exists
         while (address(parentToken) != address(0)) {
+            // Get the balance of the parent token held by the vault
             uint256 parentBalance = parentToken.balanceOf(address(this));
+
+            // If there's a positive balance, approve the tokenManager to spend the parent token
             if (parentBalance > 0) {
                 SafeTransferLib.safeApprove(address(parentToken), address(tokenManager), parentBalance);
             }
 
-            // Update the currentToken and parentToken for the next iteration
+            // Update the currentToken and parentToken for the next iteration, moving up the parent chain
             currentToken = parentToken;
             parentToken = tokenManager.parentToken(currentToken);
         }
-        // start sweep convert
+
+        // After all approvals, call the sweepConvert function on the tokenManager to process the conversions
         tokenManager.sweepConvert(underlyingDShare);
     }
 
