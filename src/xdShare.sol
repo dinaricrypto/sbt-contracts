@@ -119,7 +119,8 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
      * @dev Converts the entire balance of the specified token to the current token.
      * @param token The token to convert
      */
-    function sweepConvert(dShare token) external onlyOwner {
+    function sweepConvert(dShare token) external nonReentrant onlyOwner {
+        _issuancePreCheck();
         uint256 tokenBalance = token.balanceOf(address(this));
         if (tokenBalance > 0) {
             SafeTransferLib.safeApprove(address(token), address(tokenManager), tokenBalance);

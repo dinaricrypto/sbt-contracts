@@ -244,7 +244,6 @@ contract xdShareTest is Test {
         // let convert vault token
         xToken.convertVaultBalance();
         assertEq(token.balanceOf(address(xToken)), 0);
-        uint256 newTokenBalanceVault1 = newToken.balanceOf(address(xToken));
 
         // transfer to pre-split token to vault
         vm.prank(user2);
@@ -252,14 +251,28 @@ contract xdShareTest is Test {
 
         assertEq(token.balanceOf(address(xToken)), supply);
 
+        // lock vault
+        xToken.lock();
+
         // sweep token
+        vm.expectRevert(xdShare.IssuancePaused.selector);
+        xToken.sweepConvert(token);
+
+        xToken.unlock();
+
+        (dShare newToken2,) = tokenManager.split(newToken, multiple, reverse);
+
+        vm.expectRevert(xdShare.SplitConversionNeeded.selector);
+        xToken.sweepConvert(token);
+
+        xToken.convertVaultBalance();
+        uint256 newTokenBalanceVault1 = newToken2.balanceOf(address(newToken2));
+
         xToken.sweepConvert(token);
         assertEq(token.balanceOf(address(xToken)), 0);
+        uint256 newTokenBalanceVault2 = newToken2.balanceOf(address(xToken));
 
-        uint256 newTokenBalanceVault2 = newToken.balanceOf(address(xToken));
-
-        if (newTokenBalanceVault1 > 0 && newTokenBalanceVault2 > 0) {
-            assert(newTokenBalanceVault1 != newTokenBalanceVault2);
+        if (newTokenBalanceVault1 > 0 && newTokenBalanceVault1 > 0) {
             assertLt(newTokenBalanceVault1, newTokenBalanceVault2);
         }
     }
