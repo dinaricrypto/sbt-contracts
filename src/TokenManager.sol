@@ -310,19 +310,4 @@ contract TokenManager is ITokenManager, Ownable2Step {
         token.burn(amount);
         currentToken.mint(msg.sender, resultAmount);
     }
-
-    // @inheritdoc ITokenManager
-    function sweepConvert(dShare currentToken) external {
-        // Get the parent token of the specified current token
-        dShare _parentToken = parentToken[currentToken];
-        // Continue the loop until there are no more parent tokens
-        while (address(_parentToken) != address(0)) {
-            // Get the balance of the parent token held by the sender
-            uint256 parentBalance = _parentToken.balanceOf(msg.sender);
-            // Convert the parent token balance to the current version of the dShare token
-            convert(_parentToken, parentBalance);
-            // Update the _parentToken reference for the next iteration
-            _parentToken = parentToken[_parentToken];
-        }
-    }
 }

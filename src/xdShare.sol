@@ -36,7 +36,6 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
 
     event VaultLocked();
     event VaultUnlocked();
-    event Yep();
 
     /**
      * @dev Initializes a new instance of the xdShare contract.
@@ -117,35 +116,16 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     }
 
     /**
-     * @dev Convert all pre-split tokens held by the vault to the
-     * current version of the dShare token. It iteratively approves the TokenManager to handle
-     * the conversion of each parent token found, updating the references to the current and parent tokens
-     * at each iteration. Once all parent tokens have been processed, it triggers the conversion process
-     * in the TokenManager by calling its `sweepConvert` function.
+     * @dev Converts the entire balance of the specified token to the current token.
+     * @param token The token to convert
      */
-    function sweepConvert() external onlyOwner {
-        // Set the initial token to the current underlying token of the vault
-        dShare currentToken = underlyingDShare;
-        // Retrieve the parent token of the current token
-        dShare parentToken = tokenManager.parentToken(currentToken);
-
-        // Continue to approve each parent token for as long as a parent token exists
-        while (address(parentToken) != address(0)) {
-            // Get the balance of the parent token held by the vault
-            uint256 parentBalance = parentToken.balanceOf(address(this));
-
-            // If there's a positive balance, approve the tokenManager to spend the parent token
-            if (parentBalance > 0) {
-                SafeTransferLib.safeApprove(address(parentToken), address(tokenManager), parentBalance);
-            }
-
-            // Update the currentToken and parentToken for the next iteration, moving up the parent chain
-            currentToken = parentToken;
-            parentToken = tokenManager.parentToken(currentToken);
+    function sweepConvert(dShare token) external onlyOwner {
+        uint256 tokenBalance = token.balanceOf(address(this));
+        if (tokenBalance > 0) {
+            SafeTransferLib.safeApprove(address(token), address(tokenManager), tokenBalance);
+            // slither-disable-next-line unused-return
+            tokenManager.convert(token, tokenBalance);
         }
-
-        // After all approvals, call the sweepConvert function on the tokenManager to process the conversions
-        tokenManager.sweepConvert(underlyingDShare);
     }
 
     /// ------------------- Vault Operations Lifecycle ------------------- ///

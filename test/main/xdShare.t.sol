@@ -253,7 +253,7 @@ contract xdShareTest is Test {
         assertEq(token.balanceOf(address(xToken)), supply);
 
         // sweep token
-        xToken.sweepConvert();
+        xToken.sweepConvert(token);
         assertEq(token.balanceOf(address(xToken)), 0);
 
         uint256 newTokenBalanceVault2 = newToken.balanceOf(address(xToken));
