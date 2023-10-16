@@ -77,12 +77,6 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
         return address(underlyingDShare);
     }
 
-    // This offers inflation attack prevention
-    // TODO: fix split conversion math and turn on
-    function _useVirtualShares() internal pure override returns (bool) {
-        return false;
-    }
-
     /// ------------------- Locking Mechanism Lifecycle ------------------- ///
 
     /// @inheritdoc IxdShare
