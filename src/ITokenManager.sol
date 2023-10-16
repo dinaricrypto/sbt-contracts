@@ -14,4 +14,8 @@ interface ITokenManager {
     /// @return resultAmount Amount of current token minted to user
     /// @dev Accounts for multiple splits and returns the current token
     function convert(dShare token, uint256 amount) external returns (dShare currentToken, uint256 resultAmount);
+
+    function getRootParent(dShare token) external view returns (dShare rootToken);
+
+    function parentToken(dShare token) external view returns (dShare _parentToken);
 }

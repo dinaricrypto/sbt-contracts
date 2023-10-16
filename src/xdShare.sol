@@ -109,9 +109,19 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
         underlyingDShare = newUnderlyingDShare;
     }
 
-    /// @notice Converts all parent dshare vault balances to the current dShare token.
-    // TODO: call tokenmanager sweepconvert
-    // function sweepConvert() external onlyOwner {}
+    /**
+     * @dev Converts the entire balance of the specified token to the current token.
+     * @param token The token to convert
+     */
+    function sweepConvert(dShare token) external nonReentrant onlyOwner {
+        _issuancePreCheck();
+        uint256 tokenBalance = token.balanceOf(address(this));
+        if (tokenBalance > 0) {
+            SafeTransferLib.safeApprove(address(token), address(tokenManager), tokenBalance);
+            // slither-disable-next-line unused-return
+            tokenManager.convert(token, tokenBalance);
+        }
+    }
 
     /// ------------------- Vault Operations Lifecycle ------------------- ///
 

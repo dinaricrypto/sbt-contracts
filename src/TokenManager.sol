@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 import {ITokenManager} from "./ITokenManager.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {dShare} from "./dShare.sol";
-
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -311,12 +310,4 @@ contract TokenManager is ITokenManager, Ownable2Step {
         token.burn(amount);
         currentToken.mint(msg.sender, resultAmount);
     }
-
-    /// @inheritdoc ITokenManager
-    // function sweepConvert(dShare currentToken) external {
-    //     if (!isCurrentToken(address(currentToken))) revert TokenNotFound();
-
-    //     dShare _parentToken = getRootParent(currentToken);
-
-    // }
 }

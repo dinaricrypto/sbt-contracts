@@ -228,6 +228,59 @@ contract xdShareTest is Test {
         }
     }
 
+    function testSweepConvert(uint128 supply, uint8 multiple, bool reverse) public {
+        vm.assume(supply > 6);
+        vm.assume(multiple > 2);
+
+        // user: mint -> deposit -> split -> withdraw
+        token.mint(user, supply);
+        token.mint(user2, supply);
+
+        vm.startPrank(user);
+        token.approve(address(xToken), supply);
+        xToken.deposit(supply, user);
+        vm.stopPrank();
+        assertEq(xToken.balanceOf(user), supply);
+
+        // split old token
+        (dShare newToken,) = tokenManager.split(token, multiple, reverse);
+
+        // let convert vault token
+        xToken.convertVaultBalance();
+        assertEq(token.balanceOf(address(xToken)), 0);
+
+        // transfer to pre-split token to vault
+        vm.prank(user2);
+        token.transfer(address(xToken), supply);
+
+        assertEq(token.balanceOf(address(xToken)), supply);
+
+        // lock vault
+        xToken.lock();
+
+        // sweep token
+        vm.expectRevert(xdShare.IssuancePaused.selector);
+        xToken.sweepConvert(token);
+
+        xToken.unlock();
+
+        (dShare newToken2,) = tokenManager.split(newToken, multiple, reverse);
+
+        vm.expectRevert(xdShare.SplitConversionNeeded.selector);
+        xToken.sweepConvert(token);
+
+        xToken.convertVaultBalance();
+        uint256 newTokenBalanceVault1 = newToken2.balanceOf(address(newToken2));
+
+        xToken.sweepConvert(token);
+        assertEq(token.balanceOf(address(xToken)), 0);
+        uint256 newTokenBalanceVault2 = newToken2.balanceOf(address(xToken));
+
+        if (newTokenBalanceVault1 > 0 && newTokenBalanceVault1 > 0) {
+            assertLt(newTokenBalanceVault1, newTokenBalanceVault2);
+        }
+    }
+
     function testTransferRestrictedToReverts(uint128 amount) public {
         vm.assume(amount > 0);
 
