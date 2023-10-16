@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IxdShare} from "../IxdShare.sol";
+import {IxdShare} from "./IxdShare.sol";
 import {IDividendDistributor} from "./IDividendDistributor.sol";
 
 /**
