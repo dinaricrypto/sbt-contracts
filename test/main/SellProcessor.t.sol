@@ -74,7 +74,7 @@ contract SellProcessorTest is Test {
 
         token.mint(user, quantityIn);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), quantityIn);
+        token.approve(address(issuer), quantityIn);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
@@ -112,7 +112,7 @@ contract SellProcessorTest is Test {
 
         token.mint(user, order.assetTokenQuantity);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), order.assetTokenQuantity);
+        token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.expectRevert(OrderProcessor.InvalidPrecision.selector);
         vm.prank(user);
@@ -121,7 +121,7 @@ contract SellProcessorTest is Test {
         // update OrderAmount
         order.assetTokenQuantity = 100000;
 
-        token.increaseAllowance(address(issuer), order.assetTokenQuantity);
+        token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.prank(user);
         issuer.requestOrder(order);
@@ -144,7 +144,7 @@ contract SellProcessorTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -154,7 +154,7 @@ contract SellProcessorTest is Test {
 
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(issuer), receivedAmount);
+        paymentToken.approve(address(issuer), receivedAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, index);
 
@@ -209,14 +209,14 @@ contract SellProcessorTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(issuer), receivedAmount);
+        paymentToken.approve(address(issuer), receivedAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, index);
         uint256 feesEarned = 0;
@@ -279,7 +279,7 @@ contract SellProcessorTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -297,7 +297,7 @@ contract SellProcessorTest is Test {
 
             paymentToken.mint(operator, receivedAmount);
             vm.prank(operator);
-            paymentToken.increaseAllowance(address(issuer), receivedAmount);
+            paymentToken.approve(address(issuer), receivedAmount);
 
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);

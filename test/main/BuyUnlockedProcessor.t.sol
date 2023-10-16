@@ -83,7 +83,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -119,7 +119,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -128,7 +128,7 @@ contract BuyUnlockedProcessorTest is Test {
         issuer.takeEscrow(order, index, orderAmount);
 
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(issuer), returnAmount);
+        paymentToken.approve(address(issuer), returnAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, index);
 
@@ -164,7 +164,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -218,7 +218,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -253,7 +253,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);

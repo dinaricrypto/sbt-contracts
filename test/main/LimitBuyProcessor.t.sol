@@ -77,7 +77,7 @@ contract LimitBuyProcessorTest is Test {
 
         paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.startPrank(user);
-        paymentToken.increaseAllowance(address(issuer), order.paymentTokenQuantity + fees);
+        paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
@@ -121,7 +121,7 @@ contract LimitBuyProcessorTest is Test {
 
         paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), order.paymentTokenQuantity + fees);
+        paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);

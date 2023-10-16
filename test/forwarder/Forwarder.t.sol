@@ -450,7 +450,7 @@ contract ForwarderTest is Test {
         directBuyIssuer.takeEscrow(order, 0, order.paymentTokenQuantity);
 
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(directBuyIssuer), returnAmount);
+        paymentToken.approve(address(directBuyIssuer), returnAmount);
 
         if (returnAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
