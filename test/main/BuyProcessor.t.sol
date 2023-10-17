@@ -96,6 +96,29 @@ contract BuyProcessorTest is Test {
         issuer.setTreasury(address(0));
     }
 
+    function testCheckHash() public {
+        IOrderProcessor.Order memory order = dummyOrder;
+        bytes32 orderHash = issuer.hashOrder(order);
+        bytes32 orderCallDataHash = issuer.hashOrderCalldata(order);
+
+        bytes32 hashToTest = keccak256(
+            abi.encode(
+                order.recipient,
+                order.assetToken,
+                order.paymentToken,
+                order.sell,
+                order.orderType,
+                order.assetTokenQuantity,
+                order.paymentTokenQuantity,
+                order.price,
+                order.tif
+            )
+        );
+
+        assertEq(orderHash, orderCallDataHash);
+        assertEq(hashToTest, orderHash);
+    }
+
     function testSetFee(uint64 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
         if (percentageFee >= 1_000_000) {
             vm.expectRevert(FeeLib.FeeTooLarge.selector);
