@@ -228,6 +228,26 @@ contract xdShareTest is Test {
         }
     }
 
+    function testConvertVault(uint128 supply, uint8 multiple, bool reverse) public {
+        vm.assume(supply > 6);
+        vm.assume(multiple > 2);
+
+        // user: mint -> deposit -> split -> withdraw
+        token.mint(user, supply);
+
+        vm.startPrank(user);
+        token.approve(address(xToken), supply);
+        xToken.deposit(supply, user);
+        vm.stopPrank();
+        assertEq(xToken.balanceOf(user), supply);
+
+        vm.expectRevert(xdShare.ConversionCurrent.selector);
+        xToken.convertVaultBalance();
+
+        tokenManager.split(token, multiple, reverse);
+        xToken.convertVaultBalance();
+    }
+
     function testSweepConvert(uint128 supply, uint8 multiple, bool reverse) public {
         vm.assume(supply > 6);
         vm.assume(multiple > 2);

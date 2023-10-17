@@ -318,6 +318,25 @@ contract ForwarderTest is Test {
         assertEq(IERC20(address(paymentToken)).balanceOf(address(user)), balanceUserBeforeCancel);
     }
 
+    function testrescueERC20(uint256 amount, address to) public {
+        MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$");
+        paymentTokenToRescue.mint(user, amount);
+
+        vm.prank(user);
+        paymentTokenToRescue.transfer(address(forwarder), amount);
+
+        assertEq(paymentTokenToRescue.balanceOf(address(forwarder)), amount);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        forwarder.rescueERC20(IERC20(address(paymentTokenToRescue)), to, amount);
+
+        vm.prank(owner);
+        forwarder.rescueERC20(IERC20(address(paymentTokenToRescue)), to, amount);
+
+        assertEq(paymentTokenToRescue.balanceOf(address(forwarder)), 0);
+        assertEq(paymentTokenToRescue.balanceOf(to), amount);
+    }
+    
     function testSellOrder() public {
         IOrderProcessor.Order memory order = dummyOrder;
         order.sell = true;
