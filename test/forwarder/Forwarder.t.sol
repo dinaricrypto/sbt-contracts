@@ -336,7 +336,7 @@ contract ForwarderTest is Test {
         assertEq(paymentTokenToRescue.balanceOf(address(forwarder)), 0);
         assertEq(paymentTokenToRescue.balanceOf(to), amount);
     }
-    
+
     function testSellOrder() public {
         IOrderProcessor.Order memory order = dummyOrder;
         order.sell = true;

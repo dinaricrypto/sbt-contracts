@@ -35,15 +35,5 @@ contract TokenLockTest is Test {
         tokenLockCheck.setCallSelector(address(token), 0x032f29a1); // lock selector doesn't exist for token contract
 
         tokenLockCheck.setCallSelector(address(token), token.isBlacklisted.selector);
-
-        // (bool success, bytes memory data) = address(tokenLockCheck).staticcall(
-        //     abi.encodeWithSignature("CallSelectorSet(address,bytes4)")
-        // );
-
-        // (address eventToken, bytes4 eventSelector) = abi.decode(data, (address, bytes4));
-
-        // assertEq(eventToken, address(token), "Token address does not match");
-        // assertEq(eventSelector, bytes4(0x032f29a1), "Selector does not match");
-       
     }
 }

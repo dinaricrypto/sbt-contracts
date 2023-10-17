@@ -196,7 +196,7 @@ contract TokenManagerTest is Test {
         vm.assume(amount > convertAmount);
         token1.mint(user, amount);
         uint256 totalSupply = token1.totalSupply();
-        (dShare newToken, ) = tokenManager.split(token1, multiple, false);
+        (dShare newToken,) = tokenManager.split(token1, multiple, false);
         if (amount > 0) {
             vm.startPrank(user);
             token1.approve(address(tokenManager), convertAmount);
@@ -207,8 +207,8 @@ contract TokenManagerTest is Test {
             assertEq((totalSupply - convertAmount) * multiple, tokenManager.getSupplyExpansion(token1, multiple, false));
         }
         // check if aggregateBalance of user > 0
-        (dShare newToken2, ) = tokenManager.split(newToken, multiple, true);
-        (dShare newToken3, ) = tokenManager.split(newToken2, multiple, false);
+        (dShare newToken2,) = tokenManager.split(newToken, multiple, true);
+        (dShare newToken3,) = tokenManager.split(newToken2, multiple, false);
         assertGt(tokenManager.getAggregateBalanceOf(newToken3, user), 0);
     }
 }
