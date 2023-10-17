@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import {dShare} from "../../src/dShare.sol";
-import {xdShare} from "../../src/xdShare.sol";
+import {xdShare} from "../../src/dividend/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {TokenManager} from "../../src/TokenManager.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
