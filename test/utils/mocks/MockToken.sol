@@ -2,8 +2,7 @@
 pragma solidity 0.8.19;
 
 import "solady/src/tokens/ERC20.sol";
-import {AccessControl} from
-    "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 contract MockToken is ERC20, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
