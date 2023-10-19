@@ -105,10 +105,12 @@ jobs:
           version: nightly
 
       - name: Run Forge coverage
-        run: forge coverage --report lcov
+        run: forge coverage -f $RPC_ARBITRUM  --report lcov
+        env: 
+          RPC_ARBITRUM: ${{ secrets.RPC_ARBITRUM }}
 
       - name: Report Coverage
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./lcov.info
+          files: ./lcov.info        
