@@ -319,13 +319,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
-        // check blocklisted address
-        if (
-            tokenLockCheck.isTransferLocked(order.assetToken, order.recipient)
-                || tokenLockCheck.isTransferLocked(order.assetToken, msg.sender)
-                || tokenLockCheck.isTransferLocked(order.paymentToken, order.recipient)
-                || tokenLockCheck.isTransferLocked(order.paymentToken, msg.sender)
-        ) revert Blacklist();
+        // black list checker
+        blackListCheck(order.assetToken, order.paymentToken, order.recipient, msg.sender);
 
         index = nextOrderIndex[order.recipient]++;
         bytes32 id = getOrderId(order.recipient, index);
@@ -481,6 +476,16 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         if (feesEarned > 0) {
             IERC20(order.paymentToken).safeTransfer(treasury, feesEarned);
         }
+    }
+
+    function blackListCheck(address assetToken, address paymentToken, address recipient, address sender)
+        internal
+        view
+    {
+        if (tokenLockCheck.isTransferLocked(assetToken, recipient)) revert Blacklist();
+        if (tokenLockCheck.isTransferLocked(assetToken, sender)) revert Blacklist();
+        if (tokenLockCheck.isTransferLocked(paymentToken, recipient)) revert Blacklist();
+        if (tokenLockCheck.isTransferLocked(paymentToken, sender)) revert Blacklist();
     }
 
     /// @notice Request to cancel an order

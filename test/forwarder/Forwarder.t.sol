@@ -63,6 +63,11 @@ contract ForwarderTest is Test {
     address constant operator = address(3);
     address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
+    bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
+        "ForwardRequest(address user,address to,address paymentToken,bytes data,uint64 deadline,uint256 nonce)"
+    );
+    bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
+
     function setUp() public {
         userPrivateKey = 0x1;
         relayerPrivateKey = 0x2;
@@ -318,6 +323,47 @@ contract ForwarderTest is Test {
         assertEq(IERC20(address(paymentToken)).balanceOf(address(user)), balanceUserBeforeCancel);
     }
 
+    function testrescueERC20(uint256 amount, address to) public {
+        MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$");
+        paymentTokenToRescue.mint(user, amount);
+
+        vm.prank(user);
+        paymentTokenToRescue.transfer(address(forwarder), amount);
+
+        assertEq(paymentTokenToRescue.balanceOf(address(forwarder)), amount);
+
+        vm.expectRevert("Ownable: caller is not the owner");
+        forwarder.rescueERC20(IERC20(address(paymentTokenToRescue)), to, amount);
+
+        vm.prank(owner);
+        forwarder.rescueERC20(IERC20(address(paymentTokenToRescue)), to, amount);
+
+        assertEq(paymentTokenToRescue.balanceOf(address(forwarder)), 0);
+        assertEq(paymentTokenToRescue.balanceOf(to), amount);
+    }
+
+    function testHash() public {
+        IForwarder.ForwardRequest memory metaTx1 = IForwarder.ForwardRequest(
+            user, address(issuer), address(paymentToken), "0x", uint64(block.timestamp + 20 days), 0, "0x"
+        );
+
+        bytes32 hashRequest = keccak256(
+            abi.encode(
+                FORWARDREQUEST_TYPEHASH,
+                user,
+                address(issuer),
+                address(paymentToken),
+                keccak256("0x"),
+                uint64(block.timestamp + 20 days),
+                0
+            )
+        );
+
+        bytes32 _hash = forwarder.forwardRequestHash(metaTx1);
+
+        assertEq(hashRequest, _hash);
+    }
+
     function testSellOrder() public {
         IOrderProcessor.Order memory order = dummyOrder;
         order.sell = true;
@@ -367,8 +413,6 @@ contract ForwarderTest is Test {
         assertEq(token.balanceOf(address(sellIssuer)), issuerBalanceBefore + order.assetTokenQuantity);
         assertEq(sellIssuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
         assert(paymentTokenBalanceBefore > paymentTokenBalanceAfter);
-        // cost should be < 1e6 for gas cost
-        // assertLt(paymentTokenBalanceBefore - paymentTokenBalanceAfter, 1e6);
     }
 
     function testTakeEscrowBuyUnlockedOrder(uint256 takeAmount) public {

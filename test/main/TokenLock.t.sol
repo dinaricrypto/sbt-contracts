@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import {TokenLockCheck} from "../../src/TokenLockCheck.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract TokenLockTest is Test {
     MockToken token;
@@ -27,5 +28,12 @@ contract TokenLockTest is Test {
         token2.blacklist(user);
         assertEq(tokenLockCheck.isTransferLocked(address(token), user), true);
         assertEq(tokenLockCheck.isTransferLocked(address(token2), user), true);
+    }
+
+    function testCallSelector() public {
+        vm.expectRevert("TokenLockCheck: low-level static call failed");
+        tokenLockCheck.setCallSelector(address(token), 0x032f29a1); // lock selector doesn't exist for token contract
+
+        tokenLockCheck.setCallSelector(address(token), token.isBlacklisted.selector);
     }
 }
