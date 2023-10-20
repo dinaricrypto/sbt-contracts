@@ -153,6 +153,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @inheritdoc IOrderProcessor
     mapping(address => uint256) public maxOrderDecimals;
 
+    mapping(address => address) public feeSchedule;
+
     /// ------------------ Initialization ------------------ ///
 
     /// @notice Initialize contract

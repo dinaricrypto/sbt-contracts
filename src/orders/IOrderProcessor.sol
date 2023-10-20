@@ -112,6 +112,13 @@ interface IOrderProcessor {
     /// @return Returns the number of decimal places set for the specified token
     function maxOrderDecimals(address token) external view returns (uint256);
 
+    /**
+     * @notice Fetch the fee schedule contract associated with a given account.
+     * @param account The address of the account for which the fee schedule is to be fetched.
+     * @return The address of the fee schedule contract associated with the given account.
+     */
+    function feeSchedule(address account) external view returns (address);
+
     /// @notice Get fee rates for an order
     /// @param token Payment token for order
     /// @return flatFee Flat fee for order
