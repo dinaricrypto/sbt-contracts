@@ -250,17 +250,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     {
         feeSchedule[requester] = _feeSchedule;
     }
-
-    /**
-     * @notice Sets the default fee for the contract.
-     * @param _percentageFeeRate The fee rate as a percentage to be set as default.
-     * @param _perOrderFee The flat fee per order to be set as default.
-     */
-    function setDefaultFee(uint24 _percentageFeeRate, uint64 _perOrderFee) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        percentageFeeRate = _percentageFeeRate;
-        perOrderFee = _perOrderFee;
-    }
-
     /// ------------------ Getters ------------------ ///
 
     /// @inheritdoc IOrderProcessor
