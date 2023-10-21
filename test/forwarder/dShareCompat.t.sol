@@ -106,7 +106,7 @@ contract dShareCompatTest is Test {
         });
 
         (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken));
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         // set fees

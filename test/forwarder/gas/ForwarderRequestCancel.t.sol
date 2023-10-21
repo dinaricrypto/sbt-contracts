@@ -88,7 +88,7 @@ contract ForwarderRequestCancelTest is Test {
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
         (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken));
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
