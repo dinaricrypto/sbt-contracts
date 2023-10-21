@@ -17,6 +17,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {FeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
@@ -115,14 +116,15 @@ contract ForwarderTest is Test {
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) =
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            sell: false,
+            operation: FeeSchedule.OperationType.BUY,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
@@ -366,7 +368,7 @@ contract ForwarderTest is Test {
 
     function testSellOrder() public {
         IOrderProcessor.Order memory order = dummyOrder;
-        order.sell = true;
+        order.operation = FeeSchedule.OperationType.SELL;
         order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);

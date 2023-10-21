@@ -9,6 +9,7 @@ import "../../src/orders/SellProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {FeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract LimitSellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
@@ -55,7 +56,7 @@ contract LimitSellProcessorTest is Test {
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            sell: true,
+            operation: FeeSchedule.OperationType.SELL,
             orderType: IOrderProcessor.OrderType.LIMIT,
             assetTokenQuantity: orderAmount,
             paymentTokenQuantity: 0,

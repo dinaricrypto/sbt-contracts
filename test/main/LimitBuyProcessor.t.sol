@@ -10,6 +10,7 @@ import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {FeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract LimitBuyProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
@@ -42,7 +43,8 @@ contract LimitBuyProcessorTest is Test {
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) =
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -61,7 +63,7 @@ contract LimitBuyProcessorTest is Test {
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            sell: false,
+            operation: FeeSchedule.OperationType.BUY,
             orderType: IOrderProcessor.OrderType.LIMIT,
             assetTokenQuantity: 0,
             paymentTokenQuantity: orderAmount,

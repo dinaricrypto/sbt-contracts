@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
+import {FeeSchedule} from "../FeeSchedule.sol";
+
 /// @notice Interface for contracts processing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/IOrderProcessor.sol)
 /// This interface provides a standard Order type and order lifecycle events
@@ -48,7 +50,7 @@ interface IOrderProcessor {
         // Payment token
         address paymentToken;
         // Buy or sell
-        bool sell;
+        FeeSchedule.OperationType operation;
         // Market or limit
         OrderType orderType;
         // Amount of asset token to be used for fills
@@ -123,15 +125,20 @@ interface IOrderProcessor {
     /// @param token Payment token for order
     /// @return flatFee Flat fee for order
     /// @return percentageFeeRate Percentage fee rate for order
-    function getFeeRatesForOrder(address token) external view returns (uint256, uint24);
+    function getFeeRatesForOrder(FeeSchedule.OperationType operation, address token, address requester)
+        external
+        view
+        returns (uint256, uint24);
 
     /// @notice Get total fees for an order
     /// @param paymentToken Payment token for order
     /// @param paymentTokenOrderValue Order payment token quantity
-    function estimateTotalFeesForOrder(address paymentToken, uint256 paymentTokenOrderValue)
-        external
-        view
-        returns (uint256);
+    function estimateTotalFeesForOrder(
+        FeeSchedule.OperationType operation,
+        address requester,
+        address paymentToken,
+        uint256 paymentTokenOrderValue
+    ) external view returns (uint256);
 
     /// @dev Returns `true` if `account` has been granted `role`.
     function hasRole(bytes32 role, address account) external view returns (bool);

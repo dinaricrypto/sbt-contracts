@@ -13,6 +13,7 @@ import "../../utils/mocks/MockdShare.sol";
 import "../../utils/SigMeta.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
+import {FeeSchedule} from "../../../src/FeeSchedule.sol";
 
 // additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {
@@ -86,14 +87,15 @@ contract ForwarderRequestCancelTest is Test {
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) =
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            sell: false,
+            operation: FeeSchedule.OperationType.BUY,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,

@@ -10,6 +10,7 @@ import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {FeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract SellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
@@ -54,12 +55,13 @@ contract SellProcessorTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) =
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.SELL, user, address(paymentToken));
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            sell: true,
+            operation: FeeSchedule.OperationType.SELL,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 100 ether,
             paymentTokenQuantity: 0,

@@ -15,6 +15,7 @@ import "prb-math/Common.sol" as PrbMath;
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IForwarder} from "./IForwarder.sol";
+import {FeeSchedule} from "../FeeSchedule.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
@@ -253,13 +254,14 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      */
     function _requestOrderPreparation(IOrderProcessor.Order memory order, address user, address target) internal {
         // Pull tokens from user and approve module to spend
-        if (order.sell) {
+        if (order.operation == FeeSchedule.OperationType.SELL) {
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.assetToken).safeTransferFrom(user, address(this), order.assetTokenQuantity);
             IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
         } else {
-            uint256 fees =
-                IOrderProcessor(target).estimateTotalFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
+            uint256 fees = IOrderProcessor(target).estimateTotalFeesForOrder(
+                order.operation, user, order.paymentToken, order.paymentTokenQuantity
+            );
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);
             IERC20(order.paymentToken).safeIncreaseAllowance(target, order.paymentTokenQuantity + fees);

@@ -13,6 +13,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../../utils/NumberUtils.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
+import {FeeSchedule} from "../../../src/FeeSchedule.sol";
 
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
@@ -71,12 +72,13 @@ contract BuyProcessorRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) =
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken));
         order = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            sell: false,
+            operation: FeeSchedule.OperationType.BUY,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
