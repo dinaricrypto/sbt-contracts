@@ -59,7 +59,7 @@ contract BuyUnlockedProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken));
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
         dummyOrder = IOrderProcessor.Order({
             recipient: user,

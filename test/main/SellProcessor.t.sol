@@ -56,7 +56,7 @@ contract SellProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.SELL, user, address(paymentToken));
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.SELL, address(paymentToken), user);
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),

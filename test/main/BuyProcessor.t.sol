@@ -162,7 +162,8 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrder(uint256 orderAmount) public {
-        uint256 fees = issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
+        uint256 fees =
+            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -216,7 +217,8 @@ contract BuyProcessorTest is Test {
 
     function testRequestOrderBlacklist(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
+        uint256 fees =
+            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -239,7 +241,8 @@ contract BuyProcessorTest is Test {
 
     function testPaymentTokenBlackList(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
+        uint256 fees =
+            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -353,7 +356,8 @@ contract BuyProcessorTest is Test {
         uint256 fees;
         {
             uint24 percentageFeeRate;
-            (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY,user,address(paymentToken));
+            (flatFee, percentageFeeRate) =
+                issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
             fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
             vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         }
@@ -415,7 +419,8 @@ contract BuyProcessorTest is Test {
 
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
+        uint256 fees =
+            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -503,7 +508,8 @@ contract BuyProcessorTest is Test {
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
-        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken));
+        (uint256 flatFee, uint24 percentageFeeRate) =
+            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
