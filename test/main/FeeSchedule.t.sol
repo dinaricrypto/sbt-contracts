@@ -49,6 +49,11 @@ contract FeeScheduleTest is Test {
         (uint24 percentageFeeRate, uint64 perOrderFee) = feeSchedule.getFees(user, false);
         assertEq(percentageFeeRate, _percentageRateFee);
         assertEq(perOrderFee, _perOrderFee);
+
+        FeeSchedule newFeeSchedule = new FeeSchedule();
+
+        issuer.setFeeSchedule(newFeeSchedule);
+        assertEq(address(issuer.feeSchedule()), address(newFeeSchedule));
     }
 
     function testSetZeroFees(bool _isZeroFee) public {

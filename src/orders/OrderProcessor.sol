@@ -99,6 +99,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     event OrdersPaused(bool paused);
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
+    /// @dev Emitted when fee schedule contract is set
+    event FeeScheduleSet(IFeeSchedule indexed feeSchedule);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
@@ -237,6 +239,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     function setTokenLockCheck(ITokenLockCheck _tokenLockCheck) external onlyRole(DEFAULT_ADMIN_ROLE) {
         tokenLockCheck = _tokenLockCheck;
         emit TokenLockCheckSet(_tokenLockCheck);
+    }
+
+    function setFeeSchedule(IFeeSchedule _feeSchedule) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        feeSchedule = _feeSchedule;
+        emit FeeScheduleSet(_feeSchedule);
     }
 
     function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
