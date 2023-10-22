@@ -10,7 +10,7 @@ import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {FeeSchedule} from "../../src/FeeSchedule.sol";
+import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract SellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
@@ -24,6 +24,7 @@ contract SellProcessorTest is Test {
 
     dShare token;
     TokenLockCheck tokenLockCheck;
+    FeeSchedule feeSchedule;
     SellProcessor issuer;
     MockToken paymentToken;
 
@@ -45,8 +46,9 @@ contract SellProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        feeSchedule = new FeeSchedule();
 
-        issuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -55,13 +57,12 @@ contract SellProcessorTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.SELL, address(paymentToken), user);
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), true);
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            operation: FeeSchedule.OperationType.SELL,
+            sell: true,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 100 ether,
             paymentTokenQuantity: 0,

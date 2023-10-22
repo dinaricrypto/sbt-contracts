@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
 import {BuyProcessor, ITokenLockCheck} from "./BuyProcessor.sol";
+import {IFeeSchedule} from "../FeeSchedule.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/BuyUnlockedProcessor.sol)
@@ -48,8 +49,9 @@ contract BuyUnlockedProcessor is BuyProcessor {
         address _treasury,
         uint64 _perOrderFee,
         uint24 _percentageFeeRate,
-        ITokenLockCheck _tokenLockCheck
-    ) BuyProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
+        ITokenLockCheck _tokenLockCheck,
+        IFeeSchedule _feeSchedule
+    ) BuyProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck, _feeSchedule) {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 

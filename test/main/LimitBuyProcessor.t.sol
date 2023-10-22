@@ -10,7 +10,7 @@ import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {FeeSchedule} from "../../src/FeeSchedule.sol";
+import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract LimitBuyProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
@@ -20,6 +20,7 @@ contract LimitBuyProcessorTest is Test {
 
     dShare token;
     TokenLockCheck tokenLockCheck;
+    FeeSchedule feeSchedule;
     BuyProcessor issuer;
     MockToken paymentToken;
 
@@ -40,11 +41,11 @@ contract LimitBuyProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        feeSchedule = new FeeSchedule();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
 
-        (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -63,7 +64,7 @@ contract LimitBuyProcessorTest is Test {
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            operation: FeeSchedule.OperationType.BUY,
+            sell: false,
             orderType: IOrderProcessor.OrderType.LIMIT,
             assetTokenQuantity: 0,
             paymentTokenQuantity: orderAmount,

@@ -27,6 +27,7 @@ contract ForwarderRequestCancelTest is Test {
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
     TokenLockCheck tokenLockCheck;
+    FeeSchedule feeSchedule;
 
     uint24 percentageFeeRate;
 
@@ -60,12 +61,13 @@ contract ForwarderRequestCancelTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        feeSchedule = new FeeSchedule();
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -87,15 +89,14 @@ contract ForwarderRequestCancelTest is Test {
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            operation: FeeSchedule.OperationType.BUY,
+            sell: false,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,

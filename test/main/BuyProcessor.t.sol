@@ -13,7 +13,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {FeeSchedule} from "../../src/FeeSchedule.sol";
+import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -34,6 +34,7 @@ contract BuyProcessorTest is Test {
     MockToken paymentToken;
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
+    FeeSchedule feeSchedule;
     TransferRestrictor restrictor;
 
     uint256 userPrivateKey;
@@ -57,7 +58,9 @@ contract BuyProcessorTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        feeSchedule = new FeeSchedule();
+
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -70,15 +73,14 @@ contract BuyProcessorTest is Test {
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            operation: FeeSchedule.OperationType.BUY,
+            sell: false,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
             tif: IOrderProcessor.TIF.GTC
         });
-        dummyOrderFees =
-            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), 100 ether);
+        dummyOrderFees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), 100 ether, false);
         restrictor = TransferRestrictor(address(token.transferRestrictor()));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
@@ -108,7 +110,7 @@ contract BuyProcessorTest is Test {
                 order.recipient,
                 order.assetToken,
                 order.paymentToken,
-                order.operation,
+                order.sell,
                 order.orderType,
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
@@ -162,8 +164,7 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrder(uint256 orderAmount) public {
-        uint256 fees =
-            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), orderAmount, false);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -217,8 +218,7 @@ contract BuyProcessorTest is Test {
 
     function testRequestOrderBlacklist(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees =
-            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), orderAmount, false);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -241,8 +241,7 @@ contract BuyProcessorTest is Test {
 
     function testPaymentTokenBlackList(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees =
-            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), orderAmount, false);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -356,8 +355,7 @@ contract BuyProcessorTest is Test {
         uint256 fees;
         {
             uint24 percentageFeeRate;
-            (flatFee, percentageFeeRate) =
-                issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
+            (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
             fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
             vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         }
@@ -419,8 +417,7 @@ contract BuyProcessorTest is Test {
 
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees =
-            issuer.estimateTotalFeesForOrder(FeeSchedule.OperationType.BUY, user, address(paymentToken), orderAmount);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), orderAmount, false);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -508,8 +505,7 @@ contract BuyProcessorTest is Test {
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
-        (uint256 flatFee, uint24 percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;

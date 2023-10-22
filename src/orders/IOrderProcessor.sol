@@ -50,7 +50,7 @@ interface IOrderProcessor {
         // Payment token
         address paymentToken;
         // Buy or sell
-        FeeSchedule.OperationType operation;
+        bool sell;
         // Market or limit
         OrderType orderType;
         // Amount of asset token to be used for fills
@@ -114,30 +114,24 @@ interface IOrderProcessor {
     /// @return Returns the number of decimal places set for the specified token
     function maxOrderDecimals(address token) external view returns (uint256);
 
-    /**
-     * @notice Fetch the fee schedule contract associated with a given account.
-     * @param account The address of the account for which the fee schedule is to be fetched.
-     * @return The address of the fee schedule contract associated with the given account.
-     */
-    function feeSchedule(address account) external view returns (address);
-
     /// @notice Get fee rates for an order
+    /// @param requester Requester of order
     /// @param token Payment token for order
+    /// @param sell Sell order
     /// @return flatFee Flat fee for order
     /// @return percentageFeeRate Percentage fee rate for order
-    function getFeeRatesForOrder(FeeSchedule.OperationType operation, address token, address requester)
-        external
-        view
-        returns (uint256, uint24);
+    function getFeeRatesForOrder(address requester, address token, bool sell) external view returns (uint256, uint24);
 
     /// @notice Get total fees for an order
+    /// @param sell Sell order
+    /// @param requester Requester of order
     /// @param paymentToken Payment token for order
     /// @param paymentTokenOrderValue Order payment token quantity
     function estimateTotalFeesForOrder(
-        FeeSchedule.OperationType operation,
         address requester,
         address paymentToken,
-        uint256 paymentTokenOrderValue
+        uint256 paymentTokenOrderValue,
+        bool sell
     ) external view returns (uint256);
 
     /// @dev Returns `true` if `account` has been granted `role`.

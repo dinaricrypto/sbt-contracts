@@ -17,7 +17,7 @@ import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IdShare} from "../IdShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
-import {FeeSchedule} from "../FeeSchedule.sol";
+import {IFeeSchedule} from "../IFeeSchedule.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
@@ -133,6 +133,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Transfer restrictor checker
     ITokenLockCheck public tokenLockCheck;
 
+    IFeeSchedule public feeSchedule;
+
     /// @dev Are orders paused?
     bool public ordersPaused;
 
@@ -154,7 +156,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @inheritdoc IOrderProcessor
     mapping(address => uint256) public maxOrderDecimals;
 
-    mapping(address => address) public feeSchedule;
+    mapping(address => bool) public userHasFeeSchedule;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -170,7 +172,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         address _treasury,
         uint64 _perOrderFee,
         uint24 _percentageFeeRate,
-        ITokenLockCheck _tokenLockCheck
+        ITokenLockCheck _tokenLockCheck,
+        IFeeSchedule _feeSchedule
     ) AccessControlDefaultAdminRules(0, _owner) {
         // Don't send fees to zero address
         if (_treasury == address(0)) revert ZeroAddress();
@@ -182,6 +185,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         perOrderFee = _perOrderFee;
         percentageFeeRate = _percentageFeeRate;
         tokenLockCheck = _tokenLockCheck;
+        feeSchedule = _feeSchedule;
     }
 
     /// ------------------ Administration ------------------ ///
@@ -242,13 +246,16 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @notice Set the FeeSchedule contract for a specific requester
     /// @param requester Address of the requester
-    /// @param _feeSchedule Address of the FeeSchedule contract for the requester
     /// @dev Only callable by admin
-    function setFeeScheduleForRequester(address requester, address _feeSchedule)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        feeSchedule[requester] = _feeSchedule;
+    function enableFeeScheduleForRequester(address requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        userHasFeeSchedule[requester] = true;
+    }
+
+    /// @notice Disable the FeeSchedule contract for a specific requester
+    /// @param requester Address of the requester
+    /// @dev Only callable by admin
+    function disableFeeScheduleForRequester(address requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        userHasFeeSchedule[requester] = false;
     }
     /// ------------------ Getters ------------------ ///
 
@@ -297,32 +304,41 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     /// @inheritdoc IOrderProcessor
-    function getFeeRatesForOrder(FeeSchedule.OperationType operation, address token, address requester)
+    function getFeeRatesForOrder(address requester, address token, bool sell)
         public
         view
         returns (uint256 flatFee, uint24 _percentageFeeRate)
     {
-        // Get fee rates
-        if (feeSchedule[requester] != address(0)) {
-            (uint64 customPerOrderFee, uint24 customPercentageFeeRate) =
-                FeeSchedule(feeSchedule[requester]).fees(operation);
+        // If user has a custom fee schedule and it's set to zero
+        if (userHasFeeSchedule[requester] && feeSchedule.accountZeroFee(requester)) {
+            flatFee = FeeLib.flatFeeForOrder(token, 0);
+            _percentageFeeRate = 0;
+            return (flatFee, _percentageFeeRate);
+        }
+
+        // If user has a custom fee schedule but it's not zero
+        if (userHasFeeSchedule[requester]) {
+            (uint64 customPerOrderFee, uint24 customPercentageFeeRate) = feeSchedule.accountFees(requester, sell);
             flatFee = FeeLib.flatFeeForOrder(token, customPerOrderFee);
             _percentageFeeRate = customPercentageFeeRate;
-        } else {
-            flatFee = FeeLib.flatFeeForOrder(token, perOrderFee);
-            _percentageFeeRate = percentageFeeRate;
+            return (flatFee, _percentageFeeRate);
         }
+
+        // Default fee rates
+        flatFee = FeeLib.flatFeeForOrder(token, perOrderFee);
+        _percentageFeeRate = percentageFeeRate;
+        return (flatFee, _percentageFeeRate);
     }
 
     /// @inheritdoc IOrderProcessor
     function estimateTotalFeesForOrder(
-        FeeSchedule.OperationType operation,
         address requester,
         address paymentToken,
-        uint256 paymentTokenOrderValue
+        uint256 paymentTokenOrderValue,
+        bool sell
     ) public view returns (uint256) {
         // Get fee rates
-        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(operation, paymentToken, requester);
+        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(requester, paymentToken, sell);
         // Calculate total fees
         return FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, paymentTokenOrderValue);
     }
@@ -333,8 +349,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 index) {
         // cheap checks first
         if (order.recipient == address(0)) revert ZeroAddress();
-        uint256 orderAmount =
-            (order.operation == FeeSchedule.OperationType.SELL) ? order.assetTokenQuantity : order.paymentTokenQuantity;
+        uint256 orderAmount = (order.sell) ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
         if (orderAmount == 0) revert ZeroValue();
 
@@ -372,7 +387,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         _orderInfo[id] = OrderInfo({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
         _numOpenOrders++;
 
-        if (order.operation == FeeSchedule.OperationType.SELL) {
+        if (order.sell) {
             // update escrowed balance
             escrowedBalanceOf[order.assetToken][order.recipient] += order.assetTokenQuantity;
 
@@ -395,7 +410,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
                 order.recipient,
                 order.assetToken,
                 order.paymentToken,
-                order.operation,
+                order.sell,
                 order.orderType,
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
@@ -412,7 +427,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
                 order.recipient,
                 order.assetToken,
                 order.paymentToken,
-                order.operation,
+                order.sell,
                 order.orderType,
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
@@ -469,13 +484,13 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             uint256 estimatedTotalFees =
                 FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
             uint256 feesPaid = orderState.feesPaid + feesEarned;
-            assert(order.operation == FeeSchedule.OperationType.SELL || feesPaid <= estimatedTotalFees);
+            assert(order.sell || feesPaid <= estimatedTotalFees);
             _orders[id].received = orderState.received + receivedAmount;
             _orders[id].feesPaid = feesPaid;
         }
 
         // Move tokens
-        if (order.operation == FeeSchedule.OperationType.SELL) {
+        if (order.sell) {
             // update escrowed balance
             escrowedBalanceOf[order.assetToken][order.recipient] -= fillAmount;
             // Burn the filled quantity from the asset token
@@ -562,8 +577,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Calculate refund
         uint256 refund = _cancelOrderAccounting(id, order, orderState, _orderInfo[id].unfilledAmount);
 
-        address refundToken =
-            (order.operation == FeeSchedule.OperationType.SELL) ? order.assetToken : order.paymentToken;
+        address refundToken = (order.sell) ? order.assetToken : order.paymentToken;
         // update escrowed balance
         escrowedBalanceOf[refundToken][order.recipient] -= refund;
 

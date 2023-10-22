@@ -13,13 +13,14 @@ import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../../utils/NumberUtils.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
-import {FeeSchedule} from "../../../src/FeeSchedule.sol";
+import {FeeSchedule, IFeeSchedule} from "../../../src/FeeSchedule.sol";
 
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
 
     dShare token;
     TokenLockCheck tokenLockCheck;
+    FeeSchedule feeSchedule;
     BuyProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
@@ -48,8 +49,9 @@ contract BuyProcessorRequestTest is Test {
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        feeSchedule = new FeeSchedule();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -72,13 +74,12 @@ contract BuyProcessorRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
         order = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            operation: FeeSchedule.OperationType.BUY,
+            sell: false,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,

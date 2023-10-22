@@ -17,7 +17,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {FeeSchedule} from "../../src/FeeSchedule.sol";
+import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
@@ -48,6 +48,7 @@ contract ForwarderTest is Test {
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
     TokenLockCheck tokenLockCheck;
+    FeeSchedule feeSchedule;
 
     uint24 percentageFeeRate;
 
@@ -80,10 +81,11 @@ contract ForwarderTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        feeSchedule = new FeeSchedule();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        directBuyIssuer = new BuyUnlockedProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        directBuyIssuer = new BuyUnlockedProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -116,15 +118,14 @@ contract ForwarderTest is Test {
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        (flatFee, percentageFeeRate) =
-            issuer.getFeeRatesForOrder(FeeSchedule.OperationType.BUY, address(paymentToken), user);
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
-            operation: FeeSchedule.OperationType.BUY,
+            sell: false,
             orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
@@ -368,7 +369,7 @@ contract ForwarderTest is Test {
 
     function testSellOrder() public {
         IOrderProcessor.Order memory order = dummyOrder;
-        order.operation = FeeSchedule.OperationType.SELL;
+        order.sell = true;
         order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
@@ -681,7 +682,7 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderModuleNotFound() public {
-        BuyProcessor issuer1 = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        BuyProcessor issuer1 = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
         issuer1.grantRole(issuer1.FORWARDER_ROLE(), address(forwarder));
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);

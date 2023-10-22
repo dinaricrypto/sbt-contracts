@@ -254,13 +254,13 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      */
     function _requestOrderPreparation(IOrderProcessor.Order memory order, address user, address target) internal {
         // Pull tokens from user and approve module to spend
-        if (order.operation == FeeSchedule.OperationType.SELL) {
+        if (order.sell) {
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.assetToken).safeTransferFrom(user, address(this), order.assetTokenQuantity);
             IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
         } else {
             uint256 fees = IOrderProcessor(target).estimateTotalFeesForOrder(
-                order.operation, user, order.paymentToken, order.paymentTokenQuantity
+                user, order.paymentToken, order.paymentTokenQuantity, order.sell
             );
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);
