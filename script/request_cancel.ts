@@ -14,7 +14,7 @@ async function main() {
   const buyProcessorAddress = "0x1754422ef9910572cCde378a9C07d717eC8D48A0";
 
   // setup provider and signer
-  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+  const provider = ethers.getDefaultProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
 
   // connect signer to buy processor contract
