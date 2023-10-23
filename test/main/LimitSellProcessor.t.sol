@@ -9,7 +9,6 @@ import "../../src/orders/SellProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract LimitSellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
@@ -19,7 +18,6 @@ contract LimitSellProcessorTest is Test {
 
     dShare token;
     TokenLockCheck tokenLockCheck;
-    FeeSchedule feeSchedule;
     SellProcessor issuer;
     MockToken paymentToken;
 
@@ -37,9 +35,8 @@ contract LimitSellProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        feeSchedule = new FeeSchedule();
 
-        issuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        issuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));

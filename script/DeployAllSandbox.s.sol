@@ -12,7 +12,6 @@ import {SellProcessor} from "../src/orders/SellProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
-import {FeeSchedule} from "../src/FeeSchedule.sol";
 
 contract DeployAllSandboxScript is Script {
     struct DeployConfig {
@@ -91,9 +90,6 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ order processors ------------------
 
-        // deploy feeSchedule contract
-        FeeSchedule feeSchedule = new FeeSchedule();
-
         // deploy blacklist prechecker
         TokenLockCheck tokenLockCheck = new TokenLockCheck(address(0), address(0));
         // add USDC
@@ -108,13 +104,13 @@ contract DeployAllSandboxScript is Script {
         }
 
         BuyProcessor buyProcessor =
-            new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck, feeSchedule);
+            new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
         SellProcessor sellProcessor =
-            new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck, feeSchedule);
+            new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
         BuyUnlockedProcessor directBuyIssuer =
-        new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck, feeSchedule);
+            new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
         // config operator
         buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);

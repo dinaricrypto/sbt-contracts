@@ -3,7 +3,6 @@ pragma solidity 0.8.19;
 
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
-import {IFeeSchedule} from "../FeeSchedule.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
@@ -22,9 +21,8 @@ contract BuyProcessor is OrderProcessor {
         address _treasury,
         uint64 _perOrderFee,
         uint24 _percentageFeeRate,
-        ITokenLockCheck _tokenLockCheck,
-        IFeeSchedule _feeSchedule
-    ) OrderProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck, _feeSchedule) {}
+        ITokenLockCheck _tokenLockCheck
+    ) OrderProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 

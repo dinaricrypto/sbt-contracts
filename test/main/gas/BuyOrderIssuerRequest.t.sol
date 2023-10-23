@@ -13,14 +13,12 @@ import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../../utils/NumberUtils.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
-import {FeeSchedule, IFeeSchedule} from "../../../src/FeeSchedule.sol";
 
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
 
     dShare token;
     TokenLockCheck tokenLockCheck;
-    FeeSchedule feeSchedule;
     BuyProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
@@ -49,9 +47,8 @@ contract BuyProcessorRequestTest is Test {
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        feeSchedule = new FeeSchedule();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

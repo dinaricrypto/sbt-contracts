@@ -33,7 +33,7 @@ contract FeeScheduleTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 
@@ -52,8 +52,8 @@ contract FeeScheduleTest is Test {
 
         FeeSchedule newFeeSchedule = new FeeSchedule();
 
-        issuer.setFeeSchedule(newFeeSchedule);
-        assertEq(address(issuer.feeSchedule()), address(newFeeSchedule));
+        issuer.setFeeSchedule(newFeeSchedule, user);
+        assertEq(address(issuer.feeSchedule(user)), address(newFeeSchedule));
     }
 
     function testSetZeroFees(bool _isZeroFee) public {
@@ -73,11 +73,10 @@ contract FeeScheduleTest is Test {
         (, uint24 percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
         assertEq(percentageRateFee, issuer.percentageFeeRate());
 
+        issuer.setFeeSchedule(feeSchedule, user);
+
         feeSchedule.setFees(user, fee, false);
         feeSchedule.setFees(user, fee, true);
-
-        issuer.enableFeeScheduleForRequester(user);
-        assertEq(issuer.userHasFeeSchedule(user), true);
 
         (, percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
         assertEq(percentageRateFee, _percentageRateFee);
@@ -88,8 +87,7 @@ contract FeeScheduleTest is Test {
         (, percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
         assertEq(percentageRateFee, 0);
 
-        issuer.disableFeeScheduleForRequester(user);
-        assertEq(issuer.userHasFeeSchedule(user), false);
+        issuer.removeFeeScheduleForUser(user);
 
         (, percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
         assertEq(percentageRateFee, issuer.percentageFeeRate());

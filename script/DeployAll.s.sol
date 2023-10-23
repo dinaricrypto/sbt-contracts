@@ -57,9 +57,6 @@ contract DeployAllScript is Script {
 
         /// ------------------ order processors ------------------
 
-        // deploy fee schedule
-        FeeSchedule feeSchedule = new FeeSchedule();
-
         // deploy blacklist prechecker
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, address(0));
         // add USDC.e
@@ -68,13 +65,13 @@ contract DeployAllScript is Script {
         tokenLockCheck.setCallSelector(cfg.usdt, this.isBlocked.selector);
 
         BuyProcessor buyProcessor =
-            new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck, feeSchedule);
+            new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
         SellProcessor sellProcessor =
-            new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck, feeSchedule);
+            new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
         BuyUnlockedProcessor directBuyIssuer =
-        new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck, feeSchedule);
+            new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
 
         // config operator
         buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);

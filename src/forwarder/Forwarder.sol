@@ -15,7 +15,6 @@ import "prb-math/Common.sol" as PrbMath;
 import {Nonces} from "../common/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IForwarder} from "./IForwarder.sol";
-import {FeeSchedule} from "../FeeSchedule.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
 /// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)

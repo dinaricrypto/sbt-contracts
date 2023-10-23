@@ -100,7 +100,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     /// @dev Emitted when fee schedule contract is set
-    event FeeScheduleSet(IFeeSchedule indexed feeSchedule);
+    event FeeScheduleSet(IFeeSchedule indexed feeSchedule, address requester);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
@@ -135,8 +135,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Transfer restrictor checker
     ITokenLockCheck public tokenLockCheck;
 
-    IFeeSchedule public feeSchedule;
-
     /// @dev Are orders paused?
     bool public ordersPaused;
 
@@ -158,7 +156,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @inheritdoc IOrderProcessor
     mapping(address => uint256) public maxOrderDecimals;
 
-    mapping(address => bool) public userHasFeeSchedule;
+    mapping(address => address) public feeSchedule;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -174,8 +172,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         address _treasury,
         uint64 _perOrderFee,
         uint24 _percentageFeeRate,
-        ITokenLockCheck _tokenLockCheck,
-        IFeeSchedule _feeSchedule
+        ITokenLockCheck _tokenLockCheck
     ) AccessControlDefaultAdminRules(0, _owner) {
         // Don't send fees to zero address
         if (_treasury == address(0)) revert ZeroAddress();
@@ -187,7 +184,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         perOrderFee = _perOrderFee;
         percentageFeeRate = _percentageFeeRate;
         tokenLockCheck = _tokenLockCheck;
-        feeSchedule = _feeSchedule;
     }
 
     /// ------------------ Administration ------------------ ///
@@ -241,28 +237,19 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
-    function setFeeSchedule(IFeeSchedule _feeSchedule) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        feeSchedule = _feeSchedule;
-        emit FeeScheduleSet(_feeSchedule);
+    function setFeeSchedule(IFeeSchedule _feeSchedule, address _requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        feeSchedule[_requester] = address(_feeSchedule);
+        emit FeeScheduleSet(_feeSchedule, _requester);
+    }
+
+    function removeFeeScheduleForUser(address _requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        delete feeSchedule[_requester];
+        emit FeeScheduleSet(IFeeSchedule(address(0)), _requester);
     }
 
     function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxOrderDecimals[token] = decimals;
         emit MaxOrderDecimalsSet(token, decimals);
-    }
-
-    /// @notice Set the FeeSchedule contract for a specific requester
-    /// @param requester Address of the requester
-    /// @dev Only callable by admin
-    function enableFeeScheduleForRequester(address requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        userHasFeeSchedule[requester] = true;
-    }
-
-    /// @notice Disable the FeeSchedule contract for a specific requester
-    /// @param requester Address of the requester
-    /// @dev Only callable by admin
-    function disableFeeScheduleForRequester(address requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        userHasFeeSchedule[requester] = false;
     }
     /// ------------------ Getters ------------------ ///
 
@@ -316,16 +303,18 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         view
         returns (uint256 flatFee, uint24 _percentageFeeRate)
     {
+        address _feeSchedule = feeSchedule[requester];
         // If user has a custom fee schedule and it's set to zero
-        if (userHasFeeSchedule[requester] && feeSchedule.accountZeroFee(requester)) {
+        if (_feeSchedule != address(0) && IFeeSchedule(_feeSchedule).accountZeroFee(requester)) {
             flatFee = FeeLib.flatFeeForOrder(token, 0);
             _percentageFeeRate = 0;
             return (flatFee, _percentageFeeRate);
         }
 
         // If user has a custom fee schedule but it's not zero
-        if (userHasFeeSchedule[requester]) {
-            (uint64 customPerOrderFee, uint24 customPercentageFeeRate) = feeSchedule.accountFees(requester, sell);
+        if (_feeSchedule != address(0)) {
+            (uint64 customPerOrderFee, uint24 customPercentageFeeRate) =
+                IFeeSchedule(_feeSchedule).accountFees(requester, sell);
             flatFee = FeeLib.flatFeeForOrder(token, customPerOrderFee);
             _percentageFeeRate = customPercentageFeeRate;
             return (flatFee, _percentageFeeRate);

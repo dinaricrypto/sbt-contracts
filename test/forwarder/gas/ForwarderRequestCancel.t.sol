@@ -13,7 +13,6 @@ import "../../utils/mocks/MockdShare.sol";
 import "../../utils/SigMeta.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
-import {FeeSchedule} from "../../../src/FeeSchedule.sol";
 
 // additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {
@@ -27,7 +26,6 @@ contract ForwarderRequestCancelTest is Test {
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
     TokenLockCheck tokenLockCheck;
-    FeeSchedule feeSchedule;
 
     uint24 percentageFeeRate;
 
@@ -61,13 +59,12 @@ contract ForwarderRequestCancelTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        feeSchedule = new FeeSchedule();
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));

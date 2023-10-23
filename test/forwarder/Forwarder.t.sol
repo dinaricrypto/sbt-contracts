@@ -17,7 +17,6 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
@@ -48,7 +47,6 @@ contract ForwarderTest is Test {
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
     TokenLockCheck tokenLockCheck;
-    FeeSchedule feeSchedule;
 
     uint24 percentageFeeRate;
 
@@ -81,11 +79,10 @@ contract ForwarderTest is Test {
         token = new MockdShare();
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        feeSchedule = new FeeSchedule();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
-        sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
-        directBuyIssuer = new BuyUnlockedProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        directBuyIssuer = new BuyUnlockedProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -682,7 +679,7 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderModuleNotFound() public {
-        BuyProcessor issuer1 = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        BuyProcessor issuer1 = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
         issuer1.grantRole(issuer1.FORWARDER_ROLE(), address(forwarder));
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);

@@ -13,7 +13,6 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -34,7 +33,6 @@ contract BuyProcessorTest is Test {
     MockToken paymentToken;
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
-    FeeSchedule feeSchedule;
     TransferRestrictor restrictor;
 
     uint256 userPrivateKey;
@@ -58,9 +56,7 @@ contract BuyProcessorTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        feeSchedule = new FeeSchedule();
-
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

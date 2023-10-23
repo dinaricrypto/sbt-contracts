@@ -15,7 +15,6 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
-import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
 
 // test that forwarder and processors do not assume dShares are dShares
 contract dShareCompatTest is Test {
@@ -30,7 +29,6 @@ contract dShareCompatTest is Test {
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
     TokenLockCheck tokenLockCheck;
-    FeeSchedule feeSchedule;
 
     uint24 percentageFeeRate;
 
@@ -63,14 +61,13 @@ contract dShareCompatTest is Test {
         token = new MockERC20("Money", "$", 6);
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        feeSchedule = new FeeSchedule();
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
-        sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck, feeSchedule);
+        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
