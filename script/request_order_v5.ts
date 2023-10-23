@@ -54,7 +54,7 @@ async function main() {
   
 
   // setup provider and signer
-  const provider = ethers.getDefaultProvider(RPC_URL);
+  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
   const chainId = (await provider.getNetwork()).chainId;
 
@@ -75,13 +75,13 @@ async function main() {
   // ------------------ Configure Order ------------------
 
   // order amount
-  const orderAmount = BigInt(10_000_000);
+  const orderAmount = ethers.utils.parseUnits("10", "6");
 
   // get fees to add to order
   // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
-  const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentTokenAddress);
-  const fees = flatFee + (orderAmount * _percentageFeeRate) / BigInt(10000);
-  const totalSpendAmount = orderAmount + fees;
+  const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentToken.address);
+  const fees = flatFee.add(orderAmount.mul(_percentageFeeRate).div(10000));
+  const totalSpendAmount = orderAmount.add(fees);
 
   // ------------------ Configure Permit ------------------
 
@@ -89,34 +89,32 @@ async function main() {
   const nonce = await paymentToken.nonces(signer.address);
   // 5 minute deadline from current blocktime
   const blockNumber = await provider.getBlockNumber();
-  const blockTime = (await provider.getBlock(blockNumber))?.timestamp;
-  if (!blockTime) throw new Error("no block time");
-  const deadline = blockTime + 60 * 5;
+  const deadline = (await provider.getBlock(blockNumber)).timestamp + 60 * 5;
 
   // unique signature domain for payment token
   const permitDomain = {
     name: 'USD Coin',
     version: '1',
-    chainId: (await provider.getNetwork()).chainId,
+    chainId: provider.network.chainId,
     verifyingContract: paymentTokenAddress,
   };
 
   // permit message to sign
   const permitMessage = {
     owner: signer.address,
-    spender: buyProcessorAddress,
+    spender: buyProcessor.address,
     value: totalSpendAmount,
     nonce: nonce,
     deadline: deadline
   };
 
   // sign permit to spend payment token
-  const permitSignatureBytes = await signer.signTypedData(permitDomain, permitTypes, permitMessage);
-  const permitSignature = ethers.Signature.from(permitSignatureBytes);
+  const permitSignatureBytes = await signer._signTypedData(permitDomain, permitTypes, permitMessage);
+  const permitSignature = ethers.utils.splitSignature(permitSignatureBytes);
 
   // create selfPermit call data
   const selfPermitData = buyProcessor.interface.encodeFunctionData("selfPermit", [
-    paymentTokenAddress,
+    paymentToken.address,
     permitMessage.owner,
     permitMessage.value,
     permitMessage.deadline,
@@ -132,7 +130,7 @@ async function main() {
   const requestOrderData = buyProcessor.interface.encodeFunctionData("requestOrder", [[
     signer.address,
     assetToken,
-    paymentTokenAddress,
+    paymentToken.address,
     false,
     0,
     0,
