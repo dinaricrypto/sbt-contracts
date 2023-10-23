@@ -3,10 +3,13 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "prb-math/Common.sol" as PrbMath;
-import "../src/TokenManager.sol";
-import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import "../../src/TokenManager.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 
 contract TokenManagerTest is Test {
+    using Strings for uint256;
+
     event NameSuffixSet(string nameSuffix);
     event SymbolSuffixSet(string symbolSuffix);
     event TransferRestrictorSet(ITransferRestrictor transferRestrictor);
@@ -101,7 +104,7 @@ contract TokenManagerTest is Test {
     function testSplit(uint256 supply, uint8 multiple, bool reverse) public {
         // mint supply to user
         token1.mint(user, supply);
-
+        string memory timestamp = block.timestamp.toString();
         if (multiple < 2) {
             vm.expectRevert(TokenManager.InvalidMultiple.selector);
             tokenManager.split(token1, multiple, reverse);
@@ -115,16 +118,17 @@ contract TokenManagerTest is Test {
             (dShare newToken, uint256 aggregateSupply) = tokenManager.split(token1, multiple, reverse);
             assertEq(aggregateSupply, splitAmount);
             assertEq(newToken.owner(), token1.owner());
-            assertEq(newToken.name(), "Token1 - Dinari");
-            assertEq(newToken.symbol(), "TKN1.d");
+            assertEq(newToken.name(), string.concat("Token1 - Dinari"));
+            assertEq(newToken.symbol(), string.concat("TKN1.d"));
             assertEq(newToken.disclosures(), "");
             assertEq(address(newToken.transferRestrictor()), address(restrictor));
-            assertEq(token1.name(), "Token1 - Dinari - pre1");
-            assertEq(token1.symbol(), "TKN1.d.p1");
+            assertEq(token1.name(), string.concat("Token1 - Dinari - pre", timestamp));
+            assertEq(token1.symbol(), string.concat("TKN1.d.p", timestamp));
             assertEq(tokenManager.getNumTokens(), 1);
             assertEq(address(tokenManager.getTokenAt(0)), address(newToken));
             assertTrue(tokenManager.isCurrentToken(address(newToken)));
             assertFalse(tokenManager.isCurrentToken(address(token1)));
+            assertEq(address(tokenManager.getCurrentToken(token1)), address(newToken));
 
             // split restrictions
             vm.expectRevert(dShare.TokenSplit.selector);
@@ -133,6 +137,9 @@ contract TokenManagerTest is Test {
             vm.expectRevert(dShare.TokenSplit.selector);
             vm.prank(user);
             token1.burn(1);
+
+            dShare rootToken = tokenManager.getRootParent(newToken);
+            assertEq(address(rootToken), address(token1));
         }
     }
 
@@ -189,14 +196,19 @@ contract TokenManagerTest is Test {
         vm.assume(amount > convertAmount);
         token1.mint(user, amount);
         uint256 totalSupply = token1.totalSupply();
-        tokenManager.split(token1, multiple, false);
+        (dShare newToken,) = tokenManager.split(token1, multiple, false);
         if (amount > 0) {
             vm.startPrank(user);
             token1.approve(address(tokenManager), convertAmount);
             tokenManager.convert(token1, convertAmount);
             vm.stopPrank();
             assertEq(tokenManager.getAggregateSupply(token1) + convertAmount, totalSupply);
+            assertEq(tokenManager.getAggregateBalanceOf(token1, user) + convertAmount, totalSupply);
             assertEq((totalSupply - convertAmount) * multiple, tokenManager.getSupplyExpansion(token1, multiple, false));
         }
+        // check if aggregateBalance of user > 0
+        (dShare newToken2,) = tokenManager.split(newToken, multiple, true);
+        (dShare newToken3,) = tokenManager.split(newToken2, multiple, false);
+        assertGt(tokenManager.getAggregateBalanceOf(newToken3, user), 0);
     }
 }

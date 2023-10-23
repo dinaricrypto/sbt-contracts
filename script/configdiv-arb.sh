@@ -2,4 +2,4 @@
 
 source .env
 
-forge script script/ConfigDiv.s.sol:ConfigDivScript --rpc-url $ARB_URL --broadcast -vvvv
+forge script script/ConfigDiv.s.sol:ConfigDivScript --rpc-url $RPC_ARBITRUM --broadcast -vvvv

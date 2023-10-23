@@ -10,3 +10,9 @@
 [submodule "lib/solady"]
 	path = lib/solady
 	url = https://github.com/Vectorized/solady
+[submodule "lib/chainlink"]
+	path = lib/chainlink
+	url = https://github.com/smartcontractkit/chainlink
+[submodule "script/sbt-deployments"]
+	path = script/sbt-deployments
+	url = https://github.com/dinaricrypto/sbt-deployments
