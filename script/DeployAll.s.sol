@@ -9,7 +9,6 @@ import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
-import {FeeSchedule} from "../src/FeeSchedule.sol";
 
 contract DeployAllScript is Script {
     struct DeployConfig {
