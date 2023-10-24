@@ -7,7 +7,6 @@ const buyProcessorDataPath = path.resolve(__dirname, 'sbt-deployments/src/v0.1.0
 const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
 const buyProcessorAbi = buyProcessorData.abi;
 
-
 async function main() {
 
   // ------------------ Setup ------------------
@@ -50,13 +49,13 @@ async function main() {
   if (!RPC_URL) throw new Error("empty rpc url");
   const assetToken = "0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D";
   const paymentTokenAddress = "0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F";
-  const networkAddresses = buyProcessorData.networkAddresses;
   
 
   // setup provider and signer
   const provider = ethers.getDefaultProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
-  const chainId = (await provider.getNetwork()).chainId;
+  const chainId = Number((await provider.getNetwork()).chainId);
+  const buyProcessorAddress = buyProcessorData.networkAddresses[chainId];
 
   // connect signer to payment token contract
   const paymentToken = new ethers.Contract(
@@ -67,7 +66,7 @@ async function main() {
 
   // connect signer to buy processor contract
   const buyProcessor = new ethers.Contract(
-    networkAddresses[chainId],
+    buyProcessorAddress,
     buyProcessorAbi,
     signer,
   );
@@ -146,8 +145,24 @@ async function main() {
     selfPermitData,
     requestOrderData,
   ]);
-  console.log(`tx hash: ${tx.hash}`);
-  await tx.wait();
+  const receipt = await tx.wait();
+  console.log(tx.hash);
+
+  // get order id from event
+  const events = receipt.logs.map((log: any) => buyProcessor.interface.parseLog(log));
+  if (!events) throw new Error("no events");
+  const orderEvent = events.find((event: any) => event && event.name === "OrderRequested");
+  if (!orderEvent) throw new Error("no order event");
+  const orderAccount = orderEvent.args[0];
+  const orderAccountIndex = orderEvent.args[1];
+  console.log(`Order Account: ${orderAccount}`);
+  console.log(`Order Index for Account: ${orderAccountIndex}`);
+  const orderId = await buyProcessor.getOrderId(orderAccount, orderAccountIndex);
+  console.log(`Order ID: ${orderId}`);
+
+  // use order id to get order status
+  const remaining = await buyProcessor.getRemainingOrder(orderId);
+  console.log(`Order Remaining: ${remaining}`);
 }
 
 main()
