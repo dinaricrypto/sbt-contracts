@@ -19,7 +19,7 @@ async function main() {
   if (!RPC_URL) throw new Error("empty rpc url");
 
   // setup provider and signer
-  const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
+  const provider = ethers.getDefaultProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
   const chainId = (await provider.getNetwork()).chainId;
 
