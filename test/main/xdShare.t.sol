@@ -5,12 +5,12 @@ import "forge-std/Test.sol";
 import {dShare} from "../../src/dShare.sol";
 import {xdShare} from "../../src/dividend/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {TokenManager} from "../../src/TokenManager.sol";
+import {dShareManager} from "../../src/dShareManager.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract xdShareTest is Test {
     TransferRestrictor public restrictor;
-    TokenManager tokenManager;
+    dShareManager tokenManager;
     dShare public token;
     xdShare public xToken;
 
@@ -23,11 +23,11 @@ contract xdShareTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), address(this));
-        tokenManager = new TokenManager(restrictor);
+        tokenManager = new dShareManager(restrictor);
         token = tokenManager.deployNewToken(address(this), "Dinari Token", "dTKN");
         token.grantRole(token.MINTER_ROLE(), address(this));
 
-        xToken = new xdShare(token, tokenManager);
+        xToken = new xdShare(token, tokenManager, "Reinvesting dTKN.d", "dTKN.d.x");
     }
 
     function overflowChecker(uint256 a, uint256 b) internal pure returns (bool) {
@@ -186,7 +186,7 @@ contract xdShareTest is Test {
         assertEq(xToken.balanceOf(user), supply);
 
         // split
-        (dShare newToken,) = tokenManager.split(token, multiple, reverse);
+        (dShare newToken,) = tokenManager.split(token, multiple, reverse, "old", "old");
 
         // user2 convert
         vm.startPrank(user2);
@@ -244,7 +244,7 @@ contract xdShareTest is Test {
         vm.expectRevert(xdShare.ConversionCurrent.selector);
         xToken.convertVaultBalance();
 
-        tokenManager.split(token, multiple, reverse);
+        tokenManager.split(token, multiple, reverse, "old", "old");
         xToken.convertVaultBalance();
     }
 
@@ -263,7 +263,7 @@ contract xdShareTest is Test {
         assertEq(xToken.balanceOf(user), supply);
 
         // split old token
-        (dShare newToken,) = tokenManager.split(token, multiple, reverse);
+        (dShare newToken,) = tokenManager.split(token, multiple, reverse, "old", "old");
 
         // let convert vault token
         xToken.convertVaultBalance();
@@ -284,7 +284,7 @@ contract xdShareTest is Test {
 
         xToken.unlock();
 
-        (dShare newToken2,) = tokenManager.split(newToken, multiple, reverse);
+        (dShare newToken2,) = tokenManager.split(newToken, multiple, reverse, "old", "old");
 
         vm.expectRevert(xdShare.SplitConversionNeeded.selector);
         xToken.sweepConvert(token);

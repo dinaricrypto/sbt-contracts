@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {ITokenManager} from "./ITokenManager.sol";
+import {IdShareManager} from "./IdShareManager.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {dShare} from "./dShare.sol";
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
-// TODO: migrate existing tokens
-contract TokenManager is ITokenManager, Ownable2Step {
+/// @notice Maintains a list of dShare tokens, their splits, and split conversion logic
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShareManager.sol)
+contract dShareManager is IdShareManager, Ownable2Step {
     using EnumerableSet for EnumerableSet.AddressSet;
-    using Strings for uint256;
 
     /// ------------------ Types ------------------ ///
 
@@ -21,8 +20,6 @@ contract TokenManager is ITokenManager, Ownable2Step {
         bool reverseSplit;
     }
 
-    event NameSuffixSet(string nameSuffix);
-    event SymbolSuffixSet(string symbolSuffix);
     event TransferRestrictorSet(ITransferRestrictor transferRestrictor);
     event DisclosuresSet(string disclosures);
     /// @dev Emitted when a new token is deployed
@@ -39,12 +36,6 @@ contract TokenManager is ITokenManager, Ownable2Step {
 
     /// ------------------ State ------------------ ///
 
-    /// @notice Suffix to append to new token names
-    string public nameSuffix = " - Dinari";
-
-    /// @notice Suffix to append to new token symbols
-    string public symbolSuffix = ".d";
-
     /// @notice Transfer restrictor contract
     ITransferRestrictor public transferRestrictor;
 
@@ -55,6 +46,7 @@ contract TokenManager is ITokenManager, Ownable2Step {
     EnumerableSet.AddressSet private _currentTokens;
 
     /// @notice Mapping of legacy tokens to split information
+    /// @dev Together with parentToken creates doubly linked list
     mapping(dShare => SplitInfo) public splits;
 
     /// @notice Mapping of new tokens to legacy tokens
@@ -87,26 +79,12 @@ contract TokenManager is ITokenManager, Ownable2Step {
         return _currentTokens.values();
     }
 
-    /// @inheritdoc ITokenManager
+    /// @inheritdoc IdShareManager
     function isCurrentToken(address token) public view returns (bool) {
         return _currentTokens.contains(token);
     }
 
     /// ------------------ Setters ------------------ ///
-
-    /// @notice Set suffix to append to new token names
-    /// @dev Only callable by owner
-    function setNameSuffix(string memory nameSuffix_) external onlyOwner {
-        nameSuffix = nameSuffix_;
-        emit NameSuffixSet(nameSuffix_);
-    }
-
-    /// @notice Set suffix to append to new token symbols
-    /// @dev Only callable by owner
-    function setSymbolSuffix(string memory symbolSuffix_) external onlyOwner {
-        symbolSuffix = symbolSuffix_;
-        emit SymbolSuffixSet(symbolSuffix_);
-    }
 
     /// @notice Set transfer restrictor contract
     /// @dev Only callable by owner
@@ -137,8 +115,8 @@ contract TokenManager is ITokenManager, Ownable2Step {
         // Deploy new token
         newToken = new dShare(
             owner,
-            string.concat(name, nameSuffix),
-            string.concat(symbol, symbolSuffix),
+            name,
+            symbol,
             disclosures,
             transferRestrictor
         );
@@ -185,8 +163,7 @@ contract TokenManager is ITokenManager, Ownable2Step {
         }
     }
 
-    /// @notice Get root parent token
-    /// @param token Token to get root parent for
+    /// @inheritdoc IdShareManager
     function getRootParent(dShare token) public view returns (dShare) {
         dShare _parentToken = token;
         while (address(parentToken[_parentToken]) != address(0)) {
@@ -245,12 +222,16 @@ contract TokenManager is ITokenManager, Ownable2Step {
     /// @param token Token to split
     /// @param multiple Multiple to split by
     /// @param reverseSplit Whether to perform a reverse split
+    /// @param legacyNameSuffix Suffix to append to legacy token name
+    /// @param legacySymbolSuffix Suffix to append to legacy token symbol
     /// @dev Only callable by owner
-    function split(dShare token, uint8 multiple, bool reverseSplit)
-        external
-        onlyOwner
-        returns (dShare newToken, uint256 aggregateSupply)
-    {
+    function split(
+        dShare token,
+        uint8 multiple,
+        bool reverseSplit,
+        string memory legacyNameSuffix,
+        string memory legacySymbolSuffix
+    ) external onlyOwner returns (dShare newToken, uint256 aggregateSupply) {
         // Check if split multiple is valid
         if (multiple < 2) revert InvalidMultiple();
         // Remove legacy token from list of tokens
@@ -283,13 +264,12 @@ contract TokenManager is ITokenManager, Ownable2Step {
         // Set split on legacy token
         token.setSplit();
 
-        // Rename legacy token
-        string memory timestamp = block.timestamp.toString();
-        token.setName(string.concat(name, " - pre", timestamp));
-        token.setSymbol(string.concat(symbol, ".p", timestamp));
+        // Rename legacy token with suffixes
+        token.setName(string.concat(name, legacyNameSuffix));
+        token.setSymbol(string.concat(symbol, legacySymbolSuffix));
     }
 
-    /// @inheritdoc ITokenManager
+    /// @inheritdoc IdShareManager
     function convert(dShare token, uint256 amount) public returns (dShare currentToken, uint256 resultAmount) {
         // Check if token has been split
         SplitInfo memory _split = splits[token];
