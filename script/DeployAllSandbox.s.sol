@@ -135,6 +135,10 @@ contract DeployAllSandboxScript is Script {
             buyProcessor.grantRole(buyProcessor.ASSETTOKEN_ROLE(), address(dShares[i]));
             sellProcessor.grantRole(sellProcessor.ASSETTOKEN_ROLE(), address(dShares[i]));
             directBuyIssuer.grantRole(directBuyIssuer.ASSETTOKEN_ROLE(), address(dShares[i]));
+
+            dShares[i].grantRole(dShares[i].MINTER_ROLE(), address(buyProcessor));
+            dShares[i].grantRole(dShares[i].BURNER_ROLE(), address(sellProcessor));
+            dShares[i].grantRole(dShares[i].MINTER_ROLE(), address(directBuyIssuer));
         }
 
         /// ------------------ forwarder ------------------
