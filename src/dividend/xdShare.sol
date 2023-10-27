@@ -6,7 +6,7 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {IxdShare} from "./IxdShare.sol";
-import {ITokenManager} from "../ITokenManager.sol";
+import {IdShareManager} from "../IdShareManager.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
@@ -21,14 +21,6 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/Reentra
 contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    ITokenManager public immutable tokenManager;
-
-    /// @notice Reference to the underlying dShare contract.
-    dShare public underlyingDShare;
-
-    /// @inheritdoc IxdShare
-    bool public isLocked;
-
     error InvalidTokenManager();
     error IssuancePaused();
     error SplitConversionNeeded();
@@ -37,11 +29,27 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     event VaultLocked();
     event VaultUnlocked();
 
+    IdShareManager public immutable tokenManager;
+
+    /// @notice Reference to the underlying dShare contract.
+    dShare public underlyingDShare;
+
+    /// @inheritdoc IxdShare
+    bool public isLocked;
+
+    /// @dev Token name
+    string private _name;
+    /// @dev Token symbol
+    string private _symbol;
+
     /**
      * @dev Initializes a new instance of the xdShare contract.
      * @param _dShare The address of the underlying dShare token.
+     * @param _tokenManager The address of the token manager.
+     * @param name_ The name of the xdShare token.
+     * @param symbol_ The symbol of the xdShare token.
      */
-    constructor(dShare _dShare, ITokenManager _tokenManager) {
+    constructor(dShare _dShare, IdShareManager _tokenManager, string memory name_, string memory symbol_) {
         // Verify tokenManager setup
         if (address(_tokenManager) != address(0) && !_tokenManager.isCurrentToken(address(_dShare))) {
             revert InvalidTokenManager();
@@ -49,6 +57,8 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
 
         underlyingDShare = _dShare;
         tokenManager = _tokenManager;
+        _name = name_;
+        _symbol = symbol_;
     }
 
     /// ------------------- Getters ------------------- ///
@@ -58,7 +68,7 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
      * @return A string representing the name.
      */
     function name() public view override returns (string memory) {
-        return string(abi.encodePacked("Reinvesting ", underlyingDShare.symbol()));
+        return _name;
     }
 
     /**
@@ -66,7 +76,7 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
      * @return A string representing the symbol.
      */
     function symbol() public view override returns (string memory) {
-        return string(abi.encodePacked(underlyingDShare.symbol(), ".x"));
+        return _symbol;
     }
 
     /**
