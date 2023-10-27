@@ -3,15 +3,13 @@ pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "prb-math/Common.sol" as PrbMath;
-import "../../src/TokenManager.sol";
+import "../../src/dShareManager.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 
-contract TokenManagerTest is Test {
+contract dShareManagerTest is Test {
     using Strings for uint256;
 
-    event NameSuffixSet(string nameSuffix);
-    event SymbolSuffixSet(string symbolSuffix);
     event TransferRestrictorSet(ITransferRestrictor transferRestrictor);
     event DisclosuresSet(string disclosures);
     event NewToken(dShare indexed token);
@@ -19,7 +17,7 @@ contract TokenManagerTest is Test {
         dShare indexed legacyToken, dShare indexed newToken, uint8 multiple, bool reverseSplit, uint256 aggregateSupply
     );
 
-    TokenManager tokenManager;
+    dShareManager tokenManager;
     TransferRestrictor restrictor;
 
     dShare token1;
@@ -28,10 +26,9 @@ contract TokenManagerTest is Test {
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
-        tokenManager = new TokenManager(restrictor);
+        tokenManager = new dShareManager(restrictor);
 
-        // token1 = new dShare(address(this), "Token1", "TKN1", "example.com", restrictor);
-        token1 = tokenManager.deployNewToken(address(this), "Token1", "TKN1");
+        token1 = tokenManager.deployNewToken(address(this), "Dinari Token1", "TKN1.d");
         token1.grantRole(token1.MINTER_ROLE(), address(this));
     }
 
@@ -47,22 +44,6 @@ contract TokenManagerTest is Test {
     }
 
     function testAdministration() public {
-        vm.expectRevert("Ownable: caller is not the owner");
-        vm.prank(address(1));
-        tokenManager.setNameSuffix(" - Dinero");
-
-        vm.expectEmit(true, true, true, true);
-        emit NameSuffixSet(" - Dinero");
-        tokenManager.setNameSuffix(" - Dinero");
-
-        vm.expectRevert("Ownable: caller is not the owner");
-        vm.prank(address(1));
-        tokenManager.setSymbolSuffix(".x");
-
-        vm.expectEmit(true, true, true, true);
-        emit SymbolSuffixSet(".x");
-        tokenManager.setSymbolSuffix(".x");
-
         vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(address(1));
         tokenManager.setTransferRestrictor(ITransferRestrictor(address(1)));
@@ -83,11 +64,11 @@ contract TokenManagerTest is Test {
     function testDeployNewToken() public {
         vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(address(1));
-        tokenManager.deployNewToken(address(1), "Token", "TKN");
+        tokenManager.deployNewToken(address(1), "Dinari Token", "TKN.d");
 
-        dShare newToken = tokenManager.deployNewToken(address(1), "Token", "TKN");
+        dShare newToken = tokenManager.deployNewToken(address(1), "Dinari Token", "TKN.d");
         assertEq(newToken.owner(), address(1));
-        assertEq(newToken.name(), "Token - Dinari");
+        assertEq(newToken.name(), "Dinari Token");
         assertEq(newToken.symbol(), "TKN.d");
         assertEq(newToken.disclosures(), "");
         assertEq(address(newToken.transferRestrictor()), address(restrictor));
@@ -106,24 +87,25 @@ contract TokenManagerTest is Test {
         token1.mint(user, supply);
         string memory timestamp = block.timestamp.toString();
         if (multiple < 2) {
-            vm.expectRevert(TokenManager.InvalidMultiple.selector);
-            tokenManager.split(token1, multiple, reverse);
+            vm.expectRevert(dShareManager.InvalidMultiple.selector);
+            tokenManager.split(token1, multiple, reverse, timestamp, timestamp);
         } else if (!reverse && overflowChecker(supply, multiple)) {
             vm.expectRevert(stdError.arithmeticError);
-            tokenManager.split(token1, multiple, reverse);
+            tokenManager.split(token1, multiple, reverse, timestamp, timestamp);
         } else {
             uint256 splitAmount = tokenManager.splitAmount(multiple, reverse, supply);
             vm.expectEmit(true, false, true, true);
             emit Split(token1, dShare(address(0)), multiple, reverse, splitAmount);
-            (dShare newToken, uint256 aggregateSupply) = tokenManager.split(token1, multiple, reverse);
+            (dShare newToken, uint256 aggregateSupply) =
+                tokenManager.split(token1, multiple, reverse, timestamp, timestamp);
             assertEq(aggregateSupply, splitAmount);
             assertEq(newToken.owner(), token1.owner());
-            assertEq(newToken.name(), string.concat("Token1 - Dinari"));
+            assertEq(newToken.name(), string.concat("Dinari Token1"));
             assertEq(newToken.symbol(), string.concat("TKN1.d"));
             assertEq(newToken.disclosures(), "");
             assertEq(address(newToken.transferRestrictor()), address(restrictor));
-            assertEq(token1.name(), string.concat("Token1 - Dinari - pre", timestamp));
-            assertEq(token1.symbol(), string.concat("TKN1.d.p", timestamp));
+            assertEq(token1.name(), string.concat("Dinari Token1", timestamp));
+            assertEq(token1.symbol(), string.concat("TKN1.d", timestamp));
             assertEq(tokenManager.getNumTokens(), 1);
             assertEq(address(tokenManager.getTokenAt(0)), address(newToken));
             assertTrue(tokenManager.isCurrentToken(address(newToken)));
@@ -144,12 +126,14 @@ contract TokenManagerTest is Test {
     }
 
     function testSplitReverts() public {
+        string memory timestamp = block.timestamp.toString();
+
         vm.expectRevert("Ownable: caller is not the owner");
         vm.prank(address(1));
-        tokenManager.split(token1, 2, false);
+        tokenManager.split(token1, 2, false, timestamp, timestamp);
 
-        vm.expectRevert(TokenManager.TokenNotFound.selector);
-        tokenManager.split(dShare(address(1)), 2, false);
+        vm.expectRevert(dShareManager.TokenNotFound.selector);
+        tokenManager.split(dShare(address(1)), 2, false, timestamp, timestamp);
     }
 
     function testConvertTripleSplit(uint8 multiple, bool reverse, uint256 amount) public {
@@ -162,12 +146,14 @@ contract TokenManagerTest is Test {
         vm.prank(user);
         token1.approve(address(tokenManager), amount);
 
+        string memory timestamp = block.timestamp.toString();
         // split token
-        (dShare newToken,) = tokenManager.split(token1, multiple, reverse);
+        (dShare newToken,) = tokenManager.split(token1, multiple, reverse, timestamp, timestamp);
         // split token again
-        (dShare newToken2,) = tokenManager.split(newToken, multiple, reverse);
+        (dShare newToken2,) = tokenManager.split(newToken, multiple, reverse, timestamp, timestamp);
         // split token again
-        (dShare newToken3, uint256 aggregateSupply3) = tokenManager.split(newToken2, multiple, reverse);
+        (dShare newToken3, uint256 aggregateSupply3) =
+            tokenManager.split(newToken2, multiple, reverse, timestamp, timestamp);
 
         // convert amount
         vm.prank(user);
@@ -186,7 +172,7 @@ contract TokenManagerTest is Test {
     }
 
     function testConvertSplitNotFoundReverts() public {
-        vm.expectRevert(TokenManager.SplitNotFound.selector);
+        vm.expectRevert(dShareManager.SplitNotFound.selector);
         tokenManager.convert(dShare(address(1)), 1);
     }
 
@@ -196,7 +182,8 @@ contract TokenManagerTest is Test {
         vm.assume(amount > convertAmount);
         token1.mint(user, amount);
         uint256 totalSupply = token1.totalSupply();
-        (dShare newToken,) = tokenManager.split(token1, multiple, false);
+        string memory timestamp = block.timestamp.toString();
+        (dShare newToken,) = tokenManager.split(token1, multiple, false, timestamp, timestamp);
         if (amount > 0) {
             vm.startPrank(user);
             token1.approve(address(tokenManager), convertAmount);
@@ -207,8 +194,8 @@ contract TokenManagerTest is Test {
             assertEq((totalSupply - convertAmount) * multiple, tokenManager.getSupplyExpansion(token1, multiple, false));
         }
         // check if aggregateBalance of user > 0
-        (dShare newToken2,) = tokenManager.split(newToken, multiple, true);
-        (dShare newToken3,) = tokenManager.split(newToken2, multiple, false);
+        (dShare newToken2,) = tokenManager.split(newToken, multiple, true, timestamp, timestamp);
+        (dShare newToken3,) = tokenManager.split(newToken2, multiple, false, timestamp, timestamp);
         assertGt(tokenManager.getAggregateBalanceOf(newToken3, user), 0);
     }
 }
