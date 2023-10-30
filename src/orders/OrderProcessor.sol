@@ -100,7 +100,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     /// @dev Emitted when fee schedule contract is set
-    event FeeScheduleSet(IFeeSchedule indexed feeSchedule, address requester);
+    event FeeScheduleSet(address indexed requester, IFeeSchedule indexed feeSchedule);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
@@ -237,14 +237,12 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
-    function setFeeSchedule(IFeeSchedule _feeSchedule, address _requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setFeeScheduleForRequester(address _requester, IFeeSchedule _feeSchedule)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         feeSchedule[_requester] = address(_feeSchedule);
-        emit FeeScheduleSet(_feeSchedule, _requester);
-    }
-
-    function removeFeeScheduleForUser(address _requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        delete feeSchedule[_requester];
-        emit FeeScheduleSet(IFeeSchedule(address(0)), _requester);
+        emit FeeScheduleSet(_requester, _feeSchedule);
     }
 
     function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {

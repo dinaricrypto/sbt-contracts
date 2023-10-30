@@ -51,7 +51,7 @@ contract FeeScheduleTest is Test {
 
         FeeSchedule newFeeSchedule = new FeeSchedule();
 
-        issuer.setFeeSchedule(newFeeSchedule, user);
+        issuer.setFeeScheduleForRequester(user, newFeeSchedule);
         assertEq(address(issuer.feeSchedule(user)), address(newFeeSchedule));
     }
 
@@ -72,7 +72,7 @@ contract FeeScheduleTest is Test {
         (, uint24 percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
         assertEq(percentageRateFee, issuer.percentageFeeRate());
 
-        issuer.setFeeSchedule(feeSchedule, user);
+        issuer.setFeeScheduleForRequester(user, feeSchedule);
 
         feeSchedule.setFees(user, fee, false);
         feeSchedule.setFees(user, fee, true);
@@ -86,7 +86,7 @@ contract FeeScheduleTest is Test {
         (, percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
         assertEq(percentageRateFee, 0);
 
-        issuer.removeFeeScheduleForUser(user);
+        issuer.setFeeScheduleForRequester(user, IFeeSchedule(address(0)));
 
         (, percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
         assertEq(percentageRateFee, issuer.percentageFeeRate());
