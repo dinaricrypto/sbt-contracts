@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.19;
 
-import {FeeSchedule} from "../FeeSchedule.sol";
-
 /// @notice Interface for contracts processing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/IOrderProcessor.sol)
 /// This interface provides a standard Order type and order lifecycle events

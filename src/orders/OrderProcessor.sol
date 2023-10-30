@@ -17,7 +17,7 @@ import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IdShare} from "../IdShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
-import {IFeeSchedule} from "../IFeeSchedule.sol";
+import {IFeeSchedule} from "./IFeeSchedule.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)

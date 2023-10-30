@@ -2,10 +2,9 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import {FeeSchedule} from "../../src/FeeSchedule.sol";
 import {BuyProcessor} from "../../src/orders/BuyProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {FeeSchedule, IFeeSchedule} from "../../src/FeeSchedule.sol";
+import {FeeSchedule, IFeeSchedule} from "../../src/orders/FeeSchedule.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
