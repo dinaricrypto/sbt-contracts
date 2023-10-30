@@ -351,7 +351,7 @@ contract BuyProcessorTest is Test {
         uint256 fees;
         {
             uint24 percentageFeeRate;
-            (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
+            (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
             fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
             vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         }
@@ -501,7 +501,7 @@ contract BuyProcessorTest is Test {
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
-        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;

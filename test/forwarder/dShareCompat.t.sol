@@ -104,7 +104,7 @@ contract dShareCompatTest is Test {
             tif: IOrderProcessor.TIF.GTC
         });
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         // set fees

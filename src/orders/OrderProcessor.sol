@@ -156,7 +156,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @inheritdoc IOrderProcessor
     mapping(address => uint256) public maxOrderDecimals;
 
-    mapping(address => address) public feeSchedule;
+    mapping(address => IFeeSchedule) public feeSchedule;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -241,7 +241,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        feeSchedule[_requester] = address(_feeSchedule);
+        feeSchedule[_requester] = _feeSchedule;
         emit FeeScheduleSet(_requester, _feeSchedule);
     }
 
@@ -249,6 +249,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         maxOrderDecimals[token] = decimals;
         emit MaxOrderDecimalsSet(token, decimals);
     }
+
     /// ------------------ Getters ------------------ ///
 
     /// @inheritdoc IOrderProcessor
@@ -296,23 +297,16 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     /// @inheritdoc IOrderProcessor
-    function getFeeRatesForOrder(address requester, address token, bool sell)
+    function getFeeRatesForOrder(address requester, bool sell, address token)
         public
         view
         returns (uint256 flatFee, uint24 _percentageFeeRate)
     {
-        address _feeSchedule = feeSchedule[requester];
-        // If user has a custom fee schedule and it's set to zero
-        if (_feeSchedule != address(0) && IFeeSchedule(_feeSchedule).accountZeroFee(requester)) {
-            flatFee = FeeLib.flatFeeForOrder(token, 0);
-            _percentageFeeRate = 0;
-            return (flatFee, _percentageFeeRate);
-        }
-
+        IFeeSchedule _feeSchedule = feeSchedule[requester];
         // If user has a custom fee schedule but it's not zero
-        if (_feeSchedule != address(0)) {
+        if (address(_feeSchedule) != address(0)) {
             (uint64 customPerOrderFee, uint24 customPercentageFeeRate) =
-                IFeeSchedule(_feeSchedule).accountFees(requester, sell);
+                _feeSchedule.getFeeRatesForOrder(requester, sell);
             flatFee = FeeLib.flatFeeForOrder(token, customPerOrderFee);
             _percentageFeeRate = customPercentageFeeRate;
             return (flatFee, _percentageFeeRate);
@@ -332,7 +326,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         bool sell
     ) public view returns (uint256) {
         // Get fee rates
-        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(requester, paymentToken, sell);
+        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(requester, sell, paymentToken);
         // Calculate total fees
         return FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, paymentTokenOrderValue);
     }

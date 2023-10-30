@@ -7,46 +7,44 @@ import {IFeeSchedule} from "./IFeeSchedule.sol";
 /**
  * @notice This contract handles the fee schedules for BUY/SELL operations
  */
-
 contract FeeSchedule is IFeeSchedule, Ownable2Step {
-    /// ------------------ State Variables ------------------ ///
+    struct FeeRates {
+        uint64 perOrderFeeBuy;
+        uint24 percentageFeeRateBuy;
+        uint64 perOrderFeeSell;
+        uint24 percentageFeeRateSell;
+    }
+
+    event FeesSet(address account, FeeRates feeRates);
 
     /// @notice Mapping from operation type to its corresponding fee.
-    mapping(address account => bool isZeroFee) public accountZeroFee;
-    mapping(address account => mapping(bool sell => Fee)) public accountFees;
+    mapping(address account => FeeRates fees) accountFees;
 
-    /// ------------------ Setters ------------------ ///
+    /**
+     * @notice Returns the fee rates for an account.
+     * @param account The account to get the fees for.
+     */
+    function getFees(address account) external view returns (FeeRates memory) {
+        return accountFees[account];
+    }
+
+    /// @inheritdoc IFeeSchedule
+    function getFeeRatesForOrder(address account, bool sell) external view override returns (uint64, uint24) {
+        FeeRates memory feeRates = accountFees[account];
+        if (sell) {
+            return (feeRates.perOrderFeeSell, feeRates.percentageFeeRateSell);
+        } else {
+            return (feeRates.perOrderFeeBuy, feeRates.percentageFeeRateBuy);
+        }
+    }
 
     /**
      * @notice Sets the fee for a given operation type.
-     * @param _sell The type of operation (BUY or SELL).
-     * @param newFee The new fee to be set for the operation.
+     * @param account The account to set the fees for.
+     * @param feeRates The new fee to be set for the operation.
      */
-    function setFees(address _account, Fee memory newFee, bool _sell) external onlyOwner {
-        accountFees[_account][_sell] = newFee;
-        emit FeesSet(_sell, newFee.percentageFeeRate, newFee.perOrderFee);
-    }
-
-    /**
-     * @notice Sets the zero fee state for the contract.
-     * @param _account The address of the account for which the zero fee state is to be set.
-     * @param _isZeroFee The new zero fee state.
-     */
-    function setZeroFeeState(address _account, bool _isZeroFee) external onlyOwner {
-        accountZeroFee[_account] = _isZeroFee;
-        emit ZeroFeeStateSet(_account, _isZeroFee);
-    }
-
-    /// ------------------ Getters ------------------ ///
-
-    /**
-     * @notice Retrieves the fee for a given operation type.
-     * @param _account The address of the account for which the fee is to be fetched.
-     * @param _sell The type of operation (BUY or SELL).
-     * @return The percentage fee rate and the per order fee for the operation.
-     */
-    function getFees(address _account, bool _sell) external view returns (uint24, uint64) {
-        Fee memory fee = accountFees[_account][_sell];
-        return (fee.percentageFeeRate, fee.perOrderFee);
+    function setFees(address account, FeeRates memory feeRates) external onlyOwner {
+        accountFees[account] = feeRates;
+        emit FeesSet(account, feeRates);
     }
 }

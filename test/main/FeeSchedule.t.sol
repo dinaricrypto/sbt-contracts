@@ -10,6 +10,8 @@ import "../utils/mocks/MockdShare.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract FeeScheduleTest is Test {
+    event FeesSet(address account, FeeSchedule.FeeRates feeRates);
+
     FeeSchedule feeSchedule;
     BuyProcessor issuer;
     TokenLockCheck tokenLockCheck;
@@ -37,58 +39,66 @@ contract FeeScheduleTest is Test {
     }
 
     function testSetFeeSchedule(uint64 _perOrderFee, uint24 _percentageRateFee) public {
-        IFeeSchedule.Fee memory fee =
-            IFeeSchedule.Fee({perOrderFee: _perOrderFee, percentageFeeRate: _percentageRateFee});
+        FeeSchedule.FeeRates memory fee = FeeSchedule.FeeRates({
+            perOrderFeeBuy: _perOrderFee,
+            percentageFeeRateBuy: _percentageRateFee,
+            perOrderFeeSell: _perOrderFee,
+            percentageFeeRateSell: _percentageRateFee
+        });
+
+        // Initially fees are zero
+        FeeSchedule.FeeRates memory _fees = feeSchedule.getFees(user);
+        assertEq(_fees.perOrderFeeBuy, 0);
+        assertEq(_fees.percentageFeeRateBuy, 0);
+        assertEq(_fees.perOrderFeeSell, 0);
+        assertEq(_fees.percentageFeeRateSell, 0);
+
+        // Only owner can set fees
         vm.prank(user);
         vm.expectRevert("Ownable: caller is not the owner");
-        feeSchedule.setFees(user, fee, false);
+        feeSchedule.setFees(user, fee);
 
-        feeSchedule.setFees(user, fee, false);
+        vm.expectEmit(true, true, true, true);
+        emit FeesSet(user, fee);
+        feeSchedule.setFees(user, fee);
 
-        (uint24 percentageFeeRate, uint64 perOrderFee) = feeSchedule.getFees(user, false);
-        assertEq(percentageFeeRate, _percentageRateFee);
-        assertEq(perOrderFee, _perOrderFee);
-
-        FeeSchedule newFeeSchedule = new FeeSchedule();
-
-        issuer.setFeeScheduleForRequester(user, newFeeSchedule);
-        assertEq(address(issuer.feeSchedule(user)), address(newFeeSchedule));
-    }
-
-    function testSetZeroFees(bool _isZeroFee) public {
-        vm.prank(user);
-        vm.expectRevert("Ownable: caller is not the owner");
-        feeSchedule.setZeroFeeState(user, _isZeroFee);
-
-        feeSchedule.setZeroFeeState(user, _isZeroFee);
-
-        assertEq(feeSchedule.accountZeroFee(user), _isZeroFee);
+        _fees = feeSchedule.getFees(user);
+        assertEq(_fees.perOrderFeeBuy, _perOrderFee);
+        assertEq(_fees.percentageFeeRateBuy, _percentageRateFee);
+        assertEq(_fees.perOrderFeeSell, _perOrderFee);
+        assertEq(_fees.percentageFeeRateSell, _percentageRateFee);
     }
 
     function testEnableDisableFeeScheduleForAddress(uint64 _perOrderFee, uint24 _percentageRateFee) public {
-        IFeeSchedule.Fee memory fee =
-            IFeeSchedule.Fee({perOrderFee: _perOrderFee, percentageFeeRate: _percentageRateFee});
+        FeeSchedule.FeeRates memory fee = FeeSchedule.FeeRates({
+            perOrderFeeBuy: _perOrderFee,
+            percentageFeeRateBuy: _percentageRateFee,
+            perOrderFeeSell: _perOrderFee,
+            percentageFeeRateSell: _percentageRateFee
+        });
 
-        (, uint24 percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
+        // Initially fees are default
+        (, uint24 percentageRateFee) = issuer.getFeeRatesForOrder(user, false, address(token));
         assertEq(percentageRateFee, issuer.percentageFeeRate());
 
+        // Set fee schedule
         issuer.setFeeScheduleForRequester(user, feeSchedule);
 
-        feeSchedule.setFees(user, fee, false);
-        feeSchedule.setFees(user, fee, true);
-
-        (, percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
-        assertEq(percentageRateFee, _percentageRateFee);
-        assert(percentageRateFee != issuer.percentageFeeRate());
-
-        feeSchedule.setZeroFeeState(user, true);
-
-        (, percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
+        // Setting fee schedule address without setting fee rates sets zero fees
+        uint256 flatFee;
+        (flatFee, percentageRateFee) = issuer.getFeeRatesForOrder(user, false, address(token));
+        assertEq(flatFee, 0);
         assertEq(percentageRateFee, 0);
 
+        feeSchedule.setFees(user, fee);
+
+        (, percentageRateFee) = issuer.getFeeRatesForOrder(user, false, address(token));
+        assertEq(percentageRateFee, _percentageRateFee);
+
+        // Reset fees to default
         issuer.setFeeScheduleForRequester(user, IFeeSchedule(address(0)));
 
-        (, percentageRateFee) = issuer.getFeeRatesForOrder(user, address(token), false);
+        (, percentageRateFee) = issuer.getFeeRatesForOrder(user, false, address(token));
         assertEq(percentageRateFee, issuer.percentageFeeRate());
     }
 }
