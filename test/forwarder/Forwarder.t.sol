@@ -19,8 +19,6 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract ForwarderTest is Test {
-    event TrustedOracleSet(address indexed oracle, bool isTrusted);
-    event PriceRecencyThresholdSet(uint256 threshold);
     event RelayerSet(address indexed relayer, bool isRelayer);
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
@@ -28,7 +26,8 @@ contract ForwarderTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
     event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
-    event PaymentOracleUpdated(address paymentToken, address oracle);
+    event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
+    event EthUsdOracleSet(address indexed oracle);
     event UserOperationSponsored(
         address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice
     );
@@ -133,12 +132,22 @@ contract ForwarderTest is Test {
         forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
     }
 
+    function testUpdateEthOracle(address _oracle) public {
+        vm.expectRevert("Ownable: caller is not the owner");
+        forwarder.setEthUsdOracle(_oracle);
+
+        vm.expectEmit(true, true, true, true);
+        emit EthUsdOracleSet(_oracle);
+        vm.prank(owner);
+        forwarder.setEthUsdOracle(_oracle);
+    }
+
     function testUpdateOracle(address _paymentToken, address _oracle) public {
         vm.expectRevert("Ownable: caller is not the owner");
         forwarder.setPaymentOracle(_paymentToken, _oracle);
 
         vm.expectEmit(true, true, true, true);
-        emit PaymentOracleUpdated(_paymentToken, _oracle);
+        emit PaymentOracleSet(_paymentToken, _oracle);
         vm.prank(owner);
         forwarder.setPaymentOracle(_paymentToken, _oracle);
     }
