@@ -71,7 +71,7 @@ contract BuyProcessorRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         order = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),

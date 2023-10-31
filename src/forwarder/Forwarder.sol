@@ -259,7 +259,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
             IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
         } else {
             uint256 fees = IOrderProcessor(target).estimateTotalFeesForOrder(
-                user, order.paymentToken, order.paymentTokenQuantity, order.sell
+                user, order.sell, order.paymentToken, order.paymentTokenQuantity
             );
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);

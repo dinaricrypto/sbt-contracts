@@ -42,7 +42,7 @@ contract LimitBuyProcessorTest is Test {
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, address(paymentToken), false);
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
