@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 contract DividendDistributionTest is Test {
     DividendDistribution distribution;
@@ -37,15 +37,6 @@ contract DividendDistributionTest is Test {
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
     }
 
-    function accessErrorString(address account, bytes32 role) internal pure returns (bytes memory) {
-        return bytes.concat(
-            "AccessControl: account ",
-            bytes(Strings.toHexString(account)),
-            " is missing role ",
-            bytes(Strings.toHexString(uint256(role), 32))
-        );
-    }
-
     function testCreateNewDistribution(uint256 totalDistribution, uint256 _endTime) public {
         vm.assume(totalDistribution < 1e8);
         assertEq(IERC20(address(token)).balanceOf(address(distribution)), 0);
@@ -70,7 +61,11 @@ contract DividendDistributionTest is Test {
     }
 
     function testCreateDistributionNotDistributorReverts() public {
-        vm.expectRevert(accessErrorString(user, distribution.DISTRIBUTOR_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
+            )
+        );
         vm.prank(user);
         distribution.createDistribution(address(token), 100, block.timestamp + 1);
     }
@@ -85,7 +80,11 @@ contract DividendDistributionTest is Test {
         vm.prank(distributor);
         uint256 distributionId = distribution.createDistribution(address(token), totalDistribution, block.timestamp + 1);
 
-        vm.expectRevert(accessErrorString(user, distribution.DISTRIBUTOR_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
+            )
+        );
         vm.prank(user);
         distribution.distribute(distributionId, user, distribution1);
 
@@ -112,7 +111,11 @@ contract DividendDistributionTest is Test {
         assertEq(IERC20(address(token)).balanceOf(address(distribution)), totalDistribution);
         assertEq(IERC20(address(token)).balanceOf(distributor), 0);
 
-        vm.expectRevert(accessErrorString(user, distribution.DISTRIBUTOR_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
+            )
+        );
         vm.prank(user);
         distribution.reclaimDistribution(0);
 

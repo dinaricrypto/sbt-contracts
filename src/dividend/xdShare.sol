@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {dShare} from "../dShare.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
@@ -8,7 +8,7 @@ import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {IxdShare} from "./IxdShare.sol";
 import {IdShareManager} from "../IdShareManager.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 
 /**
  * @title xdShare Contract
@@ -49,7 +49,9 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
      * @param name_ The name of the xdShare token.
      * @param symbol_ The symbol of the xdShare token.
      */
-    constructor(dShare _dShare, IdShareManager _tokenManager, string memory name_, string memory symbol_) {
+    constructor(dShare _dShare, IdShareManager _tokenManager, string memory name_, string memory symbol_)
+        Ownable(msg.sender)
+    {
         // Verify tokenManager setup
         if (address(_tokenManager) != address(0) && !_tokenManager.isCurrentToken(address(_dShare))) {
             revert InvalidTokenManager();

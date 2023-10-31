@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import {TokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 
 contract TokenLockTest is Test {
     MockToken token;
@@ -31,7 +31,7 @@ contract TokenLockTest is Test {
     }
 
     function testCallSelector() public {
-        vm.expectRevert("TokenLockCheck: low-level static call failed");
+        vm.expectRevert(Address.FailedInnerCall.selector);
         tokenLockCheck.setCallSelector(address(token), 0x032f29a1); // lock selector doesn't exist for token contract
 
         tokenLockCheck.setCallSelector(address(token), token.isBlacklisted.selector);

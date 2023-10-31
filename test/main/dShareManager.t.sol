@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "prb-math/Common.sol" as PrbMath;
 import "../../src/dShareManager.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract dShareManagerTest is Test {
     using Strings for uint256;
@@ -44,7 +45,7 @@ contract dShareManagerTest is Test {
     }
 
     function testAdministration() public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(1)));
         vm.prank(address(1));
         tokenManager.setTransferRestrictor(ITransferRestrictor(address(1)));
 
@@ -52,7 +53,7 @@ contract dShareManagerTest is Test {
         emit TransferRestrictorSet(ITransferRestrictor(address(1)));
         tokenManager.setTransferRestrictor(ITransferRestrictor(address(1)));
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(1)));
         vm.prank(address(1));
         tokenManager.setDisclosures("example.com");
 
@@ -62,7 +63,7 @@ contract dShareManagerTest is Test {
     }
 
     function testDeployNewToken() public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(1)));
         vm.prank(address(1));
         tokenManager.deployNewToken(address(1), "Dinari Token", "TKN.d");
 
@@ -128,7 +129,7 @@ contract dShareManagerTest is Test {
     function testSplitReverts() public {
         string memory timestamp = block.timestamp.toString();
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(1)));
         vm.prank(address(1));
         tokenManager.split(token1, 2, false, timestamp, timestamp);
 

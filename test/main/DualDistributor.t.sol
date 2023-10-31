@@ -10,7 +10,7 @@ import {dShare} from "../../src/dShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {dShareManager} from "../../src/dShareManager.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 contract DualDistributorTest is Test {
     DividendDistribution distribution;
@@ -47,15 +47,6 @@ contract DualDistributorTest is Test {
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), address(dualDistributor));
     }
 
-    function accessErrorString(address account, bytes32 role) internal pure returns (bytes memory) {
-        return bytes.concat(
-            "AccessControl: account ",
-            bytes(Strings.toHexString(account)),
-            " is missing role ",
-            bytes(Strings.toHexString(uint256(role), 32))
-        );
-    }
-
     function testStateVar() public {
         assertEq(dualDistributor.USDC(), address(token));
         assertEq(dualDistributor.dividendDistrubtion(), address(distribution));
@@ -63,11 +54,23 @@ contract DualDistributorTest is Test {
 
     function testSetter(address _newUSDC, address _dShare, address _xdShare, address _newDividend) public {
         vm.startPrank(user);
-        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
         dualDistributor.setUSDC(_newUSDC);
-        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
         dualDistributor.setNewDividendAddress(_newDividend);
-        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
         dualDistributor.addDShareXdSharePair(_dShare, _xdShare);
         vm.stopPrank();
 
@@ -100,7 +103,11 @@ contract DualDistributorTest is Test {
         token.mint(address(dualDistributor), amountA);
         dtoken.mint(address(dualDistributor), amountB);
 
-        vm.expectRevert(accessErrorString(address(this), distribution.DISTRIBUTOR_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), distribution.DISTRIBUTOR_ROLE()
+            )
+        );
         dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
         vm.prank(distributor);

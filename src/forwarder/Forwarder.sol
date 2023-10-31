@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
@@ -8,7 +8,7 @@ import {SafeERC20, IERC20, IERC20Permit} from "openzeppelin-contracts/contracts/
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
@@ -84,7 +84,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
-    constructor() EIP712("Forwarder", "1") {
+    constructor() EIP712("Forwarder", "1") Ownable(msg.sender) {
         feeBps = 0;
         cancellationGasCost = 0;
     }

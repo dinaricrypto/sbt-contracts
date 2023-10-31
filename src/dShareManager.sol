@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {IdShareManager} from "./IdShareManager.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {dShare} from "./dShare.sol";
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
-import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 
 /// @notice Maintains a list of dShare tokens, their splits, and split conversion logic
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShareManager.sol)
@@ -57,7 +57,7 @@ contract dShareManager is IdShareManager, Ownable2Step {
 
     /// @notice Initialize contract
     /// @param transferRestrictor_ Contract to restrict transfers
-    constructor(ITransferRestrictor transferRestrictor_) {
+    constructor(ITransferRestrictor transferRestrictor_) Ownable(msg.sender) {
         transferRestrictor = transferRestrictor_;
     }
 

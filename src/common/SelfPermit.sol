@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
-import {SafeERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 
 /// @notice Functionality to call permit on any EIP-2612-compliant token
 /// @author Dinari (https://github.com/dinaricrypto/sbt-peripheral/blob/main/src/common/SelfPermit.sol)
@@ -9,8 +9,6 @@ import {SafeERC20, IERC20Permit} from "openzeppelin-contracts/contracts/token/ER
 /// This function is expected to be embedded in multicalls to allow EOAs to approve a contract and call a function
 /// that requires an approval in a single transaction.
 abstract contract SelfPermit {
-    using SafeERC20 for IERC20Permit;
-
     /// @notice Permits this contract to spend a given token from `msg.sender`
     /// @dev The `spender` is always address(this).
     /// @param token The address of the token spent
@@ -23,6 +21,6 @@ abstract contract SelfPermit {
     function selfPermit(address token, address owner, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
         public
     {
-        IERC20Permit(token).safePermit(owner, address(this), value, deadline, v, r, s);
+        IERC20Permit(token).permit(owner, address(this), value, deadline, v, r, s);
     }
 }

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {dShare} from "../../src/dShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {
+    IAccessControlDefaultAdminRules,
+    IAccessControl
+} from "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
@@ -30,13 +33,8 @@ contract dShareTest is Test {
 
     function testSetName(string calldata name) public {
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(address(1)),
-                    " is missing role ",
-                    Strings.toHexString(uint256(token.DEFAULT_ADMIN_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(1), token.DEFAULT_ADMIN_ROLE()
             )
         );
         vm.prank(address(1));
@@ -50,13 +48,8 @@ contract dShareTest is Test {
 
     function testSetSymbol(string calldata symbol) public {
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(address(1)),
-                    " is missing role ",
-                    Strings.toHexString(uint256(token.DEFAULT_ADMIN_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(1), token.DEFAULT_ADMIN_ROLE()
             )
         );
         vm.prank(address(1));
@@ -97,13 +90,8 @@ contract dShareTest is Test {
 
     function testMintUnauthorizedReverts() public {
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(address(1)),
-                    " is missing role ",
-                    Strings.toHexString(uint256(token.MINTER_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(1), token.MINTER_ROLE()
             )
         );
         vm.prank(address(1));
@@ -139,13 +127,8 @@ contract dShareTest is Test {
         token.mint(address(1), 1e18);
 
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(address(1)),
-                    " is missing role ",
-                    Strings.toHexString(uint256(token.BURNER_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(1), token.BURNER_ROLE()
             )
         );
         vm.prank(address(1));
@@ -156,18 +139,27 @@ contract dShareTest is Test {
         // set new address
         address newAdmin = address(1);
         assertEq(token.hasRole(0, address(this)), true);
-        vm.expectRevert("AccessControl: can't directly revoke default admin role");
+        vm.expectRevert(IAccessControlDefaultAdminRules.AccessControlEnforcedDefaultAdminRules.selector);
         token.revokeRole(0, address(this));
 
         // begin admin transfer
         token.beginDefaultAdminTransfer(newAdmin);
 
-        vm.expectRevert("AccessControl: pending admin must accept");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControlDefaultAdminRules.AccessControlInvalidDefaultAdmin.selector, address(this)
+            )
+        );
         token.acceptDefaultAdminTransfer();
 
         vm.startPrank(newAdmin);
 
-        vm.expectRevert("AccessControl: transfer delay not passed");
+        (, uint48 schedule) = token.pendingDefaultAdmin();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControlDefaultAdminRules.AccessControlEnforcedDefaultAdminDelay.selector, schedule
+            )
+        );
         token.acceptDefaultAdminTransfer();
 
         // warp block with 1 seconds
