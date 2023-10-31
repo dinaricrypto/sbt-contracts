@@ -237,14 +237,22 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
-    function setFeeScheduleForRequester(address _requester, IFeeSchedule _feeSchedule)
+    /// @notice Set fee schedule for requester
+    /// @param requester Requester address
+    /// @param _feeSchedule Fee schedule contract
+    /// @dev Only callable by admin
+    function setFeeScheduleForRequester(address requester, IFeeSchedule _feeSchedule)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        feeSchedule[_requester] = _feeSchedule;
-        emit FeeScheduleSet(_requester, _feeSchedule);
+        feeSchedule[requester] = _feeSchedule;
+        emit FeeScheduleSet(requester, _feeSchedule);
     }
 
+    /// @notice Set max order decimals for asset token
+    /// @param token Asset token
+    /// @param decimals Max order decimals
+    /// @dev Only callable by admin
     function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxOrderDecimals[token] = decimals;
         emit MaxOrderDecimalsSet(token, decimals);
@@ -321,9 +329,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @inheritdoc IOrderProcessor
     function estimateTotalFeesForOrder(
         address requester,
+        bool sell,
         address paymentToken,
-        uint256 paymentTokenOrderValue,
-        bool sell
+        uint256 paymentTokenOrderValue
     ) public view returns (uint256) {
         // Get fee rates
         (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(requester, sell, paymentToken);

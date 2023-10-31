@@ -76,7 +76,7 @@ contract BuyProcessorTest is Test {
             price: 0,
             tif: IOrderProcessor.TIF.GTC
         });
-        dummyOrderFees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), 100 ether, false);
+        dummyOrderFees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), 100 ether);
         restrictor = TransferRestrictor(address(token.transferRestrictor()));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
@@ -160,7 +160,7 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrder(uint256 orderAmount) public {
-        uint256 fees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), orderAmount, false);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -214,7 +214,7 @@ contract BuyProcessorTest is Test {
 
     function testRequestOrderBlacklist(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), orderAmount, false);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -237,7 +237,7 @@ contract BuyProcessorTest is Test {
 
     function testPaymentTokenBlackList(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), orderAmount, false);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -413,7 +413,7 @@ contract BuyProcessorTest is Test {
 
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(user, address(paymentToken), orderAmount, false);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
