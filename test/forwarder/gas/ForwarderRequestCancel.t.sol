@@ -74,10 +74,10 @@ contract ForwarderRequestCancelTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder();
+        forwarder = new Forwarder(ethUSDOracle);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setRelayer(relayer, true);
-        forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
+        forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
         vm.stopPrank();
 
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));

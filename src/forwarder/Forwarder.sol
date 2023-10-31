@@ -33,12 +33,14 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     error FeeTooHigh();
     error ForwarderNotApprovedByProcessor();
     error NotSupportedModule();
+    error UnsupportedToken();
 
     event RelayerSet(address indexed relayer, bool isRelayer);
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
-    event PaymentOracleUpdated(address paymentToken, address oracle);
+    event EthUsdOracleSet(address indexed oracle);
+    event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
     event UserOperationSponsored(
         address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice
     );
@@ -49,8 +51,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         "ForwardRequest(address user,address to,address paymentToken,bytes data,uint64 deadline,uint256 nonce)"
     );
     bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
-
-    address private constant ETH_USD_ORACLE = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
 
     /// ------------------------------- Storage -------------------------------
 
@@ -69,6 +69,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     /// @inheritdoc IForwarder
     mapping(bytes32 => address) public orderSigner;
 
+    address public ethUsdOracle;
+
     mapping(address => address) public paymentOracle;
 
     /// ------------------------------- Modifiers -------------------------------
@@ -84,9 +86,10 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
-    constructor() EIP712("Forwarder", "1") {
+    constructor(address _ethUsdOracle) EIP712("Forwarder", "1") {
         feeBps = 0;
         cancellationGasCost = 0;
+        ethUsdOracle = _ethUsdOracle;
     }
 
     /// ------------------------------- Administration -------------------------------
@@ -124,13 +127,22 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     }
 
     /**
-     * @dev add oracle for a payment token
-     * @param _paymentAsset asset to add oracle
-     * @param _oracle chainlink oracle address
+     * @dev add oracle for eth in usd
+     * @param _ethUsdOracle chainlink oracle address
      */
-    function updateOracle(address _paymentAsset, address _oracle) external onlyOwner {
-        paymentOracle[_paymentAsset] = _oracle;
-        emit PaymentOracleUpdated(_paymentAsset, _oracle);
+    function setEthUsdOracle(address _ethUsdOracle) external onlyOwner {
+        ethUsdOracle = _ethUsdOracle;
+        emit EthUsdOracleSet(_ethUsdOracle);
+    }
+
+    /**
+     * @dev add oracle for a payment token
+     * @param paymentToken asset to add oracle
+     * @param oracle chainlink oracle address
+     */
+    function setPaymentOracle(address paymentToken, address oracle) external onlyOwner {
+        paymentOracle[paymentToken] = oracle;
+        emit PaymentOracleSet(paymentToken, oracle);
     }
 
     /**
@@ -144,15 +156,19 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     }
 
     /**
-     * @dev get the latest price of a token
-     * @param _asset asset to get the price
+     * @notice Get the current oracle price for a payment token
      */
-    function getPaymentPriceInWei(address _asset) public view returns (uint256) {
-        address _oracle = paymentOracle[_asset];
+    function getPaymentPriceInWei(address paymentToken) public view returns (uint256) {
+        if (paymentOracle[paymentToken] == address(0)) revert UnsupportedToken();
+        return _getPaymentPriceInWei(paymentToken);
+    }
+
+    function _getPaymentPriceInWei(address paymentToken) internal view returns (uint256) {
+        address _oracle = paymentOracle[paymentToken];
         // slither-disable-next-line unused-return
         (, int256 paymentPrice,,,) = AggregatorV3Interface(_oracle).latestRoundData();
         // slither-disable-next-line unused-return
-        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ETH_USD_ORACLE).latestRoundData();
+        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ethUsdOracle).latestRoundData();
         uint256 paymentPriceInWei = PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
         return uint256(paymentPriceInWei);
     }
@@ -215,6 +231,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         if (!isSupportedModule[metaTx.to]) revert NotSupportedModule();
         // slither-disable-next-line unused-return
         _useCheckedNonce(metaTx.user, metaTx.nonce);
+
+        if (paymentOracle[metaTx.paymentToken] == address(0)) revert UnsupportedToken();
 
         bytes32 typedDataHash = _hashTypedDataV4(forwardRequestHash(metaTx));
 

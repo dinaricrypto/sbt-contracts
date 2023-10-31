@@ -20,6 +20,8 @@ contract DeployAllSandboxScript is Script {
         address operator;
         address distributor;
         address relayer;
+        address ethusdoracle;
+        address usdcoracle;
     }
 
     uint64 constant perOrderFee = 1 ether;
@@ -34,7 +36,9 @@ contract DeployAllSandboxScript is Script {
             treasury: vm.envAddress("S_TREASURY"),
             operator: vm.envAddress("S_OPERATOR"),
             distributor: vm.envAddress("S_DISTRIBUTOR"),
-            relayer: vm.envAddress("S_RELAYER")
+            relayer: vm.envAddress("S_RELAYER"),
+            ethusdoracle: vm.envAddress("S_ETHUSDORACLE"),
+            usdcoracle: vm.envAddress("S_USDCORACLE")
         });
 
         console.log("deployer: %s", cfg.deployer);
@@ -139,8 +143,12 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ forwarder ------------------
 
-        Forwarder forwarder = new Forwarder();
+        Forwarder forwarder = new Forwarder(cfg.ethusdoracle);
         forwarder.setFeeBps(2000);
+
+        forwarder.setPaymentOracle(address(usdc), cfg.usdcoracle);
+        forwarder.setPaymentOracle(address(usdce), cfg.usdcoracle);
+        forwarder.setPaymentOracle(address(usdt), cfg.usdcoracle);
 
         forwarder.setSupportedModule(address(buyProcessor), true);
         forwarder.setSupportedModule(address(sellProcessor), true);
