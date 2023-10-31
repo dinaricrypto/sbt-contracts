@@ -61,6 +61,7 @@ contract ForwarderTest is Test {
     address public owner;
     address constant treasury = address(4);
     address constant operator = address(3);
+    address constant ethUsdPriceOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
     address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
     function setUp() public {
@@ -94,7 +95,7 @@ contract ForwarderTest is Test {
         directBuyIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder();
+        forwarder = new Forwarder(ethUsdPriceOracle);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(sellIssuer), true);
         forwarder.setSupportedModule(address(directBuyIssuer), true);
@@ -129,17 +130,17 @@ contract ForwarderTest is Test {
         vm.prank(owner);
         forwarder.setFeeBps(100);
         vm.prank(owner);
-        forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
+        forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
     }
 
     function testUpdateOracle(address _paymentToken, address _oracle) public {
         vm.expectRevert("Ownable: caller is not the owner");
-        forwarder.updateOracle(_paymentToken, _oracle);
+        forwarder.setPaymentOracle(_paymentToken, _oracle);
 
         vm.expectEmit(true, true, true, true);
         emit PaymentOracleUpdated(_paymentToken, _oracle);
         vm.prank(owner);
-        forwarder.updateOracle(_paymentToken, _oracle);
+        forwarder.setPaymentOracle(_paymentToken, _oracle);
     }
 
     function testDeployment(uint256 cancellationCost) public {

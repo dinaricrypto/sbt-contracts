@@ -77,11 +77,11 @@ contract dShareCompatTest is Test {
         sellIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder();
+        forwarder = new Forwarder(ethUSDOracle);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(sellIssuer), true);
         forwarder.setRelayer(relayer, true);
-        forwarder.updateOracle(address(paymentToken), usdcPriceOracle);
+        forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
         vm.stopPrank();
 
         // set issuer forwarder role

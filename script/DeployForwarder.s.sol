@@ -21,17 +21,20 @@ contract DeployForwarderScript is Script {
         address usdc = vm.envAddress("USDC");
         address usdce = vm.envAddress("USDCE");
         address usdt = vm.envAddress("USDT");
+        address ethusdoracle = vm.envAddress("ETHUSDORACLE");
+        address usdcoracle = vm.envAddress("USDCORACLE");
 
         console.log("deployer: %s", vm.addr(deployerPrivateKey));
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
-        Forwarder forwarder = new Forwarder();
+        Forwarder forwarder = new Forwarder(ethusdoracle);
         forwarder.setFeeBps(2000);
-        forwarder.updateOracle(usdc, 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6);
-        forwarder.updateOracle(usdce, 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6);
-        forwarder.updateOracle(usdt, 0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6);
+
+        forwarder.setPaymentOracle(usdc, usdcoracle);
+        forwarder.setPaymentOracle(usdce, usdcoracle);
+        forwarder.setPaymentOracle(usdt, usdcoracle);
 
         forwarder.setSupportedModule(address(buyProcessor), true);
         forwarder.setSupportedModule(address(sellProcessor), true);
