@@ -94,7 +94,7 @@ async function main() {
   // unique signature domain for payment token
   const permitDomain = {
     name: 'USD Coin',
-    version: '1',
+    version: await paymentToken.version(),
     chainId: provider.network.chainId,
     verifyingContract: paymentTokenAddress,
   };
