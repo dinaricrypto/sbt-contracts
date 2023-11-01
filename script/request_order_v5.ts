@@ -3,19 +3,36 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const buyProcessorDataPath = path.resolve(__dirname, 'sbt-deployments/src/v0.1.0/buy_processor.json');
+const buyProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.1.0/buy_processor.json');
 const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
 const buyProcessorAbi = buyProcessorData.abi;
+
+// EIP-2612 abi
+const eip2612Abi = [
+  "function name() external view returns (string memory)",
+  "function version() external view returns (string memory)",
+  "function nonces(address owner) external view returns (uint256)",
+];
+
+async function getContractVersion(address: string, provider: ethers.providers.Provider): Promise<string> {
+  let contractVersion = '1';
+  try {
+    const contract = new ethers.Contract(
+      address,
+      eip2612Abi,
+      provider,
+    );
+    contractVersion = await contract.version();
+  } catch {
+    // do nothing
+  }
+  return contractVersion;
+}
 
 
 async function main() {
 
   // ------------------ Setup ------------------
-
-  // nonces abi
-  const noncesAbi = [
-    "function nonces(address owner) external view returns (uint256)",
-  ];
 
   // permit EIP712 signature data type
   const permitTypes = {
@@ -48,26 +65,26 @@ async function main() {
   if (!privateKey) throw new Error("empty key");
   const RPC_URL = process.env.TEST_RPC_URL;
   if (!RPC_URL) throw new Error("empty rpc url");
-  const assetToken = "0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D";
-  const paymentTokenAddress = "0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F";
-  const networkAddresses = buyProcessorData.networkAddresses;
-  
+  const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
+  const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
+
 
   // setup provider and signer
   const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
   const chainId = (await provider.getNetwork()).chainId;
+  const buyProcessorAddress = buyProcessorData.networkAddresses[chainId];
 
   // connect signer to payment token contract
   const paymentToken = new ethers.Contract(
     paymentTokenAddress,
-    noncesAbi,
+    eip2612Abi,
     signer,
   );
 
   // connect signer to buy processor contract
   const buyProcessor = new ethers.Contract(
-    networkAddresses[chainId],
+    buyProcessorAddress,
     buyProcessorAbi,
     signer,
   );
@@ -93,8 +110,8 @@ async function main() {
 
   // unique signature domain for payment token
   const permitDomain = {
-    name: 'USD Coin',
-    version: await paymentToken.version(),
+    name: await paymentToken.name(),
+    version: await getContractVersion(paymentTokenAddress, provider),
     chainId: provider.network.chainId,
     verifyingContract: paymentTokenAddress,
   };
