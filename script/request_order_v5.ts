@@ -89,10 +89,9 @@ async function main() {
   const orderAmount = ethers.utils.parseUnits("1000", "6");
 
   // get fees to add to order
-  // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
-  const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentTokenAddress);
-  const fees = flatFee.add(orderAmount.mul(_percentageFeeRate).div(10000));
+  const fees = await buyProcessor.estimateTotalFeesForOrder(paymentTokenAddress, orderAmount);
   const totalSpendAmount = orderAmount.add(fees);
+  console.log(`fees: ${ethers.utils.formatUnits(fees, "6")}`);
 
   // ------------------ Configure Permit ------------------
 

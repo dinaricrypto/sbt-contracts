@@ -67,7 +67,7 @@ async function main() {
   const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
   const chainId = (await provider.getNetwork()).chainId;
-  const buyProcessorAddress = buyProcessorData.networkAddresses[chainId];
+  const sellProcessorAddress = sellProcessorData.networkAddresses[chainId];
 
   // connect signer to asset token contract
   const assetToken = new ethers.Contract(
@@ -77,9 +77,9 @@ async function main() {
   );
 
   // connect signer to buy processor contract
-  const buyProcessor = new ethers.Contract(
-    buyProcessorAddress,
-    buyProcessorAbi,
+  const sellProcessor = new ethers.Contract(
+    sellProcessorAddress,
+    sellProcessorAbi,
     signer,
   );
 
@@ -93,12 +93,8 @@ async function main() {
   const proceedsEstimate = orderAmount.mul(priceEstimate).div(ethers.utils.parseUnits("1", "18"));
 
   // take fees from order
-  // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
-  const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentTokenAddress);
-  const fees = flatFee.add(proceedsEstimate.mul(_percentageFeeRate).div(10000));
-  const totalReceivedEstimate = proceedsEstimate.sub(fees);
+  const fees = await sellProcessor.estimateTotalFeesForOrder(paymentTokenAddress, proceedsEstimate);
   console.log(`fees: ${ethers.utils.formatUnits(fees, "6")}`);
-  console.log(`total received estimate: ${ethers.utils.formatUnits(totalReceivedEstimate, "6")}`);
 
   // ------------------ Configure Permit ------------------
 
@@ -119,7 +115,7 @@ async function main() {
   // permit message to sign
   const permitMessage = {
     owner: signer.address,
-    spender: buyProcessor.address,
+    spender: sellProcessor.address,
     value: orderAmount,
     nonce: nonce,
     deadline: deadline
@@ -130,7 +126,7 @@ async function main() {
   const permitSignature = ethers.utils.splitSignature(permitSignatureBytes);
 
   // create selfPermit call data
-  const selfPermitData = buyProcessor.interface.encodeFunctionData("selfPermit", [
+  const selfPermitData = sellProcessor.interface.encodeFunctionData("selfPermit", [
     assetTokenAddress,
     permitMessage.owner,
     permitMessage.value,
@@ -144,7 +140,7 @@ async function main() {
 
   // create requestOrder call data
   // see IOrderProcessor.Order struct for order parameters
-  const requestOrderData = buyProcessor.interface.encodeFunctionData("requestOrder", [[
+  const requestOrderData = sellProcessor.interface.encodeFunctionData("requestOrder", [[
     signer.address,
     assetTokenAddress,
     paymentTokenAddress,
@@ -157,7 +153,7 @@ async function main() {
   ]]);
 
   // submit permit + request order multicall transaction
-  const tx = await buyProcessor.multicall([
+  const tx = await sellProcessor.multicall([
     selfPermitData,
     requestOrderData,
   ]);

@@ -86,18 +86,13 @@ async function main() {
   // order amount
   const orderAmount = ethers.parseUnits("1", 18);
 
-  // price estimate USDC/whole share
+  // price estimate from quote in USDC/whole share
   const priceEstimate = ethers.parseUnits("150", 6);
   const proceedsEstimate = orderAmount * priceEstimate / ethers.parseUnits("1", 18);
-  console.log(`proceedsEstimate: ${ethers.formatUnits(proceedsEstimate, 6)}`);
   
   // get fees to add to order
-  // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
-  const { flatFee, _percentageFeeRate } = await sellProcessor.getFeeRatesForOrder(paymentTokenAddress);
-  const fees = flatFee + (proceedsEstimate * _percentageFeeRate) / BigInt(10000);
-  const totalReceivedEstimate = proceedsEstimate - fees;
+  const fees = await sellProcessor.estimateTotalFeesForOrder(paymentTokenAddress, proceedsEstimate);
   console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
-  console.log(`total received estimate: ${ethers.formatUnits(totalReceivedEstimate, 6)}`);
 
   // ------------------ Approve Spend ------------------
 

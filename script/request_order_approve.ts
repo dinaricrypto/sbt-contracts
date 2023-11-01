@@ -76,10 +76,9 @@ async function main() {
   const orderAmount = BigInt(1000_000_000);
 
   // get fees to add to order
-  // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
-  const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentTokenAddress);
-  const fees = flatFee + (orderAmount * _percentageFeeRate) / BigInt(10000);
+  const fees = await buyProcessor.estimateTotalFeesForOrder(paymentTokenAddress, orderAmount);
   const totalSpendAmount = orderAmount + fees;
+  console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
 
   // ------------------ Approve Spend ------------------
 
