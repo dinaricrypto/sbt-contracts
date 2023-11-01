@@ -14,7 +14,7 @@ const eip2612Abi = [
   "function nonces(address owner) external view returns (uint256)",
 ];
 
-async function getContractVersion(address: string, provider: ethers.providers.Provider): Promise<string> {
+async function getContractVersion(address: string, provider: ethers.Provider): Promise<string> {
   let contractVersion = '1';
   try {
     const contract = new ethers.Contract(
@@ -91,7 +91,7 @@ async function main() {
   // ------------------ Configure Order ------------------
 
   // order amount
-  const orderAmount = BigInt(10_000_000);
+  const orderAmount = BigInt(1000_000_000);
 
   // get fees to add to order
   // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
