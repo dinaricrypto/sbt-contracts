@@ -99,7 +99,7 @@ async function main() {
   // approve buy processor to spend payment token
   const approveTx = await assetToken.approve(sellProcessorAddress, orderAmount);
   await approveTx.wait();
-  console.log(approveTx.hash);
+  console.log(`approve tx hash: ${approveTx.hash}`);
 
   // ------------------ Submit Order ------------------
 
@@ -117,7 +117,7 @@ async function main() {
     1,
   ])
   const receipt = await tx.wait();
-  console.log(tx.hash);
+  console.log(`tx hash: ${tx.hash}`);
 
   // get order id from event
   const events = receipt.logs.map((log: any) => sellProcessor.interface.parseLog(log));

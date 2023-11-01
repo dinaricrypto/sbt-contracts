@@ -104,7 +104,7 @@ async function main() {
   // unique signature domain for payment token
   const permitDomain = {
     name: await paymentToken.name(),
-    version: await getContractVersion(paymentTokenAddress),
+    version: await getContractVersion(paymentToken),
     chainId: provider.network.chainId,
     verifyingContract: paymentTokenAddress,
   };

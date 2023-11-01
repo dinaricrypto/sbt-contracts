@@ -160,7 +160,7 @@ async function main() {
     requestOrderData,
   ]);
   const receipt = await tx.wait();
-  console.log(tx.hash);
+  console.log(`tx hash: ${tx.hash}`);
 
   // get order id from event
   const events = receipt.logs.map((log: any) => sellProcessor.interface.parseLog(log));

@@ -85,7 +85,7 @@ async function main() {
   // approve buy processor to spend payment token
   const approveTx = await paymentToken.approve(buyProcessorAddress, totalSpendAmount);
   await approveTx.wait();
-  console.log(approveTx.hash);
+  console.log(`approve tx hash: ${approveTx.hash}`);
 
   // ------------------ Submit Order ------------------
 
@@ -103,7 +103,7 @@ async function main() {
     1,
   ]);
   const receipt = await tx.wait();
-  console.log(tx.hash);
+  console.log(`tx hash: ${tx.hash}`);
 
   // get order id from event
   const events = receipt.logs.map((log: any) => buyProcessor.interface.parseLog(log));
