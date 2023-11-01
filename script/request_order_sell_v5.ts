@@ -65,7 +65,7 @@ async function main() {
   if (!privateKey) throw new Error("empty key");
   const RPC_URL = process.env.TEST_RPC_URL;
   if (!RPC_URL) throw new Error("empty rpc url");
-  const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
+  const assetTokenAddress = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
   const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
 
   // setup provider and signer
@@ -74,9 +74,9 @@ async function main() {
   const chainId = (await provider.getNetwork()).chainId;
   const buyProcessorAddress = buyProcessorData.networkAddresses[chainId];
 
-  // connect signer to payment token contract
-  const paymentToken = new ethers.Contract(
-    paymentTokenAddress,
+  // connect signer to asset token contract
+  const assetToken = new ethers.Contract(
+    assetTokenAddress,
     eip2612Abi,
     signer,
   );
@@ -91,35 +91,39 @@ async function main() {
   // ------------------ Configure Order ------------------
 
   // order amount
-  const orderAmount = ethers.utils.parseUnits("1000", "6");
+  const orderAmount = ethers.utils.parseUnits("1", "18");
 
-  // get fees to add to order
+  // price estimate USDC/whole share
+  const priceEstimate = ethers.utils.parseUnits("150", "6");
+  const proceedsEstimate = orderAmount.mul(priceEstimate).div(ethers.utils.parseUnits("1", "18"));
+
+  // take fees from order
   // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
   const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentToken.address);
-  const fees = flatFee.add(orderAmount.mul(_percentageFeeRate).div(10000));
-  const totalSpendAmount = orderAmount.add(fees);
+  const fees = flatFee.add(proceedsEstimate.mul(_percentageFeeRate).div(10000));
+  const totalReceivedEstimate = proceedsEstimate.sub(fees);
 
   // ------------------ Configure Permit ------------------
 
   // permit nonce for user
-  const nonce = await paymentToken.nonces(signer.address);
+  const nonce = await assetToken.nonces(signer.address);
   // 5 minute deadline from current blocktime
   const blockNumber = await provider.getBlockNumber();
   const deadline = (await provider.getBlock(blockNumber)).timestamp + 60 * 5;
 
-  // unique signature domain for payment token
+  // unique signature domain for asset token
   const permitDomain = {
-    name: await paymentToken.name(),
-    version: await getContractVersion(paymentTokenAddress, provider),
+    name: await assetToken.name(),
+    version: await getContractVersion(assetTokenAddress, provider),
     chainId: provider.network.chainId,
-    verifyingContract: paymentTokenAddress,
+    verifyingContract: assetTokenAddress,
   };
 
   // permit message to sign
   const permitMessage = {
     owner: signer.address,
     spender: buyProcessor.address,
-    value: totalSpendAmount,
+    value: orderAmount,
     nonce: nonce,
     deadline: deadline
   };
@@ -130,7 +134,7 @@ async function main() {
 
   // create selfPermit call data
   const selfPermitData = buyProcessor.interface.encodeFunctionData("selfPermit", [
-    paymentToken.address,
+    assetTokenAddress,
     permitMessage.owner,
     permitMessage.value,
     permitMessage.deadline,
@@ -145,12 +149,12 @@ async function main() {
   // see IOrderProcessor.Order struct for order parameters
   const requestOrderData = buyProcessor.interface.encodeFunctionData("requestOrder", [[
     signer.address,
-    assetToken,
-    paymentToken.address,
-    false,
+    assetTokenAddress,
+    paymentTokenAddress,
+    true,
     0,
+    orderAmount,
     0,
-    orderAmount, // fees will be added to this amount
     0,
     1,
   ]]);
