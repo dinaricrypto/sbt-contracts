@@ -3,14 +3,24 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const buyProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.1.0/buy_processor.json');
-const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
-const buyProcessorAbi = buyProcessorData.abi;
+const sellProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.1.0/sell_processor.json');
+const sellProcessorData = JSON.parse(fs.readFileSync(sellProcessorDataPath, 'utf8'));
+const sellProcessorAbi = sellProcessorData.abi;
 
 // token abi
 const tokenAbi = [
   "function approve(address spender, uint256 value) external returns (bool)"
 ];
+
+async function getContractVersion(contract: ethers.Contract): Promise<string> {
+  let contractVersion = '1';
+  try {
+    contractVersion = await contract.version();
+  } catch {
+    // do nothing
+  }
+  return contractVersion;
+}
 
 async function main() {
 
@@ -47,44 +57,52 @@ async function main() {
   if (!privateKey) throw new Error("empty key");
   const RPC_URL = process.env.TEST_RPC_URL;
   if (!RPC_URL) throw new Error("empty rpc url");
-  const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
+  const assetTokenAddress = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
   const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
+  
 
   // setup provider and signer
   const provider = ethers.getDefaultProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
   const chainId = Number((await provider.getNetwork()).chainId);
-  const buyProcessorAddress = buyProcessorData.networkAddresses[chainId];
+  const sellProcessorAddress = sellProcessorData.networkAddresses[chainId];
 
   // connect signer to payment token contract
-  const paymentToken = new ethers.Contract(
-    paymentTokenAddress,
+  const assetToken = new ethers.Contract(
+    assetTokenAddress,
     tokenAbi,
     signer,
   );
 
-  // connect signer to buy processor contract
-  const buyProcessor = new ethers.Contract(
-    buyProcessorAddress,
-    buyProcessorAbi,
+  // connect signer to sell processor contract
+  const sellProcessor = new ethers.Contract(
+    sellProcessorAddress,
+    sellProcessorAbi,
     signer,
   );
 
   // ------------------ Configure Order ------------------
 
   // order amount
-  const orderAmount = BigInt(1000_000_000);
+  const orderAmount = ethers.parseUnits("1", 18);
 
+  // price estimate USDC/whole share
+  const priceEstimate = ethers.parseUnits("150", 6);
+  const proceedsEstimate = orderAmount * priceEstimate / ethers.parseUnits("1", 18);
+  console.log(`proceedsEstimate: ${ethers.formatUnits(proceedsEstimate, 6)}`);
+  
   // get fees to add to order
   // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
-  const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentTokenAddress);
-  const fees = flatFee + (orderAmount * _percentageFeeRate) / BigInt(10000);
-  const totalSpendAmount = orderAmount + fees;
+  const { flatFee, _percentageFeeRate } = await sellProcessor.getFeeRatesForOrder(paymentTokenAddress);
+  const fees = flatFee + (proceedsEstimate * _percentageFeeRate) / BigInt(10000);
+  const totalReceivedEstimate = proceedsEstimate - fees;
+  console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
+  console.log(`total received estimate: ${ethers.formatUnits(totalReceivedEstimate, 6)}`);
 
   // ------------------ Approve Spend ------------------
 
   // approve buy processor to spend payment token
-  const approveTx = await paymentToken.approve(buyProcessorAddress, totalSpendAmount);
+  const approveTx = await assetToken.approve(sellProcessorAddress, orderAmount);
   await approveTx.wait();
   console.log(approveTx.hash);
 
@@ -92,22 +110,22 @@ async function main() {
 
   // submit request order transaction
   // see IOrderProcessor.Order struct for order parameters
-  const tx = await buyProcessor.requestOrder([
+  const tx = await sellProcessor.requestOrder([
     signer.address,
-    assetToken,
+    assetTokenAddress,
     paymentTokenAddress,
-    false,
+    true,
     0,
+    orderAmount,
     0,
-    orderAmount, // fees will be added to this amount
     0,
     1,
-  ]);
+  ])
   const receipt = await tx.wait();
   console.log(tx.hash);
 
   // get order id from event
-  const events = receipt.logs.map((log: any) => buyProcessor.interface.parseLog(log));
+  const events = receipt.logs.map((log: any) => sellProcessor.interface.parseLog(log));
   if (!events) throw new Error("no events");
   const orderEvent = events.find((event: any) => event && event.name === "OrderRequested");
   if (!orderEvent) throw new Error("no order event");
@@ -115,11 +133,11 @@ async function main() {
   const orderAccountIndex = orderEvent.args[1];
   console.log(`Order Account: ${orderAccount}`);
   console.log(`Order Index for Account: ${orderAccountIndex}`);
-  const orderId = await buyProcessor.getOrderId(orderAccount, orderAccountIndex);
+  const orderId = await sellProcessor.getOrderId(orderAccount, orderAccountIndex);
   console.log(`Order ID: ${orderId}`);
 
   // use order id to get order status
-  const remaining = await buyProcessor.getRemainingOrder(orderId);
+  const remaining = await sellProcessor.getRemainingOrder(orderId);
   console.log(`Order Remaining: ${remaining}`);
 }
 
