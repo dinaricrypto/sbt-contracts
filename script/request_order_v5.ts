@@ -14,14 +14,9 @@ const eip2612Abi = [
   "function nonces(address owner) external view returns (uint256)",
 ];
 
-async function getContractVersion(address: string, provider: ethers.providers.Provider): Promise<string> {
+async function getContractVersion(contract: ethers.Contract): Promise<string> {
   let contractVersion = '1';
   try {
-    const contract = new ethers.Contract(
-      address,
-      eip2612Abi,
-      provider,
-    );
     contractVersion = await contract.version();
   } catch {
     // do nothing
@@ -110,7 +105,7 @@ async function main() {
   // unique signature domain for payment token
   const permitDomain = {
     name: await paymentToken.name(),
-    version: await getContractVersion(paymentTokenAddress, provider),
+    version: await getContractVersion(paymentTokenAddress),
     chainId: provider.network.chainId,
     verifyingContract: paymentTokenAddress,
   };
