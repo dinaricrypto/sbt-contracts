@@ -95,7 +95,7 @@ async function main() {
 
   // get fees to add to order
   // const fees = await buyProcessor.estimateTotalFeesForOrder(paymentToken.address, orderAmount);
-  const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentToken.address);
+  const { flatFee, _percentageFeeRate } = await buyProcessor.getFeeRatesForOrder(paymentTokenAddress);
   const fees = flatFee.add(orderAmount.mul(_percentageFeeRate).div(10000));
   const totalSpendAmount = orderAmount.add(fees);
 
