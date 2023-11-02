@@ -3,9 +3,9 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const buyProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.1.0/buy_processor.json');
-const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
-const buyProcessorAbi = buyProcessorData.abi;
+const sellProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.1.0/buy_processor.json');
+const sellProcessorData = JSON.parse(fs.readFileSync(sellProcessorDataPath, 'utf8'));
+const sellProcessorAbi = sellProcessorData.abi;
 
 // EIP-2612 abi
 const eip2612Abi = [
@@ -60,60 +60,63 @@ async function main() {
   if (!privateKey) throw new Error("empty key");
   const RPC_URL = process.env.TEST_RPC_URL;
   if (!RPC_URL) throw new Error("empty rpc url");
-  const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
+  const assetTokenAddress = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
   const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
 
   // setup provider and signer
   const provider = new ethers.providers.JsonRpcProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
   const chainId = (await provider.getNetwork()).chainId;
-  const buyProcessorAddress = buyProcessorData.networkAddresses[chainId];
+  const sellProcessorAddress = sellProcessorData.networkAddresses[chainId];
 
-  // connect signer to payment token contract
-  const paymentToken = new ethers.Contract(
-    paymentTokenAddress,
+  // connect signer to asset token contract
+  const assetToken = new ethers.Contract(
+    assetTokenAddress,
     eip2612Abi,
     signer,
   );
 
   // connect signer to buy processor contract
-  const buyProcessor = new ethers.Contract(
-    buyProcessorAddress,
-    buyProcessorAbi,
+  const sellProcessor = new ethers.Contract(
+    sellProcessorAddress,
+    sellProcessorAbi,
     signer,
   );
 
   // ------------------ Configure Order ------------------
 
   // order amount
-  const orderAmount = ethers.utils.parseUnits("1000", "6");
+  const orderAmount = ethers.utils.parseUnits("1", "18");
 
-  // get fees to add to order
-  const fees = await buyProcessor.estimateTotalFeesForOrder(paymentTokenAddress, orderAmount);
-  const totalSpendAmount = orderAmount.add(fees);
+  // price estimate USDC/whole share
+  const priceEstimate = ethers.utils.parseUnits("150", "6");
+  const proceedsEstimate = orderAmount.mul(priceEstimate).div(ethers.utils.parseUnits("1", "18"));
+
+  // take fees from order
+  const fees = await sellProcessor.estimateTotalFeesForOrder(paymentTokenAddress, proceedsEstimate);
   console.log(`fees: ${ethers.utils.formatUnits(fees, "6")}`);
 
   // ------------------ Configure Permit ------------------
 
   // permit nonce for user
-  const nonce = await paymentToken.nonces(signer.address);
+  const nonce = await assetToken.nonces(signer.address);
   // 5 minute deadline from current blocktime
   const blockNumber = await provider.getBlockNumber();
   const deadline = (await provider.getBlock(blockNumber)).timestamp + 60 * 5;
 
-  // unique signature domain for payment token
+  // unique signature domain for asset token
   const permitDomain = {
-    name: await paymentToken.name(),
-    version: await getContractVersion(paymentToken),
+    name: await assetToken.name(),
+    version: await getContractVersion(assetToken),
     chainId: provider.network.chainId,
-    verifyingContract: paymentTokenAddress,
+    verifyingContract: assetTokenAddress,
   };
 
   // permit message to sign
   const permitMessage = {
     owner: signer.address,
-    spender: buyProcessor.address,
-    value: totalSpendAmount,
+    spender: sellProcessor.address,
+    value: orderAmount,
     nonce: nonce,
     deadline: deadline
   };
@@ -123,8 +126,8 @@ async function main() {
   const permitSignature = ethers.utils.splitSignature(permitSignatureBytes);
 
   // create selfPermit call data
-  const selfPermitData = buyProcessor.interface.encodeFunctionData("selfPermit", [
-    paymentToken.address,
+  const selfPermitData = sellProcessor.interface.encodeFunctionData("selfPermit", [
+    assetTokenAddress,
     permitMessage.owner,
     permitMessage.value,
     permitMessage.deadline,
@@ -137,20 +140,20 @@ async function main() {
 
   // create requestOrder call data
   // see IOrderProcessor.Order struct for order parameters
-  const requestOrderData = buyProcessor.interface.encodeFunctionData("requestOrder", [[
+  const requestOrderData = sellProcessor.interface.encodeFunctionData("requestOrder", [[
     signer.address,
-    assetToken,
-    paymentToken.address,
-    false,
+    assetTokenAddress,
+    paymentTokenAddress,
+    true,
     0,
+    orderAmount,
     0,
-    orderAmount, // fees will be added to this amount
     0,
     1,
   ]]);
 
   // submit permit + request order multicall transaction
-  const tx = await buyProcessor.multicall([
+  const tx = await sellProcessor.multicall([
     selfPermitData,
     requestOrderData,
   ]);

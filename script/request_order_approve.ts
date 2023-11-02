@@ -7,22 +7,10 @@ const buyProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src
 const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
 const buyProcessorAbi = buyProcessorData.abi;
 
-// EIP-2612 abi
-const eip2612Abi = [
-  "function name() external view returns (string memory)",
-  "function version() external view returns (string memory)",
-  "function nonces(address owner) external view returns (uint256)",
+// token abi
+const tokenAbi = [
+  "function approve(address spender, uint256 value) external returns (bool)"
 ];
-
-async function getContractVersion(contract: ethers.Contract): Promise<string> {
-  let contractVersion = '1';
-  try {
-    contractVersion = await contract.version();
-  } catch {
-    // do nothing
-  }
-  return contractVersion;
-}
 
 async function main() {
 
@@ -61,7 +49,7 @@ async function main() {
   if (!RPC_URL) throw new Error("empty rpc url");
   const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
   const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
-  
+
   // setup provider and signer
   const provider = ethers.getDefaultProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
@@ -71,7 +59,7 @@ async function main() {
   // connect signer to payment token contract
   const paymentToken = new ethers.Contract(
     paymentTokenAddress,
-    eip2612Abi,
+    tokenAbi,
     signer,
   );
 
@@ -92,53 +80,18 @@ async function main() {
   const totalSpendAmount = orderAmount + fees;
   console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
 
-  // ------------------ Configure Permit ------------------
+  // ------------------ Approve Spend ------------------
 
-  // permit nonce for user
-  const nonce = await paymentToken.nonces(signer.address);
-  // 5 minute deadline from current blocktime
-  const blockNumber = await provider.getBlockNumber();
-  const blockTime = (await provider.getBlock(blockNumber))?.timestamp;
-  if (!blockTime) throw new Error("no block time");
-  const deadline = blockTime + 60 * 5;
-
-  // unique signature domain for payment token
-  const permitDomain = {
-    name: await paymentToken.name(),
-    version: await getContractVersion(paymentToken),
-    chainId: (await provider.getNetwork()).chainId,
-    verifyingContract: paymentTokenAddress,
-  };
-
-  // permit message to sign
-  const permitMessage = {
-    owner: signer.address,
-    spender: buyProcessorAddress,
-    value: totalSpendAmount,
-    nonce: nonce,
-    deadline: deadline
-  };
-
-  // sign permit to spend payment token
-  const permitSignatureBytes = await signer.signTypedData(permitDomain, permitTypes, permitMessage);
-  const permitSignature = ethers.Signature.from(permitSignatureBytes);
-
-  // create selfPermit call data
-  const selfPermitData = buyProcessor.interface.encodeFunctionData("selfPermit", [
-    paymentTokenAddress,
-    permitMessage.owner,
-    permitMessage.value,
-    permitMessage.deadline,
-    permitSignature.v,
-    permitSignature.r,
-    permitSignature.s
-  ]);
+  // approve buy processor to spend payment token
+  const approveTx = await paymentToken.approve(buyProcessorAddress, totalSpendAmount);
+  await approveTx.wait();
+  console.log(`approve tx hash: ${approveTx.hash}`);
 
   // ------------------ Submit Order ------------------
 
-  // create requestOrder call data
+  // submit request order transaction
   // see IOrderProcessor.Order struct for order parameters
-  const requestOrderData = buyProcessor.interface.encodeFunctionData("requestOrder", [[
+  const tx = await buyProcessor.requestOrder([
     signer.address,
     assetToken,
     paymentTokenAddress,
@@ -148,15 +101,9 @@ async function main() {
     orderAmount, // fees will be added to this amount
     0,
     1,
-  ]]);
-
-  // submit permit + request order multicall transaction
-  const tx = await buyProcessor.multicall([
-    selfPermitData,
-    requestOrderData,
   ]);
   const receipt = await tx.wait();
-  console.log(tx.hash);
+  console.log(`tx hash: ${tx.hash}`);
 
   // get order id from event
   const events = receipt.logs.map((log: any) => buyProcessor.interface.parseLog(log));
