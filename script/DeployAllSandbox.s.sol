@@ -46,8 +46,11 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ payment tokens ------------------
 
+        // deploy mock USDC with 6 decimals
         MockToken usdc = deployPaymentToken("USD Coin", "USDC");
+        // deploy mock USDT with 6 decimals
         MockToken usdt = deployPaymentToken("Tether USD", "USDT");
+        // deploy mock USDC.e with 6 decimals
         MockToken usdce = deployPaymentToken("USD Coin - Dinari", "USDC.e");
 
         /// ------------------ asset tokens ------------------
