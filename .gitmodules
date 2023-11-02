@@ -10,9 +10,9 @@
 [submodule "lib/chainlink"]
 	path = lib/chainlink
 	url = https://github.com/smartcontractkit/chainlink
-[submodule "script/sbt-deployments"]
-	path = script/sbt-deployments
-	url = https://github.com/dinaricrypto/sbt-deployments
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "lib/sbt-deployments"]
+	path = lib/sbt-deployments
+	url = https://github.com/dinaricrypto/sbt-deployments

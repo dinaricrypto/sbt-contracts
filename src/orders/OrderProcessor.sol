@@ -17,6 +17,7 @@ import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {IdShare} from "../IdShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
+import {IFeeSchedule} from "./IFeeSchedule.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
@@ -98,6 +99,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     event OrdersPaused(bool paused);
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
+    /// @dev Emitted when fee schedule contract is set
+    event FeeScheduleSet(address indexed requester, IFeeSchedule indexed feeSchedule);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
@@ -152,6 +155,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     /// @inheritdoc IOrderProcessor
     mapping(address => uint256) public maxOrderDecimals;
+
+    mapping(address => IFeeSchedule) public feeSchedule;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -232,6 +237,22 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
+    /// @notice Set fee schedule for requester
+    /// @param requester Requester address
+    /// @param _feeSchedule Fee schedule contract
+    /// @dev Only callable by admin
+    function setFeeScheduleForRequester(address requester, IFeeSchedule _feeSchedule)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        feeSchedule[requester] = _feeSchedule;
+        emit FeeScheduleSet(requester, _feeSchedule);
+    }
+
+    /// @notice Set max order decimals for asset token
+    /// @param token Asset token
+    /// @param decimals Max order decimals
+    /// @dev Only callable by admin
     function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxOrderDecimals[token] = decimals;
         emit MaxOrderDecimalsSet(token, decimals);
@@ -284,20 +305,36 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     }
 
     /// @inheritdoc IOrderProcessor
-    function getFeeRatesForOrder(address token) public view returns (uint256 flatFee, uint24 _percentageFeeRate) {
-        // Get fee rates
+    function getFeeRatesForOrder(address requester, bool sell, address token)
+        public
+        view
+        returns (uint256 flatFee, uint24 _percentageFeeRate)
+    {
+        IFeeSchedule _feeSchedule = feeSchedule[requester];
+        // If user has a custom fee schedule but it's not zero
+        if (address(_feeSchedule) != address(0)) {
+            (uint64 customPerOrderFee, uint24 customPercentageFeeRate) =
+                _feeSchedule.getFeeRatesForOrder(requester, sell);
+            flatFee = FeeLib.flatFeeForOrder(token, customPerOrderFee);
+            _percentageFeeRate = customPercentageFeeRate;
+            return (flatFee, _percentageFeeRate);
+        }
+
+        // Default fee rates
         flatFee = FeeLib.flatFeeForOrder(token, perOrderFee);
         _percentageFeeRate = percentageFeeRate;
+        return (flatFee, _percentageFeeRate);
     }
 
     /// @inheritdoc IOrderProcessor
-    function estimateTotalFeesForOrder(address paymentToken, uint256 paymentTokenOrderValue)
-        public
-        view
-        returns (uint256)
-    {
+    function estimateTotalFeesForOrder(
+        address requester,
+        bool sell,
+        address paymentToken,
+        uint256 paymentTokenOrderValue
+    ) public view returns (uint256) {
         // Get fee rates
-        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(paymentToken);
+        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(requester, sell, paymentToken);
         // Calculate total fees
         return FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, paymentTokenOrderValue);
     }
@@ -308,7 +345,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 index) {
         // cheap checks first
         if (order.recipient == address(0)) revert ZeroAddress();
-        uint256 orderAmount = order.sell ? order.assetTokenQuantity : order.paymentTokenQuantity;
+        uint256 orderAmount = (order.sell) ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
         if (orderAmount == 0) revert ZeroValue();
 
@@ -536,7 +573,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Calculate refund
         uint256 refund = _cancelOrderAccounting(id, order, orderState, _orderInfo[id].unfilledAmount);
 
-        address refundToken = order.sell ? order.assetToken : order.paymentToken;
+        address refundToken = (order.sell) ? order.assetToken : order.paymentToken;
         // update escrowed balance
         escrowedBalanceOf[refundToken][order.recipient] -= refund;
 
