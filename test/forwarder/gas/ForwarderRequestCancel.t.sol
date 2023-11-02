@@ -15,6 +15,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {FeeLib} from "../../../src/common/FeeLib.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 // additional tests for gas profiling
+
 contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
     BuyProcessor public issuer;

@@ -13,6 +13,8 @@ import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+
 contract DeployAllSandboxScript is Script {
     struct DeployConfig {
         address deployer;
@@ -44,14 +46,7 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ payment tokens ------------------
 
-        // deploy mock USDC with 6 decimals
-        MockToken usdc = new MockToken("USD Coin", "USDC");
-
-        // deploy mock USDT with 6 decimals
-        MockToken usdt = new MockToken("Tether USD", "USDT");
-
-        // deploy mock USDC.e with 6 decimals
-        MockToken usdce = new MockToken("USD Coin.e", "USDC.e");
+        (MockToken usdc, MockToken usdt, MockToken usdce) = deployPaymentToken();
 
         /// ------------------ asset tokens ------------------
 
@@ -164,5 +159,18 @@ contract DeployAllSandboxScript is Script {
         dividendDistributor.grantRole(dividendDistributor.DISTRIBUTOR_ROLE(), cfg.distributor);
 
         vm.stopBroadcast();
+    }
+
+    function deployPaymentToken() internal returns (MockToken usdc, MockToken usdt, MockToken usdce) {
+        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
+        string memory version = Strings.toString(randomValue);
+        // deploy mock USDC with 6 decimals
+        usdc = new MockToken("USD Coin", "USDC", version);
+
+        // deploy mock USDT with 6 decimals
+        usdt = new MockToken("Tether USD", "USDT", version);
+
+        // deploy mock USDC.e with 6 decimals
+        usdce = new MockToken("USD Coin.e", "USDC.e", version);
     }
 }
