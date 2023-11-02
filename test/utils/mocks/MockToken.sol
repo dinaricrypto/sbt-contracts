@@ -9,6 +9,7 @@ contract MockToken is ERC20, AccessControl {
 
     string _name;
     string _symbol;
+    string _version;
 
     mapping(address => bool) public isBlacklisted;
     mapping(address => bool) public isBlackListed;
@@ -17,7 +18,6 @@ contract MockToken is ERC20, AccessControl {
     constructor(string memory name_, string memory symbol_) {
         _name = name_;
         _symbol = symbol_;
-
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MINTER_ROLE, msg.sender);
     }
@@ -38,9 +38,17 @@ contract MockToken is ERC20, AccessControl {
         _mint(account, amount);
     }
 
+    function setVersion(string memory version_) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        _version = version_;
+    }
+
     function blacklist(address account) public onlyRole(DEFAULT_ADMIN_ROLE) {
         isBlacklisted[account] = true;
         isBlackListed[account] = true;
         isBlocked[account] = true;
+    }
+
+    function version() public view returns (string memory) {
+        return _version;
     }
 }

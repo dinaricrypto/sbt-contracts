@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
 import "../test/utils/mocks/MockToken.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract DeployMockPaymentTokenScript is Script {
     function run() external {
@@ -11,8 +12,11 @@ contract DeployMockPaymentTokenScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy mock USDC with 6 decimals
-        new MockToken("USD Coin - Dinari", "USDC");
-
+        MockToken newToken = new MockToken("USD Coin - Dinari", "USDC");
+        uint8 randomValue =
+            uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao, msg.sender))) % 100);
+        string memory version = Strings.toString(randomValue);
+        newToken.setVersion(version);
         vm.stopBroadcast();
     }
 }
