@@ -14,8 +14,10 @@ contract TokenLockTest is Test {
 
     function setUp() public {
         user = address(1);
-        token = new MockToken("Money", "$");
-        token2 = new MockToken("Money", "$");
+        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
+        string memory version = Strings.toString(randomValue);
+        token = new MockToken("Money", "$", version);
+        token2 = new MockToken("Money", "$", version);
         tokenLockCheck = new TokenLockCheck(address(token), address(token2));
     }
 
