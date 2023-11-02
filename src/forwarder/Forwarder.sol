@@ -169,6 +169,15 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         (, int256 paymentPrice,,,) = AggregatorV3Interface(_oracle).latestRoundData();
         // slither-disable-next-line unused-return
         (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ethUsdOracle).latestRoundData();
+        // adjust values to align decimals
+        uint8 paymentPriceDecimals = AggregatorV3Interface(_oracle).decimals();
+        uint8 ethUSDPriceDecimals = AggregatorV3Interface(ethUsdOracle).decimals();
+        if (paymentPriceDecimals > ethUSDPriceDecimals) {
+            ethUSDPrice = ethUSDPrice * int256(10 ** (paymentPriceDecimals - ethUSDPriceDecimals));
+        } else if (paymentPriceDecimals < ethUSDPriceDecimals) {
+            paymentPrice = paymentPrice * int256(10 ** (ethUSDPriceDecimals - paymentPriceDecimals));
+        }
+        // compute payment price in wei
         uint256 paymentPriceInWei = PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
         return uint256(paymentPriceInWei);
     }
