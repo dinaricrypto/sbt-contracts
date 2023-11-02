@@ -13,7 +13,7 @@ import "../../utils/mocks/MockdShare.sol";
 import "../../utils/SigMeta.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
-
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 // additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
@@ -57,7 +57,9 @@ contract ForwarderRequestCancelTest is Test {
         owner = vm.addr(ownerPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken("Money", "$");
+        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
+        string memory version = Strings.toString(randomValue);
+        paymentToken = new MockToken("Money", "$", version);
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)

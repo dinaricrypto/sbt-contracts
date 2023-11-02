@@ -17,6 +17,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
@@ -76,8 +77,11 @@ contract ForwarderTest is Test {
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
 
+        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
+        string memory version = Strings.toString(randomValue);
+
         token = new MockdShare();
-        paymentToken = new MockToken("Money", "$");
+        paymentToken = new MockToken("Money", "$", version);
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
@@ -324,7 +328,10 @@ contract ForwarderTest is Test {
     }
 
     function testrescueERC20(uint256 amount, address to) public {
-        MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$");
+        vm.assume(to != address(0));
+        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
+        string memory version = Strings.toString(randomValue);
+        MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$", version);
         paymentTokenToRescue.mint(user, amount);
 
         vm.prank(user);
@@ -392,12 +399,12 @@ contract ForwarderTest is Test {
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(order.recipient, 0, order);
 
-        vm.expectRevert(InsufficientBalance.selector);
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
         // mint paymentToken Balance ex: USDC
-        deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
+        paymentToken.mint(user, order.paymentTokenQuantity * 1e6);
         uint256 paymentTokenBalanceBefore = paymentToken.balanceOf(user);
 
         vm.prank(relayer);

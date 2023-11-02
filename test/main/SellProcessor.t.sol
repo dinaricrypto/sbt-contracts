@@ -41,7 +41,9 @@ contract SellProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken("Money", "$");
+         uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
+        string memory version = Strings.toString(randomValue);
+        paymentToken = new MockToken("Money", "$", version);
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 

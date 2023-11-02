@@ -10,6 +10,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract BuyUnlockedProcessorTest is Test {
     event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
@@ -44,7 +45,9 @@ contract BuyUnlockedProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        paymentToken = new MockToken("Money", "$");
+        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
+        string memory version = Strings.toString(randomValue);
+        paymentToken = new MockToken("Money", "$", version);
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 

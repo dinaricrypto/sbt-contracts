@@ -9,19 +9,20 @@ import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../../src/orders/SellProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
-import "../utils/mocks/MockToken.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/SigMeta.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import "solady/test/utils/mocks/MockERC20.sol";
+import {ERC20, MockERC20} from "solady/test/utils/mocks/MockERC20.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 // test that forwarder and processors do not assume dShares are dShares
 contract dShareCompatTest is Test {
     Forwarder public forwarder;
     BuyProcessor public issuer;
     SellProcessor public sellIssuer;
-    ERC20 public paymentToken;
+    MockToken public paymentToken;
     ERC20 public token;
 
     SigMeta public sigMeta;
@@ -58,8 +59,11 @@ contract dShareCompatTest is Test {
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
 
+        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
+        string memory version = Strings.toString(randomValue);
+
         token = new MockERC20("Money", "$", 6);
-        paymentToken = new MockToken("Money", "$");
+        paymentToken = new MockToken("Money", "$", version);
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
