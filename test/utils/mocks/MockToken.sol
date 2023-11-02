@@ -2,11 +2,11 @@
 pragma solidity 0.8.19;
 
 // import "solady/src/tokens/ERC20.sol";
-import {ERC20PermitCustom} from "../ERC20PermitCustom.sol";
+import {ERC20PermitVersion} from "./ERC20PermitVersion.sol";
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-contract MockToken is ERC20PermitCustom, AccessControl {
+contract MockToken is ERC20PermitVersion, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     string _name;
@@ -18,7 +18,7 @@ contract MockToken is ERC20PermitCustom, AccessControl {
     mapping(address => bool) public isBlocked;
 
     constructor(string memory name_, string memory symbol_, string memory version_)
-        ERC20PermitCustom(name_, version_)
+        ERC20PermitVersion(name_, version_)
         ERC20(name_, symbol_)
     {
         _name = name_;

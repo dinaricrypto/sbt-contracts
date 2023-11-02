@@ -46,7 +46,9 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ payment tokens ------------------
 
-        (MockToken usdc, MockToken usdt, MockToken usdce) = deployPaymentToken();
+        MockToken usdc = deployPaymentToken("USD Coin", "USDC");
+        MockToken usdt = deployPaymentToken("Tether USD", "USDT");
+        MockToken usdce = deployPaymentToken("USD Coin - Dinari", "USDC.e");
 
         /// ------------------ asset tokens ------------------
 
@@ -161,16 +163,9 @@ contract DeployAllSandboxScript is Script {
         vm.stopBroadcast();
     }
 
-    function deployPaymentToken() internal returns (MockToken usdc, MockToken usdt, MockToken usdce) {
+    function deployPaymentToken(string memory name, string memory symbol) internal returns (MockToken) {
         uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
         string memory version = Strings.toString(randomValue);
-        // deploy mock USDC with 6 decimals
-        usdc = new MockToken("USD Coin", "USDC", version);
-
-        // deploy mock USDT with 6 decimals
-        usdt = new MockToken("Tether USD", "USDT", version);
-
-        // deploy mock USDC.e with 6 decimals
-        usdce = new MockToken("USD Coin.e", "USDC.e", version);
+        return new MockToken(name, symbol, version);
     }
 }

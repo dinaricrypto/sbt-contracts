@@ -5,9 +5,9 @@ import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {Nonces} from "../../src/common/Nonces.sol";
+import {Nonces} from "../../../src/common/Nonces.sol";
 
-abstract contract ERC20PermitCustom is ERC20, IERC20Permit, EIP712, Nonces {
+abstract contract ERC20PermitVersion is ERC20, IERC20Permit, EIP712, Nonces {
     bytes32 private constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 
