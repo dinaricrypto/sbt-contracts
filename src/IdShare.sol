@@ -13,9 +13,6 @@ interface IdShare {
     /// @notice Contract to restrict transfers
     function transferRestrictor() external view returns (ITransferRestrictor);
 
-    /// @notice Locks minting and burning after split
-    function split() external view returns (bool);
-
     /// @notice Mint tokens
     /// @param to Address to mint tokens to
     /// @param value Amount of tokens to mint

@@ -1,20 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.22;
 
-import {ERC20} from "solady/src/tokens/ERC20.sol";
+import {ERC20Rebasing} from "./ERC20Rebasing.sol";
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {IdShare, ITransferRestrictor} from "./IdShare.sol";
 
-/// @notice Core token contract for bridged assets.
+/// @notice Core token contract for bridged assets. Rebases on stock splits.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
-contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
+contract dShare is IdShare, ERC20Rebasing, AccessControlDefaultAdminRules {
     /// ------------------ Types ------------------ ///
 
     error Unauthorized();
-    error TokenSplit();
 
     /// @dev Emitted when `name` is set
     event NameSet(string name);
@@ -24,8 +23,8 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     event DisclosuresSet(string disclosures);
     /// @dev Emitted when transfer restrictor contract is set
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
-    /// @dev Emitted when `split` is set
-    event SplitSet();
+    /// @dev Emitted when split factor is updated
+    event BalancePerShareSet(uint256 balancePerShare);
 
     /// ------------------ Immutables ------------------ ///
 
@@ -34,10 +33,6 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     /// @notice Role for approved burners
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
 
-    /// @notice Address of deployer
-    /// @dev Has special mint and burn permissions
-    address public immutable deployer;
-
     /// ------------------ State ------------------ ///
 
     /// @dev Token name
@@ -45,13 +40,13 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     /// @dev Token symbol
     string private _symbol;
 
+    /// @notice Aggregate mult factor due to splits since deployment, ethers decimals
+    uint256 private _balancePerShare;
+
     /// @notice URI to disclosure information
     string public disclosures;
     /// @notice Contract to restrict transfers
     ITransferRestrictor public transferRestrictor;
-
-    /// @notice Locks minting and burning after split
-    bool public split;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -67,12 +62,13 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
         string memory symbol_,
         string memory disclosures_,
         ITransferRestrictor transferRestrictor_
-    ) AccessControlDefaultAdminRules(0, owner) {
-        deployer = msg.sender;
+    ) ERC20Rebasing(name_) AccessControlDefaultAdminRules(0, owner) {
         _name = name_;
         _symbol = symbol_;
         disclosures = disclosures_;
         transferRestrictor = transferRestrictor_;
+
+        _balancePerShare = 1 ether;
     }
 
     /// ------------------ Getters ------------------ ///
@@ -87,26 +83,31 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
         return _symbol;
     }
 
+    function balancePerShare() public view override returns (uint256) {
+        return _balancePerShare;
+    }
+
     /// ------------------ Setters ------------------ ///
 
     /// @notice Set token name
-    /// @dev Only callable by owner or deployer
-    function setName(string calldata name_) external {
-        if (msg.sender != deployer) {
-            _checkRole(DEFAULT_ADMIN_ROLE);
-        }
+    /// @dev Only callable by owner
+    function setName(string calldata name_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _name = name_;
         emit NameSet(name_);
     }
 
     /// @notice Set token symbol
-    /// @dev Only callable by owner or deployer
-    function setSymbol(string calldata symbol_) external {
-        if (msg.sender != deployer) {
-            _checkRole(DEFAULT_ADMIN_ROLE);
-        }
+    /// @dev Only callable by owner
+    function setSymbol(string calldata symbol_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _symbol = symbol_;
         emit SymbolSet(symbol_);
+    }
+
+    /// @notice Update split factor
+    /// @dev Relies on offchain computation of aggregate splits and reverse splits
+    function setBalancePerShare(uint256 balancePerShare_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _balancePerShare = balancePerShare_;
+        emit BalancePerShareSet(balancePerShare_);
     }
 
     /// @notice Set disclosures URI
@@ -123,59 +124,47 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
         emit TransferRestrictorSet(restrictor);
     }
 
-    /// @notice Set split lock
-    /// @dev Only callable by deployer. Once set, cannot be unset.
-    function setSplit() external {
-        if (msg.sender != deployer) revert Unauthorized();
-
-        split = true;
-
-        emit SplitSet();
-    }
-
     /// ------------------ Minting and Burning ------------------ ///
 
     /// @notice Mint tokens
     /// @param to Address to mint tokens to
     /// @param value Amount of tokens to mint
-    /// @dev Only callable by approved minter and deployer
-    /// @dev Not callable after split
-    function mint(address to, uint256 value) external {
-        if (split) {
-            revert TokenSplit();
-        } else if (msg.sender != deployer) {
-            _checkRole(MINTER_ROLE);
-        }
-
+    /// @dev Only callable by approved minter
+    function mint(address to, uint256 value) external onlyRole(MINTER_ROLE) {
         _mint(to, value);
     }
 
     /// @notice Burn tokens
     /// @param value Amount of tokens to burn
     /// @dev Only callable by approved burner
-    /// @dev Deployer can always burn after split
-    function burn(uint256 value) external {
-        if (!split) {
-            _checkRole(BURNER_ROLE);
-        } else if (msg.sender != deployer) {
-            revert TokenSplit();
-        }
-
+    function burn(uint256 value) external onlyRole(BURNER_ROLE) {
         _burn(msg.sender, value);
+    }
+
+    /// @notice Burn tokens from an account
+    /// @param account Address to burn tokens from
+    /// @param value Amount of tokens to burn
+    /// @dev Only callable by approved burner
+    function burnFrom(address account, uint256 value) external onlyRole(BURNER_ROLE) {
+        _spendAllowance(account, msg.sender, value);
+        _burn(account, value);
     }
 
     /// ------------------ Transfers ------------------ ///
 
-    /// @inheritdoc ERC20
-    function _beforeTokenTransfer(address from, address to, uint256) internal view override {
+    function _update(address from, address to, uint256 value) internal override {
         // Disallow transfers to the zero address
-        if (to == address(0) && msg.sig != this.burn.selector) revert Unauthorized();
+        if (to == address(0) && msg.sig != this.burn.selector && msg.sig != this.burnFrom.selector) {
+            revert Unauthorized();
+        }
 
         // If transferRestrictor is not set, no restrictions are applied
         if (address(transferRestrictor) != address(0)) {
             // Check transfer restrictions
             transferRestrictor.requireNotRestricted(from, to);
         }
+
+        super._update(from, to, value);
     }
 
     /**

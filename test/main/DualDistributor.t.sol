@@ -9,14 +9,12 @@ import {xdShare} from "../../src/dividend/xdShare.sol";
 import {dShare} from "../../src/dShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {dShareManager} from "../../src/dShareManager.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 contract DualDistributorTest is Test {
     DividendDistribution distribution;
     DualDistributor dualDistributor;
     TransferRestrictor public restrictor;
-    dShareManager tokenManager;
     xdShare xToken;
     dShare dtoken;
     MockERC20 token;
@@ -33,9 +31,8 @@ contract DualDistributorTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         token = new MockERC20("Money", "$", 6);
-        tokenManager = new dShareManager(restrictor);
-        dtoken = tokenManager.deployNewToken(address(this), "Dinari Token", "dTKN");
-        xToken = new xdShare(dtoken, tokenManager, "Dinari xdToken", "xdTKN");
+        dtoken = new dShare(address(this), "Dinari Token", "dTKN", "", restrictor);
+        xToken = new xdShare(dtoken, "Dinari xdToken", "xdTKN");
 
         dtoken.grantRole(dtoken.MINTER_ROLE(), address(this));
 
