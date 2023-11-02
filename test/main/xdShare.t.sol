@@ -21,6 +21,8 @@ contract xdShareTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), address(this));
+
+        token = new dShare(address(this), "Dinari Token", "dTKN", "example.com", restrictor);
         token.grantRole(token.MINTER_ROLE(), address(this));
 
         xToken = new xdShare(token, "Reinvesting dTKN.d", "dTKN.d.x");

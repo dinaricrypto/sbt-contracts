@@ -8,6 +8,7 @@ import {
     IAccessControlDefaultAdminRules,
     IAccessControl
 } from "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
+import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
@@ -108,7 +109,7 @@ contract dShareTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(2));
         token.mint(address(1), 1e18);
         token.mint(address(2), 1e18);
-        vm.expectRevert(dShare.Unauthorized.selector);
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InvalidReceiver.selector, address(0)));
         vm.prank(address(1));
         token.transfer(address(0), 0.1e18);
 
