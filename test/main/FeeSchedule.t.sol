@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {BuyProcessor} from "../../src/orders/BuyProcessor.sol";
@@ -7,7 +7,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {FeeSchedule, IFeeSchedule} from "../../src/orders/FeeSchedule.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShare.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract FeeScheduleTest is Test {
     event FeesSet(address account, FeeSchedule.FeeRates feeRates);
@@ -26,7 +26,7 @@ contract FeeScheduleTest is Test {
     function setUp() public {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
-        feeSchedule = new FeeSchedule();
+        feeSchedule = new FeeSchedule(address(this));
 
         token = new MockdShare();
         paymentToken = new MockToken("Money", "$");
@@ -55,7 +55,7 @@ contract FeeScheduleTest is Test {
 
         // Only owner can set fees
         vm.prank(user);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
         feeSchedule.setFees(user, fee);
 
         vm.expectEmit(true, true, true, true);
