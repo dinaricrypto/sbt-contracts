@@ -96,7 +96,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * @dev Returns the number of tokens an internal share value represents.
      * This value is assumed to have 18 decimals and is divided by 10 **18 when applied.
      */
-    function balancePerShare() public view virtual returns (uint256);
+    function balancePerShare() public view virtual returns (uint128);
 
     function balanceForShares(uint256 shares) public view returns (uint256) {
         return Math.mulDiv(shares, balancePerShare(), 1 ether);
@@ -111,6 +111,17 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      */
     function totalSupply() public view virtual returns (uint256) {
         return balanceForShares(_totalShareSupply);
+    }
+
+    // TODO: expand storage to support full granularity
+    function maxSupply() public view virtual returns (uint256) {
+        uint128 balancePerShare_ = balancePerShare();
+        if (balancePerShare_ > 1 ether) {
+            return Math.mulDiv(type(uint256).max, 1 ether, balancePerShare_);
+        } else if (balancePerShare_ < 1 ether) {
+            return Math.mulDiv(type(uint256).max, balancePerShare_, 1 ether);
+        }
+        return type(uint256).max;
     }
 
     /**
@@ -211,6 +222,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
         uint256 shares = sharesForBalance(value);
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
+            totalSupply() + value;
             _totalShareSupply += shares;
         } else {
             uint256 fromShares = _shares[from];

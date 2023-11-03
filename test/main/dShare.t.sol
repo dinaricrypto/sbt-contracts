@@ -9,6 +9,7 @@ import {
     IAccessControl
 } from "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
+import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
@@ -18,7 +19,9 @@ contract dShareTest is Test {
 
     TransferRestrictor public restrictor;
     dShare public token;
-    address public restrictor_role = address(1);
+
+    address public constant restrictor_role = address(1);
+    address public constant user = address(2);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
@@ -35,10 +38,10 @@ contract dShareTest is Test {
     function testSetName(string calldata name) public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(1), token.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
             )
         );
-        vm.prank(address(1));
+        vm.prank(user);
         token.setName(name);
 
         vm.expectEmit(true, true, true, true);
@@ -50,10 +53,10 @@ contract dShareTest is Test {
     function testSetSymbol(string calldata symbol) public {
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(1), token.DEFAULT_ADMIN_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
             )
         );
-        vm.prank(address(1));
+        vm.prank(user);
         token.setSymbol(symbol);
 
         vm.expectEmit(true, true, true, true);
@@ -78,61 +81,67 @@ contract dShareTest is Test {
 
     function testMint() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(1), 1e18);
+        token.mint(user, 1e18);
         assertEq(token.totalSupply(), 1e18);
-        assertEq(token.balanceOf(address(1)), 1e18);
+        assertEq(token.balanceOf(user), 1e18);
     }
 
     function testMintUnauthorizedReverts() public {
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(1), token.MINTER_ROLE()
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.MINTER_ROLE())
         );
-        vm.prank(address(1));
-        token.mint(address(1), 1e18);
+        vm.prank(user);
+        token.mint(user, 1e18);
     }
 
     function testBurn() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(1), 1e18);
-        token.grantRole(token.BURNER_ROLE(), address(1));
+        token.mint(user, 1e18);
+        token.grantRole(token.BURNER_ROLE(), user);
 
-        vm.prank(address(1));
+        vm.prank(user);
         token.burn(0.9e18);
         assertEq(token.totalSupply(), 0.1e18);
-        assertEq(token.balanceOf(address(1)), 0.1e18);
+        assertEq(token.balanceOf(user), 0.1e18);
+    }
+
+    function testBurnFrom() public {
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(user, 1e18);
+        token.grantRole(token.BURNER_ROLE(), address(this));
+
+        vm.prank(user);
+        token.approve(address(this), 0.9e18);
+
+        token.burnFrom(user, 0.9e18);
+        assertEq(token.totalSupply(), 0.1e18);
+        assertEq(token.balanceOf(user), 0.1e18);
     }
 
     function testAttemptToFalsifyTotalsupply() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.grantRole(token.BURNER_ROLE(), address(2));
-        token.mint(address(1), 1e18);
-        token.mint(address(2), 1e18);
-        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InvalidReceiver.selector, address(0)));
-        vm.prank(address(1));
-        token.transfer(address(0), 0.1e18);
+        token.mint(user, 1e18);
 
-        vm.prank(address(2));
-        token.burn(0.9e18);
+        // invalid burn
+        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InvalidReceiver.selector, address(0)));
+        vm.prank(user);
+        token.transfer(address(0), 0.1e18);
     }
 
     function testBurnUnauthorizedReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(1), 1e18);
+        token.mint(user, 1e18);
 
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(1), token.BURNER_ROLE()
-            )
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.BURNER_ROLE())
         );
-        vm.prank(address(1));
+        vm.prank(user);
         token.burn(0.9e18);
     }
 
     function testTransferOwnerShip() public {
         // set new address
-        address newAdmin = address(1);
+        address newAdmin = user;
         assertEq(token.hasRole(0, address(this)), true);
         vm.expectRevert(IAccessControlDefaultAdminRules.AccessControlEnforcedDefaultAdminRules.selector);
         token.revokeRole(0, address(this));
@@ -171,30 +180,59 @@ contract dShareTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
 
-        assertTrue(token.transfer(address(1), 1e18));
+        assertTrue(token.transfer(user, 1e18));
         assertEq(token.totalSupply(), 1e18);
 
         assertEq(token.balanceOf(address(this)), 0);
-        assertEq(token.balanceOf(address(1)), 1e18);
+        assertEq(token.balanceOf(user), 1e18);
     }
 
-    function testTransferRestrictedToReverts() public {
+    function testTransferRestrictedTo() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
         vm.prank(restrictor_role);
-        restrictor.restrict(address(1));
+        restrictor.restrict(user);
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
-        token.transfer(address(1), 1e18);
+        token.transfer(user, 1e18);
+
+        // works if restrictor removed
+        token.setTransferRestrictor(ITransferRestrictor(address(0)));
+        token.transfer(user, 1e18);
     }
 
-    function testTransferRestrictedFromReverts() public {
+    function testTransferRestrictedFrom() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), 1e18);
         vm.prank(restrictor_role);
         restrictor.restrict(address(this));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
-        token.transfer(address(1), 1e18);
+        token.transfer(user, 1e18);
+
+        // works if restrictor removed
+        token.setTransferRestrictor(ITransferRestrictor(address(0)));
+        token.transfer(user, 1e18);
+    }
+
+    function testRebase(uint256 amount) public {
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(address(this), amount);
+
+        uint256 balancePerShare = token.balancePerShare();
+        if (amount > type(uint256).max / 2) {
+            vm.expectRevert(Math.MathOverflowedMulDiv.selector);
+            token.setBalancePerShare(uint128(balancePerShare * 2));
+            return;
+        }
+
+        token.setBalancePerShare(uint128(balancePerShare * 2));
+        assertEq(token.totalSupply(), amount * 2);
+        assertEq(token.balanceOf(address(this)), amount * 2);
+
+        // test transfer math
+        // vm.prank(user);
+        // token.transfer(address(this), amount);
+        // assertEq(token.balanceOf(address(this)), amount);
     }
 }

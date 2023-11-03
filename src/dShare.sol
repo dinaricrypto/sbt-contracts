@@ -13,8 +13,6 @@ import {IdShare, ITransferRestrictor} from "./IdShare.sol";
 contract dShare is IdShare, ERC20Rebasing, AccessControlDefaultAdminRules {
     /// ------------------ Types ------------------ ///
 
-    error Unauthorized();
-
     /// @dev Emitted when `name` is set
     event NameSet(string name);
     /// @dev Emitted when `symbol` is set
@@ -41,7 +39,7 @@ contract dShare is IdShare, ERC20Rebasing, AccessControlDefaultAdminRules {
     string private _symbol;
 
     /// @notice Aggregate mult factor due to splits since deployment, ethers decimals
-    uint256 private _balancePerShare;
+    uint128 private _balancePerShare;
 
     /// @notice URI to disclosure information
     string public disclosures;
@@ -83,7 +81,7 @@ contract dShare is IdShare, ERC20Rebasing, AccessControlDefaultAdminRules {
         return _symbol;
     }
 
-    function balancePerShare() public view override returns (uint256) {
+    function balancePerShare() public view override returns (uint128) {
         return _balancePerShare;
     }
 
@@ -105,8 +103,10 @@ contract dShare is IdShare, ERC20Rebasing, AccessControlDefaultAdminRules {
 
     /// @notice Update split factor
     /// @dev Relies on offchain computation of aggregate splits and reverse splits
-    function setBalancePerShare(uint256 balancePerShare_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setBalancePerShare(uint128 balancePerShare_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _balancePerShare = balancePerShare_;
+        // Check for overflow
+        totalSupply();
         emit BalancePerShareSet(balancePerShare_);
     }
 
@@ -153,11 +153,6 @@ contract dShare is IdShare, ERC20Rebasing, AccessControlDefaultAdminRules {
     /// ------------------ Transfers ------------------ ///
 
     function _update(address from, address to, uint256 value) internal override {
-        // Disallow transfers to the zero address
-        if (to == address(0) && msg.sig != this.burn.selector && msg.sig != this.burnFrom.selector) {
-            revert Unauthorized();
-        }
-
         // If transferRestrictor is not set, no restrictions are applied
         if (address(transferRestrictor) != address(0)) {
             // Check transfer restrictions
