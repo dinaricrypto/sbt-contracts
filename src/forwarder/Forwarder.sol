@@ -310,16 +310,20 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     function _handlePayment(address user, address paymentToken, uint256 paymentTokenPrice, uint256 gasStart) internal {
         uint256 gasUsed = gasStart - gasleft();
         // TODO: Test that Arbitrum returns reasonable gasUsed and gasprice values
+        // Calculate total gas cost in wei
         uint256 totalGasCostInWei = (gasUsed + cancellationGasCost) * tx.gasprice;
-        uint256 paymentAmount = totalGasCostInWei / paymentTokenPrice;
-        if (paymentAmount == 0) {
-            paymentAmount = paymentTokenPrice;
+        // Apply payment token price to calculate payment amount
+        // Assumes payment token price includes token decimals
+        uint256 paymentAmount;
+        try IERC20Metadata(paymentToken).decimals() returns (uint8 value) {
+            paymentAmount = totalGasCostInWei * 10 ** value / paymentTokenPrice;
+        } catch {
+            paymentAmount = totalGasCostInWei / paymentTokenPrice;
         }
 
-        // Calculate fee amount
+        // Apply forwarder fee
         // slither-disable-next-line divide-before-multiply
         uint256 fee = (paymentAmount * feeBps) / 10000;
-
         uint256 actualTokenCharge = paymentAmount + fee;
 
         emit UserOperationSponsored(user, paymentToken, actualTokenCharge, totalGasCostInWei, paymentTokenPrice);
