@@ -35,6 +35,7 @@ contract ForwarderTest is Test {
         uint256 actualGasCost,
         uint256 actualTokenPrice
     );
+
     error InsufficientBalance();
 
     Forwarder public forwarder;
