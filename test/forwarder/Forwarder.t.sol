@@ -29,9 +29,12 @@ contract ForwarderTest is Test {
     event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
     event EthUsdOracleSet(address indexed oracle);
     event UserOperationSponsored(
-        address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice
+        address indexed user,
+        address indexed paymentToken,
+        uint256 actualTokenCharge,
+        uint256 actualGasCost,
+        uint256 actualTokenPrice
     );
-
     error InsufficientBalance();
 
     Forwarder public forwarder;
@@ -271,6 +274,7 @@ contract ForwarderTest is Test {
         // emit doesn't check data, just event has been emit
         emit UserOperationSponsored(
             metaTx.user,
+            metaTx.paymentToken,
             order.paymentTokenQuantity,
             totalGasCostInWei,
             forwarder.getPaymentPriceInWei(order.paymentToken)

@@ -42,7 +42,11 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event EthUsdOracleSet(address indexed oracle);
     event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
     event UserOperationSponsored(
-        address indexed user, uint256 actualTokenCharge, uint256 actualGasCost, uint256 actualTokenPrice
+        address indexed user,
+        address indexed paymentToken,
+        uint256 actualTokenCharge,
+        uint256 actualGasCost,
+        uint256 actualTokenPrice
     );
 
     /// ------------------------------- Constants -------------------------------
@@ -318,7 +322,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
         uint256 actualTokenCharge = paymentAmount + fee;
 
-        emit UserOperationSponsored(user, actualTokenCharge, totalGasCostInWei, paymentTokenPrice);
+        emit UserOperationSponsored(user, paymentToken, actualTokenCharge, totalGasCostInWei, paymentTokenPrice);
         // Transfer the payment for gas fees
         // slither-disable-next-line arbitrary-send-erc20
         IERC20(paymentToken).safeTransferFrom(user, msg.sender, actualTokenCharge);
