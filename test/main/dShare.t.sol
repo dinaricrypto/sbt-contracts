@@ -82,12 +82,6 @@ contract dShareTest is Test {
         assertEq(address(token.transferRestrictor()), account);
     }
 
-    function testSetSplitReverts() public {
-        vm.expectRevert(dShare.Unauthorized.selector);
-        vm.prank(address(1));
-        token.setSplit();
-    }
-
     function testMint() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(1), 1e18);
