@@ -14,7 +14,6 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     /// ------------------ Types ------------------ ///
 
     error Unauthorized();
-    error TokenSplit();
 
     /// @dev Emitted when `name` is set
     event NameSet(string name);
@@ -24,8 +23,6 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     event DisclosuresSet(string disclosures);
     /// @dev Emitted when transfer restrictor contract is set
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
-    /// @dev Emitted when `split` is set
-    event SplitSet();
 
     /// ------------------ Immutables ------------------ ///
 
@@ -33,10 +30,6 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     /// @notice Role for approved burners
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
-
-    /// @notice Address of deployer
-    /// @dev Has special mint and burn permissions
-    address public immutable deployer;
 
     /// ------------------ State ------------------ ///
 
@@ -49,9 +42,6 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     string public disclosures;
     /// @notice Contract to restrict transfers
     ITransferRestrictor public transferRestrictor;
-
-    /// @notice Locks minting and burning after split
-    bool public split;
 
     /// ------------------ Initialization ------------------ ///
 
@@ -68,7 +58,6 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
         string memory disclosures_,
         ITransferRestrictor transferRestrictor_
     ) AccessControlDefaultAdminRules(0, owner) {
-        deployer = msg.sender;
         _name = name_;
         _symbol = symbol_;
         disclosures = disclosures_;
@@ -91,20 +80,14 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
 
     /// @notice Set token name
     /// @dev Only callable by owner or deployer
-    function setName(string calldata name_) external {
-        if (msg.sender != deployer) {
-            _checkRole(DEFAULT_ADMIN_ROLE);
-        }
+    function setName(string calldata name_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _name = name_;
         emit NameSet(name_);
     }
 
     /// @notice Set token symbol
     /// @dev Only callable by owner or deployer
-    function setSymbol(string calldata symbol_) external {
-        if (msg.sender != deployer) {
-            _checkRole(DEFAULT_ADMIN_ROLE);
-        }
+    function setSymbol(string calldata symbol_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         _symbol = symbol_;
         emit SymbolSet(symbol_);
     }
@@ -123,16 +106,6 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
         emit TransferRestrictorSet(restrictor);
     }
 
-    /// @notice Set split lock
-    /// @dev Only callable by deployer. Once set, cannot be unset.
-    function setSplit() external {
-        if (msg.sender != deployer) revert Unauthorized();
-
-        split = true;
-
-        emit SplitSet();
-    }
-
     /// ------------------ Minting and Burning ------------------ ///
 
     /// @notice Mint tokens
@@ -140,13 +113,7 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     /// @param value Amount of tokens to mint
     /// @dev Only callable by approved minter and deployer
     /// @dev Not callable after split
-    function mint(address to, uint256 value) external {
-        if (split) {
-            revert TokenSplit();
-        } else if (msg.sender != deployer) {
-            _checkRole(MINTER_ROLE);
-        }
-
+    function mint(address to, uint256 value) external onlyRole(MINTER_ROLE) {
         _mint(to, value);
     }
 
@@ -154,13 +121,7 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
     /// @param value Amount of tokens to burn
     /// @dev Only callable by approved burner
     /// @dev Deployer can always burn after split
-    function burn(uint256 value) external {
-        if (!split) {
-            _checkRole(BURNER_ROLE);
-        } else if (msg.sender != deployer) {
-            revert TokenSplit();
-        }
-
+    function burn(uint256 value) external onlyRole(BURNER_ROLE) {
         _burn(msg.sender, value);
     }
 

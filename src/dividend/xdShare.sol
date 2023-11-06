@@ -6,7 +6,6 @@ import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {IxdShare} from "./IxdShare.sol";
-import {IdShareManager} from "../IdShareManager.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
@@ -21,15 +20,10 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/Reentra
 contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    error InvalidTokenManager();
     error IssuancePaused();
-    error SplitConversionNeeded();
-    error ConversionCurrent();
 
     event VaultLocked();
     event VaultUnlocked();
-
-    IdShareManager public immutable tokenManager;
 
     /// @notice Reference to the underlying dShare contract.
     dShare public underlyingDShare;
@@ -45,18 +39,11 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     /**
      * @dev Initializes a new instance of the xdShare contract.
      * @param _dShare The address of the underlying dShare token.
-     * @param _tokenManager The address of the token manager.
      * @param name_ The name of the xdShare token.
      * @param symbol_ The symbol of the xdShare token.
      */
-    constructor(dShare _dShare, IdShareManager _tokenManager, string memory name_, string memory symbol_) {
-        // Verify tokenManager setup
-        if (address(_tokenManager) != address(0) && !_tokenManager.isCurrentToken(address(_dShare))) {
-            revert InvalidTokenManager();
-        }
-
+    constructor(dShare _dShare, string memory name_, string memory symbol_) {
         underlyingDShare = _dShare;
-        tokenManager = _tokenManager;
         _name = name_;
         _symbol = symbol_;
     }
@@ -101,45 +88,13 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
         emit VaultUnlocked();
     }
 
-    /// ------------------- Splitting Operations Lifecycle ------------------- ///
-
-    function convertVaultBalance() external onlyOwner nonReentrant {
-        if (address(tokenManager) == address(0) || tokenManager.isCurrentToken(address(underlyingDShare))) {
-            revert ConversionCurrent();
-        }
-
-        SafeTransferLib.safeApprove(
-            address(underlyingDShare), address(tokenManager), underlyingDShare.balanceOf(address(this))
-        );
-        // slither-disable-next-line unused-return
-        (dShare newUnderlyingDShare,) =
-            tokenManager.convert(underlyingDShare, underlyingDShare.balanceOf(address(this)));
-        // update underlyDshare
-        // slither-disable-next-line reentrancy-no-eth
-        underlyingDShare = newUnderlyingDShare;
-    }
-
-    /**
-     * @dev Converts the entire balance of the specified token to the current token.
-     * @param token The token to convert
-     */
-    function sweepConvert(dShare token) external nonReentrant onlyOwner {
-        _issuancePreCheck();
-        uint256 tokenBalance = token.balanceOf(address(this));
-        if (tokenBalance > 0) {
-            SafeTransferLib.safeApprove(address(token), address(tokenManager), tokenBalance);
-            // slither-disable-next-line unused-return
-            tokenManager.convert(token, tokenBalance);
-        }
-    }
-
     /// ------------------- Vault Operations Lifecycle ------------------- ///
 
     /// @dev For deposits and mints.
     ///
     /// Emits a {Deposit} event.
     function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
-        _issuancePreCheck();
+        if (isLocked) revert IssuancePaused();
 
         super._deposit(by, to, assets, shares);
     }
@@ -148,17 +103,9 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     ///
     /// Emits a {Withdraw} event.
     function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
-        _issuancePreCheck();
+        if (isLocked) revert IssuancePaused();
 
         super._withdraw(by, to, owner, assets, shares);
-    }
-
-    function _issuancePreCheck() private view {
-        // Revert the transaction if deposits are currently locked.
-        if (isLocked) revert IssuancePaused();
-        if (address(tokenManager) != address(0) && !tokenManager.isCurrentToken(address(underlyingDShare))) {
-            revert SplitConversionNeeded();
-        }
     }
 
     /// ------------------- Transfer Restrictions ------------------- ///
