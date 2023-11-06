@@ -16,3 +16,6 @@
 [submodule "script/sbt-deployments"]
 	path = script/sbt-deployments
 	url = https://github.com/dinaricrypto/sbt-deployments
+[submodule "lib/sbt-deployments"]
+	path = lib/sbt-deployments
+	url = https://github.com/dinaricrypto/sbt-deployments
