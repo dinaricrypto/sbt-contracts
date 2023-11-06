@@ -26,7 +26,7 @@ contract xdShare is IxdShare, Ownable, ERC4626, ReentrancyGuard {
     event VaultUnlocked();
 
     /// @notice Reference to the underlying dShare contract.
-    dShare public underlyingDShare;
+    dShare public immutable underlyingDShare;
 
     /// @inheritdoc IxdShare
     bool public isLocked;
