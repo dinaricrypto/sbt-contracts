@@ -215,9 +215,22 @@ contract dShareTest is Test {
         token.transfer(user, 1e18);
     }
 
+    // function testSharesMath(uint256 shares) public {
+    //     uint256 balancePerShare = token.balancePerShare();
+    //     token.setBalancePerShare(uint128(balancePerShare / 2));
+
+    //     uint256 balance = token.sharesToBalance(shares);
+    //     console.log("balance", balance);
+    //     assertEq(balance, shares / 2);
+
+    //     uint256 shares2 = token.balanceToShares(balance);
+    //     console.log("shares2", shares2);
+    //     assertEq(shares2, shares);
+    // }
+
     function testRebase(uint256 amount) public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), amount);
+        token.mint(user, amount);
 
         uint256 balancePerShare = token.balancePerShare();
         if (amount > type(uint256).max / 2) {
@@ -228,7 +241,7 @@ contract dShareTest is Test {
 
         token.setBalancePerShare(uint128(balancePerShare * 2));
         assertEq(token.totalSupply(), amount * 2);
-        assertEq(token.balanceOf(address(this)), amount * 2);
+        assertEq(token.balanceOf(user), amount * 2);
 
         // test transfer math
         // vm.prank(user);

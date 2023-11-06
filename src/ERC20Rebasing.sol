@@ -98,11 +98,11 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      */
     function balancePerShare() public view virtual returns (uint128);
 
-    function balanceForShares(uint256 shares) public view returns (uint256) {
+    function sharesToBalance(uint256 shares) public view returns (uint256) {
         return Math.mulDiv(shares, balancePerShare(), 1 ether);
     }
 
-    function sharesForBalance(uint256 balance) public view returns (uint256) {
+    function balanceToShares(uint256 balance) public view returns (uint256) {
         return Math.mulDiv(balance, 1 ether, balancePerShare());
     }
 
@@ -110,15 +110,12 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view virtual returns (uint256) {
-        return balanceForShares(_totalShareSupply);
+        return sharesToBalance(_totalShareSupply);
     }
 
-    // TODO: expand storage to support full granularity
     function maxSupply() public view virtual returns (uint256) {
         uint128 balancePerShare_ = balancePerShare();
-        if (balancePerShare_ > 1 ether) {
-            return Math.mulDiv(type(uint256).max, 1 ether, balancePerShare_);
-        } else if (balancePerShare_ < 1 ether) {
+        if (balancePerShare_ < 1 ether) {
             return Math.mulDiv(type(uint256).max, balancePerShare_, 1 ether);
         }
         return type(uint256).max;
@@ -128,7 +125,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address account) public view virtual returns (uint256) {
-        return balanceForShares(_shares[account]);
+        return sharesToBalance(_shares[account]);
     }
 
     /**
@@ -149,7 +146,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * @dev See {IERC20-allowance}.
      */
     function allowance(address owner, address spender) public view virtual returns (uint256) {
-        return balanceForShares(_shareAllowances[owner][spender]);
+        return sharesToBalance(_shareAllowances[owner][spender]);
     }
 
     /**
@@ -219,7 +216,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * Emits a {Transfer} event.
      */
     function _update(address from, address to, uint256 value) internal virtual {
-        uint256 shares = sharesForBalance(value);
+        uint256 shares = balanceToShares(value);
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
             totalSupply() + value;
@@ -227,7 +224,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
         } else {
             uint256 fromShares = _shares[from];
             if (fromShares < shares) {
-                revert ERC20InsufficientBalance(from, balanceForShares(fromShares), value);
+                revert ERC20InsufficientBalance(from, sharesToBalance(fromShares), value);
             }
             unchecked {
                 // Overflow not possible: value <= fromBalance <= totalSupply.
@@ -323,7 +320,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
         if (spender == address(0)) {
             revert ERC20InvalidSpender(address(0));
         }
-        _shareAllowances[owner][spender] = sharesForBalance(value);
+        _shareAllowances[owner][spender] = balanceToShares(value);
         if (emitEvent) {
             emit Approval(owner, spender, value);
         }
