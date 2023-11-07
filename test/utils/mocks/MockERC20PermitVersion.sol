@@ -7,7 +7,7 @@ import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Nonces} from "../../../src/common/Nonces.sol";
 
-abstract contract ERC20PermitVersion is ERC20, IERC20Permit, EIP712, Nonces {
+abstract contract MockERC20PermitVersion is ERC20, IERC20Permit, EIP712, Nonces {
     bytes32 private constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 

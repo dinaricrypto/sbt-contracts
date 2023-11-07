@@ -10,7 +10,7 @@ import "../../utils/SigUtils.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import "../../utils/mocks/MockToken.sol";
 import "../../utils/mocks/MockdShareFactory.sol";
-import "../../utils/SigMeta.sol";
+import "../../utils/SigMetaUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -23,7 +23,7 @@ contract ForwarderRequestCancelTest is Test {
     MockdShareFactory public tokenFactory;
     dShare public token;
 
-    SigMeta public sigMeta;
+    SigMetaUtils public sigMeta;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
@@ -85,7 +85,7 @@ contract ForwarderRequestCancelTest is Test {
 
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
 
-        sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
+        sigMeta = new SigMetaUtils(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
@@ -175,7 +175,7 @@ contract ForwarderRequestCancelTest is Test {
         uint256 nonce,
         uint256 _privateKey
     ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
-        SigMeta.ForwardRequest memory MetaTx = SigMeta.ForwardRequest({
+        SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
             paymentToken: _paymentToken,

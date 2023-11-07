@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.22;
 
-contract SigMeta {
+contract SigMetaUtils {
     bytes32 internal immutable DOMAIN_SEPARATOR;
     bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
         "ForwardRequest(address user,address to,address paymentToken,bytes data,uint64 deadline,uint256 nonce)"
