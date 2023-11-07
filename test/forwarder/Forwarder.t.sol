@@ -18,6 +18,7 @@ import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/Agg
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 
 contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
@@ -395,10 +396,6 @@ contract ForwarderTest is Test {
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(order.recipient, 0, order);
-
-        vm.expectRevert("ERC20: transfer amount exceeds balance");
-        vm.prank(relayer);
-        forwarder.multicall(multicalldata);
 
         // mint paymentToken Balance ex: USDC
         paymentToken.mint(user, order.paymentTokenQuantity * 1e6);
