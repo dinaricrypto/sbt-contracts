@@ -5,6 +5,8 @@ import "forge-std/Test.sol";
 import {dShare} from "../../src/dShare.sol";
 import {xdShare} from "../../src/dividend/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
+import {TransparentUpgradeableProxy} from
+    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract xdShareTest is Test {
     TransferRestrictor public restrictor;
@@ -20,7 +22,16 @@ contract xdShareTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), address(this));
-        token = new dShare(address(this), "Dinari Token", "dTKN", "", restrictor);
+        dShare tokenImplementation = new dShare();
+        token = dShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(tokenImplementation),
+                address(this),
+                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                )
+            )
+        );
         token.grantRole(token.MINTER_ROLE(), address(this));
 
         xToken = new xdShare(token, "Reinvesting dTKN.d", "dTKN.d.x");

@@ -8,26 +8,30 @@ import {
     IAccessControlDefaultAdminRules,
     IAccessControl
 } from "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
+import {TransparentUpgradeableProxy} from
+    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
     event SymbolSet(string symbol);
-    event DisclosuresSet(string disclosures);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
-    TransferRestrictor public restrictor;
-    dShare public token;
-    address public restrictor_role = address(1);
-    address public user = address(2);
+    TransferRestrictor restrictor;
+    dShare token;
+    address restrictor_role = address(1);
+    address user = address(2);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
-        token = new dShare(
-            address(this),
-            "Dinari Token",
-            "dTKN",
-            "example.com",
-            restrictor
+        dShare tokenImplementation = new dShare();
+        token = dShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(tokenImplementation),
+                address(this),
+                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                )
+            )
         );
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
@@ -60,13 +64,6 @@ contract dShareTest is Test {
         emit SymbolSet(symbol);
         token.setSymbol(symbol);
         assertEq(token.symbol(), symbol);
-    }
-
-    function testSetDisclosures(string calldata disclosures) public {
-        vm.expectEmit(true, true, true, true);
-        emit DisclosuresSet(disclosures);
-        token.setDisclosures(disclosures);
-        assertEq(token.disclosures(), disclosures);
     }
 
     function testSetRestrictor(address account) public {

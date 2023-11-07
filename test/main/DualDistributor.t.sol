@@ -10,28 +10,39 @@ import {dShare} from "../../src/dShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {TransparentUpgradeableProxy} from
+    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract DualDistributorTest is Test {
     DividendDistribution distribution;
     DualDistributor dualDistributor;
-    TransferRestrictor public restrictor;
+    TransferRestrictor restrictor;
     xdShare xToken;
     dShare dtoken;
     MockERC20 token;
 
-    uint256 public userPrivateKey;
-    uint256 public ownerPrivateKey;
+    uint256 userPrivateKey;
+    uint256 ownerPrivateKey;
 
-    address public user = address(1);
-    address public user2 = address(2);
-    address public distributor = address(4);
+    address user = address(1);
+    address user2 = address(2);
+    address distributor = address(4);
 
     event NewDistribution(uint256 distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         token = new MockERC20("Money", "$", 6);
-        dtoken = new dShare(address(this), "Dinari Token", "dTKN", "", restrictor);
+        dShare tokenImplementation = new dShare();
+        dtoken = dShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(tokenImplementation),
+                address(this),
+                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                )
+            )
+        );
         xToken = new xdShare(dtoken, "Dinari xdToken", "xdTKN");
 
         dtoken.grantRole(dtoken.MINTER_ROLE(), address(this));
