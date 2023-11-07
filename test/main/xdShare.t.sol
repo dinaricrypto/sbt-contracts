@@ -34,7 +34,16 @@ contract xdShareTest is Test {
         );
         token.grantRole(token.MINTER_ROLE(), address(this));
 
-        xToken = new xdShare(token, "Reinvesting dTKN.d", "dTKN.d.x");
+        xdShare xtokenImplementation = new xdShare();
+        xToken = xdShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(xtokenImplementation),
+                address(this),
+                abi.encodeCall(xdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                )
+            )
+        );
     }
 
     function overflowChecker(uint256 a, uint256 b) internal pure returns (bool) {

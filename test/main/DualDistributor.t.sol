@@ -43,7 +43,16 @@ contract DualDistributorTest is Test {
                 )
             )
         );
-        xToken = new xdShare(dtoken, "Dinari xdToken", "xdTKN");
+        xdShare xtokenImplementation = new xdShare();
+        xToken = xdShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(xtokenImplementation),
+                address(this),
+                abi.encodeCall(xdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
+                )
+            )
+        );
 
         dtoken.grantRole(dtoken.MINTER_ROLE(), address(this));
 
