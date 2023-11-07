@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {MockToken} from "../test/utils/mocks/MockToken.sol";
@@ -47,11 +47,11 @@ contract DeployAllSandboxScript is Script {
         /// ------------------ payment tokens ------------------
 
         // deploy mock USDC with 6 decimals
-        MockToken usdc = deployPaymentToken("USD Coin", "USDC");
+        MockToken usdc = new MockToken("USD Coin", "USDC");
         // deploy mock USDT with 6 decimals
-        MockToken usdt = deployPaymentToken("Tether USD", "USDT");
+        MockToken usdt = new MockToken("Tether USD", "USDT");
         // deploy mock USDC.e with 6 decimals
-        MockToken usdce = deployPaymentToken("USD Coin - Dinari", "USDC.e");
+        MockToken usdce = new MockToken("USD Coin - Dinari", "USDC.e");
 
         /// ------------------ asset tokens ------------------
 
@@ -164,11 +164,5 @@ contract DeployAllSandboxScript is Script {
         dividendDistributor.grantRole(dividendDistributor.DISTRIBUTOR_ROLE(), cfg.distributor);
 
         vm.stopBroadcast();
-    }
-
-    function deployPaymentToken(string memory name, string memory symbol) internal returns (MockToken) {
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-        return new MockToken(name, symbol, version);
     }
 }

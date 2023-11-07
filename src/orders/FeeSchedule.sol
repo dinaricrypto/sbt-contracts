@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
-import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
+import {Ownable2Step, Ownable} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 import {IFeeSchedule} from "./IFeeSchedule.sol";
 
 /**
@@ -19,6 +19,8 @@ contract FeeSchedule is IFeeSchedule, Ownable2Step {
 
     /// @notice Mapping from operation type to its corresponding fee.
     mapping(address account => FeeRates fees) accountFees;
+
+    constructor() Ownable(msg.sender) {}
 
     /**
      * @notice Returns the fee rates for an account.

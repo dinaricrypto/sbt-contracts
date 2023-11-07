@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {dShare} from "../../src/dShare.sol";
 import {xdShare} from "../../src/dividend/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract xdShareTest is Test {
     TransferRestrictor public restrictor;

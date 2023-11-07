@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
@@ -17,7 +17,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract ForwarderTest is Test {
     event TrustedOracleSet(address indexed oracle, bool isTrusted);
@@ -77,11 +77,8 @@ contract ForwarderTest is Test {
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
 
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-
         token = new MockdShare();
-        paymentToken = new MockToken("Money", "$", version);
+        paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
@@ -142,7 +139,7 @@ contract ForwarderTest is Test {
     }
 
     function testUpdateOracle(address _paymentToken, address _oracle) public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.updateOracle(_paymentToken, _oracle);
 
         vm.expectEmit(true, true, true, true);
@@ -155,7 +152,7 @@ contract ForwarderTest is Test {
         assertEq(forwarder.owner(), owner);
         assertEq(forwarder.feeBps(), 100);
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setFeeBps(200);
 
         vm.expectEmit(true, true, true, true);
@@ -166,7 +163,7 @@ contract ForwarderTest is Test {
         bytes32 domainSeparator = forwarder.DOMAIN_SEPARATOR();
         assert(domainSeparator != bytes32(0));
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setCancellationGasCost(cancellationCost);
         vm.expectEmit(true, true, true, true);
         emit CancellationGasCostUpdated(cancellationCost);
@@ -175,7 +172,7 @@ contract ForwarderTest is Test {
     }
 
     function testAddProcessor(address setIssuer) public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setSupportedModule(setIssuer, true);
 
         vm.expectEmit(true, true, true, true);
@@ -192,7 +189,7 @@ contract ForwarderTest is Test {
     }
 
     function testRelayer(address setRelayer) public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setRelayer(setRelayer, true);
 
         vm.expectEmit(true, true, true, true);
@@ -329,9 +326,7 @@ contract ForwarderTest is Test {
 
     function testrescueERC20(uint256 amount, address to) public {
         vm.assume(to != address(0));
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-        MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$", version);
+        MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$");
         paymentTokenToRescue.mint(user, amount);
 
         vm.prank(user);
@@ -339,7 +334,7 @@ contract ForwarderTest is Test {
 
         assertEq(paymentTokenToRescue.balanceOf(address(forwarder)), amount);
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.rescueERC20(IERC20(address(paymentTokenToRescue)), to, amount);
 
         vm.prank(owner);

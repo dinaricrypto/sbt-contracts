@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 contract SigMeta {
     bytes32 internal immutable DOMAIN_SEPARATOR;

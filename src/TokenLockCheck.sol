@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {ITokenLockCheck} from "./ITokenLockCheck.sol";
 import {IdShare} from "./IdShare.sol";
@@ -21,7 +21,7 @@ contract TokenLockCheck is ITokenLockCheck, Ownable {
 
     mapping(address => bytes4) public callSelector;
 
-    constructor(address usdc, address usdt) {
+    constructor(address usdc, address usdt) Ownable(msg.sender) {
         if (usdc != address(0)) setCallSelector(usdc, IERC20Usdc.isBlacklisted.selector);
         if (usdt != address(0)) setCallSelector(usdt, IERC20Usdt.isBlackListed.selector);
     }
@@ -42,12 +42,7 @@ contract TokenLockCheck is ITokenLockCheck, Ownable {
 
     function _checkTransferLocked(address token, address account, bytes4 selector) internal view returns (bool) {
         // assumes bool result
-        return abi.decode(
-            token.functionStaticCall(
-                abi.encodeWithSelector(selector, account), "TokenLockCheck: low-level static call failed"
-            ),
-            (bool)
-        );
+        return abi.decode(token.functionStaticCall(abi.encodeWithSelector(selector, account)), (bool));
     }
 
     function isTransferLocked(address token, address account) external view returns (bool) {

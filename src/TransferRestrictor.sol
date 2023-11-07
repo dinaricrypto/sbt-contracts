@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {AccessControlDefaultAdminRules} from
-    "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
+    "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /// @notice Enforces transfer restrictions

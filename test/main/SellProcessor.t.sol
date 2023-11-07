@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
@@ -8,7 +8,6 @@ import "../utils/SigUtils.sol";
 import "../../src/orders/SellProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract SellProcessorTest is Test {
@@ -41,9 +40,7 @@ contract SellProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-        paymentToken = new MockToken("Money", "$", version);
+        paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 

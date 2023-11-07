@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../../src/forwarder/Forwarder.sol";
@@ -58,9 +58,7 @@ contract ForwarderRequestCancelTest is Test {
         owner = vm.addr(ownerPrivateKey);
 
         token = new MockdShare();
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-        paymentToken = new MockToken("Money", "$", version);
+        paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)

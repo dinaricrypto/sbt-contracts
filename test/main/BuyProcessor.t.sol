@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
@@ -13,7 +13,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -51,9 +51,7 @@ contract BuyProcessorTest is Test {
         user = vm.addr(userPrivateKey);
 
         token = new MockdShare();
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-        paymentToken = new MockToken("Money", "$", version);
+        paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
@@ -260,21 +258,14 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrderUnsupportedPaymentReverts() public {
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-        address tryPaymentToken = address(new MockToken("Money", "$", version));
+        address tryPaymentToken = address(new MockToken("Money", "$"));
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentToken = tryPaymentToken;
 
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(tryPaymentToken),
-                    " is missing role ",
-                    Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, tryPaymentToken, issuer.PAYMENTTOKEN_ROLE()
             )
         );
         vm.prank(user);
@@ -296,13 +287,8 @@ contract BuyProcessorTest is Test {
         order.assetToken = tryAssetToken;
 
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(tryAssetToken),
-                    " is missing role ",
-                    Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, tryAssetToken, issuer.ASSETTOKEN_ROLE()
             )
         );
         vm.prank(user);

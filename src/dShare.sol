@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {AccessControlDefaultAdminRules} from
-    "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
+    "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {IdShare, ITransferRestrictor} from "./IdShare.sol";
 
 /// @notice Core token contract for bridged assets.
