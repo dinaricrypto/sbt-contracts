@@ -13,7 +13,7 @@ import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 contract DeployForwarderScript is Script {
     function run() external {
         // load env variables
-        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
+        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_KEY");
         BuyProcessor buyProcessor = BuyProcessor(vm.envAddress("BUY_ISSUER"));
         SellProcessor sellProcessor = SellProcessor(vm.envAddress("SELL_PROCESSOR"));
         BuyUnlockedProcessor directBuyProcessor = BuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
