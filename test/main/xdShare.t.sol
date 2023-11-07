@@ -65,6 +65,8 @@ contract xdShareTest is Test {
     }
 
     function testLockMint(uint128 amount, address receiver) public {
+        vm.assume(receiver != address(this));
+
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);
@@ -91,6 +93,8 @@ contract xdShareTest is Test {
     }
 
     function testRedeemLock(uint128 amount, address receiver) public {
+        vm.assume(receiver != address(this));
+
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);

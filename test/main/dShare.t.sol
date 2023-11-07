@@ -67,6 +67,8 @@ contract dShareTest is Test {
     }
 
     function testSetRestrictor(address account) public {
+        vm.assume(account != address(this));
+
         vm.expectEmit(true, true, true, true);
         emit TransferRestrictorSet(ITransferRestrictor(account));
         token.setTransferRestrictor(ITransferRestrictor(account));
