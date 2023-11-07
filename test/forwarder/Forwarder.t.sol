@@ -392,15 +392,14 @@ contract ForwarderTest is Test {
 
         bytes32 id = sellIssuer.getOrderId(order.recipient, 0);
 
-        uint256 userBalanceBefore = token.balanceOf(user);
-        uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
-        vm.expectEmit(true, true, true, true);
-        emit OrderRequested(order.recipient, 0, order);
-
         // mint paymentToken Balance ex: USDC
         paymentToken.mint(user, order.paymentTokenQuantity * 1e6);
         uint256 paymentTokenBalanceBefore = paymentToken.balanceOf(user);
 
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
+        vm.expectEmit(true, true, true, true);
+        emit OrderRequested(order.recipient, 0, order);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
