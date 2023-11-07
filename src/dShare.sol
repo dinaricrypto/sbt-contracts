@@ -53,16 +53,16 @@ contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRules
 
     function initialize(
         address owner,
-        string memory name_,
-        string memory symbol_,
-        ITransferRestrictor transferRestrictor_
+        string memory _name,
+        string memory _symbol,
+        ITransferRestrictor _transferRestrictor
     ) public initializer {
         __AccessControlDefaultAdminRules_init_unchained(0, owner);
 
         dShareStorage storage $ = _getdShareStorage();
-        $._name = name_;
-        $._symbol = symbol_;
-        $._transferRestrictor = transferRestrictor_;
+        $._name = _name;
+        $._symbol = _symbol;
+        $._transferRestrictor = _transferRestrictor;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
