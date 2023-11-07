@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {BuyProcessor} from "../../src/orders/BuyProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {FeeSchedule, IFeeSchedule} from "../../src/orders/FeeSchedule.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import "../utils/mocks/MockdShareFactory.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract FeeScheduleTest is Test {
     event FeesSet(address account, FeeSchedule.FeeRates feeRates);
@@ -15,6 +15,7 @@ contract FeeScheduleTest is Test {
     FeeSchedule feeSchedule;
     BuyProcessor issuer;
     TokenLockCheck tokenLockCheck;
+    MockdShareFactory tokenFactory;
     dShare token;
     MockToken paymentToken;
 
@@ -28,10 +29,9 @@ contract FeeScheduleTest is Test {
         user = vm.addr(userPrivateKey);
         feeSchedule = new FeeSchedule();
 
-        token = new MockdShare();
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-        paymentToken = new MockToken("Money", "$", version);
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
+        paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
@@ -57,7 +57,7 @@ contract FeeScheduleTest is Test {
 
         // Only owner can set fees
         vm.prank(user);
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
         feeSchedule.setFees(user, fee);
 
         vm.expectEmit(true, true, true, true);

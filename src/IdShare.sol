@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
@@ -7,9 +7,6 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IdShare.sol)
 /// Minter, burner, and blacklist
 interface IdShare {
-    /// @notice URI to disclosure information
-    function disclosures() external view returns (string memory);
-
     /// @notice Contract to restrict transfers
     function transferRestrictor() external view returns (ITransferRestrictor);
 

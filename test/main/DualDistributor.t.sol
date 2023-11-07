@@ -9,30 +9,50 @@ import {xdShare} from "../../src/dividend/xdShare.sol";
 import {dShare} from "../../src/dShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {TransparentUpgradeableProxy} from
+    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract DualDistributorTest is Test {
     DividendDistribution distribution;
     DualDistributor dualDistributor;
-    TransferRestrictor public restrictor;
+    TransferRestrictor restrictor;
     xdShare xToken;
     dShare dtoken;
     MockERC20 token;
 
-    uint256 public userPrivateKey;
-    uint256 public ownerPrivateKey;
+    uint256 userPrivateKey;
+    uint256 ownerPrivateKey;
 
-    address public user = address(1);
-    address public user2 = address(2);
-    address public distributor = address(4);
+    address user = address(1);
+    address user2 = address(2);
+    address distributor = address(4);
 
     event NewDistribution(uint256 distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         token = new MockERC20("Money", "$", 6);
-        dtoken = new dShare(address(this), "Dinari Token", "dTKN", "", restrictor);
-        xToken = new xdShare(dtoken, "Dinari xdToken", "xdTKN");
+        dShare tokenImplementation = new dShare();
+        dtoken = dShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(tokenImplementation),
+                address(this),
+                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                )
+            )
+        );
+        xdShare xtokenImplementation = new xdShare();
+        xToken = xdShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(xtokenImplementation),
+                address(this),
+                abi.encodeCall(xdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
+                )
+            )
+        );
 
         dtoken.grantRole(dtoken.MINTER_ROLE(), address(this));
 
@@ -44,15 +64,6 @@ contract DualDistributorTest is Test {
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), address(dualDistributor));
     }
 
-    function accessErrorString(address account, bytes32 role) internal pure returns (bytes memory) {
-        return bytes.concat(
-            "AccessControl: account ",
-            bytes(Strings.toHexString(account)),
-            " is missing role ",
-            bytes(Strings.toHexString(uint256(role), 32))
-        );
-    }
-
     function testStateVar() public {
         assertEq(dualDistributor.USDC(), address(token));
         assertEq(dualDistributor.dividendDistrubtion(), address(distribution));
@@ -60,11 +71,23 @@ contract DualDistributorTest is Test {
 
     function testSetter(address _newUSDC, address _dShare, address _xdShare, address _newDividend) public {
         vm.startPrank(user);
-        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
         dualDistributor.setUSDC(_newUSDC);
-        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
         dualDistributor.setNewDividendAddress(_newDividend);
-        vm.expectRevert(accessErrorString(user, distribution.DEFAULT_ADMIN_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
         dualDistributor.addDShareXdSharePair(_dShare, _xdShare);
         vm.stopPrank();
 
@@ -97,7 +120,11 @@ contract DualDistributorTest is Test {
         token.mint(address(dualDistributor), amountA);
         dtoken.mint(address(dualDistributor), amountB);
 
-        vm.expectRevert(accessErrorString(address(this), distribution.DISTRIBUTOR_ROLE()));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), distribution.DISTRIBUTOR_ROLE()
+            )
+        );
         dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
         vm.prank(distributor);

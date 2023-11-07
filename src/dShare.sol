@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {ERC20} from "solady/src/tokens/ERC20.sol";
-import {AccessControlDefaultAdminRules} from
-    "openzeppelin-contracts/contracts/access/AccessControlDefaultAdminRules.sol";
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {AccessControlDefaultAdminRulesUpgradeable} from
+    "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
 import {IdShare, ITransferRestrictor} from "./IdShare.sol";
 
 /// @notice Core token contract for bridged assets.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
-contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
+contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRulesUpgradeable {
     /// ------------------ Types ------------------ ///
 
     error Unauthorized();
@@ -33,77 +34,86 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
 
     /// ------------------ State ------------------ ///
 
-    /// @dev Token name
-    string private _name;
-    /// @dev Token symbol
-    string private _symbol;
+    struct dShareStorage {
+        string _name;
+        string _symbol;
+        ITransferRestrictor _transferRestrictor;
+    }
 
-    /// @notice URI to disclosure information
-    string public disclosures;
-    /// @notice Contract to restrict transfers
-    ITransferRestrictor public transferRestrictor;
+    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.dShare")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant dShareStorageLocation = 0x7315beb2381679795e06870021c0fca5deb85616e29e098c2e7b7e488f185800;
+
+    function _getdShareStorage() private pure returns (dShareStorage storage $) {
+        assembly {
+            $.slot := dShareStorageLocation
+        }
+    }
 
     /// ------------------ Initialization ------------------ ///
 
-    /// @notice Initialize token
-    /// @param owner Owner of contract
-    /// @param name_ Token name
-    /// @param symbol_ Token symbol
-    /// @param disclosures_ URI to disclosure information
-    /// @param transferRestrictor_ Contract to restrict transfers
-    constructor(
+    function initialize(
         address owner,
-        string memory name_,
-        string memory symbol_,
-        string memory disclosures_,
-        ITransferRestrictor transferRestrictor_
-    ) AccessControlDefaultAdminRules(0, owner) {
-        _name = name_;
-        _symbol = symbol_;
-        disclosures = disclosures_;
-        transferRestrictor = transferRestrictor_;
+        string memory _name,
+        string memory _symbol,
+        ITransferRestrictor _transferRestrictor
+    ) public initializer {
+        __AccessControlDefaultAdminRules_init_unchained(0, owner);
+
+        dShareStorage storage $ = _getdShareStorage();
+        $._name = _name;
+        $._symbol = _symbol;
+        $._transferRestrictor = _transferRestrictor;
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /// ------------------ Getters ------------------ ///
 
-    /// @notice Returns the name of the token
+    /// @notice Token name
     function name() public view override returns (string memory) {
-        return _name;
+        dShareStorage storage $ = _getdShareStorage();
+        return $._name;
     }
 
-    /// @notice Returns the symbol of the token
+    /// @notice Token symbol
     function symbol() public view override returns (string memory) {
-        return _symbol;
+        dShareStorage storage $ = _getdShareStorage();
+        return $._symbol;
+    }
+
+    /// @notice Contract to restrict transfers
+    function transferRestrictor() public view returns (ITransferRestrictor) {
+        dShareStorage storage $ = _getdShareStorage();
+        return $._transferRestrictor;
     }
 
     /// ------------------ Setters ------------------ ///
 
     /// @notice Set token name
     /// @dev Only callable by owner or deployer
-    function setName(string calldata name_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _name = name_;
-        emit NameSet(name_);
+    function setName(string calldata newName) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        dShareStorage storage $ = _getdShareStorage();
+        $._name = newName;
+        emit NameSet(newName);
     }
 
     /// @notice Set token symbol
     /// @dev Only callable by owner or deployer
-    function setSymbol(string calldata symbol_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _symbol = symbol_;
-        emit SymbolSet(symbol_);
-    }
-
-    /// @notice Set disclosures URI
-    /// @dev Only callable by owner
-    function setDisclosures(string calldata disclosures_) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        disclosures = disclosures_;
-        emit DisclosuresSet(disclosures_);
+    function setSymbol(string calldata newSymbol) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        dShareStorage storage $ = _getdShareStorage();
+        $._symbol = newSymbol;
+        emit SymbolSet(newSymbol);
     }
 
     /// @notice Set transfer restrictor contract
     /// @dev Only callable by owner
-    function setTransferRestrictor(ITransferRestrictor restrictor) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        transferRestrictor = restrictor;
-        emit TransferRestrictorSet(restrictor);
+    function setTransferRestrictor(ITransferRestrictor newRestrictor) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        dShareStorage storage $ = _getdShareStorage();
+        $._transferRestrictor = newRestrictor;
+        emit TransferRestrictorSet(newRestrictor);
     }
 
     /// ------------------ Minting and Burning ------------------ ///
@@ -133,9 +143,11 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
         if (to == address(0) && msg.sig != this.burn.selector) revert Unauthorized();
 
         // If transferRestrictor is not set, no restrictions are applied
-        if (address(transferRestrictor) != address(0)) {
+        dShareStorage storage $ = _getdShareStorage();
+        ITransferRestrictor _transferRestrictor = $._transferRestrictor;
+        if (address(_transferRestrictor) != address(0)) {
             // Check transfer restrictions
-            transferRestrictor.requireNotRestricted(from, to);
+            _transferRestrictor.requireNotRestricted(from, to);
         }
     }
 
@@ -145,7 +157,9 @@ contract dShare is IdShare, ERC20, AccessControlDefaultAdminRules {
      * @dev Returns true if the account is blacklisted , if the account is the zero address
      */
     function isBlacklisted(address account) external view returns (bool) {
-        if (address(transferRestrictor) == address(0)) return false;
-        return transferRestrictor.isBlacklisted(account);
+        dShareStorage storage $ = _getdShareStorage();
+        ITransferRestrictor _transferRestrictor = $._transferRestrictor;
+        if (address(_transferRestrictor) == address(0)) return false;
+        return _transferRestrictor.isBlacklisted(account);
     }
 }
