@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../../src/forwarder/Forwarder.sol";
@@ -9,7 +9,7 @@ import {BuyProcessor, OrderProcessor} from "../../../src/orders/BuyProcessor.sol
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import "../../utils/mocks/MockToken.sol";
-import "../../utils/mocks/MockdShare.sol";
+import "../../utils/mocks/MockdShareFactory.sol";
 import "../../utils/SigMeta.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
@@ -20,6 +20,7 @@ contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
     BuyProcessor public issuer;
     MockToken public paymentToken;
+    MockdShareFactory public tokenFactory;
     dShare public token;
 
     SigMeta public sigMeta;
@@ -57,10 +58,9 @@ contract ForwarderRequestCancelTest is Test {
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
 
-        token = new MockdShare();
-        uint8 randomValue = uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250);
-        string memory version = Strings.toString(randomValue);
-        paymentToken = new MockToken("Money", "$", version);
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
+        paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)

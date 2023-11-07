@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {dShare} from "../../src/dShare.sol";
 import {xdShare} from "../../src/dividend/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {TransparentUpgradeableProxy} from
+    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 contract xdShareTest is Test {
     TransferRestrictor public restrictor;
@@ -21,10 +22,28 @@ contract xdShareTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), address(this));
-        token = new dShare(address(this), "Dinari Token", "dTKN", "", restrictor);
+        dShare tokenImplementation = new dShare();
+        token = dShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(tokenImplementation),
+                address(this),
+                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                )
+            )
+        );
         token.grantRole(token.MINTER_ROLE(), address(this));
 
-        xToken = new xdShare(token, "Reinvesting dTKN.d", "dTKN.d.x");
+        xdShare xtokenImplementation = new xdShare();
+        xToken = xdShare(
+            address(
+                new TransparentUpgradeableProxy(
+                address(xtokenImplementation),
+                address(this),
+                abi.encodeCall(xdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                )
+            )
+        );
     }
 
     function overflowChecker(uint256 a, uint256 b) internal pure returns (bool) {
@@ -46,6 +65,8 @@ contract xdShareTest is Test {
     }
 
     function testLockMint(uint128 amount, address receiver) public {
+        vm.assume(receiver != address(this));
+
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);
@@ -72,6 +93,8 @@ contract xdShareTest is Test {
     }
 
     function testRedeemLock(uint128 amount, address receiver) public {
+        vm.assume(receiver != address(this));
+
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);

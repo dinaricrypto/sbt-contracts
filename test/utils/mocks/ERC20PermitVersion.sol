@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
@@ -21,12 +21,20 @@ abstract contract ERC20PermitVersion is ERC20, IERC20Permit, EIP712, Nonces {
      */
     error ERC2612InvalidSigner(address signer, address owner);
 
+    string _version;
+
     /**
      * @dev Initializes the {EIP712} domain separator using the `name` parameter, and setting `version` to `"1"`.
      *
      * It's a good idea to use the same `name` that is defined as the ERC20 token name.
      */
-    constructor(string memory _name, string memory _version) EIP712(_name, _version) {}
+    constructor(string memory name_, string memory version_) EIP712(name_, version_) {
+        _version = version_;
+    }
+
+    function version() public view returns (string memory) {
+        return _version;
+    }
 
     /**
      * @inheritdoc IERC20Permit
