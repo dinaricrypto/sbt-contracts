@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
+import "../utils/mocks/MockdShareFactory.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/SellProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract SellProcessorTest is Test {
@@ -21,6 +20,7 @@ contract SellProcessorTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
+    MockdShareFactory tokenFactory;
     dShare token;
     TokenLockCheck tokenLockCheck;
     SellProcessor issuer;
@@ -40,7 +40,8 @@ contract SellProcessorTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockdShare();
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
@@ -54,7 +55,7 @@ contract SellProcessorTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, true, address(paymentToken));
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
@@ -74,7 +75,7 @@ contract SellProcessorTest is Test {
 
         token.mint(user, quantityIn);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), quantityIn);
+        token.approve(address(issuer), quantityIn);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
@@ -112,7 +113,7 @@ contract SellProcessorTest is Test {
 
         token.mint(user, order.assetTokenQuantity);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), order.assetTokenQuantity);
+        token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.expectRevert(OrderProcessor.InvalidPrecision.selector);
         vm.prank(user);
@@ -121,7 +122,7 @@ contract SellProcessorTest is Test {
         // update OrderAmount
         order.assetTokenQuantity = 100000;
 
-        token.increaseAllowance(address(issuer), order.assetTokenQuantity);
+        token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.prank(user);
         issuer.requestOrder(order);
@@ -144,7 +145,7 @@ contract SellProcessorTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -154,7 +155,7 @@ contract SellProcessorTest is Test {
 
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(issuer), receivedAmount);
+        paymentToken.approve(address(issuer), receivedAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, index);
 
@@ -209,14 +210,14 @@ contract SellProcessorTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(issuer), receivedAmount);
+        paymentToken.approve(address(issuer), receivedAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, index);
         uint256 feesEarned = 0;
@@ -279,7 +280,7 @@ contract SellProcessorTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.increaseAllowance(address(issuer), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -297,7 +298,7 @@ contract SellProcessorTest is Test {
 
             paymentToken.mint(operator, receivedAmount);
             vm.prank(operator);
-            paymentToken.increaseAllowance(address(issuer), receivedAmount);
+            paymentToken.approve(address(issuer), receivedAmount);
 
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);

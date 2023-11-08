@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "solady/test/utils/mocks/MockERC20.sol";
+import "../test/utils/mocks/MockToken.sol";
 
 contract DeployMockPaymentTokenScript is Script {
     function run() external {
@@ -11,8 +11,7 @@ contract DeployMockPaymentTokenScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy mock USDC with 6 decimals
-        new MockERC20("USD Coin", "USDC", 6);
-
+        new MockToken("USD Coin - Dinari", "USDC");
         vm.stopBroadcast();
     }
 }

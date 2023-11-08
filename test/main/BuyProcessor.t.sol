@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
+import "../utils/mocks/MockdShareFactory.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/BuyProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
@@ -13,6 +13,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -28,6 +29,7 @@ contract BuyProcessorTest is Test {
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
+    MockdShareFactory tokenFactory;
     dShare token;
     BuyProcessor issuer;
     MockToken paymentToken;
@@ -49,7 +51,8 @@ contract BuyProcessorTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockdShare();
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
@@ -65,7 +68,6 @@ contract BuyProcessorTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        dummyOrderFees = issuer.estimateTotalFeesForOrder(address(paymentToken), 100 ether);
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
             assetToken: address(token),
@@ -77,6 +79,7 @@ contract BuyProcessorTest is Test {
             price: 0,
             tif: IOrderProcessor.TIF.GTC
         });
+        dummyOrderFees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), 100 ether);
         restrictor = TransferRestrictor(address(token.transferRestrictor()));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
@@ -94,6 +97,29 @@ contract BuyProcessorTest is Test {
     function testSetTreasuryZeroReverts() public {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         issuer.setTreasury(address(0));
+    }
+
+    function testCheckHash() public {
+        IOrderProcessor.Order memory order = dummyOrder;
+        bytes32 orderHash = issuer.hashOrder(order);
+        bytes32 orderCallDataHash = issuer.hashOrderCalldata(order);
+
+        bytes32 hashToTest = keccak256(
+            abi.encode(
+                order.recipient,
+                order.assetToken,
+                order.paymentToken,
+                order.sell,
+                order.orderType,
+                order.assetTokenQuantity,
+                order.paymentTokenQuantity,
+                order.price,
+                order.tif
+            )
+        );
+
+        assertEq(orderHash, orderCallDataHash);
+        assertEq(hashToTest, orderHash);
     }
 
     function testSetFee(uint64 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
@@ -137,7 +163,7 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrder(uint256 orderAmount) public {
-        uint256 fees = issuer.estimateTotalFeesForOrder(address(paymentToken), orderAmount);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -146,7 +172,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
         if (orderAmount == 0) {
@@ -191,7 +217,7 @@ contract BuyProcessorTest is Test {
 
     function testRequestOrderBlacklist(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(address(paymentToken), orderAmount);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -204,7 +230,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         assert(tokenLockCheck.isTransferLocked(address(token), user));
         vm.expectRevert(OrderProcessor.Blacklist.selector);
@@ -214,7 +240,7 @@ contract BuyProcessorTest is Test {
 
     function testPaymentTokenBlackList(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(address(paymentToken), orderAmount);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -223,7 +249,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         paymentToken.blacklist(user);
         assert(tokenLockCheck.isTransferLocked(address(paymentToken), user));
@@ -240,13 +266,8 @@ contract BuyProcessorTest is Test {
         order.paymentToken = tryPaymentToken;
 
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(tryPaymentToken),
-                    " is missing role ",
-                    Strings.toHexString(uint256(issuer.PAYMENTTOKEN_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, tryPaymentToken, issuer.PAYMENTTOKEN_ROLE()
             )
         );
         vm.prank(user);
@@ -262,19 +283,14 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrderUnsupportedAssetReverts() public {
-        address tryAssetToken = address(new MockdShare());
+        address tryAssetToken = address(tokenFactory.deploy("Dinari Token", "dTKN"));
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.assetToken = tryAssetToken;
 
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(tryAssetToken),
-                    " is missing role ",
-                    Strings.toHexString(uint256(issuer.ASSETTOKEN_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, tryAssetToken, issuer.ASSETTOKEN_ROLE()
             )
         );
         vm.prank(user);
@@ -328,7 +344,7 @@ contract BuyProcessorTest is Test {
         uint256 fees;
         {
             uint24 percentageFeeRate;
-            (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+            (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
             fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
             vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         }
@@ -344,7 +360,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -390,7 +406,7 @@ contract BuyProcessorTest is Test {
 
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(address(paymentToken), orderAmount);
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 
@@ -399,7 +415,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -436,7 +452,7 @@ contract BuyProcessorTest is Test {
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(dummyOrder);
@@ -456,7 +472,7 @@ contract BuyProcessorTest is Test {
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(dummyOrder);
@@ -478,7 +494,7 @@ contract BuyProcessorTest is Test {
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
-        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -488,7 +504,7 @@ contract BuyProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);

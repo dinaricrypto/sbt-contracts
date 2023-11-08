@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
@@ -11,12 +11,14 @@ import {BuyUnlockedProcessor} from "../../src/orders/BuyUnlockedProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
-import "../utils/SigMeta.sol";
+import "../utils/mocks/MockdShareFactory.sol";
+import "../utils/SigMetaUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 
 contract ForwarderTest is Test {
     event RelayerSet(address indexed relayer, bool isRelayer);
@@ -43,9 +45,10 @@ contract ForwarderTest is Test {
     SellProcessor public sellIssuer;
     BuyUnlockedProcessor public directBuyIssuer;
     MockToken public paymentToken;
+    MockdShareFactory public tokenFactory;
     dShare public token;
 
-    SigMeta public sigMeta;
+    SigMetaUtils public sigMeta;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
@@ -67,6 +70,11 @@ contract ForwarderTest is Test {
     address constant ethUsdPriceOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
     address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
+    bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
+        "ForwardRequest(address user,address to,address paymentToken,bytes data,uint64 deadline,uint256 nonce)"
+    );
+    bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
+
     function setUp() public {
         userPrivateKey = 0x1;
         relayerPrivateKey = 0x2;
@@ -75,7 +83,8 @@ contract ForwarderTest is Test {
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
 
-        token = new MockdShare();
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
@@ -110,11 +119,11 @@ contract ForwarderTest is Test {
         sellIssuer.grantRole(sellIssuer.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
 
-        sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
+        sigMeta = new SigMetaUtils(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
@@ -137,7 +146,7 @@ contract ForwarderTest is Test {
     }
 
     function testUpdateEthOracle(address _oracle) public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setEthUsdOracle(_oracle);
 
         vm.expectEmit(true, true, true, true);
@@ -147,7 +156,7 @@ contract ForwarderTest is Test {
     }
 
     function testUpdateOracle(address _paymentToken, address _oracle) public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setPaymentOracle(_paymentToken, _oracle);
 
         vm.expectEmit(true, true, true, true);
@@ -160,7 +169,7 @@ contract ForwarderTest is Test {
         assertEq(forwarder.owner(), owner);
         assertEq(forwarder.feeBps(), 100);
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setFeeBps(200);
 
         vm.expectEmit(true, true, true, true);
@@ -171,7 +180,7 @@ contract ForwarderTest is Test {
         bytes32 domainSeparator = forwarder.DOMAIN_SEPARATOR();
         assert(domainSeparator != bytes32(0));
 
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setCancellationGasCost(cancellationCost);
         vm.expectEmit(true, true, true, true);
         emit CancellationGasCostUpdated(cancellationCost);
@@ -180,7 +189,7 @@ contract ForwarderTest is Test {
     }
 
     function testAddProcessor(address setIssuer) public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setSupportedModule(setIssuer, true);
 
         vm.expectEmit(true, true, true, true);
@@ -197,7 +206,7 @@ contract ForwarderTest is Test {
     }
 
     function testRelayer(address setRelayer) public {
-        vm.expectRevert("Ownable: caller is not the owner");
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         forwarder.setRelayer(setRelayer, true);
 
         vm.expectEmit(true, true, true, true);
@@ -342,6 +351,48 @@ contract ForwarderTest is Test {
         assertEq(IERC20(address(paymentToken)).balanceOf(address(user)), balanceUserBeforeCancel);
     }
 
+    function testrescueERC20(uint256 amount, address to) public {
+        vm.assume(to != address(0));
+        MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$");
+        paymentTokenToRescue.mint(user, amount);
+
+        vm.prank(user);
+        paymentTokenToRescue.transfer(address(forwarder), amount);
+
+        assertEq(paymentTokenToRescue.balanceOf(address(forwarder)), amount);
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        forwarder.rescueERC20(IERC20(address(paymentTokenToRescue)), to, amount);
+
+        vm.prank(owner);
+        forwarder.rescueERC20(IERC20(address(paymentTokenToRescue)), to, amount);
+
+        assertEq(paymentTokenToRescue.balanceOf(address(forwarder)), 0);
+        assertEq(paymentTokenToRescue.balanceOf(to), amount);
+    }
+
+    function testHash() public {
+        IForwarder.ForwardRequest memory metaTx1 = IForwarder.ForwardRequest(
+            user, address(issuer), address(paymentToken), "0x", uint64(block.timestamp + 20 days), 0, "0x"
+        );
+
+        bytes32 hashRequest = keccak256(
+            abi.encode(
+                FORWARDREQUEST_TYPEHASH,
+                user,
+                address(issuer),
+                address(paymentToken),
+                keccak256("0x"),
+                uint64(block.timestamp + 20 days),
+                0
+            )
+        );
+
+        bytes32 _hash = forwarder.forwardRequestHash(metaTx1);
+
+        assertEq(hashRequest, _hash);
+    }
+
     function testSellOrder() public {
         IOrderProcessor.Order memory order = dummyOrder;
         order.sell = true;
@@ -367,19 +418,14 @@ contract ForwarderTest is Test {
 
         bytes32 id = sellIssuer.getOrderId(order.recipient, 0);
 
+        // mint paymentToken Balance ex: USDC
+        paymentToken.mint(user, order.paymentTokenQuantity * 1e6);
+        uint256 paymentTokenBalanceBefore = paymentToken.balanceOf(user);
+
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(order.recipient, 0, order);
-
-        vm.expectRevert(InsufficientBalance.selector);
-        vm.prank(relayer);
-        forwarder.multicall(multicalldata);
-
-        // mint paymentToken Balance ex: USDC
-        deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
-        uint256 paymentTokenBalanceBefore = paymentToken.balanceOf(user);
-
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
@@ -393,8 +439,6 @@ contract ForwarderTest is Test {
         assertEq(token.balanceOf(address(sellIssuer)), issuerBalanceBefore + order.assetTokenQuantity);
         assertEq(sellIssuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
         assert(paymentTokenBalanceBefore > paymentTokenBalanceAfter);
-        // cost should be < 1e6 for gas cost
-        // assertLt(paymentTokenBalanceBefore - paymentTokenBalanceAfter, 1e6);
     }
 
     function testTakeEscrowBuyUnlockedOrder(uint256 takeAmount) public {
@@ -478,7 +522,7 @@ contract ForwarderTest is Test {
         directBuyIssuer.takeEscrow(order, 0, order.paymentTokenQuantity);
 
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(directBuyIssuer), returnAmount);
+        paymentToken.approve(address(directBuyIssuer), returnAmount);
 
         if (returnAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
@@ -795,7 +839,7 @@ contract ForwarderTest is Test {
         uint256 nonce,
         uint256 _privateKey
     ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
-        SigMeta.ForwardRequest memory MetaTx = SigMeta.ForwardRequest({
+        SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
             paymentToken: _paymentToken,

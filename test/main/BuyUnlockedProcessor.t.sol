@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
+import "../utils/mocks/MockdShareFactory.sol";
 import "../../src/orders/BuyUnlockedProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -23,6 +23,7 @@ contract BuyUnlockedProcessorTest is Test {
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
+    MockdShareFactory tokenFactory;
     dShare token;
     TokenLockCheck tokenLockCheck;
     BuyUnlockedProcessor issuer;
@@ -43,7 +44,8 @@ contract BuyUnlockedProcessorTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockdShare();
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
@@ -57,7 +59,7 @@ contract BuyUnlockedProcessorTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
@@ -83,7 +85,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -119,7 +121,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -128,7 +130,7 @@ contract BuyUnlockedProcessorTest is Test {
         issuer.takeEscrow(order, index, orderAmount);
 
         vm.prank(operator);
-        paymentToken.increaseAllowance(address(issuer), returnAmount);
+        paymentToken.approve(address(issuer), returnAmount);
 
         bytes32 id = issuer.getOrderId(order.recipient, index);
 
@@ -164,7 +166,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -218,7 +220,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -253,7 +255,7 @@ contract BuyUnlockedProcessorTest is Test {
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), quantityIn);
+        paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);

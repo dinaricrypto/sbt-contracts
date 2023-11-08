@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
-import "../utils/mocks/MockdShare.sol";
+import "../utils/mocks/MockdShareFactory.sol";
 import "../../src/orders/BuyProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -17,6 +17,7 @@ contract LimitBuyProcessorTest is Test {
         address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
     );
 
+    MockdShareFactory tokenFactory;
     dShare token;
     TokenLockCheck tokenLockCheck;
     BuyProcessor issuer;
@@ -35,14 +36,15 @@ contract LimitBuyProcessorTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockdShare();
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -77,7 +79,7 @@ contract LimitBuyProcessorTest is Test {
 
         paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.startPrank(user);
-        paymentToken.increaseAllowance(address(issuer), order.paymentTokenQuantity + fees);
+        paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
@@ -121,7 +123,7 @@ contract LimitBuyProcessorTest is Test {
 
         paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.prank(user);
-        paymentToken.increaseAllowance(address(issuer), order.paymentTokenQuantity + fees);
+        paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);

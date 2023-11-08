@@ -2,4 +2,4 @@
 
 source .env
 
-forge script script/SetFees.s.sol:SetFeesScript --rpc-url $RPC_ARBITRUM --broadcast -vvvv
+forge script script/SetFees.s.sol:SetFeesScript --rpc-url $RPC_URL --broadcast -vvvv

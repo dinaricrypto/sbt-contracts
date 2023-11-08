@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import "../../src/TransferRestrictor.sol";
-import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
 contract TransferRestrictorTest is Test {
     event Restricted(address indexed account);
@@ -17,24 +17,10 @@ contract TransferRestrictorTest is Test {
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
 
-    function accessErrorString(address account, bytes32 role) internal pure returns (bytes memory) {
-        return bytes.concat(
-            "AccessControl: account ",
-            bytes(Strings.toHexString(account)),
-            " is missing role ",
-            bytes(Strings.toHexString(uint256(role), 32))
-        );
-    }
-
     function testInvalidRoleAccess(address account) public {
         vm.expectRevert(
-            bytes(
-                string.concat(
-                    "AccessControl: account ",
-                    Strings.toHexString(address(this)),
-                    " is missing role ",
-                    Strings.toHexString(uint256(restrictor.RESTRICTOR_ROLE()), 32)
-                )
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), restrictor.RESTRICTOR_ROLE()
             )
         );
         restrictor.restrict(account);

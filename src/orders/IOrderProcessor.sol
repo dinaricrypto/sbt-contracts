@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 /// @notice Interface for contracts processing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/IOrderProcessor.sol)
@@ -113,18 +113,24 @@ interface IOrderProcessor {
     function maxOrderDecimals(address token) external view returns (uint256);
 
     /// @notice Get fee rates for an order
+    /// @param requester Requester of order
+    /// @param sell Sell order
     /// @param token Payment token for order
     /// @return flatFee Flat fee for order
     /// @return percentageFeeRate Percentage fee rate for order
-    function getFeeRatesForOrder(address token) external view returns (uint256, uint24);
+    function getFeeRatesForOrder(address requester, bool sell, address token) external view returns (uint256, uint24);
 
     /// @notice Get total fees for an order
+    /// @param requester Requester of order
+    /// @param sell Sell order
     /// @param paymentToken Payment token for order
     /// @param paymentTokenOrderValue Order payment token quantity
-    function estimateTotalFeesForOrder(address paymentToken, uint256 paymentTokenOrderValue)
-        external
-        view
-        returns (uint256);
+    function estimateTotalFeesForOrder(
+        address requester,
+        bool sell,
+        address paymentToken,
+        uint256 paymentTokenOrderValue
+    ) external view returns (uint256);
 
     /// @dev Returns `true` if `account` has been granted `role`.
     function hasRole(bytes32 role, address account) external view returns (bool);

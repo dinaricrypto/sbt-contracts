@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
@@ -9,22 +9,22 @@ import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../../src/orders/SellProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
-import "../utils/mocks/MockToken.sol";
-import "../utils/SigMeta.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
+import "../utils/SigMetaUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import "solady/test/utils/mocks/MockERC20.sol";
+import {ERC20, MockERC20} from "solady/test/utils/mocks/MockERC20.sol";
 
 // test that forwarder and processors do not assume dShares are dShares
 contract dShareCompatTest is Test {
     Forwarder public forwarder;
     BuyProcessor public issuer;
     SellProcessor public sellIssuer;
-    ERC20 public paymentToken;
+    MockToken public paymentToken;
     ERC20 public token;
 
-    SigMeta public sigMeta;
+    SigMetaUtils public sigMeta;
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
@@ -88,12 +88,9 @@ contract dShareCompatTest is Test {
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
         sellIssuer.grantRole(sellIssuer.FORWARDER_ROLE(), address(forwarder));
 
-        sigMeta = new SigMeta(forwarder.DOMAIN_SEPARATOR());
+        sigMeta = new SigMetaUtils(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
-
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(address(paymentToken));
-        dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
@@ -106,6 +103,9 @@ contract dShareCompatTest is Test {
             price: 0,
             tif: IOrderProcessor.TIF.GTC
         });
+
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         // set fees
         vm.prank(owner);
@@ -255,7 +255,7 @@ contract dShareCompatTest is Test {
         uint256 nonce,
         uint256 _privateKey
     ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
-        SigMeta.ForwardRequest memory MetaTx = SigMeta.ForwardRequest({
+        SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
             paymentToken: _paymentToken,

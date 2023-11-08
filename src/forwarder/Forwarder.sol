@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity 0.8.22;
 
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
@@ -8,7 +8,7 @@ import {SafeERC20, IERC20, IERC20Permit} from "openzeppelin-contracts/contracts/
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
-import {ReentrancyGuard} from "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
+import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
@@ -90,7 +90,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
-    constructor(address _ethUsdOracle) EIP712("Forwarder", "1") {
+    constructor(address _ethUsdOracle) EIP712("Forwarder", "1") Ownable(msg.sender) {
         feeBps = 0;
         cancellationGasCost = 0;
         ethUsdOracle = _ethUsdOracle;
@@ -289,8 +289,9 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
             IERC20(order.assetToken).safeTransferFrom(user, address(this), order.assetTokenQuantity);
             IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
         } else {
-            uint256 fees =
-                IOrderProcessor(target).estimateTotalFeesForOrder(order.paymentToken, order.paymentTokenQuantity);
+            uint256 fees = IOrderProcessor(target).estimateTotalFeesForOrder(
+                user, order.sell, order.paymentToken, order.paymentTokenQuantity
+            );
             // slither-disable-next-line arbitrary-send-erc20
             IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);
             IERC20(order.paymentToken).safeIncreaseAllowance(target, order.paymentTokenQuantity + fees);
