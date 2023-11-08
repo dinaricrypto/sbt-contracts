@@ -13,4 +13,4 @@ fi
 # Set secrets as environment variables
 DEPLOY_KEY=$(echo $SECRET_JSON | jq -r .DEPLOY_KEY)
 
-forge script script/ConfigDiv.s.sol:ConfigDivScript --rpc-url $RPC_ARBITRUM --broadcast -vvvv
+forge script script/ConfigDiv.s.sol:ConfigDivScript --rpc-url $RPC_URL --broadcast -vvvv

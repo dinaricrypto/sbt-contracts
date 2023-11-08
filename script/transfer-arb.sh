@@ -12,4 +12,4 @@ fi
 # Set secrets as environment variables
 SENDER_KEY=$(echo $SECRET_JSON | jq -r .SENDER_KEY)
 
-forge script script/Transfer.s.sol:TransferScript --rpc-url $RPC_ARBITRUM --broadcast -vvvv
+forge script script/Transfer.s.sol:TransferScript --rpc-url $RPC_URL --broadcast -vvvv

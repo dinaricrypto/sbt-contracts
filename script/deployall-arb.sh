@@ -12,4 +12,4 @@ fi
 DEPLOY_KEY=$(echo $SECRET_JSON | jq -r .DEPLOY_KEY)
 
 # Use secrets in your deployment script
-forge script script/DeployAll.s.sol:DeployAllScript --rpc-url $RPC_ARBITRUM --etherscan-api-key $ARBISCAN_API_KEY --broadcast --verify -vvvv
+forge script script/DeployAll.s.sol:DeployAllScript --rpc-url $RPC_URL --etherscan-api-key $ARBISCAN_API_KEY --broadcast --verify -vvvv

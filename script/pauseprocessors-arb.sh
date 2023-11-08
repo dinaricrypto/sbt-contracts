@@ -12,4 +12,4 @@ fi
 # Set secrets as environment variables
 PRIVATE_KEY=$(echo $SECRET_JSON | jq -r .PRIVATE_KEY)
 
-forge script script/PauseProcessors.s.sol:PauseProcessorsScript --rpc-url $RPC_ARBITRUM --broadcast -vvvv
+forge script script/PauseProcessors.s.sol:PauseProcessorsScript --rpc-url $RPC_URL --broadcast -vvvv

@@ -11,4 +11,4 @@ fi
 # Set secrets as environment variables
 PRIVATE_KEY=$(echo $SECRET_JSON | jq -r .PRIVATE_KEY)
 
-forge script script/DeployRestrictor.s.sol:DeployRestrictorScript --rpc-url $RPC_ARBITRUM --etherscan-api-key $ARBISCAN_API_KEY --broadcast --verify -vvvv
+forge script script/DeployRestrictor.s.sol:DeployRestrictorScript --rpc-url $RPC_URL --etherscan-api-key $ARBISCAN_API_KEY --broadcast --verify -vvvv
