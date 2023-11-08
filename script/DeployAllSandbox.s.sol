@@ -22,6 +22,8 @@ contract DeployAllSandboxScript is Script {
         address operator;
         address distributor;
         address relayer;
+        address ethusdoracle;
+        address usdcoracle;
     }
 
     struct Deployments {
@@ -52,7 +54,9 @@ contract DeployAllSandboxScript is Script {
             treasury: vm.envAddress("S_TREASURY"),
             operator: vm.envAddress("S_OPERATOR"),
             distributor: vm.envAddress("S_DISTRIBUTOR"),
-            relayer: vm.envAddress("S_RELAYER")
+            relayer: vm.envAddress("S_RELAYER"),
+            ethusdoracle: vm.envAddress("S_ETHUSDORACLE"),
+            usdcoracle: vm.envAddress("S_USDCORACLE")
         });
 
         Deployments memory deployments;
@@ -272,8 +276,12 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ forwarder ------------------
 
-        deployments.forwarder = new Forwarder();
+        deployments.forwarder = new Forwarder(cfg.ethusdoracle);
         deployments.forwarder.setFeeBps(2000);
+
+        deployments.forwarder.setPaymentOracle(address(deployments.usdc), cfg.usdcoracle);
+        deployments.forwarder.setPaymentOracle(address(deployments.usdce), cfg.usdcoracle);
+        deployments.forwarder.setPaymentOracle(address(deployments.usdt), cfg.usdcoracle);
 
         deployments.forwarder.setSupportedModule(address(deployments.buyProcessor), true);
         deployments.forwarder.setSupportedModule(address(deployments.sellProcessor), true);
