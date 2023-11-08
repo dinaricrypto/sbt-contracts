@@ -310,12 +310,11 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      */
     function _handlePayment(address user, address paymentToken, uint256 paymentTokenPrice, uint256 gasStart) internal {
         uint256 gasUsed = gasStart - gasleft();
-        // TODO: Test that Arbitrum returns reasonable gasUsed and gasprice values
         // Calculate total gas cost in wei
         uint256 totalGasCostInWei = (gasUsed + cancellationGasCost) * tx.gasprice;
         // Apply payment token price to calculate payment amount
         // Assumes payment token price includes token decimals
-        uint256 paymentAmount;
+        uint256 paymentAmount = 0;
         try IERC20Metadata(paymentToken).decimals() returns (uint8 value) {
             paymentAmount = totalGasCostInWei * 10 ** value / paymentTokenPrice;
         } catch {
