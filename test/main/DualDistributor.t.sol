@@ -10,8 +10,7 @@ import {dShare} from "../../src/dShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
-import {TransparentUpgradeableProxy} from
-    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DualDistributorTest is Test {
     DividendDistribution distribution;
@@ -36,9 +35,8 @@ contract DualDistributorTest is Test {
         dShare tokenImplementation = new dShare();
         dtoken = dShare(
             address(
-                new TransparentUpgradeableProxy(
+                new ERC1967Proxy(
                 address(tokenImplementation),
-                address(this),
                 abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
@@ -46,9 +44,8 @@ contract DualDistributorTest is Test {
         xdShare xtokenImplementation = new xdShare();
         xToken = xdShare(
             address(
-                new TransparentUpgradeableProxy(
+                new ERC1967Proxy(
                 address(xtokenImplementation),
-                address(this),
                 abi.encodeCall(xdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
                 )
             )
