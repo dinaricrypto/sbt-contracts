@@ -173,21 +173,29 @@ contract dShareTest is Test {
 
     function testTransferRestrictedToReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
+        token.mint(user, 1e18);
         vm.prank(restrictor_role);
         restrictor.restrict(user);
+        assertTrue(token.isBlacklisted(user));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         token.transfer(user, 1e18);
+
+        token.setTransferRestrictor(ITransferRestrictor(address(0)));
+        assertFalse(token.isBlacklisted(user));
     }
 
     function testTransferRestrictedFromReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
+        token.mint(user, 1e18);
         vm.prank(restrictor_role);
-        restrictor.restrict(address(this));
+        restrictor.restrict(user);
+        assertTrue(token.isBlacklisted(user));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         token.transfer(user, 1e18);
+
+        token.setTransferRestrictor(ITransferRestrictor(address(0)));
+        assertFalse(token.isBlacklisted(user));
     }
 }

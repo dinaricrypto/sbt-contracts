@@ -200,14 +200,15 @@ contract xdShareTest is Test {
         xToken.mint(aliceShareAmount, alice);
 
         restrictor.restrict(user);
+        assertEq(xToken.isBlacklisted(user), true);
 
         vm.prank(alice);
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         xToken.transfer(user, amount);
 
-        // check if address is blacklist
-        assertEq(xToken.isBlacklisted(user), true);
-        restrictor.unrestrict(user);
+        // remove restrictor
+        token.setTransferRestrictor(ITransferRestrictor(address(0)));
+        assertEq(xToken.isBlacklisted(user), false);
 
         vm.prank(alice);
         xToken.transfer(user, (aliceShareAmount / 2));
