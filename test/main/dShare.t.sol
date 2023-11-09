@@ -8,8 +8,7 @@ import {
     IAccessControlDefaultAdminRules,
     IAccessControl
 } from "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
-import {TransparentUpgradeableProxy} from
-    "openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
@@ -26,9 +25,8 @@ contract dShareTest is Test {
         dShare tokenImplementation = new dShare();
         token = dShare(
             address(
-                new TransparentUpgradeableProxy(
+                new ERC1967Proxy(
                 address(tokenImplementation),
-                address(this),
                 abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
@@ -175,21 +173,29 @@ contract dShareTest is Test {
 
     function testTransferRestrictedToReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
+        token.mint(user, 1e18);
         vm.prank(restrictor_role);
         restrictor.restrict(user);
+        assertTrue(token.isBlacklisted(user));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         token.transfer(user, 1e18);
+
+        token.setTransferRestrictor(ITransferRestrictor(address(0)));
+        assertFalse(token.isBlacklisted(user));
     }
 
     function testTransferRestrictedFromReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
+        token.mint(user, 1e18);
         vm.prank(restrictor_role);
-        restrictor.restrict(address(this));
+        restrictor.restrict(user);
+        assertTrue(token.isBlacklisted(user));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         token.transfer(user, 1e18);
+
+        token.setTransferRestrictor(ITransferRestrictor(address(0)));
+        assertFalse(token.isBlacklisted(user));
     }
 }
