@@ -15,7 +15,9 @@ import {IDividendDistributor} from "./IDividendDistributor.sol";
 contract DualDistributor is AccessControlDefaultAdminRules {
     using SafeERC20 for IERC20;
 
-    event NewDistribution(uint256 distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount);
+    event NewDistribution(
+        uint256 indexed distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount
+    );
 
     error ZeroAddress();
     error XdshareIsNotLocked();
@@ -27,7 +29,7 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     address public USDC;
 
     /// @dev Address of the dividend distribution contract.
-    address public dividendDistrubtion;
+    address public dividendDistribution;
 
     /// @dev Mapping to store the relationship between dShare and xdShare.
     mapping(address dShare => address xdShare) public dShareToXdShare;
@@ -36,11 +38,11 @@ contract DualDistributor is AccessControlDefaultAdminRules {
      * @notice Initializes the `DualDistributor` contract.
      * @param owner The address of the owner/administrator.
      * @param _USDC The address of the USDC token.
-     * @param _dividendDistrubtion The address of the dividend distribution contract.
+     * @param _dividendDistribution The address of the dividend distribution contract.
      */
-    constructor(address owner, address _USDC, address _dividendDistrubtion) AccessControlDefaultAdminRules(0, owner) {
+    constructor(address owner, address _USDC, address _dividendDistribution) AccessControlDefaultAdminRules(0, owner) {
         USDC = _USDC;
-        dividendDistrubtion = _dividendDistrubtion;
+        dividendDistribution = _dividendDistribution;
     }
 
     /**
@@ -54,11 +56,11 @@ contract DualDistributor is AccessControlDefaultAdminRules {
 
     /**
      * @notice Updates the address of the dividend distribution contract.
-     * @param _dividendAddress The new address for dividend distribution.
+     * @param _dividendDistribution The new address for dividend distribution.
      */
-    function setNewDividendAddress(address _dividendAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_dividendAddress == address(0)) revert ZeroAddress();
-        dividendDistrubtion = _dividendAddress;
+    function setDividendDistribution(address _dividendDistribution) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_dividendDistribution == address(0)) revert ZeroAddress();
+        dividendDistribution = _dividendDistribution;
     }
 
     /**
@@ -66,8 +68,8 @@ contract DualDistributor is AccessControlDefaultAdminRules {
      * @param _dShare Address of the dShare token.
      * @param _xdShare Address of the xdShare token.
      */
-    function addDShareXdSharePair(address _dShare, address _xdShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_dShare == address(0) || _xdShare == address(0)) revert ZeroAddress();
+    function setXdShareForDShare(address _dShare, address _xdShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_dShare == address(0)) revert ZeroAddress();
         dShareToXdShare[_dShare] = _xdShare;
     }
 
@@ -89,11 +91,11 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         if (!IxdShare(xdShare).isLocked()) revert XdshareIsNotLocked();
 
         emit NewDistribution(
-            IDividendDistributor(dividendDistrubtion).nextDistributionId(), dShare, usdcAmount, dShareAmount
+            IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, usdcAmount, dShareAmount
         );
 
         IERC20(dShare).safeTransfer(xdShare, dShareAmount);
-        IERC20(USDC).safeIncreaseAllowance(dividendDistrubtion, usdcAmount);
-        return IDividendDistributor(dividendDistrubtion).createDistribution(USDC, usdcAmount, endTime);
+        IERC20(USDC).safeIncreaseAllowance(dividendDistribution, usdcAmount);
+        return IDividendDistributor(dividendDistribution).createDistribution(USDC, usdcAmount, endTime);
     }
 }
