@@ -46,6 +46,21 @@ then run
 yarn deploy:tokenlist:testnet
 ```
 
+Data Tools
+----------
+
+## Pre-requisites
+
+### Installation
+
+1. Install [pyenv](https://github.com/pyenv/pyenv)
+2. Set up the Python environment:
+    ```bash
+    pyenv install $(pyenv local)
+    pip3 install poetry
+    poetry install
+    ```
+
 Security and Liability
 ----------------------
 All contracts are WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
