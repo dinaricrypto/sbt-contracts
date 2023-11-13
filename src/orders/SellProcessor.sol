@@ -3,7 +3,6 @@ pragma solidity 0.8.22;
 
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
-import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @notice Contract managing market sell orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/SellProcessor.sol)
@@ -14,8 +13,6 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
 /// The asset token is automatically refunded if the order is cancelled
 /// Implicitly assumes that asset tokens are dShare and can be burned
 contract SellProcessor is OrderProcessor {
-    using SafeERC20 for IERC20;
-
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();
 
