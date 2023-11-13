@@ -384,8 +384,12 @@ contract SellProcessorTest is Test {
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 
-
-    function testCancelWithVaultActivated(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, string calldata reason) public {
+    function testCancelWithVaultActivated(
+        uint256 orderAmount,
+        uint256 fillAmount,
+        uint256 receivedAmount,
+        string calldata reason
+    ) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);
 
