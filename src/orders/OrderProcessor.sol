@@ -502,13 +502,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             escrowedBalanceOf[order.assetToken][order.recipient] -= fillAmount;
             // Burn the filled quantity from the asset token
             IdShare(order.assetToken).burn(fillAmount);
-
-            // Transfer the received amount from the filler to this contract
-            if (address(vault) != address(0)) {
-                vault.withdrawFunds(order.paymentToken, address(this), receivedAmount);
-            } else {
-                IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
-            }
+            // check vault existence and transfer funds
+            transferFunds(order.paymentToken, address(this), receivedAmount);
 
             // If there are proceeds from the order, transfer them to the recipient
             if (paymentEarned > 0) {
@@ -650,4 +645,14 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         OrderState memory orderState,
         uint256 unfilledAmount
     ) internal virtual returns (uint256 refund);
+
+    // ------------------ Internal Helpers ------------------ /
+
+    function transferFunds(address token, address to, uint256 amount) internal {
+        if (address(vault) != address(0)) {
+            vault.withdrawFunds(token, to, amount);
+        } else {
+            IERC20(token).safeTransferFrom(msg.sender, to, amount);
+        }
+    }
 }
