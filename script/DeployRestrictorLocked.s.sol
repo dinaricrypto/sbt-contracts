@@ -2,14 +2,13 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
-import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import "../src/TransferRestrictorLocked.sol";
 import {dShare} from "../src/dShare.sol";
 
-contract DeployRestrictorScript is Script {
+contract DeployRestrictorLockedScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address owner = vm.envAddress("RESTRICTOR");
+        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_KEY");
 
         address[13] memory assetTokens = [
             0xa40c0975607BDbF7B868755E352570454b5B2e48,
@@ -36,7 +35,7 @@ contract DeployRestrictorScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy new restrictor
-        TransferRestrictor restrictor = new TransferRestrictor(owner);
+        TransferRestrictorLocked restrictor = new TransferRestrictorLocked();
 
         // replace old restrictor
         for (uint256 i = 0; i < assetTokens.length; i++) {
