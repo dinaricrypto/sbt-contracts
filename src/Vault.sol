@@ -12,7 +12,7 @@ import {
 contract Vault is IVault, AccessControlDefaultAdminRules {
     using SafeERC20 for IERC20;
 
-    bytes32 public constant SELL_PROCESSOR_ROLE = keccak256("SELL_PROCESSOR_ROLE");
+    bytes32 public constant AUTHORIZED_PROCESSOR_ROLE = keccak256("AUTHORIZED_PROCESSOR_ROLE");
 
     constructor() AccessControlDefaultAdminRules(0, msg.sender) {}
 
@@ -29,7 +29,7 @@ contract Vault is IVault, AccessControlDefaultAdminRules {
     function withdrawFunds(address token, address user, uint256 amount)
         external
         override
-        onlyRole(SELL_PROCESSOR_ROLE)
+        onlyRole(AUTHORIZED_PROCESSOR_ROLE)
     {
         if (amount > 0) {
             IERC20(token).safeTransfer(user, amount);

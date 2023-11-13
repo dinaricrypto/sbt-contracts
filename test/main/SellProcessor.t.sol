@@ -213,7 +213,7 @@ contract SellProcessorTest is Test {
         }
 
         issuer.setVault(vault);
-        vault.grantRole(vault.SELL_PROCESSOR_ROLE(), address(issuer));
+        vault.grantRole(vault.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
 
         token.mint(user, orderAmount);
         vm.prank(user);
@@ -401,9 +401,46 @@ contract SellProcessorTest is Test {
         token.approve(address(issuer), orderAmount);
 
         issuer.setVault(vault);
+        vault.grantRole(vault.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
         bytes32 id = issuer.getOrderId(order.recipient, index);
+
+        uint256 feesEarned = 0;
+        if (fillAmount > 0) {
+            if (receivedAmount > 0) {
+                if (receivedAmount <= flatFee) {
+                    feesEarned = receivedAmount;
+                } else {
+                    feesEarned = flatFee + PrbMath.mulDiv18(receivedAmount - flatFee, percentageFeeRate);
+                }
+            }
+            // assume vault as enough paymentToken
+            paymentToken.mint(address(vault), receivedAmount);
+
+            vm.prank(operator);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            assertEq(issuer.getTotalReceived(id), receivedAmount);
+        }
+
+        vm.expectEmit(true, true, true, true);
+        emit OrderCancelled(order.recipient, index, reason);
+        vm.prank(operator);
+        issuer.cancelOrder(order, index, reason);
+        // balances after
+        assertEq(paymentToken.balanceOf(address(vault)), 0);
+        assertEq(token.balanceOf(address(issuer)), 0);
+
+        if (fillAmount > 0) {
+            uint256 escrow = orderAmount - fillAmount;
+            assertEq(paymentToken.balanceOf(user), receivedAmount - feesEarned);
+            assertEq(token.balanceOf(user), escrow);
+            assertEq(paymentToken.balanceOf(treasury), feesEarned);
+            assertEq(issuer.getTotalReceived(id), 0);
+        } else {
+            assertEq(token.balanceOf(user), orderAmount);
+        }
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 }

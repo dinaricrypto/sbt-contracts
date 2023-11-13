@@ -435,6 +435,53 @@ contract BuyProcessorTest is Test {
         }
     }
 
+    function testFillOrderWithVaultActivated(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
+        vm.assume(orderAmount > 0);
+        uint256 flatFee;
+        uint256 fees;
+        {
+            uint24 percentageFeeRate;
+            (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+            fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+            vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        }
+        uint256 quantityIn = orderAmount + fees;
+
+        IOrderProcessor.Order memory order = dummyOrder;
+        order.paymentTokenQuantity = orderAmount;
+
+        uint256 feesEarned = 0;
+        if (fillAmount > 0) {
+            feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
+        }
+
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.approve(address(issuer), quantityIn);
+
+        // set vault
+        issuer.setVault(vault);
+        vault.grantRole(vault.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
+
+        vm.prank(user);
+        uint256 index = issuer.requestOrder(order);
+
+        bytes32 id = issuer.getOrderId(order.recipient, index);
+
+        // vm.assume(fillAmount <= orderAmount);
+
+        if (fillAmount == orderAmount) {
+            uint256 userAssetBefore = token.balanceOf(user);
+            uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
+            uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
+            vm.expectEmit(true, true, true, false);
+            // since we can't capture
+            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
+            vm.prank(operator);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+        }
+    }
+
     function testFulfillOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
         uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);

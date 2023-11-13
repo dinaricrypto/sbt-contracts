@@ -519,7 +519,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             escrowedBalanceOf[order.paymentToken][order.recipient] -= paymentEarned + feesEarned;
             // Claim payment
             if (address(vault) != address(0)) {
-                vault.withdrawFunds(order.paymentToken, msg.sender, paymentEarned);
+                // use funds from the vault to execute next operations
+                vault.withdrawFunds(order.paymentToken, address(this), paymentEarned + feesEarned);
+                IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
             } else {
                 IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
             }
