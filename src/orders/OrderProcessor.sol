@@ -18,6 +18,7 @@ import {IdShare} from "../IdShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 import {IFeeSchedule} from "./IFeeSchedule.sol";
+import {IVault} from "../IVault.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
@@ -135,6 +136,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Transfer restrictor checker
     ITokenLockCheck public tokenLockCheck;
 
+    /// @notice Vault contract
+    IVault public vault;
+
     /// @dev Are orders paused?
     bool public ordersPaused;
 
@@ -204,6 +208,12 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
         treasury = account;
         emit TreasurySet(account);
+    }
+
+    /// @notice Set vault address
+    /// @param _vault Address to receive payment
+    function setVault(IVault _vault) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        vault = _vault;
     }
 
     /// @notice Set the base and percentage fees
@@ -395,7 +405,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
 
             // Escrow payment for purchase
-            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), quantityIn);
+            _processPayment(order.paymentToken, msg.sender, quantityIn);
         }
     }
 
@@ -629,4 +639,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         OrderState memory orderState,
         uint256 unfilledAmount
     ) internal virtual returns (uint256 refund);
+
+    // @notice Handles payment processing. Deposits or withdraw the specified amount to the vault if available;
+    // @param paymentToken payment token
+    // @param amount amount of token to process
+    function _processPayment(address paymentToken, address user, uint256 amount) internal virtual;
 }

@@ -84,4 +84,10 @@ contract SellProcessor is OrderProcessor {
     {
         refund = unfilledAmount;
     }
+
+    function _processPayment(address paymentToken, address user, uint256 amount) internal virtual override {
+        if (address(vault) != address(0)) {
+            vault.withdrawFunds(paymentToken, user, amount);
+        }
+    }
 }

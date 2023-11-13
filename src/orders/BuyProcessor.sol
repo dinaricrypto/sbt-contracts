@@ -4,6 +4,7 @@ pragma solidity 0.8.22;
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 import {FeeLib} from "../common/FeeLib.sol";
+import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BuyProcessor.sol)
@@ -13,6 +14,8 @@ import {FeeLib} from "../common/FeeLib.sol";
 /// Payment is automatically refunded if the order is cancelled
 /// Implicitly assumes that asset tokens are dShare and can be minted
 contract BuyProcessor is OrderProcessor {
+    using SafeERC20 for IERC20;
+
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
 
@@ -70,6 +73,15 @@ contract BuyProcessor is OrderProcessor {
         if (refund < order.paymentTokenQuantity + totalFees) {
             // Refund remaining order and fees
             refund -= orderState.feesPaid;
+        }
+    }
+
+    /// @inheritdoc OrderProcessor
+    function _processPayment(address paymentToken, address user, uint256 amount) internal virtual override {
+        if (address(vault) != address(0)) {
+            IERC20(paymentToken).safeTransferFrom(user, address(vault), amount);
+        } else {
+            IERC20(paymentToken).safeTransferFrom(user, address(this), amount);
         }
     }
 }
