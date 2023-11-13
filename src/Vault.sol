@@ -31,6 +31,8 @@ contract Vault is IVault, AccessControlDefaultAdminRules {
         override
         onlyRole(SELL_PROCESSOR_ROLE)
     {
-        IERC20(token).safeTransfer(user, amount);
+        if (amount > 0) {
+            IERC20(token).safeTransfer(user, amount);
+        }
     }
 }

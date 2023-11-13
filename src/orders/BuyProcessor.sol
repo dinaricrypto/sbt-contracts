@@ -75,13 +75,4 @@ contract BuyProcessor is OrderProcessor {
             refund -= orderState.feesPaid;
         }
     }
-
-    /// @inheritdoc OrderProcessor
-    function _processPayment(address paymentToken, address user, uint256 amount) internal virtual override {
-        if (address(vault) != address(0)) {
-            IERC20(paymentToken).safeTransferFrom(user, address(vault), amount);
-        } else {
-            IERC20(paymentToken).safeTransferFrom(user, address(this), amount);
-        }
-    }
 }

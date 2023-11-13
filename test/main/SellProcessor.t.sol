@@ -9,6 +9,7 @@ import "../../src/orders/SellProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {IVault, Vault} from "../../src/Vault.sol";
 
 contract SellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
@@ -24,6 +25,7 @@ contract SellProcessorTest is Test {
     dShare token;
     TokenLockCheck tokenLockCheck;
     SellProcessor issuer;
+    Vault vault;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -45,6 +47,7 @@ contract SellProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        vault = new Vault();
 
         issuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
@@ -194,6 +197,62 @@ contract SellProcessorTest is Test {
         }
     }
 
+    function testFillOrderWithVaultActivated(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
+        vm.assume(orderAmount > 0 && fillAmount == orderAmount);
+
+        IOrderProcessor.Order memory order = dummyOrder;
+        order.assetTokenQuantity = orderAmount;
+
+        uint256 feesEarned = 0;
+        if (receivedAmount > 0) {
+            if (receivedAmount <= flatFee) {
+                feesEarned = receivedAmount;
+            } else {
+                feesEarned = flatFee + PrbMath.mulDiv18(receivedAmount - flatFee, percentageFeeRate);
+            }
+        }
+
+        issuer.setVault(vault);
+        vault.grantRole(vault.SELL_PROCESSOR_ROLE(), address(issuer));
+
+        token.mint(user, orderAmount);
+        vm.prank(user);
+        token.approve(address(issuer), orderAmount);
+
+        vm.prank(user);
+        uint256 index = issuer.requestOrder(order);
+
+        // add paymentToken to vault
+        paymentToken.mint(address(vault), receivedAmount);
+
+        bytes32 id = issuer.getOrderId(order.recipient, index);
+
+        assertEq(paymentToken.balanceOf(address(vault)), receivedAmount);
+
+        vm.assume(fillAmount <= orderAmount);
+
+        uint256 userPaymentBefore = paymentToken.balanceOf(user);
+        uint256 issuerAssetBefore = token.balanceOf(address(issuer));
+        uint256 vaultPaymentBefore = paymentToken.balanceOf(address(vault));
+
+        vm.prank(operator);
+        issuer.fillOrder(order, index, fillAmount, receivedAmount);
+
+        assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - feesEarned);
+        assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
+        assertEq(paymentToken.balanceOf(address(vault)), vaultPaymentBefore - receivedAmount);
+        assertEq(paymentToken.balanceOf(treasury), feesEarned);
+
+        if (fillAmount == orderAmount) {
+            assertEq(issuer.numOpenOrders(), 0);
+            assertEq(issuer.getTotalReceived(id), 0);
+            assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
+        } else {
+            assertEq(issuer.getTotalReceived(id), receivedAmount);
+            assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        }
+    }
+
     function testFulfillOrder(
         uint256 orderAmount,
         uint256 firstFillAmount,
@@ -323,5 +382,24 @@ contract SellProcessorTest is Test {
             assertEq(token.balanceOf(user), orderAmount);
         }
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
+    }
+
+
+    function testCancelWithVaultActivated(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, string calldata reason) public {
+        vm.assume(orderAmount > 0);
+        vm.assume(fillAmount < orderAmount);
+
+        IOrderProcessor.Order memory order = dummyOrder;
+        order.assetTokenQuantity = orderAmount;
+
+        token.mint(user, orderAmount);
+        vm.prank(user);
+        token.approve(address(issuer), orderAmount);
+
+        issuer.setVault(vault);
+
+        vm.prank(user);
+        uint256 index = issuer.requestOrder(order);
+        bytes32 id = issuer.getOrderId(order.recipient, index);
     }
 }

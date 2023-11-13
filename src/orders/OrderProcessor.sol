@@ -136,7 +136,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Transfer restrictor checker
     ITokenLockCheck public tokenLockCheck;
 
-    /// @notice Vault contract
     IVault public vault;
 
     /// @dev Are orders paused?
@@ -210,8 +209,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TreasurySet(account);
     }
 
-    /// @notice Set vault address
-    /// @param _vault Address to receive payment
     function setVault(IVault _vault) external onlyRole(DEFAULT_ADMIN_ROLE) {
         vault = _vault;
     }
@@ -405,7 +402,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
 
             // Escrow payment for purchase
-            _processPayment(order.paymentToken, msg.sender, quantityIn);
+            if (address(vault) != address(0)) {
+                IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(vault), quantityIn);
+            } else {
+                IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), quantityIn);
+            }
         }
     }
 
@@ -503,7 +504,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             IdShare(order.assetToken).burn(fillAmount);
 
             // Transfer the received amount from the filler to this contract
-            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
+            if (address(vault) != address(0)) {
+                vault.withdrawFunds(order.paymentToken, address(this), receivedAmount);
+            } else {
+                IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
+            }
 
             // If there are proceeds from the order, transfer them to the recipient
             if (paymentEarned > 0) {
@@ -513,7 +518,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // update escrowed balance
             escrowedBalanceOf[order.paymentToken][order.recipient] -= paymentEarned + feesEarned;
             // Claim payment
-            IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
+            if (address(vault) != address(0)) {
+                vault.withdrawFunds(order.paymentToken, msg.sender, paymentEarned);
+            } else {
+                IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
+            }
 
             // Mint asset
             IdShare(order.assetToken).mint(order.recipient, receivedAmount);
@@ -639,9 +648,4 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         OrderState memory orderState,
         uint256 unfilledAmount
     ) internal virtual returns (uint256 refund);
-
-    // @notice Handles payment processing. Deposits or withdraw the specified amount to the vault if available;
-    // @param paymentToken payment token
-    // @param amount amount of token to process
-    function _processPayment(address paymentToken, address user, uint256 amount) internal virtual;
 }
