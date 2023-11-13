@@ -4,6 +4,7 @@ pragma solidity 0.8.22;
 import "prb-math/Common.sol" as PrbMath;
 import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 import {FeeLib} from "../common/FeeLib.sol";
+
 /// @notice Contract managing market purchase orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/BuyProcessor.sol)
 /// This order processor emits market orders to buy the underlying asset that are good until cancelled
@@ -11,7 +12,6 @@ import {FeeLib} from "../common/FeeLib.sol";
 /// The payment is escrowed until the order is filled or cancelled
 /// Payment is automatically refunded if the order is cancelled
 /// Implicitly assumes that asset tokens are dShare and can be minted
-
 contract BuyProcessor is OrderProcessor {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();

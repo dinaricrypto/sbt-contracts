@@ -468,17 +468,22 @@ contract BuyProcessorTest is Test {
 
         bytes32 id = issuer.getOrderId(order.recipient, index);
 
-        // vm.assume(fillAmount <= orderAmount);
-
         if (fillAmount == orderAmount) {
             uint256 userAssetBefore = token.balanceOf(user);
-            uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
-            uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
+            uint256 vaultPaymentBefore = paymentToken.balanceOf(address(vault));
             vm.expectEmit(true, true, true, false);
             // since we can't capture
             emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
+
+            assertEq(issuer.numOpenOrders(), 0);
+            assertEq(issuer.getTotalReceived(id), 0);
+
+            assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
+            // assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount - feesEarned);
+            assertEq(paymentToken.balanceOf(address(vault)), vaultPaymentBefore - fillAmount - feesEarned);
+            assertEq(paymentToken.balanceOf(treasury), feesEarned);
         }
     }
 
