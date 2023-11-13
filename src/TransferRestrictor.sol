@@ -11,9 +11,6 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 contract TransferRestrictor is AccessControlDefaultAdminRules, ITransferRestrictor {
     /// ------------------ Types ------------------ ///
 
-    /// @dev Account is restricted
-    error AccountRestricted();
-
     /// @dev Emitted when `account` is added to `isBlacklisted`
     event Restricted(address indexed account);
     /// @dev Emitted when `account` is removed from `isBlacklisted`

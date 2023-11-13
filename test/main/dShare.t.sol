@@ -178,7 +178,7 @@ contract dShareTest is Test {
         restrictor.restrict(user);
         assertTrue(token.isBlacklisted(user));
 
-        vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
+        vm.expectRevert(ITransferRestrictor.AccountRestricted.selector);
         token.transfer(user, 1e18);
 
         token.setTransferRestrictor(ITransferRestrictor(address(0)));
@@ -192,7 +192,7 @@ contract dShareTest is Test {
         restrictor.restrict(user);
         assertTrue(token.isBlacklisted(user));
 
-        vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
+        vm.expectRevert(ITransferRestrictor.AccountRestricted.selector);
         token.transfer(user, 1e18);
 
         token.setTransferRestrictor(ITransferRestrictor(address(0)));

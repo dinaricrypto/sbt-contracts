@@ -4,6 +4,9 @@ pragma solidity 0.8.22;
 /// @notice Enforces transfer restrictions
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/ITransferRestrictor.sol)
 interface ITransferRestrictor {
+    /// @dev Account is restricted
+    error AccountRestricted();
+
     /// @notice Checks if the transfer is allowed
     /// @param from The address of the sender
     /// @param to The address of the recipient

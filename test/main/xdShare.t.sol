@@ -203,7 +203,7 @@ contract xdShareTest is Test {
         assertEq(xToken.isBlacklisted(user), true);
 
         vm.prank(alice);
-        vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
+        vm.expectRevert(ITransferRestrictor.AccountRestricted.selector);
         xToken.transfer(user, amount);
 
         // remove restrictor
