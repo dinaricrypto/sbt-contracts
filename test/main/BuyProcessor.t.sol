@@ -14,6 +14,7 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {IVault, Vault} from "../../src/Vault.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -36,6 +37,7 @@ contract BuyProcessorTest is Test {
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
     TransferRestrictor restrictor;
+    Vault vault;
 
     uint256 userPrivateKey;
     address user;
@@ -60,6 +62,7 @@ contract BuyProcessorTest is Test {
         tokenLockCheck.setAsDShare(address(token));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        vault = new Vault();
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -196,6 +199,34 @@ contract BuyProcessorTest is Test {
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + (quantityIn));
             assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn);
         }
+    }
+
+    function testResquestOrderWithVaultActivated(uint256 orderAmount) public {
+        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        vm.assume(orderAmount > 0);
+        IOrderProcessor.Order memory order = dummyOrder;
+        order.paymentTokenQuantity = orderAmount;
+        uint256 quantityIn = order.paymentTokenQuantity + fees;
+
+        // set vault
+        issuer.setVault(vault);
+        assertEq(address(issuer.vault()), address(vault));
+
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.approve(address(issuer), quantityIn);
+
+        uint256 userBalanceBefore = paymentToken.balanceOf(user);
+        uint256 vaultBalanceBefore = paymentToken.balanceOf(address(vault));
+
+        vm.prank(user);
+        uint256 index = issuer.requestOrder(order);
+
+        assertEq(index, 0);
+        assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - (quantityIn));
+        assertEq(paymentToken.balanceOf(address(issuer)), 0);
+        assertEq(paymentToken.balanceOf(address(vault)), vaultBalanceBefore + (quantityIn));
     }
 
     function testRequestOrderZeroAddressReverts() public {
