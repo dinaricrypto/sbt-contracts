@@ -461,7 +461,6 @@ contract BuyProcessorTest is Test {
 
         // set vault
         issuer.setVault(vault);
-        vault.grantRole(vault.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -474,6 +473,19 @@ contract BuyProcessorTest is Test {
             vm.expectEmit(true, true, true, false);
             // since we can't capture
             emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
+
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    IAccessControl.AccessControlUnauthorizedAccount.selector,
+                    address(issuer),
+                    vault.AUTHORIZED_PROCESSOR_ROLE()
+                )
+            );
+            vm.prank(operator);
+            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+
+            vault.grantRole(vault.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
+
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
 
