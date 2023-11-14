@@ -47,7 +47,7 @@ contract SellProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        vault = new Vault();
+        vault = new Vault(address(this));
 
         issuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 

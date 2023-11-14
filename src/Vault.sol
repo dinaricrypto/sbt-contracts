@@ -14,7 +14,7 @@ contract Vault is IVault, AccessControlDefaultAdminRules {
 
     bytes32 public constant AUTHORIZED_PROCESSOR_ROLE = keccak256("AUTHORIZED_PROCESSOR_ROLE");
 
-    constructor() AccessControlDefaultAdminRules(0, msg.sender) {}
+    constructor(address admin) AccessControlDefaultAdminRules(0, admin) {}
 
     /**
      * @notice Rescue ERC20 tokens locked up in this contract.

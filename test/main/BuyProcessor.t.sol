@@ -62,7 +62,7 @@ contract BuyProcessorTest is Test {
         tokenLockCheck.setAsDShare(address(token));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        vault = new Vault();
+        vault = new Vault(address(this));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
