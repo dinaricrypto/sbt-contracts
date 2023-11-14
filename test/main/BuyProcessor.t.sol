@@ -15,6 +15,7 @@ import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 import {IVault, Vault} from "../../src/Vault.sol";
+import {VaultRouter} from "../../src/VaultRouter.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -38,6 +39,7 @@ contract BuyProcessorTest is Test {
     TokenLockCheck tokenLockCheck;
     TransferRestrictor restrictor;
     Vault vault;
+    VaultRouter vaultRouter;
 
     uint256 userPrivateKey;
     address user;
@@ -63,6 +65,8 @@ contract BuyProcessorTest is Test {
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
         vault = new Vault(address(this));
+        vaultRouter = new VaultRouter(vault);
+        vaultRouter.grantRole(vaultRouter.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -210,8 +214,8 @@ contract BuyProcessorTest is Test {
         uint256 quantityIn = order.paymentTokenQuantity + fees;
 
         // set vault
-        issuer.setVault(vault);
-        assertEq(address(issuer.vault()), address(vault));
+        issuer.setVaultRouter(vaultRouter);
+        assertEq(address(issuer.vaultRouter()), address(vaultRouter));
 
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
@@ -460,7 +464,7 @@ contract BuyProcessorTest is Test {
         paymentToken.approve(address(issuer), quantityIn);
 
         // set vault
-        issuer.setVault(vault);
+        issuer.setVaultRouter(vaultRouter);
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
@@ -477,14 +481,14 @@ contract BuyProcessorTest is Test {
             vm.expectRevert(
                 abi.encodeWithSelector(
                     IAccessControl.AccessControlUnauthorizedAccount.selector,
-                    address(issuer),
-                    vault.AUTHORIZED_PROCESSOR_ROLE()
+                    address(vaultRouter),
+                    vault.AUTHORIZED_ROUTER_ROLE()
                 )
             );
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);
 
-            vault.grantRole(vault.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
+            vault.grantRole(vault.AUTHORIZED_ROUTER_ROLE(), address(vaultRouter));
 
             vm.prank(operator);
             issuer.fillOrder(order, index, fillAmount, receivedAmount);

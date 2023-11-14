@@ -10,6 +10,7 @@ import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IVault, Vault} from "../../src/Vault.sol";
+import {VaultRouter} from "../../src/VaultRouter.sol";
 
 contract SellProcessorTest is Test {
     event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
@@ -26,6 +27,7 @@ contract SellProcessorTest is Test {
     TokenLockCheck tokenLockCheck;
     SellProcessor issuer;
     Vault vault;
+    VaultRouter vaultRouter;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -47,9 +49,11 @@ contract SellProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-        vault = new Vault(address(this));
-
         issuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+
+        vault = new Vault(address(this));
+        vaultRouter = new VaultRouter(vault);
+        vaultRouter.grantRole(vaultRouter.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -212,8 +216,8 @@ contract SellProcessorTest is Test {
             }
         }
 
-        issuer.setVault(vault);
-        vault.grantRole(vault.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
+        issuer.setVaultRouter(vaultRouter);
+        vault.grantRole(vault.AUTHORIZED_ROUTER_ROLE(), address(vaultRouter));
 
         token.mint(user, orderAmount);
         vm.prank(user);
@@ -400,8 +404,8 @@ contract SellProcessorTest is Test {
         vm.prank(user);
         token.approve(address(issuer), orderAmount);
 
-        issuer.setVault(vault);
-        vault.grantRole(vault.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
+        issuer.setVaultRouter(vaultRouter);
+        vault.grantRole(vault.AUTHORIZED_ROUTER_ROLE(), address(vaultRouter));
 
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);

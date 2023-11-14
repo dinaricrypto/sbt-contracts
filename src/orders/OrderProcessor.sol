@@ -18,7 +18,7 @@ import {IdShare} from "../IdShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 import {IFeeSchedule} from "./IFeeSchedule.sol";
-import {IVault} from "../IVault.sol";
+import {IVaultRouter} from "../IVaultRouter.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
@@ -136,7 +136,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Transfer restrictor checker
     ITokenLockCheck public tokenLockCheck;
 
-    IVault public vault;
+    IVaultRouter public vaultRouter;
 
     /// @dev Are orders paused?
     bool public ordersPaused;
@@ -209,8 +209,11 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TreasurySet(account);
     }
 
-    function setVault(IVault _vault) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        vault = _vault;
+    /// @notice Sets a new VaultRouter contract address.
+    /// @dev This function can only be called by an account with the DEFAULT_ADMIN_ROLE.
+    /// @param _vaultRouter The address of the new VaultRouter contract.
+    function setVaultRouter(IVaultRouter _vaultRouter) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        vaultRouter = _vaultRouter;
     }
 
     /// @notice Set the base and percentage fees
@@ -402,8 +405,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
 
             // Escrow payment for purchase
-            if (address(vault) != address(0)) {
-                IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(vault), quantityIn);
+            if (address(vaultRouter) != address(0)) {
+                IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(vaultRouter.vault()), quantityIn);
             } else {
                 IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), quantityIn);
             }
@@ -503,7 +506,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // Burn the filled quantity from the asset token
             IdShare(order.assetToken).burn(fillAmount);
             // check vault existence and transfer funds
-            transferFunds(order.paymentToken, address(this), receivedAmount);
+            transferFunds(IERC20(order.paymentToken), address(this), receivedAmount);
 
             // If there are proceeds from the order, transfer them to the recipient
             if (paymentEarned > 0) {
@@ -513,9 +516,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // update escrowed balance
             escrowedBalanceOf[order.paymentToken][order.recipient] -= paymentEarned + feesEarned;
             // Claim payment
-            if (address(vault) != address(0)) {
+            if (address(vaultRouter) != address(0)) {
                 // use funds from the vault to execute next operations
-                vault.withdrawFunds(order.paymentToken, address(this), paymentEarned + feesEarned);
+                vaultRouter.withdrawFunds(IERC20(order.paymentToken), address(this), paymentEarned + feesEarned);
                 IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
             } else {
                 IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
@@ -648,9 +651,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     // ------------------ Internal Helpers ------------------ /
 
-    function transferFunds(address token, address to, uint256 amount) internal {
-        if (address(vault) != address(0)) {
-            vault.withdrawFunds(token, to, amount);
+    function transferFunds(IERC20 token, address to, uint256 amount) internal {
+        if (address(vaultRouter) != address(0)) {
+            vaultRouter.withdrawFunds(token, to, amount);
         } else {
             IERC20(token).safeTransferFrom(msg.sender, to, amount);
         }
