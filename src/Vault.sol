@@ -43,7 +43,7 @@ contract Vault is IVault, AccessControlDefaultAdminRules {
         override
         onlyRole(AUTHORIZED_OPERATOR_ROLE)
     {
-        token.safeTransfer(user, amount);
         emit FundsWithdrawn(token, user, amount);
+        token.safeTransfer(user, amount);
     }
 }
