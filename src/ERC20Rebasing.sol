@@ -9,6 +9,7 @@ import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 // this rebasing erc20 is an extension of solady erc20 which preserves existing balances when upgrading from solady erc20
 // TODO: use higher prevision PRB math to reduce/prevent rounding errors?
 // Very tightly coupled to solady erc20
+// Uses max uint128 for max supply to allow for more precision when rounding to/from shares
 abstract contract ERC20Rebasing is ERC20 {
     uint256 private constant _TRANSFER_EVENT_SIGNATURE =
         0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef;
