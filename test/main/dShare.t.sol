@@ -114,16 +114,6 @@ contract dShareTest is Test {
         assertEq(token.balanceOf(user), 0.1e18);
     }
 
-    function testAttemptToFalsifyTotalsupply() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(user, 1e18);
-
-        // invalid burn
-        vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InvalidReceiver.selector, address(0)));
-        vm.prank(user);
-        token.transfer(address(0), 0.1e18);
-    }
-
     function testBurnUnauthorizedReverts() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(user, 1e18);

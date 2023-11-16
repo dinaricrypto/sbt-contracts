@@ -62,7 +62,6 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
         string memory _symbol,
         ITransferRestrictor _transferRestrictor
     ) public initializer {
-        __ERC20Rebasing_init(_name);
         __AccessControlDefaultAdminRules_init_unchained(0, owner);
 
         dShareStorage storage $ = _getdShareStorage();
@@ -166,7 +165,7 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
 
     /// ------------------ Transfers ------------------ ///
 
-    function _update(address from, address to, uint256 value) internal override {
+    function _beforeTokenTransfer(address from, address to, uint256) internal view override {
         // If transferRestrictor is not set, no restrictions are applied
         dShareStorage storage $ = _getdShareStorage();
         ITransferRestrictor _transferRestrictor = $._transferRestrictor;
@@ -174,8 +173,6 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
             // Check transfer restrictions
             _transferRestrictor.requireNotRestricted(from, to);
         }
-
-        super._update(from, to, value);
     }
 
     /**
