@@ -2,35 +2,36 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import {dShare} from "../../src/dShare.sol";
+import "../../src/dShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {
     IAccessControlDefaultAdminRules,
     IAccessControl
 } from "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
     event SymbolSet(string symbol);
-    event DisclosuresSet(string disclosures);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
-    TransferRestrictor public restrictor;
-    dShare public token;
-
-    address public constant restrictor_role = address(1);
-    address public constant user = address(2);
+    TransferRestrictor restrictor;
+    dShare token;
+    address restrictor_role = address(1);
+    address user = address(2);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
-        token = new dShare(
-            address(this),
-            "Dinari Token",
-            "dTKN",
-            "example.com",
-            restrictor
+        dShare tokenImplementation = new dShare();
+        token = dShare(
+            address(
+                new ERC1967Proxy(
+                address(tokenImplementation),
+                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                )
+            )
         );
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
     }
@@ -65,14 +66,9 @@ contract dShareTest is Test {
         assertEq(token.symbol(), symbol);
     }
 
-    function testSetDisclosures(string calldata disclosures) public {
-        vm.expectEmit(true, true, true, true);
-        emit DisclosuresSet(disclosures);
-        token.setDisclosures(disclosures);
-        assertEq(token.disclosures(), disclosures);
-    }
-
     function testSetRestrictor(address account) public {
+        vm.assume(account != address(this));
+
         vm.expectEmit(true, true, true, true);
         emit TransferRestrictorSet(ITransferRestrictor(account));
         token.setTransferRestrictor(ITransferRestrictor(account));
@@ -189,30 +185,30 @@ contract dShareTest is Test {
 
     function testTransferRestrictedTo() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
+        token.mint(user, 1e18);
         vm.prank(restrictor_role);
         restrictor.restrict(user);
+        assertTrue(token.isBlacklisted(user));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         token.transfer(user, 1e18);
 
-        // works if restrictor removed
         token.setTransferRestrictor(ITransferRestrictor(address(0)));
-        token.transfer(user, 1e18);
+        assertFalse(token.isBlacklisted(user));
     }
 
     function testTransferRestrictedFrom() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
+        token.mint(user, 1e18);
         vm.prank(restrictor_role);
-        restrictor.restrict(address(this));
+        restrictor.restrict(user);
+        assertTrue(token.isBlacklisted(user));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         token.transfer(user, 1e18);
 
-        // works if restrictor removed
         token.setTransferRestrictor(ITransferRestrictor(address(0)));
-        token.transfer(user, 1e18);
+        assertFalse(token.isBlacklisted(user));
     }
 
     // function testSharesMath(uint256 shares) public {

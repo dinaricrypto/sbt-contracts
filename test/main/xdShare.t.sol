@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {dShare} from "../../src/dShare.sol";
 import {xdShare} from "../../src/dividend/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract xdShareTest is Test {
     TransferRestrictor public restrictor;
@@ -21,11 +21,26 @@ contract xdShareTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), address(this));
-
-        token = new dShare(address(this), "Dinari Token", "dTKN", "example.com", restrictor);
+        dShare tokenImplementation = new dShare();
+        token = dShare(
+            address(
+                new ERC1967Proxy(
+                address(tokenImplementation),
+                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                )
+            )
+        );
         token.grantRole(token.MINTER_ROLE(), address(this));
 
-        xToken = new xdShare(token, "Reinvesting dTKN.d", "dTKN.d.x");
+        xdShare xtokenImplementation = new xdShare();
+        xToken = xdShare(
+            address(
+                new ERC1967Proxy(
+                address(xtokenImplementation),
+                abi.encodeCall(xdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                )
+            )
+        );
     }
 
     function overflowChecker(uint256 a, uint256 b) internal pure returns (bool) {
@@ -47,6 +62,8 @@ contract xdShareTest is Test {
     }
 
     function testLockMint(uint128 amount, address receiver) public {
+        vm.assume(receiver != address(this));
+
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);
@@ -73,6 +90,8 @@ contract xdShareTest is Test {
     }
 
     function testRedeemLock(uint128 amount, address receiver) public {
+        vm.assume(receiver != address(this));
+
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);
@@ -243,14 +262,15 @@ contract xdShareTest is Test {
         xToken.mint(aliceShareAmount, alice);
 
         restrictor.restrict(user);
+        assertEq(xToken.isBlacklisted(user), true);
 
         vm.prank(alice);
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         xToken.transfer(user, amount);
 
-        // check if address is blacklist
-        assertEq(xToken.isBlacklisted(user), true);
-        restrictor.unrestrict(user);
+        // remove restrictor
+        token.setTransferRestrictor(ITransferRestrictor(address(0)));
+        assertEq(xToken.isBlacklisted(user), false);
 
         vm.prank(alice);
         xToken.transfer(user, (aliceShareAmount / 2));

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.22;
 
-import "solady/src/tokens/ERC20.sol";
+// import "solady/src/tokens/ERC20.sol";
+import {MockERC20PermitVersion} from "./MockERC20PermitVersion.sol";
 import {AccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
-contract MockToken is ERC20, AccessControl {
+contract MockToken is MockERC20PermitVersion, AccessControl {
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
     string _name;
@@ -14,7 +17,13 @@ contract MockToken is ERC20, AccessControl {
     mapping(address => bool) public isBlackListed;
     mapping(address => bool) public isBlocked;
 
-    constructor(string memory name_, string memory symbol_) {
+    constructor(string memory name_, string memory symbol_)
+        MockERC20PermitVersion(
+            name_,
+            Strings.toString(uint8(uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % 250))
+        )
+        ERC20(name_, symbol_)
+    {
         _name = name_;
         _symbol = symbol_;
 

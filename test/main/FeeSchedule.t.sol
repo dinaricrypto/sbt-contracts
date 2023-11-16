@@ -6,7 +6,7 @@ import {BuyProcessor} from "../../src/orders/BuyProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {FeeSchedule, IFeeSchedule} from "../../src/orders/FeeSchedule.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
+import "../utils/mocks/MockdShareFactory.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract FeeScheduleTest is Test {
@@ -15,6 +15,7 @@ contract FeeScheduleTest is Test {
     FeeSchedule feeSchedule;
     BuyProcessor issuer;
     TokenLockCheck tokenLockCheck;
+    MockdShareFactory tokenFactory;
     dShare token;
     MockToken paymentToken;
 
@@ -28,7 +29,8 @@ contract FeeScheduleTest is Test {
         user = vm.addr(userPrivateKey);
         feeSchedule = new FeeSchedule(address(this));
 
-        token = new MockdShare();
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));

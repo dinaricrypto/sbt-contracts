@@ -3,12 +3,11 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
+import "../utils/mocks/MockdShareFactory.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/SellProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract SellProcessorTest is Test {
@@ -21,6 +20,7 @@ contract SellProcessorTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
+    MockdShareFactory tokenFactory;
     dShare token;
     TokenLockCheck tokenLockCheck;
     SellProcessor issuer;
@@ -40,7 +40,8 @@ contract SellProcessorTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockdShare();
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));

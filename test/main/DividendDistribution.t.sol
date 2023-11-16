@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IAccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
 contract DividendDistributionTest is Test {
     DividendDistribution distribution;

@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShare.sol";
+import "../utils/mocks/MockdShareFactory.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/BuyProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
@@ -12,7 +12,7 @@ import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {IAccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -28,6 +28,7 @@ contract BuyProcessorTest is Test {
     event CancelRequested(address indexed recipient, uint256 indexed index);
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
+    MockdShareFactory tokenFactory;
     dShare token;
     BuyProcessor issuer;
     MockToken paymentToken;
@@ -49,7 +50,8 @@ contract BuyProcessorTest is Test {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
 
-        token = new MockdShare();
+        tokenFactory = new MockdShareFactory();
+        token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
@@ -280,7 +282,7 @@ contract BuyProcessorTest is Test {
     }
 
     function testRequestOrderUnsupportedAssetReverts() public {
-        address tryAssetToken = address(new MockdShare());
+        address tryAssetToken = address(tokenFactory.deploy("Dinari Token", "dTKN"));
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.assetToken = tryAssetToken;

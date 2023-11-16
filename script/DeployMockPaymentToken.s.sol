@@ -12,7 +12,6 @@ contract DeployMockPaymentTokenScript is Script {
 
         // deploy mock USDC with 6 decimals
         new MockToken("USD Coin - Dinari", "USDC");
-
         vm.stopBroadcast();
     }
 }

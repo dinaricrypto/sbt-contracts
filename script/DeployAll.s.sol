@@ -45,6 +45,9 @@ contract DeployAllScript is Script {
             relayer: vm.envAddress("RELAYER"),
             oracle: vm.envAddress("ORACLE")
         });
+        address usdcoracle = vm.envAddress("USDCORACLE");
+        address usdtoracle = vm.envAddress("USDTORACLE");
+        address ethusdoracle = vm.envAddress("ETHUSDORACLE");
 
         address usdce = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 
@@ -95,8 +98,12 @@ contract DeployAllScript is Script {
 
         /// ------------------ forwarder ------------------
 
-        Forwarder forwarder = new Forwarder();
+        Forwarder forwarder = new Forwarder(ethusdoracle);
         forwarder.setFeeBps(2000);
+
+        forwarder.setPaymentOracle(address(cfg.usdc), usdcoracle);
+        forwarder.setPaymentOracle(address(usdce), usdcoracle);
+        forwarder.setPaymentOracle(address(cfg.usdt), usdtoracle);
 
         forwarder.setSupportedModule(address(buyProcessor), true);
         forwarder.setSupportedModule(address(sellProcessor), true);

@@ -3,13 +3,14 @@
 
 pragma solidity 0.8.22;
 
+import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import {Context} from "openzeppelin-contracts/contracts/utils/Context.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
-import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
-import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
+// TODO: replace with editable name support for permits
+import {EIP712Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/cryptography/EIP712Upgradeable.sol";
+import {NoncesUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/NoncesUpgradeable.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 // TODO: replace with prbmath for muldiv18
 import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
@@ -37,7 +38,16 @@ import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
  * by listening to said events. Other implementations of the EIP may not emit
  * these events, as it isn't required by the specification.
  */
-abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors, IERC20Permit, EIP712, Nonces {
+// TODO: use higher prevision PRB math to reduce/prevent rounding errors?
+abstract contract ERC20Rebasing is
+    Initializable,
+    IERC20,
+    IERC20Metadata,
+    IERC20Errors,
+    IERC20Permit,
+    EIP712Upgradeable,
+    NoncesUpgradeable
+{
     bytes32 private constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
 
@@ -51,18 +61,29 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      */
     error ERC2612InvalidSigner(address signer, address owner);
 
-    mapping(address account => uint256) private _shares;
+    struct ERC20RebasingStorage {
+        /// @dev Shares of each account
+        mapping(address => uint256) _shares;
+        /// @dev Allowances of each account to each spender
+        mapping(address => mapping(address => uint256)) _shareAllowances;
+        /// @dev Total shares in existence
+        uint256 _totalShareSupply;
+    }
 
-    mapping(address account => mapping(address spender => uint256)) private _shareAllowances;
+    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.ERC20Rebasing")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant ERC20RebasingStorageLocation =
+        0x3bc9598f16a01f87b6d930342119ac70845df6845456e27be080eb7470d01500;
 
-    uint256 private _totalShareSupply;
+    function _getERC20RebasingStorage() private pure returns (ERC20RebasingStorage storage $) {
+        assembly {
+            $.slot := ERC20RebasingStorageLocation
+        }
+    }
 
-    /**
-     * @dev Initializes the {EIP712} domain separator using the `name` parameter, and setting `version` to `"1"`.
-     *
-     * It's a good idea to use the same `name` that is defined as the ERC20 token name.
-     */
-    constructor(string memory name_) EIP712(name_, "1") {}
+    function __ERC20Rebasing_init(string memory name_) internal initializer {
+        __EIP712_init(name_, "1");
+        __Nonces_init_unchained();
+    }
 
     /**
      * @dev Returns the name of the token.
@@ -98,6 +119,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      */
     function balancePerShare() public view virtual returns (uint128);
 
+    // TODO: rounding
     function sharesToBalance(uint256 shares) public view returns (uint256) {
         return Math.mulDiv(shares, balancePerShare(), 1 ether);
     }
@@ -110,7 +132,8 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * @dev See {IERC20-totalSupply}.
      */
     function totalSupply() public view virtual returns (uint256) {
-        return sharesToBalance(_totalShareSupply);
+        ERC20RebasingStorage storage $ = _getERC20RebasingStorage();
+        return sharesToBalance($._totalShareSupply);
     }
 
     function maxSupply() public view virtual returns (uint256) {
@@ -125,7 +148,8 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * @dev See {IERC20-balanceOf}.
      */
     function balanceOf(address account) public view virtual returns (uint256) {
-        return sharesToBalance(_shares[account]);
+        ERC20RebasingStorage storage $ = _getERC20RebasingStorage();
+        return sharesToBalance($._shares[account]);
     }
 
     /**
@@ -137,8 +161,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * - the caller must have a balance of at least `value`.
      */
     function transfer(address to, uint256 value) public virtual returns (bool) {
-        address owner = _msgSender();
-        _transfer(owner, to, value);
+        _transfer(msg.sender, to, value);
         return true;
     }
 
@@ -146,7 +169,8 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * @dev See {IERC20-allowance}.
      */
     function allowance(address owner, address spender) public view virtual returns (uint256) {
-        return sharesToBalance(_shareAllowances[owner][spender]);
+        ERC20RebasingStorage storage $ = _getERC20RebasingStorage();
+        return sharesToBalance($._shareAllowances[owner][spender]);
     }
 
     /**
@@ -160,8 +184,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * - `spender` cannot be the zero address.
      */
     function approve(address spender, uint256 value) public virtual returns (bool) {
-        address owner = _msgSender();
-        _approve(owner, spender, value);
+        _approve(msg.sender, spender, value);
         return true;
     }
 
@@ -182,8 +205,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * `value`.
      */
     function transferFrom(address from, address to, uint256 value) public virtual returns (bool) {
-        address spender = _msgSender();
-        _spendAllowance(from, spender, value);
+        _spendAllowance(from, msg.sender, value);
         _transfer(from, to, value);
         return true;
     }
@@ -216,31 +238,32 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
      * Emits a {Transfer} event.
      */
     function _update(address from, address to, uint256 value) internal virtual {
+        ERC20RebasingStorage storage $ = _getERC20RebasingStorage();
         uint256 shares = balanceToShares(value);
         if (from == address(0)) {
             // Overflow check required: The rest of the code assumes that totalSupply never overflows
             totalSupply() + value;
-            _totalShareSupply += shares;
+            $._totalShareSupply += shares;
         } else {
-            uint256 fromShares = _shares[from];
+            uint256 fromShares = $._shares[from];
             if (fromShares < shares) {
                 revert ERC20InsufficientBalance(from, sharesToBalance(fromShares), value);
             }
             unchecked {
                 // Overflow not possible: value <= fromBalance <= totalSupply.
-                _shares[from] = fromShares - shares;
+                $._shares[from] = fromShares - shares;
             }
         }
 
         if (to == address(0)) {
             unchecked {
                 // Overflow not possible: value <= totalSupply or value <= fromBalance <= totalSupply.
-                _totalShareSupply -= shares;
+                $._totalShareSupply -= shares;
             }
         } else {
             unchecked {
                 // Overflow not possible: balance + value is at most totalSupply, which we know fits into a uint256.
-                _shares[to] += shares;
+                $._shares[to] += shares;
             }
         }
 
@@ -320,7 +343,8 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
         if (spender == address(0)) {
             revert ERC20InvalidSpender(address(0));
         }
-        _shareAllowances[owner][spender] = balanceToShares(value);
+        ERC20RebasingStorage storage $ = _getERC20RebasingStorage();
+        $._shareAllowances[owner][spender] = balanceToShares(value);
         if (emitEvent) {
             emit Approval(owner, spender, value);
         }
@@ -374,7 +398,7 @@ abstract contract ERC20Rebasing is Context, IERC20, IERC20Metadata, IERC20Errors
     /**
      * @inheritdoc IERC20Permit
      */
-    function nonces(address owner) public view virtual override(IERC20Permit, Nonces) returns (uint256) {
+    function nonces(address owner) public view virtual override(IERC20Permit, NoncesUpgradeable) returns (uint256) {
         return super.nonces(owner);
     }
 
