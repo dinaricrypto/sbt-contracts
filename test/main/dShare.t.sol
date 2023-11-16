@@ -10,7 +10,7 @@ import {
 } from "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
-import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import {PRBMath_MulDiv18_Overflow} from "prb-math/Common.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
@@ -220,7 +220,7 @@ contract dShareTest is Test {
 
         uint256 balancePerShare = token.balancePerShare();
         if (amount > type(uint256).max / 2) {
-            vm.expectRevert(Math.MathOverflowedMulDiv.selector);
+            vm.expectRevert(abi.encodeWithSelector(PRBMath_MulDiv18_Overflow.selector, amount, balancePerShare * 2));
             token.setBalancePerShare(uint128(balancePerShare * 2));
             return;
         }

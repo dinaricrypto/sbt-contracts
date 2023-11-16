@@ -2,14 +2,12 @@
 pragma solidity 0.8.22;
 
 import {ERC20} from "solady/src/tokens/ERC20.sol";
-// TODO: replace with prbmath for muldiv18
-import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import {mulDiv, mulDiv18 } from "prb-math/Common.sol";
 
-// solady erc20 was usied in the initial deployment
-// this rebasing erc20 is an extension of solady erc20 which preserves existing balances when upgrading from solady erc20
-// TODO: use higher prevision PRB math to reduce/prevent rounding errors?
+// Solady erc20 was usied in the initial deployment
+// This rebasing erc20 is an extension of solady erc20 which preserves existing balances when upgrading from solady erc20
 // Very tightly coupled to solady erc20
-// Uses max uint128 for max supply to allow for more precision when rounding to/from shares
+// TODO: Uses max uint128 for max supply to allow for more precision when rounding to/from shares
 abstract contract ERC20Rebasing is ERC20 {
     uint256 private constant _TRANSFER_EVENT_SIGNATURE =
         0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef;
@@ -25,11 +23,11 @@ abstract contract ERC20Rebasing is ERC20 {
 
     // TODO: rounding
     function sharesToBalance(uint256 shares) public view returns (uint256) {
-        return Math.mulDiv(shares, balancePerShare(), 1 ether);
+        return mulDiv18(shares, balancePerShare());
     }
 
     function balanceToShares(uint256 balance) public view returns (uint256) {
-        return Math.mulDiv(balance, 1 ether, balancePerShare());
+        return mulDiv(balance, 1 ether, balancePerShare());
     }
 
     /// ------------------ ERC20 ------------------
@@ -41,8 +39,7 @@ abstract contract ERC20Rebasing is ERC20 {
     function maxSupply() public view virtual returns (uint256) {
         uint128 balancePerShare_ = balancePerShare();
         if (balancePerShare_ < 1 ether) {
-            // TODO: replace with prbmath for muldiv18
-            return Math.mulDiv(type(uint256).max, balancePerShare_, 1 ether);
+            return mulDiv18(type(uint256).max, balancePerShare_);
         }
         return type(uint256).max;
     }
