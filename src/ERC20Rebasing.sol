@@ -2,12 +2,11 @@
 pragma solidity 0.8.22;
 
 import {ERC20} from "solady/src/tokens/ERC20.sol";
-import {mulDiv, mulDiv18 } from "prb-math/Common.sol";
+import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 
 // Solady erc20 was usied in the initial deployment
 // This rebasing erc20 is an extension of solady erc20 which preserves existing balances when upgrading from solady erc20
 // Very tightly coupled to solady erc20
-// TODO: Uses max uint128 for max supply to allow for more precision when rounding to/from shares
 abstract contract ERC20Rebasing is ERC20 {
     uint256 private constant _TRANSFER_EVENT_SIGNATURE =
         0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef;
@@ -21,13 +20,12 @@ abstract contract ERC20Rebasing is ERC20 {
      */
     function balancePerShare() public view virtual returns (uint128);
 
-    // TODO: rounding
     function sharesToBalance(uint256 shares) public view returns (uint256) {
-        return mulDiv18(shares, balancePerShare());
+        return mulDiv18(shares, balancePerShare()); // floor
     }
 
     function balanceToShares(uint256 balance) public view returns (uint256) {
-        return mulDiv(balance, 1 ether, balancePerShare());
+        return mulDiv(balance, 1 ether, balancePerShare()); // floor
     }
 
     /// ------------------ ERC20 ------------------
