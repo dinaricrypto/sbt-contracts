@@ -34,7 +34,7 @@ contract Vault is IVault, AccessControlDefaultAdminRules {
     }
 
     /// @notice Withdraws funds from the vault to a specified user.
-    /// @dev Can only be called by an account with the AUTHORIZED_ROUTER_ROLE.
+    /// @dev Can only be called by an account with the AUTHORIZED_OPERATOR_ROLE.
     /// @param token ERC20 token to be withdrawn
     /// @param user User address to receive the withdrawn funds
     /// @param amount Amount of tokens to withdraw
