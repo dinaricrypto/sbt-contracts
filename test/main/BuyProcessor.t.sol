@@ -14,8 +14,6 @@ import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../utils/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
-import {IVault, Vault} from "../../src/Vault.sol";
-import {VaultRouter} from "../../src/VaultRouter.sol";
 
 contract BuyProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -38,8 +36,6 @@ contract BuyProcessorTest is Test {
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
     TransferRestrictor restrictor;
-    Vault vault;
-    VaultRouter vaultRouter;
 
     uint256 userPrivateKey;
     address user;
@@ -64,9 +60,6 @@ contract BuyProcessorTest is Test {
         tokenLockCheck.setAsDShare(address(token));
 
         issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        vault = new Vault(address(this));
-        vaultRouter = new VaultRouter(vault);
-        vaultRouter.grantRole(vaultRouter.AUTHORIZED_PROCESSOR_ROLE(), address(issuer));
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -203,34 +196,6 @@ contract BuyProcessorTest is Test {
             assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + (quantityIn));
             assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn);
         }
-    }
-
-    function testResquestOrderWithVaultActivated(uint256 orderAmount) public {
-        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
-        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        vm.assume(orderAmount > 0);
-        IOrderProcessor.Order memory order = dummyOrder;
-        order.paymentTokenQuantity = orderAmount;
-        uint256 quantityIn = order.paymentTokenQuantity + fees;
-
-        // set vault
-        issuer.setVaultRouter(vaultRouter);
-        assertEq(address(issuer.vaultRouter()), address(vaultRouter));
-
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.approve(address(issuer), quantityIn);
-
-        uint256 userBalanceBefore = paymentToken.balanceOf(user);
-        uint256 vaultBalanceBefore = paymentToken.balanceOf(address(vault));
-
-        vm.prank(user);
-        uint256 index = issuer.requestOrder(order);
-
-        assertEq(index, 0);
-        assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - (quantityIn));
-        assertEq(paymentToken.balanceOf(address(issuer)), 0);
-        assertEq(paymentToken.balanceOf(address(vault)), vaultBalanceBefore + (quantityIn));
     }
 
     function testRequestOrderZeroAddressReverts() public {
@@ -436,70 +401,6 @@ contract BuyProcessorTest is Test {
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
                 assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn - feesEarned - fillAmount);
             }
-        }
-    }
-
-    function testFillOrderWithVaultActivated(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
-        vm.assume(orderAmount > 0);
-        uint256 flatFee;
-        uint256 fees;
-        {
-            uint24 percentageFeeRate;
-            (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
-            fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
-            vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        }
-        uint256 quantityIn = orderAmount + fees;
-
-        IOrderProcessor.Order memory order = dummyOrder;
-        order.paymentTokenQuantity = orderAmount;
-
-        uint256 feesEarned = 0;
-        if (fillAmount > 0) {
-            feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
-        }
-
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.approve(address(issuer), quantityIn);
-
-        // set vault
-        issuer.setVaultRouter(vaultRouter);
-
-        vm.prank(user);
-        uint256 index = issuer.requestOrder(order);
-
-        bytes32 id = issuer.getOrderId(order.recipient, index);
-
-        if (fillAmount == orderAmount) {
-            uint256 userAssetBefore = token.balanceOf(user);
-            uint256 vaultPaymentBefore = paymentToken.balanceOf(address(vault));
-            vm.expectEmit(true, true, true, false);
-            // since we can't capture
-            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
-
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    IAccessControl.AccessControlUnauthorizedAccount.selector,
-                    address(vaultRouter),
-                    vault.AUTHORIZED_ROUTER_ROLE()
-                )
-            );
-            vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
-
-            vault.grantRole(vault.AUTHORIZED_ROUTER_ROLE(), address(vaultRouter));
-
-            vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
-
-            assertEq(issuer.numOpenOrders(), 0);
-            assertEq(issuer.getTotalReceived(id), 0);
-
-            assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-            // assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount - feesEarned);
-            assertEq(paymentToken.balanceOf(address(vault)), vaultPaymentBefore - fillAmount - feesEarned);
-            assertEq(paymentToken.balanceOf(treasury), feesEarned);
         }
     }
 

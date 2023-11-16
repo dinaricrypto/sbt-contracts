@@ -18,7 +18,6 @@ import {IdShare} from "../IdShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 import {IFeeSchedule} from "./IFeeSchedule.sol";
-import {IVaultRouter} from "../IVaultRouter.sol";
 
 /// @notice Base contract managing orders for bridged assets
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
@@ -136,8 +135,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Transfer restrictor checker
     ITokenLockCheck public tokenLockCheck;
 
-    IVaultRouter public vaultRouter;
-
     /// @dev Are orders paused?
     bool public ordersPaused;
 
@@ -207,13 +204,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
         treasury = account;
         emit TreasurySet(account);
-    }
-
-    /// @notice Sets a new VaultRouter contract address.
-    /// @dev This function can only be called by an account with the DEFAULT_ADMIN_ROLE.
-    /// @param _vaultRouter The address of the new VaultRouter contract.
-    function setVaultRouter(IVaultRouter _vaultRouter) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        vaultRouter = _vaultRouter;
     }
 
     /// @notice Set the base and percentage fees
@@ -405,11 +395,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
 
             // Escrow payment for purchase
-            if (isVaultActivated()) {
-                IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(vaultRouter.vault()), quantityIn);
-            } else {
-                IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), quantityIn);
-            }
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), quantityIn);
         }
     }
 
@@ -505,8 +491,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             escrowedBalanceOf[order.assetToken][order.recipient] -= fillAmount;
             // Burn the filled quantity from the asset token
             IdShare(order.assetToken).burn(fillAmount);
-            // check vault existence and transfer funds
-            transferFunds(IERC20(order.paymentToken), address(this), receivedAmount);
+
+            // Transfer the received amount from the filler to this contract
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
 
             // If there are proceeds from the order, transfer them to the recipient
             if (paymentEarned > 0) {
@@ -516,13 +503,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // update escrowed balance
             escrowedBalanceOf[order.paymentToken][order.recipient] -= paymentEarned + feesEarned;
             // Claim payment
-            if (isVaultActivated()) {
-                // use funds from the vault to execute next operations
-                vaultRouter.withdrawFunds(IERC20(order.paymentToken), address(this), paymentEarned + feesEarned);
-                IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
-            } else {
-                IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
-            }
+            IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
 
             // Mint asset
             IdShare(order.assetToken).mint(order.recipient, receivedAmount);
@@ -648,26 +629,4 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         OrderState memory orderState,
         uint256 unfilledAmount
     ) internal virtual returns (uint256 refund);
-
-    // ------------------ Internal Helpers ------------------ /
-
-    /// @notice Determines if the vault is activated for this contract
-    /// @return bool Returns true if the vaultRouter is set (non-zero address), false otherwise
-    function isVaultActivated() internal view returns (bool) {
-        return address(vaultRouter) != address(0);
-    }
-
-    /// @notice Transfers funds to a specified address using either the vault or direct transfer
-    /// @dev If the vault is activated (non-zero address), it withdraws funds using the vaultRouter.
-    ///      Otherwise, it performs a safe transfer from the sender to the specified address.
-    /// @param token The IERC20 token to be transferred
-    /// @param to The recipient address of the funds
-    /// @param amount The amount of tokens to be transferred
-    function transferFunds(IERC20 token, address to, uint256 amount) internal {
-        if (isVaultActivated()) {
-            vaultRouter.withdrawFunds(token, to, amount);
-        } else {
-            IERC20(token).safeTransferFrom(msg.sender, to, amount);
-        }
-    }
 }

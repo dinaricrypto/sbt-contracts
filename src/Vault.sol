@@ -15,8 +15,10 @@ import {
 contract Vault is IVault, AccessControlDefaultAdminRules {
     using SafeERC20 for IERC20;
 
+    event FundsWithdrawn(IERC20 token, address user, uint256 amount);
+
     /// @notice Role identifier for an authorized router
-    bytes32 public constant AUTHORIZED_ROUTER_ROLE = keccak256("AUTHORIZED_ROUTER_ROLE");
+    bytes32 public constant AUTHORIZED_OPERATOR_ROLE = keccak256("AUTHORIZED_OPERATOR_ROLE");
 
     /// @notice Constructor to initialize the Vault with an admin
     /// @param admin Address of the default admin
@@ -39,8 +41,9 @@ contract Vault is IVault, AccessControlDefaultAdminRules {
     function withdrawFunds(IERC20 token, address user, uint256 amount)
         external
         override
-        onlyRole(AUTHORIZED_ROUTER_ROLE)
+        onlyRole(AUTHORIZED_OPERATOR_ROLE)
     {
         token.safeTransfer(user, amount);
+        emit FundsWithdrawn(token, user, amount);
     }
 }
