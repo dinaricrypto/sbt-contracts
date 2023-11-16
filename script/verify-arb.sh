@@ -2,4 +2,7 @@
 
 source .env
 
-forge verify-contract --chain-id 42161 --etherscan-api-key $ARBISCAN_API_KEY --watch --constructor-args $(cast abi-encode "constructor(address,string,string,string,address)" "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8" "Meta Platforms - Dinari" "META.D" "" "0xec3b79d771b47a0f5db925d7faf793605f5560ce") 0xa40c0975607BDbF7B868755E352570454b5B2e48 src/dShare.sol:dShare
+# args
+# forge verify-contract --chain-id 42161 --watch --constructor-args $(cast abi-encode "constructor(address)" "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612") 0x14D3498e4816c2B8F017677356dca051e28a33c8 src/forwarder/Forwarder.sol:Forwarder
+# no args
+forge verify-contract --chain-id 42161 --watch 0x9A8E37D67bc0230653647303A9ce1F02bFc7a5D1 src/dShare.sol:dShare
