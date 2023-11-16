@@ -405,7 +405,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
 
             // Escrow payment for purchase
-            if (address(vaultRouter) != address(0)) {
+            if (isVaultActivated()) {
                 IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(vaultRouter.vault()), quantityIn);
             } else {
                 IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), quantityIn);
@@ -516,7 +516,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // update escrowed balance
             escrowedBalanceOf[order.paymentToken][order.recipient] -= paymentEarned + feesEarned;
             // Claim payment
-            if (address(vaultRouter) != address(0)) {
+            if (isVaultActivated()) {
                 // use funds from the vault to execute next operations
                 vaultRouter.withdrawFunds(IERC20(order.paymentToken), address(this), paymentEarned + feesEarned);
                 IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
@@ -651,8 +651,20 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
 
     // ------------------ Internal Helpers ------------------ /
 
+    /// @notice Determines if the vault is activated for this contract
+    /// @return bool Returns true if the vaultRouter is set (non-zero address), false otherwise
+    function isVaultActivated() internal view returns (bool) {
+        return address(vaultRouter) != address(0);
+    }
+
+    /// @notice Transfers funds to a specified address using either the vault or direct transfer
+    /// @dev If the vault is activated (non-zero address), it withdraws funds using the vaultRouter.
+    ///      Otherwise, it performs a safe transfer from the sender to the specified address.
+    /// @param token The IERC20 token to be transferred
+    /// @param to The recipient address of the funds
+    /// @param amount The amount of tokens to be transferred
     function transferFunds(IERC20 token, address to, uint256 amount) internal {
-        if (address(vaultRouter) != address(0)) {
+        if (isVaultActivated()) {
             vaultRouter.withdrawFunds(token, to, amount);
         } else {
             IERC20(token).safeTransferFrom(msg.sender, to, amount);
