@@ -21,8 +21,6 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
     event NameSet(string name);
     /// @dev Emitted when `symbol` is set
     event SymbolSet(string symbol);
-    /// @dev Emitted when `disclosures` URI is set
-    event DisclosuresSet(string disclosures);
     /// @dev Emitted when transfer restrictor contract is set
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
     /// @dev Emitted when split factor is updated
@@ -125,7 +123,7 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
         dShareStorage storage $ = _getdShareStorage();
         $._balancePerShare = balancePerShare_;
         // Check for overflow
-        totalSupply();
+        balanceToShares(totalSupply());
         emit BalancePerShareSet(balancePerShare_);
     }
 

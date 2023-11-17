@@ -10,12 +10,14 @@ import {
 } from "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
-import {PRBMath_MulDiv18_Overflow} from "prb-math/Common.sol";
+import {PRBMath_MulDiv18_Overflow, PRBMath_MulDiv_Overflow} from "prb-math/Common.sol";
+import {NumberUtils} from "../utils/NumberUtils.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
     event SymbolSet(string symbol);
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
+    event BalancePerShareSet(uint256 balancePerShare);
 
     TransferRestrictor restrictor;
     dShare token;
@@ -34,95 +36,6 @@ contract dShareTest is Test {
             )
         );
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
-    }
-
-    function testSetName(string calldata name) public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
-            )
-        );
-        vm.prank(user);
-        token.setName(name);
-
-        vm.expectEmit(true, true, true, true);
-        emit NameSet(name);
-        token.setName(name);
-        assertEq(token.name(), name);
-    }
-
-    function testSetSymbol(string calldata symbol) public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
-            )
-        );
-        vm.prank(user);
-        token.setSymbol(symbol);
-
-        vm.expectEmit(true, true, true, true);
-        emit SymbolSet(symbol);
-        token.setSymbol(symbol);
-        assertEq(token.symbol(), symbol);
-    }
-
-    function testSetRestrictor(address account) public {
-        vm.assume(account != address(this));
-
-        vm.expectEmit(true, true, true, true);
-        emit TransferRestrictorSet(ITransferRestrictor(account));
-        token.setTransferRestrictor(ITransferRestrictor(account));
-        assertEq(address(token.transferRestrictor()), account);
-    }
-
-    function testMint() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(user, 1e18);
-        assertEq(token.totalSupply(), 1e18);
-        assertEq(token.balanceOf(user), 1e18);
-    }
-
-    function testMintUnauthorizedReverts() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.MINTER_ROLE())
-        );
-        vm.prank(user);
-        token.mint(user, 1e18);
-    }
-
-    function testBurn() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(user, 1e18);
-        token.grantRole(token.BURNER_ROLE(), user);
-
-        vm.prank(user);
-        token.burn(0.9e18);
-        assertEq(token.totalSupply(), 0.1e18);
-        assertEq(token.balanceOf(user), 0.1e18);
-    }
-
-    function testBurnFrom() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(user, 1e18);
-        token.grantRole(token.BURNER_ROLE(), address(this));
-
-        vm.prank(user);
-        token.approve(address(this), 0.9e18);
-
-        token.burnFrom(user, 0.9e18);
-        assertEq(token.totalSupply(), 0.1e18);
-        assertEq(token.balanceOf(user), 0.1e18);
-    }
-
-    function testBurnUnauthorizedReverts() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(user, 1e18);
-
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.BURNER_ROLE())
-        );
-        vm.prank(user);
-        token.burn(0.9e18);
     }
 
     function testTransferOwnerShip() public {
@@ -162,57 +75,191 @@ contract dShareTest is Test {
         assertEq(token.owner(), newAdmin);
     }
 
-    function testTransfer() public {
-        token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(address(this), 1e18);
+    function testSetName(string calldata name) public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(user);
+        token.setName(name);
 
-        assertTrue(token.transfer(user, 1e18));
-        assertEq(token.totalSupply(), 1e18);
+        vm.expectEmit(true, true, true, true);
+        emit NameSet(name);
+        token.setName(name);
+        assertEq(token.name(), name);
+    }
+
+    function testSetSymbol(string calldata symbol) public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(user);
+        token.setSymbol(symbol);
+
+        vm.expectEmit(true, true, true, true);
+        emit SymbolSet(symbol);
+        token.setSymbol(symbol);
+        assertEq(token.symbol(), symbol);
+    }
+
+    function testSetRestrictor(address account) public {
+        vm.assume(account != address(this));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(user);
+        token.setTransferRestrictor(ITransferRestrictor(account));
+
+        vm.expectEmit(true, true, true, true);
+        emit TransferRestrictorSet(ITransferRestrictor(account));
+        token.setTransferRestrictor(ITransferRestrictor(account));
+        assertEq(address(token.transferRestrictor()), account);
+    }
+
+    function testSetBalancePerShareZeroReverts() public {
+        vm.expectRevert(stdError.divisionError);
+        token.setBalancePerShare(0);
+    }
+
+    function testSetBalancePerShare(uint128 balancePerShare) public {
+        vm.assume(balancePerShare > 0);
+        
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(user);
+        token.setBalancePerShare(balancePerShare);
+
+        vm.expectEmit(true, true, true, true);
+        emit BalancePerShareSet(balancePerShare);
+        token.setBalancePerShare(balancePerShare);
+        assertEq(token.balancePerShare(), balancePerShare);
+    }
+
+    function _nearestBalanceAmount(uint256 amount) internal view returns (uint256) {
+        return token.sharesToBalance(token.balanceToShares(amount));
+    }
+
+    function testMintUnauthorizedReverts(uint256 amount) public {
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.MINTER_ROLE())
+        );
+        vm.prank(user);
+        token.mint(user, amount);
+    }
+
+    function testMint(uint256 amount, uint128 balancePerShare) public {
+        vm.assume(balancePerShare > 0);
+        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+
+        token.setBalancePerShare(balancePerShare);
+
+        uint256 balance = _nearestBalanceAmount(amount);
+
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(user, amount);
+        assertEq(token.totalSupply(), balance);
+        assertEq(token.balanceOf(user), balance);
+    }
+
+    function testBurnUnauthorizedReverts(uint256 amount) public {
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(user, amount);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.BURNER_ROLE())
+        );
+        vm.prank(user);
+        token.burn(amount);
+    }
+
+    function testBurn(uint256 amount, uint128 balancePerShare) public {
+        vm.assume(balancePerShare > 0);
+        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+
+        token.setBalancePerShare(balancePerShare);
+
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(user, amount);
+        token.grantRole(token.BURNER_ROLE(), user);
+
+        vm.prank(user);
+        token.burn(amount);
+        assertEq(token.totalSupply(), 0);
+        assertEq(token.balanceOf(user), 0);
+    }
+
+    function testBurnFrom(uint256 amount, uint128 balancePerShare) public {
+        vm.assume(balancePerShare > 0);
+        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+
+        token.setBalancePerShare(balancePerShare);
+
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(user, amount);
+        token.grantRole(token.BURNER_ROLE(), address(this));
+
+        vm.prank(user);
+        token.approve(address(this), amount);
+
+        token.burnFrom(user, amount);
+        assertEq(token.totalSupply(), 0);
+        assertEq(token.balanceOf(user), 0);
+    }
+
+    function testTransfer(uint256 amount, uint128 balancePerShare) public {
+        vm.assume(balancePerShare > 0);
+        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+
+        token.setBalancePerShare(balancePerShare);
+
+        uint256 balance = _nearestBalanceAmount(amount);
+
+        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.mint(address(this), amount);
+
+        assertTrue(token.transfer(user, amount));
+        assertEq(token.totalSupply(), balance);
 
         assertEq(token.balanceOf(address(this)), 0);
-        assertEq(token.balanceOf(user), 1e18);
+        assertEq(token.balanceOf(user), balance);
     }
 
-    function testTransferRestrictedTo() public {
+    function testTransferRestrictedTo(uint256 amount) public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(user, 1e18);
+        token.mint(user, amount);
         vm.prank(restrictor_role);
         restrictor.restrict(user);
         assertTrue(token.isBlacklisted(user));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
-        token.transfer(user, 1e18);
+        token.transfer(user, amount);
 
         token.setTransferRestrictor(ITransferRestrictor(address(0)));
         assertFalse(token.isBlacklisted(user));
     }
 
-    function testTransferRestrictedFrom() public {
+    function testTransferRestrictedFrom(uint256 amount) public {
         token.grantRole(token.MINTER_ROLE(), address(this));
-        token.mint(user, 1e18);
+        token.mint(user, amount);
         vm.prank(restrictor_role);
         restrictor.restrict(user);
         assertTrue(token.isBlacklisted(user));
 
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
-        token.transfer(user, 1e18);
+        token.transfer(user, amount);
 
         token.setTransferRestrictor(ITransferRestrictor(address(0)));
         assertFalse(token.isBlacklisted(user));
     }
-
-    // function testSharesMath(uint256 shares) public {
-    //     uint256 balancePerShare = token.balancePerShare();
-    //     token.setBalancePerShare(uint128(balancePerShare / 2));
-
-    //     uint256 balance = token.sharesToBalance(shares);
-    //     console.log("balance", balance);
-    //     assertEq(balance, shares / 2);
-
-    //     uint256 shares2 = token.balanceToShares(balance);
-    //     console.log("shares2", shares2);
-    //     assertEq(shares2, shares);
-    // }
 
     function testRebase(uint256 amount) public {
         token.grantRole(token.MINTER_ROLE(), address(this));
