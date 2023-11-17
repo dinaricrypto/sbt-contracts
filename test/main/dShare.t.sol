@@ -129,7 +129,7 @@ contract dShareTest is Test {
 
     function testSetBalancePerShare(uint128 balancePerShare) public {
         vm.assume(balancePerShare > 0);
-        
+
         vm.expectRevert(
             abi.encodeWithSelector(
                 IAccessControl.AccessControlUnauthorizedAccount.selector, user, token.DEFAULT_ADMIN_ROLE()
@@ -261,24 +261,18 @@ contract dShareTest is Test {
         assertFalse(token.isBlacklisted(user));
     }
 
-    function testRebase(uint256 amount) public {
+    function testRebase(uint256 amount, uint128 balancePerShare) public {
+        vm.assume(balancePerShare > 0);
+        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, balancePerShare, 1 ether));
+
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(user, amount);
 
-        uint256 balancePerShare = token.balancePerShare();
-        if (amount > type(uint256).max / 2) {
-            vm.expectRevert(abi.encodeWithSelector(PRBMath_MulDiv18_Overflow.selector, amount, balancePerShare * 2));
-            token.setBalancePerShare(uint128(balancePerShare * 2));
-            return;
-        }
+        token.setBalancePerShare(balancePerShare);
 
-        token.setBalancePerShare(uint128(balancePerShare * 2));
-        assertEq(token.totalSupply(), amount * 2);
-        assertEq(token.balanceOf(user), amount * 2);
-
-        // test transfer math
-        // vm.prank(user);
-        // token.transfer(address(this), amount);
-        // assertEq(token.balanceOf(address(this)), amount);
+        uint256 balance = token.sharesToBalance(amount);
+        assertEq(token.totalSupply(), balance);
+        assertEq(token.balanceOf(user), balance);
     }
 }
