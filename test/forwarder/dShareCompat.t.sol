@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
-import {Nonces} from "../../src/common/Nonces.sol";
+import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../../src/orders/SellProcessor.sol";
