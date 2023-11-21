@@ -12,7 +12,7 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/Reentrancy
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
-import {Nonces} from "../common/Nonces.sol";
+import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IForwarder} from "./IForwarder.sol";
 
