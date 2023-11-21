@@ -7,6 +7,7 @@ import {xdShare} from "../../src/dividend/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
+import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 
 contract xdShareTest is Test {
     TransferRestrictor public restrictor;
@@ -184,8 +185,7 @@ contract xdShareTest is Test {
         assertEq(token.balanceOf(address(xToken)), 0);
     }
 
-    // TODO: add dividend yield to this test
-    function testDepositRedeemSplit(uint128 supply, uint128 balancePerShare) public {
+    function testDepositRebaseRedeem(uint128 supply, uint128 balancePerShare) public {
         vm.assume(supply > 0);
         vm.assume(balancePerShare > 0);
         vm.assume(!NumberUtils.mulDivCheckOverflow(supply, 1 ether, balancePerShare));
@@ -209,16 +209,9 @@ contract xdShareTest is Test {
         // split
         token.setBalancePerShare(balancePerShare);
 
-        vm.startPrank(user);
-        uint256 shares = xToken.balanceOf(user);
-        xToken.approve(address(xToken), shares);
-
-        // console.log("user assets in vault after conversion", xToken.convertToAssets(xToken.balanceOf(user)));
-
         // user redeem
         vm.startPrank(user);
-        shares = xToken.balanceOf(user);
-        xToken.approve(address(xToken), shares);
+        uint256 shares = xToken.balanceOf(user);
         xToken.redeem(shares, user, user);
         vm.stopPrank();
 
@@ -227,6 +220,72 @@ contract xdShareTest is Test {
         if (userBalance > 0) {
             uint256 oneShareInAssets = xToken.convertToAssets(1);
             assertGe(userBalance, token.balanceOf(user2) - oneShareInAssets);
+        }
+    }
+
+    // TODO: fuzz - meaningful assert cases proved diffucult to create
+    function testDepositYieldRebaseYieldRedeem() public {
+        uint128 amount = 1000;
+        uint128 balancePerShare = 42 ether;
+
+        // deposit pre-existing amount
+        token.mint(address(this), 1 ether);
+        token.approve(address(xToken), 1 ether);
+        xToken.deposit(1 ether, address(this));
+
+        // user deposit
+        token.mint(user, amount);
+        assertEq(xToken.balanceOf(user), 0);
+
+        vm.startPrank(user);
+        token.approve(address(xToken), amount);
+        xToken.deposit(amount, user);
+        vm.stopPrank();
+        assertEq(xToken.balanceOf(user), amount);
+
+        // yield 1%
+        uint256 onePercent = token.totalSupply() / 100;
+        token.mint(address(xToken), onePercent);
+        console.log("max withdraw", xToken.maxWithdraw(user));
+        uint256 yield1 = amount / 100;
+        console.log("one percent", onePercent);
+        console.log("yield1", yield1);
+        assertEq(xToken.maxWithdraw(user), amount + (yield1 > 0 ? yield1 - 1 : 0));
+
+        // rebase
+        token.setBalancePerShare(balancePerShare);
+        uint256 rebasedOnePercent = mulDiv18(onePercent, balancePerShare);
+        uint256 rebasedAmount = mulDiv18(amount, balancePerShare);
+        if (yield1 > 0) {
+            yield1 = mulDiv18(yield1, balancePerShare);
+        }
+        uint256 oneShareInAssets = xToken.convertToAssets(1);
+        console.log("max withdraw", xToken.maxWithdraw(user));
+        console.log("rebased one percent", rebasedOnePercent);
+        console.log("rebased amount", rebasedAmount);
+        console.log("yield1", yield1);
+        console.log("one share in assets", oneShareInAssets);
+        if (rebasedAmount > 0) {
+            assertEq(xToken.maxWithdraw(user), rebasedAmount - 1 + yield1);
+        }
+
+        // yield 1%
+        uint256 yield2 = rebasedAmount / 100;
+        token.mint(address(xToken), rebasedOnePercent);
+        console.log("max withdraw", xToken.maxWithdraw(user));
+
+        // user redeem
+        vm.startPrank(user);
+        uint256 shares = xToken.balanceOf(user);
+        xToken.redeem(shares, user, user);
+        vm.stopPrank();
+
+        // vault should capture rebase and yield
+        uint256 userBalance = token.balanceOf(user);
+        if (userBalance > 0) {
+            console.log("user balance", userBalance);
+            console.log("yield2", yield2);
+            assertGe(token.balanceOf(user), rebasedAmount - oneShareInAssets + yield1 + yield2);
         }
     }
 
