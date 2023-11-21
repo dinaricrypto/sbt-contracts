@@ -16,7 +16,6 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
  * @dev This contract acts as a wrapper over the dShare token, providing additional functionalities.
  *      It serves as a reinvestment token that uses dShare as the underlying token.
  *      Additionally, it employs the ERC4626 standard for its operations.
- *      If TokenManager is not used, make sure that dShare will never split.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
  */
 contract xdShare is IxdShare, Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
@@ -120,25 +119,23 @@ contract xdShare is IxdShare, Initializable, ERC4626, OwnableUpgradeable, Reentr
     /// @dev For deposits and mints.
     ///
     /// Emits a {Deposit} event.
-    function _deposit(address by, address to, uint256 assets, uint256 shares) internal override unpaused {
+    function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
+        // Revert the transaction if deposits are currently locked.
+        xdShareStorage storage $ = _getxdShareStorage();
+        if ($._isLocked) revert IssuancePaused();
+
         super._deposit(by, to, assets, shares);
     }
 
     /// @dev For withdrawals and redemptions.
     ///
     /// Emits a {Withdraw} event.
-    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares)
-        internal
-        override
-        unpaused
-    {
-        super._withdraw(by, to, owner, assets, shares);
-    }
-
-    modifier unpaused() {
+    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
+        // Revert the transaction if deposits are currently locked.
         xdShareStorage storage $ = _getxdShareStorage();
         if ($._isLocked) revert IssuancePaused();
-        _;
+
+        super._withdraw(by, to, owner, assets, shares);
     }
 
     /// ------------------- Transfer Restrictions ------------------- ///

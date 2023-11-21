@@ -351,8 +351,9 @@ contract ForwarderTest is Test {
         assertEq(IERC20(address(paymentToken)).balanceOf(address(user)), balanceUserBeforeCancel);
     }
 
-    function testrescueERC20(uint256 amount, address to) public {
+    function testRescueERC20(uint256 amount, address to) public {
         vm.assume(to != address(0));
+
         MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$");
         paymentTokenToRescue.mint(user, amount);
 

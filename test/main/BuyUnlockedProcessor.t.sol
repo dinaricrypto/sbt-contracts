@@ -7,7 +7,7 @@ import "../utils/mocks/MockdShareFactory.sol";
 import "../../src/orders/BuyUnlockedProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {NumberUtils} from "../utils/NumberUtils.sol";
+import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {FeeLib} from "../../src/common/FeeLib.sol";
 

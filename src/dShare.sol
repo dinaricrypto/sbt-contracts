@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.22;
 
-import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {AccessControlDefaultAdminRulesUpgradeable} from
     "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
 import {IdShare, ITransferRestrictor} from "./IdShare.sol";
 
-/// @notice Core token contract for bridged assets.
+import {ERC20Rebasing} from "./ERC20Rebasing.sol";
+
+/// @notice Core token contract for bridged assets. Rebases on stock splits.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
-contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRulesUpgradeable {
+contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAdminRulesUpgradeable {
     /// ------------------ Types ------------------ ///
 
     error Unauthorized();
@@ -20,10 +21,10 @@ contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRules
     event NameSet(string name);
     /// @dev Emitted when `symbol` is set
     event SymbolSet(string symbol);
-    /// @dev Emitted when `disclosures` URI is set
-    event DisclosuresSet(string disclosures);
     /// @dev Emitted when transfer restrictor contract is set
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
+    /// @dev Emitted when split factor is updated
+    event BalancePerShareSet(uint256 balancePerShare);
 
     /// ------------------ Immutables ------------------ ///
 
@@ -38,6 +39,8 @@ contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRules
         string _name;
         string _symbol;
         ITransferRestrictor _transferRestrictor;
+        /// @dev Aggregate mult factor due to splits since deployment, ethers decimals
+        uint128 _balancePerShare;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.dShare")) - 1)) & ~bytes32(uint256(0xff))
@@ -63,6 +66,7 @@ contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRules
         $._name = _name;
         $._symbol = _symbol;
         $._transferRestrictor = _transferRestrictor;
+        $._balancePerShare = 1 ether;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -90,6 +94,11 @@ contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRules
         return $._transferRestrictor;
     }
 
+    function balancePerShare() public view override returns (uint128) {
+        dShareStorage storage $ = _getdShareStorage();
+        return $._balancePerShare;
+    }
+
     /// ------------------ Setters ------------------ ///
 
     /// @notice Set token name
@@ -108,6 +117,16 @@ contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRules
         emit SymbolSet(newSymbol);
     }
 
+    /// @notice Update split factor
+    /// @dev Relies on offchain computation of aggregate splits and reverse splits
+    function setBalancePerShare(uint128 balancePerShare_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        dShareStorage storage $ = _getdShareStorage();
+        $._balancePerShare = balancePerShare_;
+        // Check for overflow
+        balanceToShares(totalSupply());
+        emit BalancePerShareSet(balancePerShare_);
+    }
+
     /// @notice Set transfer restrictor contract
     /// @dev Only callable by owner
     function setTransferRestrictor(ITransferRestrictor newRestrictor) external onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -121,8 +140,7 @@ contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRules
     /// @notice Mint tokens
     /// @param to Address to mint tokens to
     /// @param value Amount of tokens to mint
-    /// @dev Only callable by approved minter and deployer
-    /// @dev Not callable after split
+    /// @dev Only callable by approved minter
     function mint(address to, uint256 value) external onlyRole(MINTER_ROLE) {
         _mint(to, value);
     }
@@ -130,18 +148,22 @@ contract dShare is IdShare, Initializable, ERC20, AccessControlDefaultAdminRules
     /// @notice Burn tokens
     /// @param value Amount of tokens to burn
     /// @dev Only callable by approved burner
-    /// @dev Deployer can always burn after split
     function burn(uint256 value) external onlyRole(BURNER_ROLE) {
         _burn(msg.sender, value);
     }
 
+    /// @notice Burn tokens from an account
+    /// @param account Address to burn tokens from
+    /// @param value Amount of tokens to burn
+    /// @dev Only callable by approved burner
+    function burnFrom(address account, uint256 value) external onlyRole(BURNER_ROLE) {
+        _spendAllowance(account, msg.sender, value);
+        _burn(account, value);
+    }
+
     /// ------------------ Transfers ------------------ ///
 
-    /// @inheritdoc ERC20
     function _beforeTokenTransfer(address from, address to, uint256) internal view override {
-        // Disallow transfers to the zero address
-        if (to == address(0) && msg.sig != this.burn.selector) revert Unauthorized();
-
         // If transferRestrictor is not set, no restrictions are applied
         dShareStorage storage $ = _getdShareStorage();
         ITransferRestrictor _transferRestrictor = $._transferRestrictor;

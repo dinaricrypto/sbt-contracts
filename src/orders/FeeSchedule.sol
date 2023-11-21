@@ -20,7 +20,7 @@ contract FeeSchedule is IFeeSchedule, Ownable2Step {
     /// @notice Mapping from operation type to its corresponding fee.
     mapping(address account => FeeRates fees) accountFees;
 
-    constructor() Ownable(msg.sender) {}
+    constructor(address owner_) Ownable(owner_) {}
 
     /**
      * @notice Returns the fee rates for an account.

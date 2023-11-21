@@ -8,7 +8,7 @@ import "../utils/mocks/MockdShareFactory.sol";
 import "../../src/orders/BuyProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {NumberUtils} from "../utils/NumberUtils.sol";
+import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract LimitBuyProcessorTest is Test {

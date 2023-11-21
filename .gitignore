@@ -24,7 +24,7 @@ metrics.html
 
 # env
 .env
-.env-*
+.env*
 
 # logs
 *.log
@@ -56,3 +56,6 @@ docs/*.png
 *.synctex.gz
 *.synctex(busy)
 latex/*.pdf
+
+# data files
+*.csv
