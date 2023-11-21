@@ -5,7 +5,7 @@ import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IERC20Permit} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {EIP712} from "openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {Nonces} from "../../../src/common/Nonces.sol";
+import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 
 abstract contract MockERC20PermitVersion is ERC20, IERC20Permit, EIP712, Nonces {
     bytes32 private constant PERMIT_TYPEHASH =
