@@ -209,8 +209,6 @@ contract xdShareTest is Test {
         // split
         token.setBalancePerShare(balancePerShare);
 
-        // console.log("user assets in vault after conversion", xToken.convertToAssets(xToken.balanceOf(user)));
-
         // user redeem
         vm.startPrank(user);
         uint256 shares = xToken.balanceOf(user);
@@ -225,13 +223,10 @@ contract xdShareTest is Test {
         }
     }
 
+    // TODO: fuzz - meaningful assert cases proved diffucult to create
     function testDepositYieldRebaseYieldRedeem() public {
         uint128 amount = 1000;
         uint128 balancePerShare = 42 ether;
-        // vm.assume(amount > 0);
-        // vm.assume(balancePerShare > 0);
-        // vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
-        // vm.assume(!NumberUtils.mulDivCheckOverflow(amount, balancePerShare, 1 ether));
 
         // deposit pre-existing amount
         token.mint(address(this), 1 ether);
@@ -264,7 +259,6 @@ contract xdShareTest is Test {
         if (yield1 > 0) {
             yield1 = mulDiv18(yield1, balancePerShare);
         }
-        // yield1 = mulDiv18(yield1, balancePerShare);
         uint256 oneShareInAssets = xToken.convertToAssets(1);
         console.log("max withdraw", xToken.maxWithdraw(user));
         console.log("rebased one percent", rebasedOnePercent);
@@ -274,7 +268,6 @@ contract xdShareTest is Test {
         if (rebasedAmount > 0) {
             assertEq(xToken.maxWithdraw(user), rebasedAmount - 1 + yield1);
         }
-        // assertEq(xToken.maxWithdraw(user), rebasedAmount - (oneShareInAssets > 0 ? oneShareInAssets - 1 : 0)); // (yield1 > 0 ? yield1 - 1 : 0)); // (yield1 > 0 ? yield1 - oneShareInAssets + 1 : 0));
 
         // yield 1%
         uint256 yield2 = rebasedAmount / 100;
