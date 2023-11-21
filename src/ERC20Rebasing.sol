@@ -3,6 +3,7 @@ pragma solidity 0.8.22;
 
 import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
+import {NumberUtils} from "./common/NumberUtils.sol";
 
 // Solady erc20 was usied in the initial deployment
 // This rebasing erc20 is an extension of solady erc20 which preserves existing balances when upgrading from solady erc20
@@ -38,6 +39,8 @@ abstract contract ERC20Rebasing is ERC20 {
         uint128 balancePerShare_ = balancePerShare();
         if (balancePerShare_ < 1 ether) {
             return mulDiv18(type(uint256).max, balancePerShare_);
+        } else if (balancePerShare_ > 1 ether) {
+            return mulDiv(type(uint256).max, 1 ether, balancePerShare_);
         }
         return type(uint256).max;
     }
@@ -96,18 +99,25 @@ abstract contract ERC20Rebasing is ERC20 {
     // Convert to shares
     function _mint(address to, uint256 amount) internal virtual override {
         _beforeTokenTransfer(address(0), to, amount);
+        uint256 totalSharesBefore = super.totalSupply();
+        uint256 totalSupplyBefore = sharesToBalance(totalSharesBefore);
+        uint256 totalSupplyAfter = 0;
+        unchecked {
+            totalSupplyAfter = totalSupplyBefore + amount;
+            if (totalSupplyAfter < totalSupplyBefore) revert TotalSupplyOverflow();
+        }
+        if (NumberUtils.mulDivCheckOverflow(totalSupplyAfter, 1 ether, balancePerShare())) {
+            revert TotalSupplyOverflow();
+        }
         uint256 shares = balanceToShares(amount);
+        uint256 totalSharesAfter = 0;
+        unchecked {
+            totalSharesAfter = totalSharesBefore + shares;
+        }
         /// @solidity memory-safe-assembly
         assembly {
-            let totalSupplyBefore := sload(_TOTAL_SUPPLY_SLOT)
-            let totalSupplyAfter := add(totalSupplyBefore, shares)
-            // Revert if the total supply overflows.
-            if lt(totalSupplyAfter, totalSupplyBefore) {
-                mstore(0x00, 0xe5cfe957) // `TotalSupplyOverflow()`.
-                revert(0x1c, 0x04)
-            }
             // Store the updated total supply.
-            sstore(_TOTAL_SUPPLY_SLOT, totalSupplyAfter)
+            sstore(_TOTAL_SUPPLY_SLOT, totalSharesAfter)
             // Compute the balance slot and load its value.
             mstore(0x0c, _BALANCE_SLOT_SEED)
             mstore(0x00, to)

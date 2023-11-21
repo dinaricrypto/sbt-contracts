@@ -11,7 +11,7 @@ import {
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {PRBMath_MulDiv18_Overflow, PRBMath_MulDiv_Overflow} from "prb-math/Common.sol";
-import {NumberUtils} from "../utils/NumberUtils.sol";
+import {NumberUtils} from "../../src/common/NumberUtils.sol";
 
 contract dShareTest is Test {
     event NameSet(string name);
@@ -162,10 +162,9 @@ contract dShareTest is Test {
 
         token.setBalancePerShare(balancePerShare);
 
-        uint256 balance = _nearestBalanceAmount(amount);
-
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(user, amount);
+        uint256 balance = _nearestBalanceAmount(amount);
         assertEq(token.totalSupply(), balance);
         assertEq(token.balanceOf(user), balance);
     }

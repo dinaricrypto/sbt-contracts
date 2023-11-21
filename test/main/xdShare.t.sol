@@ -6,6 +6,7 @@ import {dShare} from "../../src/dShare.sol";
 import {xdShare} from "../../src/dividend/xdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {NumberUtils} from "../../src/common/NumberUtils.sol";
 
 contract xdShareTest is Test {
     TransferRestrictor public restrictor;
@@ -183,67 +184,51 @@ contract xdShareTest is Test {
         assertEq(token.balanceOf(address(xToken)), 0);
     }
 
-    // function testDepositRedeemSplit(uint128 supply, uint8 multiple, bool reverse) public {
-    //     vm.assume(supply > 1);
-    //     vm.assume(multiple > 2);
+    // TODO: add dividend yield to this test
+    function testDepositRedeemSplit(uint128 supply, uint128 balancePerShare) public {
+        vm.assume(supply > 0);
+        vm.assume(balancePerShare > 0);
+        vm.assume(!NumberUtils.mulDivCheckOverflow(supply, 1 ether, balancePerShare));
+        vm.assume(!NumberUtils.mulDivCheckOverflow(supply, balancePerShare, 1 ether));
 
-    //     // user: mint -> deposit -> split -> withdraw
-    //     token.mint(user, supply);
-    //     // user2: mint -> split -> convert
-    //     token.mint(user2, supply);
+        // user: mint -> deposit -> split -> withdraw
+        token.mint(user, supply);
+        // user2: mint -> split -> convert
+        token.mint(user2, supply);
 
-    //     assertEq(xToken.balanceOf(user), 0);
-    //     assertEq(xToken.balanceOf(user2), 0);
+        assertEq(xToken.balanceOf(user), 0);
+        assertEq(xToken.balanceOf(user2), 0);
 
-    //     // user deposit
-    //     vm.startPrank(user);
-    //     token.approve(address(xToken), supply);
-    //     xToken.deposit(supply, user);
-    //     vm.stopPrank();
-    //     assertEq(xToken.balanceOf(user), supply);
+        // user deposit
+        vm.startPrank(user);
+        token.approve(address(xToken), supply);
+        xToken.deposit(supply, user);
+        vm.stopPrank();
+        assertEq(xToken.balanceOf(user), supply);
 
-    //     // split
-    //     (dShare newToken,) = tokenManager.split(token, multiple, reverse, "old", "old");
+        // split
+        token.setBalancePerShare(balancePerShare);
 
-    //     // user2 convert
-    //     vm.startPrank(user2);
-    //     token.approve(address(tokenManager), supply);
-    //     tokenManager.convert(token, supply);
-    //     vm.stopPrank();
+        vm.startPrank(user);
+        uint256 shares = xToken.balanceOf(user);
+        xToken.approve(address(xToken), shares);
 
-    //     // user redeem reverts
-    //     vm.startPrank(user);
-    //     uint256 shares = xToken.balanceOf(user);
-    //     xToken.approve(address(xToken), shares);
+        // console.log("user assets in vault after conversion", xToken.convertToAssets(xToken.balanceOf(user)));
 
-    //     vm.expectRevert(xdShare.SplitConversionNeeded.selector);
-    //     xToken.redeem(shares, user, user);
-    //     vm.stopPrank();
+        // user redeem
+        vm.startPrank(user);
+        shares = xToken.balanceOf(user);
+        xToken.approve(address(xToken), shares);
+        xToken.redeem(shares, user, user);
+        vm.stopPrank();
 
-    //     // check vault balances before conversion
-    //     console.log("supply", supply);
-    //     console.log("user assets in vault", xToken.convertToAssets(xToken.balanceOf(user)));
-    //     assertEq(xToken.convertToAssets(xToken.balanceOf(user)), supply);
-
-    //     // convert vault assets
-    //     xToken.convertVaultBalance();
-
-    //     console.log("user assets in vault after conversion", xToken.convertToAssets(xToken.balanceOf(user)));
-
-    //     // user redeem
-    //     vm.startPrank(user);
-    //     shares = xToken.balanceOf(user);
-    //     xToken.approve(address(xToken), shares);
-    //     xToken.redeem(shares, user, user);
-    //     vm.stopPrank();
-
-    //     // conversion in vault should be within 1 share's worth of standard conversion
-    //     uint256 userBalance = newToken.balanceOf(user);
-    //     if (userBalance > 0) {
-    //         uint256 oneShareInAssets = xToken.convertToAssets(1);
-    //         assertGt(userBalance, newToken.balanceOf(user2) - oneShareInAssets);
-    //     }
-    // }
+        // conversion in vault should be within 1 share's worth of standard conversion
+        uint256 userBalance = token.balanceOf(user);
+        if (userBalance > 0) {
+            uint256 oneShareInAssets = xToken.convertToAssets(1);
+            assertGe(userBalance, token.balanceOf(user2) - oneShareInAssets);
+        }
+    }
 
     function testTransferRestrictedToReverts(uint128 amount) public {
         vm.assume(amount > 0);
