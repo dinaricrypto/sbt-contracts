@@ -9,13 +9,14 @@ import {IdShare, ITransferRestrictor} from "./IdShare.sol";
 import {ERC20Rebasing} from "./ERC20Rebasing.sol";
 
 /// @notice Core token contract for bridged assets. Rebases on stock splits.
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
 contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAdminRulesUpgradeable {
     /// ------------------ Types ------------------ ///
 
     error Unauthorized();
+    error ZeroValue();
 
     /// @dev Emitted when `name` is set
     event NameSet(string name);
@@ -66,7 +67,7 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
         $._name = _name;
         $._symbol = _symbol;
         $._transferRestrictor = _transferRestrictor;
-        $._balancePerShare = 1 ether;
+        $._balancePerShare = _INITIAL_BALANCE_PER_SHARE;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -96,7 +97,10 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
 
     function balancePerShare() public view override returns (uint128) {
         dShareStorage storage $ = _getdShareStorage();
-        return $._balancePerShare;
+        uint128 _balancePerShare = $._balancePerShare;
+        // Override with default if not set due to upgrade
+        if (_balancePerShare == 0) return _INITIAL_BALANCE_PER_SHARE;
+        return _balancePerShare;
     }
 
     /// ------------------ Setters ------------------ ///
@@ -120,10 +124,10 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
     /// @notice Update split factor
     /// @dev Relies on offchain computation of aggregate splits and reverse splits
     function setBalancePerShare(uint128 balancePerShare_) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (balancePerShare_ == 0) revert ZeroValue();
+
         dShareStorage storage $ = _getdShareStorage();
         $._balancePerShare = balancePerShare_;
-        // Check for overflow
-        balanceToShares(totalSupply());
         emit BalancePerShareSet(balancePerShare_);
     }
 
