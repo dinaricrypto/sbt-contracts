@@ -123,7 +123,7 @@ contract dShareTest is Test {
     }
 
     function testSetBalancePerShareZeroReverts() public {
-        vm.expectRevert(stdError.divisionError);
+        vm.expectRevert(dShare.ZeroValue.selector);
         token.setBalancePerShare(0);
     }
 

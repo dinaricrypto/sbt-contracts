@@ -5,15 +5,16 @@ import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 import {NumberUtils} from "./common/NumberUtils.sol";
 
-// Solady erc20 was usied in the initial deployment
-// This rebasing erc20 is an extension of solady erc20 which preserves existing balances when upgrading from solady erc20
-// Very tightly coupled to solady erc20
+/// @notice Rebasing ERC20 token as an in-place upgrade to solady erc20
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
 abstract contract ERC20Rebasing is ERC20 {
     uint256 private constant _TRANSFER_EVENT_SIGNATURE =
         0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef;
 
     uint256 private constant _TOTAL_SUPPLY_SLOT = 0x05345cdf77eb68f44c;
     uint256 private constant _BALANCE_SLOT_SEED = 0x87a211a2;
+
+    uint128 internal constant _INITIAL_BALANCE_PER_SHARE = 1 ether;
 
     /**
      * @dev Returns the number of tokens an internal share amount represents.
@@ -26,7 +27,7 @@ abstract contract ERC20Rebasing is ERC20 {
     }
 
     function balanceToShares(uint256 balance) public view returns (uint256) {
-        return mulDiv(balance, 1 ether, balancePerShare()); // floor
+        return mulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // floor
     }
 
     /// ------------------ ERC20 ------------------
@@ -37,10 +38,10 @@ abstract contract ERC20Rebasing is ERC20 {
 
     function maxSupply() public view virtual returns (uint256) {
         uint128 balancePerShare_ = balancePerShare();
-        if (balancePerShare_ < 1 ether) {
+        if (balancePerShare_ < _INITIAL_BALANCE_PER_SHARE) {
             return mulDiv18(type(uint256).max, balancePerShare_);
-        } else if (balancePerShare_ > 1 ether) {
-            return mulDiv(type(uint256).max, 1 ether, balancePerShare_);
+        } else if (balancePerShare_ > _INITIAL_BALANCE_PER_SHARE) {
+            return mulDiv(type(uint256).max, _INITIAL_BALANCE_PER_SHARE, balancePerShare_);
         }
         return type(uint256).max;
     }
@@ -106,7 +107,7 @@ abstract contract ERC20Rebasing is ERC20 {
             totalSupplyAfter = totalSupplyBefore + amount;
             if (totalSupplyAfter < totalSupplyBefore) revert TotalSupplyOverflow();
         }
-        if (NumberUtils.mulDivCheckOverflow(totalSupplyAfter, 1 ether, balancePerShare())) {
+        if (NumberUtils.mulDivCheckOverflow(totalSupplyAfter, _INITIAL_BALANCE_PER_SHARE, balancePerShare())) {
             revert TotalSupplyOverflow();
         }
         uint256 shares = balanceToShares(amount);
