@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
 import {DualDistributor} from "../../src/dividend/DualDistributor.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {xdShare} from "../../src/dividend/xdShare.sol";
+import {WrappeddShare} from "../../src/WrappeddShare.sol";
 import {dShare} from "../../src/dShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -16,7 +16,7 @@ contract DualDistributorTest is Test {
     DividendDistribution distribution;
     DualDistributor dualDistributor;
     TransferRestrictor restrictor;
-    xdShare xToken;
+    WrappeddShare xToken;
     dShare dtoken;
     MockERC20 token;
 
@@ -43,12 +43,12 @@ contract DualDistributorTest is Test {
                 )
             )
         );
-        xdShare xtokenImplementation = new xdShare();
-        xToken = xdShare(
+        WrappeddShare xtokenImplementation = new WrappeddShare();
+        xToken = WrappeddShare(
             address(
                 new ERC1967Proxy(
                 address(xtokenImplementation),
-                abi.encodeCall(xdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
+                abi.encodeCall(WrappeddShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
                 )
             )
         );
@@ -108,12 +108,12 @@ contract DualDistributorTest is Test {
         assertEq(dualDistributor.dividendDistribution(), account);
     }
 
-    function testSetXdShareForDShareZeroAddressReverts() public {
+    function testSetWrappeddShareForDShareZeroAddressReverts() public {
         vm.expectRevert(DualDistributor.ZeroAddress.selector);
-        dualDistributor.setXdShareForDShare(address(0), address(1));
+        dualDistributor.setWrappeddShareForDShare(address(0), address(1));
     }
 
-    function testSetXdShareForDShare(address _dShare, address _xdShare) public {
+    function testSetWrappeddShareForDShare(address _dShare, address _WrappeddShare) public {
         vm.assume(_dShare != address(0));
 
         vm.expectRevert(
@@ -122,10 +122,10 @@ contract DualDistributorTest is Test {
             )
         );
         vm.prank(user);
-        dualDistributor.setXdShareForDShare(_dShare, _xdShare);
+        dualDistributor.setWrappeddShareForDShare(_dShare, _WrappeddShare);
 
-        dualDistributor.setXdShareForDShare(_dShare, _xdShare);
-        assertEq(dualDistributor.dShareToXdShare(_dShare), _xdShare);
+        dualDistributor.setWrappeddShareForDShare(_dShare, _WrappeddShare);
+        assertEq(dualDistributor.dShareToWrappeddShare(_dShare), _WrappeddShare);
     }
 
     function testDistribute(uint256 amountA, uint256 amountB, uint256 endTime) public {
@@ -145,10 +145,10 @@ contract DualDistributorTest is Test {
         vm.expectRevert(DualDistributor.ZeroAddress.selector);
         dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
-        dualDistributor.setXdShareForDShare(address(dtoken), address(xToken));
+        dualDistributor.setWrappeddShareForDShare(address(dtoken), address(xToken));
 
         vm.prank(distributor);
-        vm.expectRevert(DualDistributor.XdshareIsNotLocked.selector);
+        vm.expectRevert(DualDistributor.WrappeddShareIsNotLocked.selector);
         dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
         xToken.lock();

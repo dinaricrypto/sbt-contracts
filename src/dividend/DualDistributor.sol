@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IxdShare} from "./IxdShare.sol";
+import {IWrappeddShare} from "../IWrappeddShare.sol";
 import {IDividendDistributor} from "./IDividendDistributor.sol";
 
 /**
@@ -20,7 +20,7 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     );
 
     error ZeroAddress();
-    error XdshareIsNotLocked();
+    error WrappeddShareIsNotLocked();
 
     /// @notice Role for approved distributors
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -31,8 +31,8 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     /// @dev Address of the dividend distribution contract.
     address public dividendDistribution;
 
-    /// @dev Mapping to store the relationship between dShare and xdShare.
-    mapping(address dShare => address xdShare) public dShareToXdShare;
+    /// @dev Mapping to store the relationship between dShare and WrappeddShare.
+    mapping(address dShare => address WrappeddShare) public dShareToWrappeddShare;
 
     /**
      * @notice Initializes the `DualDistributor` contract.
@@ -64,18 +64,18 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     }
 
     /**
-     * @notice Adds a new pair of dShare and xdShare addresses.
+     * @notice Adds a new pair of dShare and WrappeddShare addresses.
      * @param _dShare Address of the dShare token.
-     * @param _xdShare Address of the xdShare token.
+     * @param _WrappeddShare Address of the WrappeddShare token.
      */
-    function setXdShareForDShare(address _dShare, address _xdShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setWrappeddShareForDShare(address _dShare, address _WrappeddShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dShare == address(0)) revert ZeroAddress();
-        dShareToXdShare[_dShare] = _xdShare;
+        dShareToWrappeddShare[_dShare] = _WrappeddShare;
     }
 
     /**
-     * @notice Distributes dividends to dShare and xdShare holders.
-     * @dev Requires the distributor role and xdShare to be locked.
+     * @notice Distributes dividends to dShare and WrappeddShare holders.
+     * @dev Requires the distributor role and WrappeddShare to be locked.
      * @param dShare Address of the dShare token.
      * @param usdcAmount Amount of USDC to distribute.
      * @param dShareAmount Amount of dShare tokens to distribute.
@@ -86,15 +86,15 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         onlyRole(DISTRIBUTOR_ROLE)
         returns (uint256)
     {
-        address xdShare = dShareToXdShare[dShare];
-        if (xdShare == address(0)) revert ZeroAddress();
-        if (!IxdShare(xdShare).isLocked()) revert XdshareIsNotLocked();
+        address WrappeddShare = dShareToWrappeddShare[dShare];
+        if (WrappeddShare == address(0)) revert ZeroAddress();
+        if (!IWrappeddShare(WrappeddShare).isLocked()) revert WrappeddShareIsNotLocked();
 
         emit NewDistribution(
             IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, usdcAmount, dShareAmount
         );
 
-        IERC20(dShare).safeTransfer(xdShare, dShareAmount);
+        IERC20(dShare).safeTransfer(WrappeddShare, dShareAmount);
         IERC20(USDC).safeIncreaseAllowance(dividendDistribution, usdcAmount);
         return IDividendDistributor(dividendDistribution).createDistribution(USDC, usdcAmount, endTime);
     }

@@ -3,16 +3,16 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {dShare} from "../../src/dShare.sol";
-import {xdShare} from "../../src/dividend/xdShare.sol";
+import {WrappeddShare} from "../../src/WrappeddShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 
-contract xdShareTest is Test {
+contract WrappeddShareTest is Test {
     TransferRestrictor public restrictor;
     dShare public token;
-    xdShare public xToken;
+    WrappeddShare public xToken;
 
     event VaultLocked();
     event VaultUnlocked();
@@ -34,12 +34,12 @@ contract xdShareTest is Test {
         );
         token.grantRole(token.MINTER_ROLE(), address(this));
 
-        xdShare xtokenImplementation = new xdShare();
-        xToken = xdShare(
+        WrappeddShare xtokenImplementation = new WrappeddShare();
+        xToken = WrappeddShare(
             address(
                 new ERC1967Proxy(
                 address(xtokenImplementation),
-                abi.encodeCall(xdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                abi.encodeCall(WrappeddShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );
@@ -78,7 +78,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.IssuancePaused.selector);
+        vm.expectRevert(WrappeddShare.IssuancePaused.selector);
         xToken.mint(amount, receiver);
 
         vm.expectEmit(true, true, true, true);
@@ -110,7 +110,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(receiver);
-        vm.expectRevert(xdShare.IssuancePaused.selector);
+        vm.expectRevert(WrappeddShare.IssuancePaused.selector);
         xToken.redeem(assets, user, receiver);
 
         vm.expectEmit(true, true, true, true);
@@ -137,7 +137,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.IssuancePaused.selector);
+        vm.expectRevert(WrappeddShare.IssuancePaused.selector);
         xToken.deposit(amount, user);
 
         vm.expectEmit(true, true, true, true);
@@ -171,7 +171,7 @@ contract xdShareTest is Test {
         xToken.lock();
 
         vm.prank(user);
-        vm.expectRevert(xdShare.IssuancePaused.selector);
+        vm.expectRevert(WrappeddShare.IssuancePaused.selector);
         xToken.withdraw(shares, user, user);
 
         vm.expectEmit(true, true, true, true);
