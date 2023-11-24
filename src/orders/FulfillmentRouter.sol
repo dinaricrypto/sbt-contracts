@@ -6,8 +6,8 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
 import {IVault} from "./IVault.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
 
-/// @notice Router for fulfilling orders
-/// @dev Bundles fill order and vault interaction logic
+/// @notice Specialized multicall for fulfilling orders with vault funds.
+/// @dev Uses vault to remove the need for operator wallets to hold (non-gas) funds.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/FulfillmentRouter.sol)
 contract FulfillmentRouter {
     using SafeERC20 for IERC20;
