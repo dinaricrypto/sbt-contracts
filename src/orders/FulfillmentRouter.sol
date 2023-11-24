@@ -6,11 +6,15 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
 import {IVault} from "./IVault.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
 
+/// @notice Router for fulfilling orders
+/// @dev Bundles fill order and vault interaction logic
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/FulfillmentRouter.sol)
 contract FulfillmentRouter {
     using SafeERC20 for IERC20;
 
     error Unauthorized();
 
+    // matches OrderProcessor.OPERATOR_ROLE
     bytes32 constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     function fillOrder(
@@ -28,6 +32,7 @@ contract FulfillmentRouter {
             // withdraw payment token from vault
             IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), receivedAmount);
             // fill order with payment token
+            IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
             IOrderProcessor(orderProcessor).fillOrder(order, index, fillAmount, receivedAmount);
         } else {
             // fill order and receive payment token
