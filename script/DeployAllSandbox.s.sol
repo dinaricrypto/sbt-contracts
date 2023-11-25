@@ -93,7 +93,9 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Tesla, Inc.", "TSLA.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize, (cfg.deployer, "Tesla, Inc.", "TSLA.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -102,7 +104,10 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "NVIDIA Corporation", "NVDA.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize,
+                        (cfg.deployer, "NVIDIA Corporation", "NVDA.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -111,7 +116,10 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Microsoft Corporation", "MSFT.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize,
+                        (cfg.deployer, "Microsoft Corporation", "MSFT.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -120,7 +128,10 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Meta Platforms, Inc.", "META.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize,
+                        (cfg.deployer, "Meta Platforms, Inc.", "META.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -129,7 +140,9 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Netflix, Inc.", "NFLX.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize, (cfg.deployer, "Netflix, Inc.", "NFLX.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -138,7 +151,9 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Apple Inc.", "AAPL.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize, (cfg.deployer, "Apple Inc.", "AAPL.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -147,7 +162,10 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Alphabet Inc. Class A", "GOOGL.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize,
+                        (cfg.deployer, "Alphabet Inc. Class A", "GOOGL.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -156,7 +174,9 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Amazon.com, Inc.", "AMZN.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize, (cfg.deployer, "Amazon.com, Inc.", "AMZN.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -165,7 +185,10 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "PayPal Holdings, Inc.", "PYPL.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize,
+                        (cfg.deployer, "PayPal Holdings, Inc.", "PYPL.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -174,7 +197,9 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Pfizer, Inc.", "PFE.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize, (cfg.deployer, "Pfizer, Inc.", "PFE.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -183,7 +208,10 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "The Walt Disney Company", "DIS.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize,
+                        (cfg.deployer, "The Walt Disney Company", "DIS.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -192,7 +220,10 @@ contract DeployAllSandboxScript is Script {
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "SPDR S&P 500 ETF Trust", "SPY.d", deployments.transferRestrictor))
+                    abi.encodeCall(
+                        dShare.initialize,
+                        (cfg.deployer, "SPDR S&P 500 ETF Trust", "SPY.d", deployments.transferRestrictor)
+                    )
                 )
             )
         );
@@ -203,7 +234,12 @@ contract DeployAllSandboxScript is Script {
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
                         dShare.initialize,
-                        (cfg.deployer, "WisdomTree Floating Rate Treasury Fund", "USFR.d", deployments.transferRestrictor)
+                        (
+                            cfg.deployer,
+                            "WisdomTree Floating Rate Treasury Fund",
+                            "USFR.d",
+                            deployments.transferRestrictor
+                        )
                     )
                 )
             )
@@ -226,8 +262,9 @@ contract DeployAllSandboxScript is Script {
         deployments.sellProcessor =
             new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck);
 
-        deployments.directBuyIssuer =
-        new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck);
+        deployments.directBuyIssuer = new BuyUnlockedProcessor(
+            cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck
+        );
 
         // config operator
         deployments.buyProcessor.grantRole(deployments.buyProcessor.OPERATOR_ROLE(), cfg.operator);
