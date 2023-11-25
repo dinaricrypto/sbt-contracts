@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 import {MockToken} from "../test/utils/mocks/MockToken.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {dShare} from "../src/dShare.sol";
+import {WrappeddShare} from "../src/WrappeddShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
 import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../src/orders/SellProcessor.sol";
@@ -34,6 +35,9 @@ contract DeployAllSandboxScript is Script {
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
         dShare[] dShares;
+        address wrappeddShareImplementation;
+        UpgradeableBeacon wrappeddShareBeacon;
+        WrappeddShare[] wrappeddShares;
         TokenLockCheck tokenLockCheck;
         BuyProcessor buyProcessor;
         SellProcessor sellProcessor;
@@ -47,16 +51,16 @@ contract DeployAllSandboxScript is Script {
 
     function run() external {
         // load env variables
-        uint256 deployerPrivateKey = vm.envUint("S_DEPLOY_KEY");
+        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
 
         DeployConfig memory cfg = DeployConfig({
             deployer: vm.addr(deployerPrivateKey),
-            treasury: vm.envAddress("S_TREASURY"),
-            operator: vm.envAddress("S_OPERATOR"),
-            distributor: vm.envAddress("S_DISTRIBUTOR"),
-            relayer: vm.envAddress("S_RELAYER"),
-            ethusdoracle: vm.envAddress("S_ETHUSDORACLE"),
-            usdcoracle: vm.envAddress("S_USDCORACLE")
+            treasury: vm.envAddress("TREASURY"),
+            operator: vm.envAddress("OPERATOR"),
+            distributor: vm.envAddress("DISTRIBUTOR"),
+            relayer: vm.envAddress("RELAYER"),
+            ethusdoracle: vm.envAddress("ETHUSDORACLE"),
+            usdcoracle: vm.envAddress("USDCORACLE")
         });
 
         Deployments memory deployments;
@@ -86,128 +90,76 @@ contract DeployAllSandboxScript is Script {
         // deploy dShares beacon
         deployments.dShareBeacon = new UpgradeableBeacon(deployments.dShareImplementation, cfg.deployer);
 
-        deployments.dShares = new dShare[](13);
+        // deploy wrapped dShares logic implementation
+        deployments.wrappeddShareImplementation = address(new WrappeddShare());
 
-        // deploy TSLA dShare
-        deployments.dShares[0] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Tesla, Inc.", "TSLA.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy NVDA dShare
-        deployments.dShares[1] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "NVIDIA Corporation", "NVDA.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy MSFT dShare
-        deployments.dShares[2] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Microsoft Corporation", "MSFT.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy META dShare
-        deployments.dShares[3] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Meta Platforms, Inc.", "META.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy NFLX dShare
-        deployments.dShares[4] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Netflix, Inc.", "NFLX.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy AAPL dShare
-        deployments.dShares[5] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Apple Inc.", "AAPL.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy GOOGL dShare
-        deployments.dShares[6] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Alphabet Inc. Class A", "GOOGL.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy AMZN dShare
-        deployments.dShares[7] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Amazon.com, Inc.", "AMZN.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy PYPL dShare
-        deployments.dShares[8] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "PayPal Holdings, Inc.", "PYPL.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy PFE dShare
-        deployments.dShares[9] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "Pfizer, Inc.", "PFE.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy DIS dShare
-        deployments.dShares[10] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "The Walt Disney Company", "DIS.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy SPY dShare
-        deployments.dShares[11] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(dShare.initialize, (cfg.deployer, "SPDR S&P 500 ETF Trust", "SPY.d", deployments.transferRestrictor))
-                )
-            )
-        );
-        // deploy USFR dShare
-        deployments.dShares[12] = dShare(
-            address(
-                new BeaconProxy(
-                    address(deployments.dShareBeacon),
-                    abi.encodeCall(
-                        dShare.initialize,
-                        (cfg.deployer, "WisdomTree Floating Rate Treasury Fund", "USFR.d", deployments.transferRestrictor)
+        // deploy wrapped dShares beacon
+        deployments.wrappeddShareBeacon = new UpgradeableBeacon(deployments.wrappeddShareImplementation, cfg.deployer);
+
+        string[] memory dShareNames = new string[](13);
+        dShareNames[0] = "Tesla, Inc.";
+        dShareNames[1] = "NVIDIA Corporation";
+        dShareNames[2] = "Microsoft Corporation";
+        dShareNames[3] = "Meta Platforms, Inc.";
+        dShareNames[4] = "Netflix, Inc.";
+        dShareNames[5] = "Apple Inc.";
+        dShareNames[6] = "Alphabet Inc. Class A";
+        dShareNames[7] = "Amazon.com, Inc.";
+        dShareNames[8] = "PayPal Holdings, Inc.";
+        dShareNames[9] = "Pfizer, Inc.";
+        dShareNames[10] = "The Walt Disney Company";
+        dShareNames[11] = "SPDR S&P 500 ETF Trust";
+        dShareNames[12] = "WisdomTree Floating Rate Treasury Fund";
+
+        string[] memory dShareSymbols = new string[](13);
+        dShareSymbols[0] = "TSLA.d";
+        dShareSymbols[1] = "NVDA.d";
+        dShareSymbols[2] = "MSFT.d";
+        dShareSymbols[3] = "META.d";
+        dShareSymbols[4] = "NFLX.d";
+        dShareSymbols[5] = "AAPL.d";
+        dShareSymbols[6] = "GOOGL.d";
+        dShareSymbols[7] = "AMZN.d";
+        dShareSymbols[8] = "PYPL.d";
+        dShareSymbols[9] = "PFE.d";
+        dShareSymbols[10] = "DIS.d";
+        dShareSymbols[11] = "SPY.d";
+        dShareSymbols[12] = "USFR.d";
+
+        deployments.dShares = new dShare[](13);
+        deployments.wrappeddShares = new WrappeddShare[](13);
+
+        for (uint256 i = 0; i < deployments.dShares.length; i++) {
+            // deploy dShare
+            deployments.dShares[i] = dShare(
+                address(
+                    new BeaconProxy(
+                        address(deployments.dShareBeacon),
+                        abi.encodeCall(
+                            dShare.initialize,
+                            (cfg.deployer, dShareNames[i], dShareSymbols[i], deployments.transferRestrictor)
+                        )
                     )
                 )
-            )
-        );
+            );
+            // deploy wrapped dShare
+            deployments.wrappeddShares[i] = WrappeddShare(
+                address(
+                    new BeaconProxy(
+                        address(deployments.wrappeddShareBeacon),
+                        abi.encodeCall(
+                            WrappeddShare.initialize,
+                            (
+                                cfg.deployer,
+                                deployments.dShares[i],
+                                string.concat("Wrapped ", dShareNames[i]),
+                                string.concat("w", dShareSymbols[i])
+                            )
+                        )
+                    )
+                )
+            );
+        }
 
         /// ------------------ order processors ------------------
 
@@ -226,8 +178,9 @@ contract DeployAllSandboxScript is Script {
         deployments.sellProcessor =
             new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck);
 
-        deployments.directBuyIssuer =
-        new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck);
+        deployments.directBuyIssuer = new BuyUnlockedProcessor(
+            cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck
+        );
 
         // config operator
         deployments.buyProcessor.grantRole(deployments.buyProcessor.OPERATOR_ROLE(), cfg.operator);

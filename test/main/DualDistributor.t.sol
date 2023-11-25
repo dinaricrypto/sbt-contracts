@@ -38,8 +38,8 @@ contract DualDistributorTest is Test {
         dtoken = dShare(
             address(
                 new ERC1967Proxy(
-                address(tokenImplementation),
-                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    address(tokenImplementation),
+                    abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
@@ -47,8 +47,8 @@ contract DualDistributorTest is Test {
         xToken = WrappeddShare(
             address(
                 new ERC1967Proxy(
-                address(xtokenImplementation),
-                abi.encodeCall(WrappeddShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
+                    address(xtokenImplementation),
+                    abi.encodeCall(WrappeddShare.initialize, (address(this), dtoken, "Dinari xdToken", "xdTKN"))
                 )
             )
         );
