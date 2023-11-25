@@ -48,8 +48,8 @@ contract WrappeddShare is IWrappeddShare, Initializable, ERC4626, OwnableUpgrade
 
     /// ------------------- Initialization ------------------- ///
 
-    function initialize(dShare dShare_, string memory name_, string memory symbol_) public initializer {
-        __Ownable_init_unchained(msg.sender);
+    function initialize(address owner, dShare dShare_, string memory name_, string memory symbol_) public initializer {
+        __Ownable_init_unchained(owner);
         __ReentrancyGuard_init_unchained();
 
         WrappeddShareStorage storage $ = _getWrappeddShareStorage();
