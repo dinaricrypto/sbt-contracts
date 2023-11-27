@@ -18,6 +18,7 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
  *      If TokenManager is not used, make sure that dShare will never split.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
  */
+// slither-disable-next-line missing-inheritance
 contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// ------------------- Types ------------------- ///
 
