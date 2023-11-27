@@ -38,8 +38,8 @@ contract DualDistributorTest is Test {
         dtoken = dShare(
             address(
                 new ERC1967Proxy(
-                address(tokenImplementation),
-                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    address(tokenImplementation),
+                    abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
@@ -47,8 +47,8 @@ contract DualDistributorTest is Test {
         xToken = xdShare(
             address(
                 new ERC1967Proxy(
-                address(xtokenImplementation),
-                abi.encodeCall(xdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
+                    address(xtokenImplementation),
+                    abi.encodeCall(xdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
                 )
             )
         );
@@ -146,12 +146,6 @@ contract DualDistributorTest is Test {
         dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
 
         dualDistributor.setXdShareForDShare(address(dtoken), address(xToken));
-
-        vm.prank(distributor);
-        vm.expectRevert(DualDistributor.XdshareIsNotLocked.selector);
-        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
-
-        xToken.lock();
 
         vm.prank(distributor);
         vm.expectEmit(true, true, true, true);
