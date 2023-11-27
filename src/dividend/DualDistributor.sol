@@ -4,7 +4,6 @@ pragma solidity 0.8.22;
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IWrappeddShare} from "../IWrappeddShare.sol";
 import {IDividendDistributor} from "./IDividendDistributor.sol";
 
 /**
@@ -20,7 +19,6 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     );
 
     error ZeroAddress();
-    error WrappeddShareIsNotLocked();
 
     /// @notice Role for approved distributors
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -88,7 +86,6 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     {
         address WrappeddShare = dShareToWrappeddShare[dShare];
         if (WrappeddShare == address(0)) revert ZeroAddress();
-        if (!IWrappeddShare(WrappeddShare).isLocked()) revert WrappeddShareIsNotLocked();
 
         emit NewDistribution(
             IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, usdcAmount, dShareAmount

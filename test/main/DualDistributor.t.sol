@@ -148,12 +148,6 @@ contract DualDistributorTest is Test {
         dualDistributor.setWrappeddShareForDShare(address(dtoken), address(xToken));
 
         vm.prank(distributor);
-        vm.expectRevert(DualDistributor.WrappeddShareIsNotLocked.selector);
-        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
-
-        xToken.lock();
-
-        vm.prank(distributor);
         vm.expectEmit(true, true, true, true);
         emit NewDistribution(0, address(dtoken), amountA, amountB);
         dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);

@@ -14,9 +14,6 @@ contract WrappeddShareTest is Test {
     dShare public token;
     WrappeddShare public xToken;
 
-    event VaultLocked();
-    event VaultUnlocked();
-
     address user = address(1);
     address user2 = address(2);
 
@@ -63,7 +60,7 @@ contract WrappeddShareTest is Test {
         assertEq(xToken.asset(), address(token));
     }
 
-    function testLockMint(uint128 amount, address receiver) public {
+    function testMint(uint128 amount, address receiver) public {
         vm.assume(receiver != address(this));
 
         assertEq(xToken.balanceOf(user), 0);
@@ -73,25 +70,13 @@ contract WrappeddShareTest is Test {
         vm.prank(user);
         token.approve(address(xToken), amount);
 
-        vm.expectEmit(true, true, true, true);
-        emit VaultLocked();
-        xToken.lock();
-
-        vm.prank(user);
-        vm.expectRevert(WrappeddShare.IssuancePaused.selector);
-        xToken.mint(amount, receiver);
-
-        vm.expectEmit(true, true, true, true);
-        emit VaultUnlocked();
-        xToken.unlock();
-
         vm.prank(user);
         uint256 assets = xToken.deposit(amount, receiver);
 
         assertEq(xToken.balanceOf(receiver), assets);
     }
 
-    function testRedeemLock(uint128 amount, address receiver) public {
+    function testRedeem(uint128 amount, address receiver) public {
         vm.assume(receiver != address(this));
 
         assertEq(xToken.balanceOf(user), 0);
@@ -105,18 +90,6 @@ contract WrappeddShareTest is Test {
         uint256 assets = xToken.mint(amount, receiver);
         assertEq(token.balanceOf(user), 0);
 
-        vm.expectEmit(true, true, true, true);
-        emit VaultLocked();
-        xToken.lock();
-
-        vm.prank(receiver);
-        vm.expectRevert(WrappeddShare.IssuancePaused.selector);
-        xToken.redeem(assets, user, receiver);
-
-        vm.expectEmit(true, true, true, true);
-        emit VaultUnlocked();
-        xToken.unlock();
-
         vm.prank(receiver);
         xToken.redeem(assets, user, receiver);
 
@@ -124,7 +97,7 @@ contract WrappeddShareTest is Test {
         assertEq(token.balanceOf(user), amount);
     }
 
-    function testLockDeposit(uint128 amount) public {
+    function testDeposit(uint128 amount) public {
         assertEq(xToken.balanceOf(user), 0);
 
         token.mint(user, amount);
@@ -132,25 +105,13 @@ contract WrappeddShareTest is Test {
         vm.prank(user);
         token.approve(address(xToken), amount);
 
-        vm.expectEmit(true, true, true, true);
-        emit VaultLocked();
-        xToken.lock();
-
-        vm.prank(user);
-        vm.expectRevert(WrappeddShare.IssuancePaused.selector);
-        xToken.deposit(amount, user);
-
-        vm.expectEmit(true, true, true, true);
-        emit VaultUnlocked();
-        xToken.unlock();
-
         vm.prank(user);
         uint256 shares = xToken.deposit(amount, user);
 
         assertEq(xToken.balanceOf(user), shares);
     }
 
-    function testLockWithdrawal(uint128 amount) public {
+    function testWithdrawal(uint128 amount) public {
         vm.assume(amount > 0);
         assertEq(xToken.balanceOf(user), 0);
 
@@ -165,18 +126,6 @@ contract WrappeddShareTest is Test {
         uint256 shares = xToken.deposit(amount, user);
         assertEq(xToken.balanceOf(user), shares);
         assertEq(token.balanceOf(user), 0);
-
-        vm.expectEmit(true, true, true, true);
-        emit VaultLocked();
-        xToken.lock();
-
-        vm.prank(user);
-        vm.expectRevert(WrappeddShare.IssuancePaused.selector);
-        xToken.withdraw(shares, user, user);
-
-        vm.expectEmit(true, true, true, true);
-        emit VaultUnlocked();
-        xToken.unlock();
 
         vm.prank(user);
         xToken.withdraw(shares, user, user);

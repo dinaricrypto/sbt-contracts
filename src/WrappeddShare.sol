@@ -3,7 +3,6 @@ pragma solidity 0.8.22;
 
 import {dShare} from "./dShare.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
-import {IWrappeddShare} from "./IWrappeddShare.sol";
 import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -17,21 +16,16 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
  *      It accumulates the value of rebases and yield distributions.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/WrappeddShare.sol)
  */
-contract WrappeddShare is IWrappeddShare, Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+// slither-disable-next-line missing-inheritance
+contract WrappeddShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// ------------------- Types ------------------- ///
 
     using SafeERC20 for IERC20;
-
-    error IssuancePaused();
-
-    event VaultLocked();
-    event VaultUnlocked();
 
     /// ------------------- State ------------------- ///
 
     struct WrappeddShareStorage {
         dShare _underlyingDShare;
-        bool _isLocked;
         string _name;
         string _symbol;
     }
@@ -64,13 +58,6 @@ contract WrappeddShare is IWrappeddShare, Initializable, ERC4626, OwnableUpgrade
     }
 
     /// ------------------- Getters ------------------- ///
-
-    /// @inheritdoc IWrappeddShare
-    function isLocked() external view returns (bool) {
-        WrappeddShareStorage storage $ = _getWrappeddShareStorage();
-        return $._isLocked;
-    }
-
     /**
      * @dev Returns the name of the WrappeddShare token.
      * @return A string representing the name.
@@ -98,46 +85,6 @@ contract WrappeddShare is IWrappeddShare, Initializable, ERC4626, OwnableUpgrade
         return address($._underlyingDShare);
     }
 
-    /// ------------------- Locking Mechanism Lifecycle ------------------- ///
-
-    /// @inheritdoc IWrappeddShare
-    function lock() public onlyOwner {
-        WrappeddShareStorage storage $ = _getWrappeddShareStorage();
-        $._isLocked = true;
-        emit VaultLocked();
-    }
-
-    /// @inheritdoc IWrappeddShare
-    function unlock() public onlyOwner {
-        WrappeddShareStorage storage $ = _getWrappeddShareStorage();
-        $._isLocked = false;
-        emit VaultUnlocked();
-    }
-
-    /// ------------------- Vault Operations Lifecycle ------------------- ///
-
-    /// @dev For deposits and mints.
-    ///
-    /// Emits a {Deposit} event.
-    function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
-        // Revert the transaction if deposits are currently locked.
-        WrappeddShareStorage storage $ = _getWrappeddShareStorage();
-        if ($._isLocked) revert IssuancePaused();
-
-        super._deposit(by, to, assets, shares);
-    }
-
-    /// @dev For withdrawals and redemptions.
-    ///
-    /// Emits a {Withdraw} event.
-    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
-        // Revert the transaction if deposits are currently locked.
-        WrappeddShareStorage storage $ = _getWrappeddShareStorage();
-        if ($._isLocked) revert IssuancePaused();
-
-        super._withdraw(by, to, owner, assets, shares);
-    }
-
     /// ------------------- Transfer Restrictions ------------------- ///
 
     /**
@@ -154,7 +101,6 @@ contract WrappeddShare is IWrappeddShare, Initializable, ERC4626, OwnableUpgrade
         }
     }
 
-    /// @inheritdoc IWrappeddShare
     function isBlacklisted(address account) external view returns (bool) {
         WrappeddShareStorage storage $ = _getWrappeddShareStorage();
         ITransferRestrictor restrictor = $._underlyingDShare.transferRestrictor();
