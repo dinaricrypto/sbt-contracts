@@ -10,8 +10,7 @@ import "../../src/orders/BuyProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {NumberUtils} from "../utils/NumberUtils.sol";
+import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 

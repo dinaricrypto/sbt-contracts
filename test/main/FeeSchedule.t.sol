@@ -27,7 +27,7 @@ contract FeeScheduleTest is Test {
     function setUp() public {
         userPrivateKey = 0x01;
         user = vm.addr(userPrivateKey);
-        feeSchedule = new FeeSchedule();
+        feeSchedule = new FeeSchedule(address(this));
 
         tokenFactory = new MockdShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
