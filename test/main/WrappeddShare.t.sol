@@ -36,7 +36,7 @@ contract WrappeddShareTest is Test {
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(WrappeddShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                    abi.encodeCall(WrappeddShare.initialize, (address(this), token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );
