@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import {Vault, IVault} from "../../src/Vault.sol";
+import {Vault, IVault} from "../../src/orders/Vault.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
