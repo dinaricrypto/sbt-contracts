@@ -20,7 +20,9 @@ contract MockdShareFactory {
     function deploy(string memory name, string memory symbol) external returns (dShare) {
         return dShare(
             address(
-                new BeaconProxy(address(beacon), abi.encodeCall(dShare.initialize, (msg.sender, name, symbol, transferRestrictor)))
+                new BeaconProxy(
+                    address(beacon), abi.encodeCall(dShare.initialize, (msg.sender, name, symbol, transferRestrictor))
+                )
             )
         );
     }

@@ -26,8 +26,8 @@ contract dShareTest is Test {
         token = dShare(
             address(
                 new ERC1967Proxy(
-                address(tokenImplementation),
-                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    address(tokenImplementation),
+                    abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
         );

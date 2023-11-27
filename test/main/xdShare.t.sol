@@ -22,8 +22,8 @@ contract xdShareTest is Test {
         token = dShare(
             address(
                 new ERC1967Proxy(
-                address(tokenImplementation),
-                abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    address(tokenImplementation),
+                    abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
@@ -33,8 +33,8 @@ contract xdShareTest is Test {
         xToken = xdShare(
             address(
                 new ERC1967Proxy(
-                address(xtokenImplementation),
-                abi.encodeCall(xdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                    address(xtokenImplementation),
+                    abi.encodeCall(xdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );
