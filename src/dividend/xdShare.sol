@@ -3,7 +3,6 @@ pragma solidity 0.8.22;
 
 import {dShare} from "../dShare.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
-import {IxdShare} from "./IxdShare.sol";
 import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -19,7 +18,7 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
  *      If TokenManager is not used, make sure that dShare will never split.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
  */
-contract xdShare is IxdShare, Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// ------------------- Types ------------------- ///
 
     using SafeERC20 for IERC20;
@@ -86,22 +85,6 @@ contract xdShare is IxdShare, Initializable, ERC4626, OwnableUpgradeable, Reentr
         return address($._underlyingDShare);
     }
 
-    /// ------------------- Vault Operations Lifecycle ------------------- ///
-
-    /// @dev For deposits and mints.
-    ///
-    /// Emits a {Deposit} event.
-    function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
-        super._deposit(by, to, assets, shares);
-    }
-
-    /// @dev For withdrawals and redemptions.
-    ///
-    /// Emits a {Withdraw} event.
-    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
-        super._withdraw(by, to, owner, assets, shares);
-    }
-
     /// ------------------- Transfer Restrictions ------------------- ///
 
     /**
@@ -118,7 +101,6 @@ contract xdShare is IxdShare, Initializable, ERC4626, OwnableUpgradeable, Reentr
         }
     }
 
-    /// @inheritdoc IxdShare
     function isBlacklisted(address account) external view returns (bool) {
         xdShareStorage storage $ = _getxdShareStorage();
         ITransferRestrictor restrictor = $._underlyingDShare.transferRestrictor();
