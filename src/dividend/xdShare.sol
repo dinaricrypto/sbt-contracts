@@ -24,16 +24,10 @@ contract xdShare is IxdShare, Initializable, ERC4626, OwnableUpgradeable, Reentr
 
     using SafeERC20 for IERC20;
 
-    error IssuancePaused();
-
-    event VaultLocked();
-    event VaultUnlocked();
-
     /// ------------------- State ------------------- ///
 
     struct xdShareStorage {
         dShare _underlyingDShare;
-        bool _isLocked;
         string _name;
         string _symbol;
     }
@@ -65,13 +59,6 @@ contract xdShare is IxdShare, Initializable, ERC4626, OwnableUpgradeable, Reentr
     }
 
     /// ------------------- Getters ------------------- ///
-
-    /// @inheritdoc IxdShare
-    function isLocked() external view returns (bool) {
-        xdShareStorage storage $ = _getxdShareStorage();
-        return $._isLocked;
-    }
-
     /**
      * @dev Returns the name of the xdShare token.
      * @return A string representing the name.
@@ -99,46 +86,20 @@ contract xdShare is IxdShare, Initializable, ERC4626, OwnableUpgradeable, Reentr
         return address($._underlyingDShare);
     }
 
-    /// ------------------- Locking Mechanism Lifecycle ------------------- ///
-
-    /// @inheritdoc IxdShare
-    function lock() public onlyOwner {
-        xdShareStorage storage $ = _getxdShareStorage();
-        $._isLocked = true;
-        emit VaultLocked();
-    }
-
-    /// @inheritdoc IxdShare
-    function unlock() public onlyOwner {
-        xdShareStorage storage $ = _getxdShareStorage();
-        $._isLocked = false;
-        emit VaultUnlocked();
-    }
-
     /// ------------------- Vault Operations Lifecycle ------------------- ///
 
     /// @dev For deposits and mints.
     ///
     /// Emits a {Deposit} event.
-    function _deposit(address by, address to, uint256 assets, uint256 shares) internal override unpaused {
+    function _deposit(address by, address to, uint256 assets, uint256 shares) internal override {
         super._deposit(by, to, assets, shares);
     }
 
     /// @dev For withdrawals and redemptions.
     ///
     /// Emits a {Withdraw} event.
-    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares)
-        internal
-        override
-        unpaused
-    {
+    function _withdraw(address by, address to, address owner, uint256 assets, uint256 shares) internal override {
         super._withdraw(by, to, owner, assets, shares);
-    }
-
-    modifier unpaused() {
-        xdShareStorage storage $ = _getxdShareStorage();
-        if ($._isLocked) revert IssuancePaused();
-        _;
     }
 
     /// ------------------- Transfer Restrictions ------------------- ///

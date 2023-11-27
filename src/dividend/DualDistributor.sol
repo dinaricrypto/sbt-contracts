@@ -20,7 +20,6 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     );
 
     error ZeroAddress();
-    error XdshareIsNotLocked();
 
     /// @notice Role for approved distributors
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -88,7 +87,6 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     {
         address xdShare = dShareToXdShare[dShare];
         if (xdShare == address(0)) revert ZeroAddress();
-        if (!IxdShare(xdShare).isLocked()) revert XdshareIsNotLocked();
 
         emit NewDistribution(
             IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, usdcAmount, dShareAmount
