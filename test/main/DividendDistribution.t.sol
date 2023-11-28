@@ -70,6 +70,22 @@ contract DividendDistributionTest is Test {
         distribution.createDistribution(address(token), 100, block.timestamp + 1);
     }
 
+    function testCreateDistributionMinimunDurationReverts(uint256 totalDistribution) public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(user);
+        distribution.setMinimumDistributionDuration(2);
+
+        distribution.setMinimumDistributionDuration(2);
+
+        vm.expectRevert(DividendDistribution.EndTimeInPast.selector);
+        vm.prank(distributor);
+        distribution.createDistribution(address(token), totalDistribution, block.timestamp);
+    }
+
     function testDistribute(uint256 totalDistribution, uint256 distribution1) public {
         vm.assume(distribution1 < totalDistribution);
 

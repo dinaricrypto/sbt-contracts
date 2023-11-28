@@ -43,11 +43,20 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
     // Mapping to store the information of each distribution by its ID.
     mapping(uint256 => Distribution) public distributions;
 
+    uint256 public MINIMUM_DISTRIBUTION_DURATION;
     uint256 public nextDistributionId;
 
     /// ------------------- Initialization ------------------- ///
 
     constructor(address owner) AccessControlDefaultAdminRules(0, owner) {}
+
+    /// ------------------- Setter ------------------- ///
+    function setMinimumDistributionDuration(uint256 _minimumDistributionDuration)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        MINIMUM_DISTRIBUTION_DURATION = _minimumDistributionDuration;
+    }
 
     /// ------------------- Distribution Lifecycle ------------------- ///
 
@@ -58,7 +67,9 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
         returns (uint256 distributionId)
     {
         // Check if the endtime is in the past.
-        if (endTime <= block.timestamp) revert EndTimeInPast();
+        if (endTime <= block.timestamp || endTime - block.timestamp < MINIMUM_DISTRIBUTION_DURATION) {
+            revert EndTimeInPast();
+        }
 
         // Load the next distribution id into memory and increment it for the next time
         distributionId = nextDistributionId++;
