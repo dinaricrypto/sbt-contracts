@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
 import {DualDistributor} from "../../src/dividend/DualDistributor.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {XdShare} from "../../src/dividend/XdShare.sol";
+import {XdShare} from "../../src/dividend/XDShare.sol";
 import {DShare} from "../../src/DShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
