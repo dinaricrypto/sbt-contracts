@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {dShare} from "../src/dShare.sol";
+import {DShare} from "../src/DShare.sol";
 
 contract DeployRestrictorScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
@@ -34,7 +34,7 @@ contract DeployRestrictorScript is Script {
 
         // replace old restrictor
         for (uint256 i = 0; i < assetTokens.length; i++) {
-            dShare assetToken = dShare(assetTokens[i]);
+            DShare assetToken = DShare(assetTokens[i]);
             assetToken.setTransferRestrictor(restrictor);
         }
 

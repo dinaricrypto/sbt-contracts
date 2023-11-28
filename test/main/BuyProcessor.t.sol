@@ -30,7 +30,7 @@ contract BuyProcessorTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     MockdShareFactory tokenFactory;
-    dShare token;
+    DShare token;
     BuyProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;

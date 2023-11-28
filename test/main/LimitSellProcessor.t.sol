@@ -17,7 +17,7 @@ contract LimitSellProcessorTest is Test {
     );
 
     MockdShareFactory tokenFactory;
-    dShare token;
+    DShare token;
     TokenLockCheck tokenLockCheck;
     SellProcessor issuer;
     MockToken paymentToken;

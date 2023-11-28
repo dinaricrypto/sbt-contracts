@@ -2,15 +2,15 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import {dShare} from "../../src/dShare.sol";
-import {xdShare} from "../../src/dividend/xdShare.sol";
+import {DShare} from "../../src/DShare.sol";
+import {XdShare} from "../../src/dividend/XdShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract xdShareTest is Test {
+contract XdShareTest is Test {
     TransferRestrictor public restrictor;
-    dShare public token;
-    xdShare public xToken;
+    DShare public token;
+    XdShare public xToken;
 
     address user = address(1);
     address user2 = address(2);
@@ -18,23 +18,23 @@ contract xdShareTest is Test {
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), address(this));
-        dShare tokenImplementation = new dShare();
-        token = dShare(
+        DShare tokenImplementation = new DShare();
+        token = DShare(
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
         token.grantRole(token.MINTER_ROLE(), address(this));
 
-        xdShare xtokenImplementation = new xdShare();
-        xToken = xdShare(
+        XdShare xtokenImplementation = new XdShare();
+        xToken = XdShare(
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(xdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                    abi.encodeCall(XdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );

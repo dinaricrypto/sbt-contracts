@@ -18,7 +18,7 @@ contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
 
     MockdShareFactory tokenFactory;
-    dShare token;
+    DShare token;
     TokenLockCheck tokenLockCheck;
     BuyProcessor issuer;
     MockToken paymentToken;

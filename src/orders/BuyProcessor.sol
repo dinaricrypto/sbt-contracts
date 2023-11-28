@@ -11,7 +11,7 @@ import {FeeLib} from "../common/FeeLib.sol";
 /// Fees are calculated upfront and held back from the order amount
 /// The payment is escrowed until the order is filled or cancelled
 /// Payment is automatically refunded if the order is cancelled
-/// Implicitly assumes that asset tokens are dShare and can be minted
+/// Implicitly assumes that asset tokens are DShare and can be minted
 contract BuyProcessor is OrderProcessor {
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();

@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../src/orders/SellProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
-import {dShare} from "../src/dShare.sol";
+import {DShare} from "../src/DShare.sol";
 
 contract AddTokensScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
@@ -40,7 +40,7 @@ contract AddTokensScript is Script {
             sellProcessor.grantRole(sellProcessor.ASSETTOKEN_ROLE(), assetTokens[i]);
             directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), assetTokens[i]);
 
-            dShare assetToken = dShare(assetTokens[i]);
+            DShare assetToken = DShare(assetTokens[i]);
             assetToken.grantRole(assetToken.MINTER_ROLE(), address(buyIssuer));
             assetToken.grantRole(assetToken.BURNER_ROLE(), address(sellProcessor));
             assetToken.grantRole(assetToken.MINTER_ROLE(), address(directIssuer));

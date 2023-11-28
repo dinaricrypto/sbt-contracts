@@ -5,8 +5,8 @@ import "forge-std/Test.sol";
 import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
 import {DualDistributor} from "../../src/dividend/DualDistributor.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {xdShare} from "../../src/dividend/xdShare.sol";
-import {dShare} from "../../src/dShare.sol";
+import {XdShare} from "../../src/dividend/XdShare.sol";
+import {DShare} from "../../src/DShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
@@ -16,8 +16,8 @@ contract DualDistributorTest is Test {
     DividendDistribution distribution;
     DualDistributor dualDistributor;
     TransferRestrictor restrictor;
-    xdShare xToken;
-    dShare dtoken;
+    XdShare xToken;
+    DShare dtoken;
     MockERC20 token;
 
     uint256 userPrivateKey;
@@ -28,27 +28,27 @@ contract DualDistributorTest is Test {
     address distributor = address(4);
 
     event NewDistribution(
-        uint256 indexed distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount
+        uint256 indexed distributionId, address indexed DShare, uint256 usdcAmount, uint256 dShareAmount
     );
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         token = new MockERC20("Money", "$", 6);
-        dShare tokenImplementation = new dShare();
-        dtoken = dShare(
+        DShare tokenImplementation = new DShare();
+        dtoken = DShare(
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
-        xdShare xtokenImplementation = new xdShare();
-        xToken = xdShare(
+        XdShare xtokenImplementation = new XdShare();
+        xToken = XdShare(
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(xdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
+                    abi.encodeCall(XdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
                 )
             )
         );
@@ -113,7 +113,7 @@ contract DualDistributorTest is Test {
         dualDistributor.setXdShareForDShare(address(0), address(1));
     }
 
-    function testSetXdShareForDShare(address _dShare, address _xdShare) public {
+    function testSetXdShareForDShare(address _dShare, address _XdShare) public {
         vm.assume(_dShare != address(0));
 
         vm.expectRevert(
@@ -122,10 +122,10 @@ contract DualDistributorTest is Test {
             )
         );
         vm.prank(user);
-        dualDistributor.setXdShareForDShare(_dShare, _xdShare);
+        dualDistributor.setXdShareForDShare(_dShare, _XdShare);
 
-        dualDistributor.setXdShareForDShare(_dShare, _xdShare);
-        assertEq(dualDistributor.dShareToXdShare(_dShare), _xdShare);
+        dualDistributor.setXdShareForDShare(_dShare, _XdShare);
+        assertEq(dualDistributor.dShareToXdShare(_dShare), _XdShare);
     }
 
     function testDistribute(uint256 amountA, uint256 amountB, uint256 endTime) public {

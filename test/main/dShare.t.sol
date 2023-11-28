@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import {dShare} from "../../src/dShare.sol";
+import {DShare} from "../../src/DShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {
     IAccessControlDefaultAdminRules,
@@ -16,18 +16,18 @@ contract dShareTest is Test {
     event TransferRestrictorSet(ITransferRestrictor indexed transferRestrictor);
 
     TransferRestrictor restrictor;
-    dShare token;
+    DShare token;
     address restrictor_role = address(1);
     address user = address(2);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
-        dShare tokenImplementation = new dShare();
-        token = dShare(
+        DShare tokenImplementation = new DShare();
+        token = DShare(
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
@@ -104,7 +104,7 @@ contract dShareTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(2));
         token.mint(user, 1e18);
         token.mint(address(2), 1e18);
-        vm.expectRevert(dShare.Unauthorized.selector);
+        vm.expectRevert(DShare.Unauthorized.selector);
         vm.prank(user);
         token.transfer(address(0), 0.1e18);
 
