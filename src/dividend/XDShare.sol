@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.22;
 
-import {dShare} from "../dShare.sol";
+import {DShare} from "../DShare.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
 import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
@@ -11,15 +11,15 @@ import {ReentrancyGuardUpgradeable} from
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title xdShare Contract
- * @dev This contract acts as a wrapper over the dShare token, providing additional functionalities.
- *      It serves as a reinvestment token that uses dShare as the underlying token.
+ * @title XDShare Contract
+ * @dev This contract acts as a wrapper over the DShare token, providing additional functionalities.
+ *      It serves as a reinvestment token that uses DShare as the underlying token.
  *      Additionally, it employs the ERC4626 standard for its operations.
- *      If TokenManager is not used, make sure that dShare will never split.
- * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/xdShare.sol)
+ *      If TokenManager is not used, make sure that DShare will never split.
+ * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/XDShare.sol)
  */
 // slither-disable-next-line missing-inheritance
-contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract XDShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// ------------------- Types ------------------- ///
 
     using SafeERC20 for IERC20;
@@ -28,30 +28,30 @@ contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardU
 
     /// ------------------- State ------------------- ///
 
-    struct xdShareStorage {
-        dShare _underlyingDShare;
+    struct XdShareStorage {
+        DShare _underlyingDShare;
         string _name;
         string _symbol;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.xdShare")) - 1)) & ~bytes32(uint256(0xff))
-    bytes32 private constant xdShareStorageLocation = 0xc68f8eaf252bfabfa8dbc02d218f101ac0ca40c3b47f9845899753284dbfb400;
+    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.XdShare")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant XdShareStorageLocation = 0xc68f8eaf252bfabfa8dbc02d218f101ac0ca40c3b47f9845899753284dbfb400;
 
-    function _getxdShareStorage() private pure returns (xdShareStorage storage $) {
+    function _getXdShareStorage() private pure returns (XdShareStorage storage $) {
         assembly {
-            $.slot := xdShareStorageLocation
+            $.slot := XdShareStorageLocation
         }
     }
 
     /// ------------------- Initialization ------------------- ///
 
-    function initialize(dShare dShare_, string memory name_, string memory symbol_) public initializer {
+    function initialize(DShare dShare_, string memory name_, string memory symbol_) public initializer {
         __Ownable_init_unchained(msg.sender);
         __ReentrancyGuard_init_unchained();
 
         if (address(dShare_) == address(0)) revert ZeroAddress();
 
-        xdShareStorage storage $ = _getxdShareStorage();
+        XdShareStorage storage $ = _getXdShareStorage();
         $._underlyingDShare = dShare_;
         $._name = name_;
         $._symbol = symbol_;
@@ -64,29 +64,29 @@ contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardU
 
     /// ------------------- Getters ------------------- ///
     /**
-     * @dev Returns the name of the xdShare token.
+     * @dev Returns the name of the XdShare token.
      * @return A string representing the name.
      */
     function name() public view override returns (string memory) {
-        xdShareStorage storage $ = _getxdShareStorage();
+        XdShareStorage storage $ = _getXdShareStorage();
         return $._name;
     }
 
     /**
-     * @dev Returns the symbol of the xdShare token.
+     * @dev Returns the symbol of the XdShare token.
      * @return A string representing the symbol.
      */
     function symbol() public view override returns (string memory) {
-        xdShareStorage storage $ = _getxdShareStorage();
+        XdShareStorage storage $ = _getXdShareStorage();
         return $._symbol;
     }
 
     /**
      * @dev Returns the address of the underlying asset.
-     * @return The address of the underlying dShare token.
+     * @return The address of the underlying DShare token.
      */
     function asset() public view override returns (address) {
-        xdShareStorage storage $ = _getxdShareStorage();
+        XdShareStorage storage $ = _getXdShareStorage();
         return address($._underlyingDShare);
     }
 
@@ -99,7 +99,7 @@ contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardU
      */
     function _beforeTokenTransfer(address from, address to, uint256) internal view override {
         // Apply underlying transfer restrictions to this vault token.
-        xdShareStorage storage $ = _getxdShareStorage();
+        XdShareStorage storage $ = _getXdShareStorage();
         ITransferRestrictor restrictor = $._underlyingDShare.transferRestrictor();
         if (address(restrictor) != address(0)) {
             restrictor.requireNotRestricted(from, to);
@@ -107,7 +107,7 @@ contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardU
     }
 
     function isBlacklisted(address account) external view returns (bool) {
-        xdShareStorage storage $ = _getxdShareStorage();
+        XdShareStorage storage $ = _getXdShareStorage();
         ITransferRestrictor restrictor = $._underlyingDShare.transferRestrictor();
         if (address(restrictor) == address(0)) return false;
         return restrictor.isBlacklisted(account);

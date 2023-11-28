@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import {MockToken} from "../test/utils/mocks/MockToken.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {dShare} from "../src/dShare.sol";
+import {DShare} from "../src/DShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
 import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
 import {SellProcessor} from "../src/orders/SellProcessor.sol";
@@ -33,7 +33,7 @@ contract DeployAllSandboxScript is Script {
         TransferRestrictor transferRestrictor;
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
-        dShare[] dShares;
+        DShare[] dShares;
         TokenLockCheck tokenLockCheck;
         BuyProcessor buyProcessor;
         SellProcessor sellProcessor;
@@ -81,159 +81,159 @@ contract DeployAllSandboxScript is Script {
         deployments.transferRestrictor = new TransferRestrictor(cfg.deployer);
 
         // deploy dShares logic implementation
-        deployments.dShareImplementation = address(new dShare());
+        deployments.dShareImplementation = address(new DShare());
 
         // deploy dShares beacon
         deployments.dShareBeacon = new UpgradeableBeacon(deployments.dShareImplementation, cfg.deployer);
 
-        deployments.dShares = new dShare[](13);
+        deployments.dShares = new DShare[](13);
 
-        // deploy TSLA dShare
-        deployments.dShares[0] = dShare(
+        // deploy TSLA DShare
+        deployments.dShares[0] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize, (cfg.deployer, "Tesla, Inc.", "TSLA.d", deployments.transferRestrictor)
+                        DShare.initialize, (cfg.deployer, "Tesla, Inc.", "TSLA.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy NVDA dShare
-        deployments.dShares[1] = dShare(
+        // deploy NVDA DShare
+        deployments.dShares[1] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize,
+                        DShare.initialize,
                         (cfg.deployer, "NVIDIA Corporation", "NVDA.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy MSFT dShare
-        deployments.dShares[2] = dShare(
+        // deploy MSFT DShare
+        deployments.dShares[2] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize,
+                        DShare.initialize,
                         (cfg.deployer, "Microsoft Corporation", "MSFT.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy META dShare
-        deployments.dShares[3] = dShare(
+        // deploy META DShare
+        deployments.dShares[3] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize,
+                        DShare.initialize,
                         (cfg.deployer, "Meta Platforms, Inc.", "META.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy NFLX dShare
-        deployments.dShares[4] = dShare(
+        // deploy NFLX DShare
+        deployments.dShares[4] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize, (cfg.deployer, "Netflix, Inc.", "NFLX.d", deployments.transferRestrictor)
+                        DShare.initialize, (cfg.deployer, "Netflix, Inc.", "NFLX.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy AAPL dShare
-        deployments.dShares[5] = dShare(
+        // deploy AAPL DShare
+        deployments.dShares[5] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize, (cfg.deployer, "Apple Inc.", "AAPL.d", deployments.transferRestrictor)
+                        DShare.initialize, (cfg.deployer, "Apple Inc.", "AAPL.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy GOOGL dShare
-        deployments.dShares[6] = dShare(
+        // deploy GOOGL DShare
+        deployments.dShares[6] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize,
+                        DShare.initialize,
                         (cfg.deployer, "Alphabet Inc. Class A", "GOOGL.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy AMZN dShare
-        deployments.dShares[7] = dShare(
+        // deploy AMZN DShare
+        deployments.dShares[7] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize, (cfg.deployer, "Amazon.com, Inc.", "AMZN.d", deployments.transferRestrictor)
+                        DShare.initialize, (cfg.deployer, "Amazon.com, Inc.", "AMZN.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy PYPL dShare
-        deployments.dShares[8] = dShare(
+        // deploy PYPL DShare
+        deployments.dShares[8] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize,
+                        DShare.initialize,
                         (cfg.deployer, "PayPal Holdings, Inc.", "PYPL.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy PFE dShare
-        deployments.dShares[9] = dShare(
+        // deploy PFE DShare
+        deployments.dShares[9] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize, (cfg.deployer, "Pfizer, Inc.", "PFE.d", deployments.transferRestrictor)
+                        DShare.initialize, (cfg.deployer, "Pfizer, Inc.", "PFE.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy DIS dShare
-        deployments.dShares[10] = dShare(
+        // deploy DIS DShare
+        deployments.dShares[10] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize,
+                        DShare.initialize,
                         (cfg.deployer, "The Walt Disney Company", "DIS.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy SPY dShare
-        deployments.dShares[11] = dShare(
+        // deploy SPY DShare
+        deployments.dShares[11] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize,
+                        DShare.initialize,
                         (cfg.deployer, "SPDR S&P 500 ETF Trust", "SPY.d", deployments.transferRestrictor)
                     )
                 )
             )
         );
-        // deploy USFR dShare
-        deployments.dShares[12] = dShare(
+        // deploy USFR DShare
+        deployments.dShares[12] = DShare(
             address(
                 new BeaconProxy(
                     address(deployments.dShareBeacon),
                     abi.encodeCall(
-                        dShare.initialize,
+                        DShare.initialize,
                         (
                             cfg.deployer,
                             "WisdomTree Floating Rate Treasury Fund",

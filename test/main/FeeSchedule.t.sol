@@ -16,7 +16,7 @@ contract FeeScheduleTest is Test {
     BuyProcessor issuer;
     TokenLockCheck tokenLockCheck;
     MockdShareFactory tokenFactory;
-    dShare token;
+    DShare token;
     MockToken paymentToken;
 
     uint256 userPrivateKey;

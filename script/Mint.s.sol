@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
-import "../src/IdShare.sol";
+import "../src/IDShare.sol";
 
 contract MintScript is Script {
     function run() external {
@@ -21,7 +21,7 @@ contract MintScript is Script {
 
         for (uint256 i = 0; i < mintAssets.length; i++) {
             for (uint256 j = 0; j < testWallets.length; j++) {
-                IdShare(mintAssets[i]).mint(testWallets[j], 10_000 ether);
+                IDShare(mintAssets[i]).mint(testWallets[j], 10_000 ether);
             }
         }
 

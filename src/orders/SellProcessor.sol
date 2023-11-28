@@ -11,7 +11,7 @@ import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 /// Fees are taken from the proceeds of the sale
 /// The asset token is escrowed until the order is filled or cancelled
 /// The asset token is automatically refunded if the order is cancelled
-/// Implicitly assumes that asset tokens are dShare and can be burned
+/// Implicitly assumes that asset tokens are DShare and can be burned
 contract SellProcessor is OrderProcessor {
     error LimitPriceNotSet();
     error OrderFillAboveLimitPrice();

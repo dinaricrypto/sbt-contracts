@@ -4,9 +4,9 @@ pragma solidity 0.8.22;
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /// @notice Core token contract interface for bridged assets.
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IdShare.sol)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IDShare.sol)
 /// Minter, burner, and blacklist
-interface IdShare {
+interface IDShare {
     /// @notice Contract to restrict transfers
     function transferRestrictor() external view returns (ITransferRestrictor);
 

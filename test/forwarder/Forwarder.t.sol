@@ -46,7 +46,7 @@ contract ForwarderTest is Test {
     BuyUnlockedProcessor public directBuyIssuer;
     MockToken public paymentToken;
     MockdShareFactory public tokenFactory;
-    dShare public token;
+    DShare public token;
 
     SigMetaUtils public sigMeta;
     SigUtils public paymentSigUtils;

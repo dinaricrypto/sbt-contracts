@@ -8,14 +8,14 @@ import {IDividendDistributor} from "./IDividendDistributor.sol";
 
 /**
  * @title DualDistributor Contract
- * @notice A contract to manage the distribution of dividends for both USDC and dShare.
+ * @notice A contract to manage the distribution of dividends for both USDC and DShare.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dividend/DualDistributor.sol)
  */
 contract DualDistributor is AccessControlDefaultAdminRules {
     using SafeERC20 for IERC20;
 
     event NewDistribution(
-        uint256 indexed distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount
+        uint256 indexed distributionId, address indexed DShare, uint256 usdcAmount, uint256 dShareAmount
     );
 
     error ZeroAddress();
@@ -29,8 +29,8 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     /// @dev Address of the dividend distribution contract.
     address public dividendDistribution;
 
-    /// @dev Mapping to store the relationship between dShare and xdShare.
-    mapping(address dShare => address xdShare) public dShareToXdShare;
+    /// @dev Mapping to store the relationship between DShare and XdShare.
+    mapping(address DShare => address XdShare) public dShareToXdShare;
 
     /**
      * @notice Initializes the `DualDistributor` contract.
@@ -62,36 +62,36 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     }
 
     /**
-     * @notice Adds a new pair of dShare and xdShare addresses.
-     * @param _dShare Address of the dShare token.
-     * @param _xdShare Address of the xdShare token.
+     * @notice Adds a new pair of DShare and XdShare addresses.
+     * @param _dShare Address of the DShare token.
+     * @param _XdShare Address of the XdShare token.
      */
-    function setXdShareForDShare(address _dShare, address _xdShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setXdShareForDShare(address _dShare, address _XdShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dShare == address(0)) revert ZeroAddress();
-        dShareToXdShare[_dShare] = _xdShare;
+        dShareToXdShare[_dShare] = _XdShare;
     }
 
     /**
-     * @notice Distributes dividends to dShare and xdShare holders.
-     * @dev Requires the distributor role and xdShare to be locked.
-     * @param dShare Address of the dShare token.
+     * @notice Distributes dividends to DShare and XdShare holders.
+     * @dev Requires the distributor role and XdShare to be locked.
+     * @param DShare Address of the DShare token.
      * @param usdcAmount Amount of USDC to distribute.
-     * @param dShareAmount Amount of dShare tokens to distribute.
+     * @param dShareAmount Amount of DShare tokens to distribute.
      * @param endTime The timestamp when the distribution stops.
      */
-    function distribute(address dShare, uint256 usdcAmount, uint256 dShareAmount, uint256 endTime)
+    function distribute(address DShare, uint256 usdcAmount, uint256 dShareAmount, uint256 endTime)
         external
         onlyRole(DISTRIBUTOR_ROLE)
         returns (uint256)
     {
-        address xdShare = dShareToXdShare[dShare];
-        if (xdShare == address(0)) revert ZeroAddress();
+        address XdShare = dShareToXdShare[DShare];
+        if (XdShare == address(0)) revert ZeroAddress();
 
         emit NewDistribution(
-            IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, usdcAmount, dShareAmount
+            IDividendDistributor(dividendDistribution).nextDistributionId(), DShare, usdcAmount, dShareAmount
         );
 
-        IERC20(dShare).safeTransfer(xdShare, dShareAmount);
+        IERC20(DShare).safeTransfer(XdShare, dShareAmount);
         IERC20(USDC).safeIncreaseAllowance(dividendDistribution, usdcAmount);
         return IDividendDistributor(dividendDistribution).createDistribution(USDC, usdcAmount, endTime);
     }

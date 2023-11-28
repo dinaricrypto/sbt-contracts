@@ -24,7 +24,7 @@ contract BuyUnlockedProcessorTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     MockdShareFactory tokenFactory;
-    dShare token;
+    DShare token;
     TokenLockCheck tokenLockCheck;
     BuyUnlockedProcessor issuer;
     MockToken paymentToken;

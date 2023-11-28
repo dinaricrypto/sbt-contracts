@@ -12,9 +12,9 @@ import "prb-math/Common.sol" as PrbMath;
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
-import {dShare} from "../dShare.sol";
+import {DShare} from "../DShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
-import {IdShare} from "../IdShare.sol";
+import {IDShare} from "../IDShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 import {IFeeSchedule} from "./IFeeSchedule.sol";
@@ -490,7 +490,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // update escrowed balance
             escrowedBalanceOf[order.assetToken][order.recipient] -= fillAmount;
             // Burn the filled quantity from the asset token
-            IdShare(order.assetToken).burn(fillAmount);
+            IDShare(order.assetToken).burn(fillAmount);
 
             // Transfer the received amount from the filler to this contract
             IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
@@ -506,7 +506,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
 
             // Mint asset
-            IdShare(order.assetToken).mint(order.recipient, receivedAmount);
+            IDShare(order.assetToken).mint(order.recipient, receivedAmount);
         }
 
         // If there are fees from the order, transfer them to the treasury

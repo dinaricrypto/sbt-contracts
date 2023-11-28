@@ -21,7 +21,7 @@ contract SellProcessorTest is Test {
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
     MockdShareFactory tokenFactory;
-    dShare token;
+    DShare token;
     TokenLockCheck tokenLockCheck;
     SellProcessor issuer;
     MockToken paymentToken;

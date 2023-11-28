@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import {ITokenLockCheck} from "./ITokenLockCheck.sol";
-import {IdShare} from "./IdShare.sol";
+import {IDShare} from "./IDShare.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
@@ -35,9 +35,9 @@ contract TokenLockCheck is ITokenLockCheck, Ownable {
 
     function setAsDShare(address token) external onlyOwner {
         // if token is a contract, it must implement the selector
-        _checkTransferLocked(token, address(this), IdShare.isBlacklisted.selector);
+        _checkTransferLocked(token, address(this), IDShare.isBlacklisted.selector);
 
-        callSelector[token] = IdShare.isBlacklisted.selector;
+        callSelector[token] = IDShare.isBlacklisted.selector;
     }
 
     function _checkTransferLocked(address token, address account, bytes4 selector) internal view returns (bool) {

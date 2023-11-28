@@ -21,7 +21,7 @@ contract ForwarderRequestCancelTest is Test {
     BuyProcessor public issuer;
     MockToken public paymentToken;
     MockdShareFactory public tokenFactory;
-    dShare public token;
+    DShare public token;
 
     SigMetaUtils public sigMeta;
     SigUtils public paymentSigUtils;
