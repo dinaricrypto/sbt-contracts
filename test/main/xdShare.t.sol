@@ -58,6 +58,19 @@ contract xdShareTest is Test {
         assertEq(xToken.asset(), address(token));
     }
 
+    function testIntializationZeroAddress() public {
+        xdShare xtokenImplementation = new xdShare();
+        vm.expectRevert(xdShare.ZeroAddress.selector);
+        xdShare(
+            address(
+                new ERC1967Proxy(
+                    address(xtokenImplementation),
+                    abi.encodeCall(xdShare.initialize, (dShare(address(0)), "Reinvesting dTKN.d", "dTKN.d.x"))
+                )
+            )
+        );
+    }
+
     function testMint(uint128 amount, address receiver) public {
         vm.assume(receiver != address(this));
 

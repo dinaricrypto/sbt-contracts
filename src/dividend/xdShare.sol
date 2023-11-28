@@ -24,6 +24,8 @@ contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardU
 
     using SafeERC20 for IERC20;
 
+    error ZeroAddress();
+
     /// ------------------- State ------------------- ///
 
     struct xdShareStorage {
@@ -46,6 +48,8 @@ contract xdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardU
     function initialize(dShare dShare_, string memory name_, string memory symbol_) public initializer {
         __Ownable_init_unchained(msg.sender);
         __ReentrancyGuard_init_unchained();
+
+        if (address(dShare_) == address(0)) revert ZeroAddress();
 
         xdShareStorage storage $ = _getxdShareStorage();
         $._underlyingDShare = dShare_;
