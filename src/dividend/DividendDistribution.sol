@@ -51,6 +51,8 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
     constructor(address owner) AccessControlDefaultAdminRules(0, owner) {}
 
     /// ------------------- Setter ------------------- ///
+
+    /// @inheritdoc IDividendDistributor
     function setMinimumDistributionDuration(uint256 _minimumDistributionDuration)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)

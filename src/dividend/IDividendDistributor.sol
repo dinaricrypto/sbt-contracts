@@ -9,6 +9,12 @@ interface IDividendDistributor {
      * @return The ID for the next distribution.
      */
     function nextDistributionId() external returns (uint256);
+
+    /**
+     * @notice set the minimum duration for a distribution.
+     * @param minimumDistributionDuration The minimum duration for a distribution.
+     */
+    function setMinimumDistributionDuration(uint256 minimumDistributionDuration) external;
     /**
      * @notice Creates a new distribution.
      * @param token The address of the token to be distributed.
