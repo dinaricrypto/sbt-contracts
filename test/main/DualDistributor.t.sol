@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
 import {DualDistributor} from "../../src/dividend/DualDistributor.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {XdShare} from "../../src/dividend/XDShare.sol";
+import {XDShare} from "../../src/dividend/XDShare.sol";
 import {DShare} from "../../src/DShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
@@ -16,7 +16,7 @@ contract DualDistributorTest is Test {
     DividendDistribution distribution;
     DualDistributor dualDistributor;
     TransferRestrictor restrictor;
-    XdShare xToken;
+    XDShare xToken;
     DShare dtoken;
     MockERC20 token;
 
@@ -43,12 +43,12 @@ contract DualDistributorTest is Test {
                 )
             )
         );
-        XdShare xtokenImplementation = new XdShare();
-        xToken = XdShare(
+        XDShare xtokenImplementation = new XDShare();
+        xToken = XDShare(
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(XdShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
+                    abi.encodeCall(XDShare.initialize, (dtoken, "Dinari xdToken", "xdTKN"))
                 )
             )
         );

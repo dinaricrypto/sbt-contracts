@@ -11,18 +11,20 @@ import {ReentrancyGuardUpgradeable} from
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title XdShare Contract
+ * @title XDShare Contract
  * @dev This contract acts as a wrapper over the DShare token, providing additional functionalities.
  *      It serves as a reinvestment token that uses DShare as the underlying token.
  *      Additionally, it employs the ERC4626 standard for its operations.
  *      If TokenManager is not used, make sure that DShare will never split.
- * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/XdShare.sol)
+ * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/XDShare.sol)
  */
 // slither-disable-next-line missing-inheritance
-contract XdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract XDShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
     /// ------------------- Types ------------------- ///
 
     using SafeERC20 for IERC20;
+
+    error ZeroAddress();
 
     /// ------------------- State ------------------- ///
 
@@ -46,6 +48,8 @@ contract XdShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardU
     function initialize(DShare dShare_, string memory name_, string memory symbol_) public initializer {
         __Ownable_init_unchained(msg.sender);
         __ReentrancyGuard_init_unchained();
+
+        if (address(dShare_) == address(0)) revert ZeroAddress();
 
         XdShareStorage storage $ = _getXdShareStorage();
         $._underlyingDShare = dShare_;

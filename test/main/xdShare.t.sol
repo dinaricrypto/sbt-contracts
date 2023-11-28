@@ -3,14 +3,14 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {DShare} from "../../src/DShare.sol";
-import {XdShare} from "../../src/dividend/XDShare.sol";
+import {XDShare} from "../../src/dividend/XDShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract XdShareTest is Test {
     TransferRestrictor public restrictor;
     DShare public token;
-    XdShare public xToken;
+    XDShare public xToken;
 
     address user = address(1);
     address user2 = address(2);
@@ -29,12 +29,12 @@ contract XdShareTest is Test {
         );
         token.grantRole(token.MINTER_ROLE(), address(this));
 
-        XdShare xtokenImplementation = new XdShare();
-        xToken = XdShare(
+        XDShare xtokenImplementation = new XDShare();
+        xToken = XDShare(
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(XdShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                    abi.encodeCall(XDShare.initialize, (token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );
@@ -56,6 +56,19 @@ contract XdShareTest is Test {
         assertEq(xToken.symbol(), "dTKN.d.x");
         assertEq(xToken.decimals(), 18);
         assertEq(xToken.asset(), address(token));
+    }
+
+    function testIntializationZeroAddress() public {
+        XDShare xtokenImplementation = new XDShare();
+        vm.expectRevert(XDShare.ZeroAddress.selector);
+        XDShare(
+            address(
+                new ERC1967Proxy(
+                    address(xtokenImplementation),
+                    abi.encodeCall(XDShare.initialize, (DShare(address(0)), "Reinvesting dTKN.d", "dTKN.d.x"))
+                )
+            )
+        );
     }
 
     function testMint(uint128 amount, address receiver) public {
