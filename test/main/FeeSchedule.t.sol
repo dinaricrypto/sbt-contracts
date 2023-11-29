@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import {BuyProcessor} from "../../src/orders/BuyProcessor.sol";
+import {EscrowOrderProcessor} from "../../src/orders/EscrowOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {FeeSchedule, IFeeSchedule} from "../../src/orders/FeeSchedule.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
@@ -13,7 +13,7 @@ contract FeeScheduleTest is Test {
     event FeesSet(address account, FeeSchedule.FeeRates feeRates);
 
     FeeSchedule feeSchedule;
-    BuyProcessor issuer;
+    EscrowOrderProcessor issuer;
     TokenLockCheck tokenLockCheck;
     MockdShareFactory tokenFactory;
     dShare token;
@@ -36,7 +36,7 @@ contract FeeScheduleTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
     }
 

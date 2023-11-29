@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
-import {BuyProcessor, ITokenLockCheck} from "./BuyProcessor.sol";
+import {EscrowOrderProcessor, ITokenLockCheck} from "./EscrowOrderProcessor.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/BuyUnlockedProcessor.sol)
@@ -25,11 +25,12 @@ import {BuyProcessor, ITokenLockCheck} from "./BuyProcessor.sol";
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract BuyUnlockedProcessor is BuyProcessor {
+contract BuyUnlockedProcessor is EscrowOrderProcessor {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
 
+    error NotBuyOrder();
     /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
 
@@ -49,7 +50,7 @@ contract BuyUnlockedProcessor is BuyProcessor {
         uint64 _perOrderFee,
         uint24 _percentageFeeRate,
         ITokenLockCheck _tokenLockCheck
-    ) BuyProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
+    ) EscrowOrderProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 
@@ -109,6 +110,8 @@ contract BuyUnlockedProcessor is BuyProcessor {
 
     /// @inheritdoc OrderProcessor
     function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual override {
+        // Only buy orders
+        if (order.sell) revert NotBuyOrder();
         // Compile standard buy order
         super._requestOrderAccounting(id, order, totalFees);
         // Initialize escrow tracking for order

@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../../utils/mocks/MockToken.sol";
 import "../../utils/mocks/MockdShareFactory.sol";
 import "../../utils/SigUtils.sol";
-import "../../../src/orders/BuyProcessor.sol";
+import "../../../src/orders/EscrowOrderProcessor.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -20,7 +20,7 @@ contract BuyProcessorRequestTest is Test {
     MockdShareFactory tokenFactory;
     dShare token;
     TokenLockCheck tokenLockCheck;
-    BuyProcessor issuer;
+    EscrowOrderProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
 
@@ -50,7 +50,7 @@ contract BuyProcessorRequestTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
