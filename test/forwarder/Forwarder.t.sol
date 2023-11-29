@@ -86,8 +86,28 @@ contract ForwarderTest is Test {
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new EscrowOrderProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        directBuyIssuer = new BuyUnlockedProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
+        directBuyIssuer = new BuyUnlockedProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
@@ -706,7 +726,17 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderModuleNotFound() public {
-        EscrowOrderProcessor issuer1 = new EscrowOrderProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        EscrowOrderProcessor issuer1 = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
         issuer1.grantRole(issuer1.FORWARDER_ROLE(), address(forwarder));
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);

@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import "prb-math/Common.sol" as PrbMath;
-import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
+import {OrderProcessor, IFeeSchedule, ITokenLockCheck} from "./OrderProcessor.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets
@@ -17,13 +17,9 @@ contract EscrowOrderProcessor is OrderProcessor {
     error OrderFillBelowLimitPrice();
     error OrderFillAboveLimitPrice();
 
-    constructor(
-        address _owner,
-        address _treasury,
-        uint64 _perOrderFee,
-        uint24 _percentageFeeRate,
-        ITokenLockCheck _tokenLockCheck
-    ) OrderProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
+    constructor(address _owner, address _treasury, FeeRates memory defaultFeeRates, ITokenLockCheck _tokenLockCheck)
+        OrderProcessor(_owner, _treasury, defaultFeeRates, _tokenLockCheck)
+    {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 

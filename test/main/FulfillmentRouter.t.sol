@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShareFactory.sol";
 import {EscrowOrderProcessor} from "../../src/orders/EscrowOrderProcessor.sol";
-import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
+import {OrderProcessor, IOrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
@@ -49,7 +49,17 @@ contract FulfillmentRouterTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new EscrowOrderProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
         vault = new Vault(address(this));
         router = new FulfillmentRouter();
 

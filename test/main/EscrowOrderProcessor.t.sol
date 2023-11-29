@@ -16,7 +16,7 @@ import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessCon
 
 contract EscrowOrderProcessorTest is Test {
     event TreasurySet(address indexed treasury);
-    event FeeSet(uint64 perOrderFee, uint24 percentageFeeRate);
+    event FeesSet(address indexed account, OrderProcessor.FeeRates feeRates);
     event OrdersPaused(bool paused);
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
@@ -58,7 +58,17 @@ contract EscrowOrderProcessorTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new EscrowOrderProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -126,18 +136,27 @@ contract EscrowOrderProcessorTest is Test {
         assertEq(hashToTest, orderHash);
     }
 
-    function testSetFee(uint64 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
+    function testSetDefaultFees(uint64 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
+        OrderProcessor.FeeRates memory rates = OrderProcessor.FeeRates({
+            perOrderFeeBuy: perOrderFee,
+            percentageFeeRateBuy: percentageFee,
+            perOrderFeeSell: perOrderFee,
+            percentageFeeRateSell: percentageFee
+        });
         if (percentageFee >= 1_000_000) {
             vm.expectRevert(FeeLib.FeeTooLarge.selector);
-            issuer.setFees(perOrderFee, percentageFee);
+            issuer.setDefaultFees(rates);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit FeeSet(perOrderFee, percentageFee);
-            issuer.setFees(perOrderFee, percentageFee);
-            assertEq(issuer.perOrderFee(), perOrderFee);
-            assertEq(issuer.percentageFeeRate(), percentageFee);
+            emit FeesSet(address(0), rates);
+            issuer.setDefaultFees(rates);
+            OrderProcessor.FeeRates memory newRates = issuer.getAccountFees(address(0));
+            assertEq(newRates.perOrderFeeBuy, perOrderFee);
+            assertEq(newRates.percentageFeeRateBuy, percentageFee);
+            assertEq(newRates.perOrderFeeSell, perOrderFee);
+            assertEq(newRates.percentageFeeRateSell, percentageFee);
             assertEq(
-                FeeLib.percentageFeeForValue(value, issuer.percentageFeeRate()),
+                FeeLib.percentageFeeForValue(value, newRates.percentageFeeRateBuy),
                 PrbMath.mulDiv(value, percentageFee, 1_000_000)
             );
             MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);

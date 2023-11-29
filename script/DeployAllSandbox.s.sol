@@ -7,7 +7,7 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {dShare} from "../src/dShare.sol";
 import {WrappeddShare} from "../src/WrappeddShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
-import {EscrowOrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
+import {EscrowOrderProcessor, OrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
@@ -171,11 +171,27 @@ contract DeployAllSandboxScript is Script {
         deployments.tokenLockCheck.setCallSelector(address(deployments.usdce), deployments.usdce.isBlacklisted.selector);
 
         deployments.escrowOrderProcessor = new EscrowOrderProcessor(
-            cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck
+            cfg.deployer,
+            cfg.treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: perOrderFee,
+                percentageFeeRateBuy: percentageFeeRate,
+                perOrderFeeSell: perOrderFee,
+                percentageFeeRateSell: percentageFeeRate
+            }),
+            deployments.tokenLockCheck
         );
 
         deployments.directBuyIssuer = new BuyUnlockedProcessor(
-            cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck
+            cfg.deployer,
+            cfg.treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: perOrderFee,
+                percentageFeeRateBuy: percentageFeeRate,
+                perOrderFeeSell: perOrderFee,
+                percentageFeeRateSell: percentageFeeRate
+            }),
+            deployments.tokenLockCheck
         );
 
         // config operator

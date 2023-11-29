@@ -201,11 +201,16 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         // Get the function selector
         bytes4 functionSelector = bytes4(metaTx.data[:4]);
         // Check call
+        uint256 requestIndex = 0;
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
             // Check if function selector is request Order to approve quantityIn
             // Get order from data
             (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
             _requestOrderPreparation(order, metaTx.user, metaTx.to);
+            // Store order signer for processor
+            requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
+            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
+            orderSigner[orderId] = metaTx.user;
         } else if (functionSelector == IOrderProcessor.requestCancel.selector) {
             // Check if cancel request is from the original order signer
             // Get data from metaTx
@@ -220,10 +225,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         result = metaTx.to.functionCall(metaTx.data);
 
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            uint256 id = abi.decode(result, (uint256));
-            // get order ID
-            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, id);
-            orderSigner[orderId] = metaTx.user;
+            // Check that reentrancy hasn't shifted order index
+            assert(abi.decode(result, (uint256)) == requestIndex);
         }
 
         // handle transaction payment

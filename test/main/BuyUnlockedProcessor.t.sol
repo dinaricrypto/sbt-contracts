@@ -50,7 +50,17 @@ contract BuyUnlockedProcessorTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyUnlockedProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new BuyUnlockedProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));

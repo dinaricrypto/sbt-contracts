@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {EscrowOrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
+import {EscrowOrderProcessor, OrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
@@ -65,11 +65,29 @@ contract DeployAllScript is Script {
         // add USDT.e
         tokenLockCheck.setCallSelector(cfg.usdt, this.isBlocked.selector);
 
-        EscrowOrderProcessor escrowOrderProcessor =
-            new EscrowOrderProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
+        EscrowOrderProcessor escrowOrderProcessor = new EscrowOrderProcessor(
+            cfg.deployer,
+            cfg.treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: perOrderFee,
+                percentageFeeRateBuy: percentageFeeRate,
+                perOrderFeeSell: perOrderFee,
+                percentageFeeRateSell: percentageFeeRate
+            }),
+            tokenLockCheck
+        );
 
-        BuyUnlockedProcessor directBuyIssuer =
-            new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
+        BuyUnlockedProcessor directBuyIssuer = new BuyUnlockedProcessor(
+            cfg.deployer,
+            cfg.treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: perOrderFee,
+                percentageFeeRateBuy: percentageFeeRate,
+                perOrderFeeSell: perOrderFee,
+                percentageFeeRateSell: percentageFeeRate
+            }),
+            tokenLockCheck
+        );
 
         // config operator
         escrowOrderProcessor.grantRole(escrowOrderProcessor.OPERATOR_ROLE(), cfg.operator);

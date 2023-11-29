@@ -64,7 +64,17 @@ contract dShareCompatTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new EscrowOrderProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));

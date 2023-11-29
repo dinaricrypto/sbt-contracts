@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
-import {EscrowOrderProcessor, ITokenLockCheck} from "./EscrowOrderProcessor.sol";
+import {EscrowOrderProcessor, IFeeSchedule, ITokenLockCheck} from "./EscrowOrderProcessor.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/BuyUnlockedProcessor.sol)
@@ -44,13 +44,9 @@ contract BuyUnlockedProcessor is EscrowOrderProcessor {
     /// @dev orderId => escrow
     mapping(bytes32 => uint256) public getOrderEscrow;
 
-    constructor(
-        address _owner,
-        address _treasury,
-        uint64 _perOrderFee,
-        uint24 _percentageFeeRate,
-        ITokenLockCheck _tokenLockCheck
-    ) EscrowOrderProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
+    constructor(address _owner, address _treasury, FeeRates memory defaultFeeRates, ITokenLockCheck _tokenLockCheck)
+        EscrowOrderProcessor(_owner, _treasury, defaultFeeRates, _tokenLockCheck)
+    {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 

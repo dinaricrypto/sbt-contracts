@@ -42,7 +42,17 @@ contract LimitOrderTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new EscrowOrderProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
 
