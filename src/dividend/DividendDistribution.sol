@@ -5,6 +5,7 @@ import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IDividendDistributor} from "./IDividendDistributor.sol";
+import {AccessControl, IAccessControl} from "openzeppelin-contracts/contracts/access/AccessControl.sol";
 
 contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistributor {
     using SafeERC20 for IERC20;
@@ -32,6 +33,7 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
     error DistributionRunning(); // Error thrown when trying to reclaim tokens from an distribution that is still running.
     error DistributionEnded(); // Error thrown when trying to claim tokens from an distribution that has ended.
     error NotReclaimable(); // Error thrown when the distribution has already been reclaimed or does not exist.
+    error AccessDenied();
 
     /// ------------------ Constants ------------------ ///
 
@@ -48,6 +50,7 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
     /// ------------------- Initialization ------------------- ///
 
     constructor(address owner) AccessControlDefaultAdminRules(0, owner) {}
+
 
     /// ------------------- Distribution Lifecycle ------------------- ///
 

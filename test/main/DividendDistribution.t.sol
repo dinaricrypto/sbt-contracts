@@ -37,6 +37,42 @@ contract DividendDistributionTest is Test {
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
     }
 
+    function testGrantDistributionRole(uint256 totalDistribution, uint256 _endTime) public {
+        // Ensure 'user' is not the default admin
+        assertFalse(distribution.hasRole(distribution.DEFAULT_ADMIN_ROLE(), user));
+
+        // Try to grant DISTRIBUTOR_ROLE as 'user'
+        vm.prank(user);
+        distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), user);
+
+        // Check if the role was actually granted
+        bool role = distribution.hasRole(distribution.DISTRIBUTOR_ROLE(), user);
+        assertEq(role, true); // Should be false since 'user' is not admin
+
+        vm.startPrank(user);
+        vm.assume(totalDistribution < 1e8);
+        assertEq(IERC20(address(token)).balanceOf(address(distribution)), 0);
+
+        token.mint(user, totalDistribution);
+
+        token.approve(address(distribution), totalDistribution);
+
+        if (_endTime <= block.timestamp) {
+            vm.expectRevert(DividendDistribution.EndTimeInPast.selector);
+            distribution.createDistribution(address(token), totalDistribution, _endTime);
+        } else {
+            vm.expectEmit(true, true, true, true);
+            emit NewDistributionCreated(0, totalDistribution, block.timestamp, _endTime);
+            distribution.createDistribution(address(token), totalDistribution, _endTime);
+            assertEq(IERC20(address(token)).balanceOf(address(distribution)), totalDistribution);
+            assertEq(IERC20(address(token)).balanceOf(user), 0);
+        }
+
+        vm.stopPrank();
+
+
+    }
+
     function testCreateNewDistribution(uint256 totalDistribution, uint256 _endTime) public {
         vm.assume(totalDistribution < 1e8);
         assertEq(IERC20(address(token)).balanceOf(address(distribution)), 0);

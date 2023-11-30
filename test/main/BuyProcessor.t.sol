@@ -99,6 +99,13 @@ contract BuyProcessorTest is Test {
         issuer.setTreasury(address(0));
     }
 
+    function testGrantRole() public {
+        vm.prank(user);
+        issuer.grantRole(issuer.OPERATOR_ROLE(), user);
+
+        assertEq(issuer.hasRole(issuer.OPERATOR_ROLE(), user), true);
+    }
+
     function testCheckHash() public {
         IOrderProcessor.Order memory order = dummyOrder;
         bytes32 orderHash = issuer.hashOrder(order);
