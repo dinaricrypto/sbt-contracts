@@ -31,6 +31,8 @@ contract DualDistributorTest is Test {
         uint256 indexed distributionId, address indexed DShare, uint256 usdcAmount, uint256 dShareAmount
     );
 
+    event NewStableCoinAddress(address indexed stableCoinAddress);
+
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         token = new MockERC20("Money", "$", 6);
@@ -64,13 +66,13 @@ contract DualDistributorTest is Test {
     }
 
     function testStateVar() public {
-        assertEq(dualDistributor.USDC(), address(token));
+        assertEq(dualDistributor.stableCoinAddress(), address(token));
         assertEq(dualDistributor.dividendDistribution(), address(distribution));
     }
 
     function testSetUsdcZeroAddressReverts() public {
         vm.expectRevert(DualDistributor.ZeroAddress.selector);
-        dualDistributor.setUSDC(address(0));
+        dualDistributor.setStableCoinAddress(address(0));
     }
 
     function testSetUsdc(address usdc) public {
@@ -82,10 +84,12 @@ contract DualDistributorTest is Test {
             )
         );
         vm.prank(user);
-        dualDistributor.setUSDC(usdc);
+        dualDistributor.setStableCoinAddress(usdc);
 
-        dualDistributor.setUSDC(usdc);
-        assertEq(dualDistributor.USDC(), usdc);
+        vm.expectEmit(true, true, true, true);
+        emit NewStableCoinAddress(usdc);
+        dualDistributor.setStableCoinAddress(usdc);
+        assertEq(dualDistributor.stableCoinAddress(), usdc);
     }
 
     function testSetDividendDistributionZeroAddressReverts() public {
