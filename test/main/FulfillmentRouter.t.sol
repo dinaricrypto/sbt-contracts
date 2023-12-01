@@ -4,9 +4,8 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShareFactory.sol";
-import {BuyProcessor} from "../../src/orders/BuyProcessor.sol";
-import {SellProcessor} from "../../src/orders/SellProcessor.sol";
-import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
+import {EscrowOrderProcessor} from "../../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor, IOrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
@@ -23,8 +22,7 @@ contract FulfillmentRouterTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     dShare token;
-    BuyProcessor issuer;
-    SellProcessor seller;
+    EscrowOrderProcessor issuer;
     MockToken paymentToken;
     TokenLockCheck tokenLockCheck;
     TransferRestrictor restrictor;
@@ -51,24 +49,28 @@ contract FulfillmentRouterTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        seller = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
         vault = new Vault(address(this));
         router = new FulfillmentRouter();
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.MINTER_ROLE(), address(issuer));
-        token.grantRole(token.BURNER_ROLE(), address(seller));
+        token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), address(router));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-
-        seller.grantRole(seller.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        seller.grantRole(seller.ASSETTOKEN_ROLE(), address(token));
-        seller.grantRole(seller.OPERATOR_ROLE(), address(router));
-        seller.grantRole(seller.OPERATOR_ROLE(), operator);
 
         vault.grantRole(vault.AUTHORIZED_OPERATOR_ROLE(), address(router));
 
@@ -130,16 +132,16 @@ contract FulfillmentRouterTest is Test {
 
         token.mint(user, orderAmount);
         vm.prank(user);
-        token.approve(address(seller), orderAmount);
+        token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
-        uint256 index = seller.requestOrder(order);
+        uint256 index = issuer.requestOrder(order);
 
         paymentToken.mint(address(vault), receivedAmount);
 
         vm.expectEmit(true, true, true, false);
         emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
         vm.prank(operator);
-        router.fillOrder(address(seller), address(vault), order, index, fillAmount, receivedAmount);
+        router.fillOrder(address(issuer), address(vault), order, index, fillAmount, receivedAmount);
     }
 }

@@ -5,8 +5,7 @@ import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
-import {SellProcessor} from "../../src/orders/SellProcessor.sol";
+import {EscrowOrderProcessor, OrderProcessor} from "../../src/orders/EscrowOrderProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
@@ -19,8 +18,7 @@ import {ERC20, MockERC20} from "solady/test/utils/mocks/MockERC20.sol";
 // test that forwarder and processors do not assume dShares are dShares
 contract dShareCompatTest is Test {
     Forwarder public forwarder;
-    BuyProcessor public issuer;
-    SellProcessor public sellIssuer;
+    EscrowOrderProcessor public issuer;
     MockToken public paymentToken;
     ERC20 public token;
 
@@ -66,27 +64,31 @@ contract dShareCompatTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-        sellIssuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        sellIssuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        sellIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(ethUSDOracle);
         forwarder.setSupportedModule(address(issuer), true);
-        forwarder.setSupportedModule(address(sellIssuer), true);
         forwarder.setRelayer(relayer, true);
         forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
         vm.stopPrank();
 
         // set issuer forwarder role
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
-        sellIssuer.grantRole(sellIssuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMetaUtils(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
@@ -165,7 +167,7 @@ contract dShareCompatTest is Test {
 
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(sellIssuer), address(paymentToken), data, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
@@ -173,7 +175,7 @@ contract dShareCompatTest is Test {
         multicalldata[1] = preparePermitCall(shareSigUtils, address(token), user, userPrivateKey, nonce);
         multicalldata[2] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        bytes32 id = sellIssuer.getOrderId(order.recipient, 0);
+        bytes32 id = issuer.getOrderId(order.recipient, 0);
 
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
@@ -181,13 +183,13 @@ contract dShareCompatTest is Test {
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
-        assertEq(uint8(sellIssuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-        assertEq(sellIssuer.getUnfilledAmount(id), order.assetTokenQuantity);
-        assertEq(sellIssuer.numOpenOrders(), 1);
-        assertEq(token.balanceOf(address(sellIssuer)), order.assetTokenQuantity);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(id), order.assetTokenQuantity);
+        assertEq(issuer.numOpenOrders(), 1);
+        assertEq(token.balanceOf(address(issuer)), order.assetTokenQuantity);
         assertEq(token.balanceOf(user), userBalanceBefore - order.assetTokenQuantity);
-        assertEq(token.balanceOf(address(sellIssuer)), issuerBalanceBefore + order.assetTokenQuantity);
-        assertEq(sellIssuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
+        assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + order.assetTokenQuantity);
+        assertEq(issuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
     }
 
     function testRequestCancel() public {

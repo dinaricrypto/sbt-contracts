@@ -3,8 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
-import {SellProcessor} from "../src/orders/SellProcessor.sol";
+import {EscrowOrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
@@ -29,12 +28,10 @@ contract UpdateTokenCheckScript is Script {
         TokenLockCheck tokenLockCheck = new TokenLockCheck(usdc, usdt);
 
         // update prechecker
-        BuyProcessor buyProcessor = BuyProcessor(vm.envAddress("BUY_ISSUER"));
-        SellProcessor sellProcessor = SellProcessor(vm.envAddress("SELL_PROCESSOR"));
+        EscrowOrderProcessor orderProcessor = EscrowOrderProcessor(vm.envAddress("ISSUER"));
         BuyUnlockedProcessor directBuyIssuer = BuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
 
-        buyProcessor.setTokenLockCheck(tokenLockCheck);
-        sellProcessor.setTokenLockCheck(tokenLockCheck);
+        orderProcessor.setTokenLockCheck(tokenLockCheck);
         directBuyIssuer.setTokenLockCheck(tokenLockCheck);
 
         vm.stopBroadcast();

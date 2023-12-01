@@ -7,8 +7,7 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {dShare} from "../src/dShare.sol";
 import {WrappeddShare} from "../src/WrappeddShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
-import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
-import {SellProcessor} from "../src/orders/SellProcessor.sol";
+import {EscrowOrderProcessor, OrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
@@ -39,8 +38,7 @@ contract DeployAllSandboxScript is Script {
         UpgradeableBeacon wrappeddShareBeacon;
         WrappeddShare[] wrappeddShares;
         TokenLockCheck tokenLockCheck;
-        BuyProcessor buyProcessor;
-        SellProcessor sellProcessor;
+        EscrowOrderProcessor escrowOrderProcessor;
         BuyUnlockedProcessor directBuyIssuer;
         Forwarder forwarder;
         DividendDistribution dividendDistributor;
@@ -172,36 +170,52 @@ contract DeployAllSandboxScript is Script {
         // add USDC.e
         deployments.tokenLockCheck.setCallSelector(address(deployments.usdce), deployments.usdce.isBlacklisted.selector);
 
-        deployments.buyProcessor =
-            new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck);
-
-        deployments.sellProcessor =
-            new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck);
+        deployments.escrowOrderProcessor = new EscrowOrderProcessor(
+            cfg.deployer,
+            cfg.treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: perOrderFee,
+                percentageFeeRateBuy: percentageFeeRate,
+                perOrderFeeSell: perOrderFee,
+                percentageFeeRateSell: percentageFeeRate
+            }),
+            deployments.tokenLockCheck
+        );
 
         deployments.directBuyIssuer = new BuyUnlockedProcessor(
-            cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, deployments.tokenLockCheck
+            cfg.deployer,
+            cfg.treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: perOrderFee,
+                percentageFeeRateBuy: percentageFeeRate,
+                perOrderFeeSell: perOrderFee,
+                percentageFeeRateSell: percentageFeeRate
+            }),
+            deployments.tokenLockCheck
         );
 
         // config operator
-        deployments.buyProcessor.grantRole(deployments.buyProcessor.OPERATOR_ROLE(), cfg.operator);
-        deployments.sellProcessor.grantRole(deployments.sellProcessor.OPERATOR_ROLE(), cfg.operator);
+        deployments.escrowOrderProcessor.grantRole(deployments.escrowOrderProcessor.OPERATOR_ROLE(), cfg.operator);
         deployments.directBuyIssuer.grantRole(deployments.directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
-        deployments.buyProcessor.grantRole(deployments.buyProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdc));
-        deployments.sellProcessor.grantRole(deployments.sellProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdc));
+        deployments.escrowOrderProcessor.grantRole(
+            deployments.escrowOrderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdc)
+        );
         deployments.directBuyIssuer.grantRole(
             deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdc)
         );
 
-        deployments.buyProcessor.grantRole(deployments.buyProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdt));
-        deployments.sellProcessor.grantRole(deployments.sellProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdt));
+        deployments.escrowOrderProcessor.grantRole(
+            deployments.escrowOrderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdt)
+        );
         deployments.directBuyIssuer.grantRole(
             deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdt)
         );
 
-        deployments.buyProcessor.grantRole(deployments.buyProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdce));
-        deployments.sellProcessor.grantRole(deployments.sellProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdce));
+        deployments.escrowOrderProcessor.grantRole(
+            deployments.escrowOrderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdce)
+        );
         deployments.directBuyIssuer.grantRole(
             deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdce)
         );
@@ -212,18 +226,19 @@ contract DeployAllSandboxScript is Script {
                 address(deployments.dShares[i]), deployments.dShares[i].isBlacklisted.selector
             );
 
-            deployments.buyProcessor.grantRole(
-                deployments.buyProcessor.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
-            );
-            deployments.sellProcessor.grantRole(
-                deployments.sellProcessor.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
+            deployments.escrowOrderProcessor.grantRole(
+                deployments.escrowOrderProcessor.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
             );
             deployments.directBuyIssuer.grantRole(
                 deployments.directBuyIssuer.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
             );
 
-            deployments.dShares[i].grantRole(deployments.dShares[i].MINTER_ROLE(), address(deployments.buyProcessor));
-            deployments.dShares[i].grantRole(deployments.dShares[i].BURNER_ROLE(), address(deployments.sellProcessor));
+            deployments.dShares[i].grantRole(
+                deployments.dShares[i].MINTER_ROLE(), address(deployments.escrowOrderProcessor)
+            );
+            deployments.dShares[i].grantRole(
+                deployments.dShares[i].BURNER_ROLE(), address(deployments.escrowOrderProcessor)
+            );
             deployments.dShares[i].grantRole(deployments.dShares[i].MINTER_ROLE(), address(deployments.directBuyIssuer));
         }
 
@@ -236,14 +251,14 @@ contract DeployAllSandboxScript is Script {
         deployments.forwarder.setPaymentOracle(address(deployments.usdce), cfg.usdcoracle);
         deployments.forwarder.setPaymentOracle(address(deployments.usdt), cfg.usdcoracle);
 
-        deployments.forwarder.setSupportedModule(address(deployments.buyProcessor), true);
-        deployments.forwarder.setSupportedModule(address(deployments.sellProcessor), true);
+        deployments.forwarder.setSupportedModule(address(deployments.escrowOrderProcessor), true);
         deployments.forwarder.setSupportedModule(address(deployments.directBuyIssuer), true);
 
         deployments.forwarder.setRelayer(cfg.relayer, true);
 
-        deployments.buyProcessor.grantRole(deployments.buyProcessor.FORWARDER_ROLE(), address(deployments.forwarder));
-        deployments.sellProcessor.grantRole(deployments.sellProcessor.FORWARDER_ROLE(), address(deployments.forwarder));
+        deployments.escrowOrderProcessor.grantRole(
+            deployments.escrowOrderProcessor.FORWARDER_ROLE(), address(deployments.forwarder)
+        );
         deployments.directBuyIssuer.grantRole(
             deployments.directBuyIssuer.FORWARDER_ROLE(), address(deployments.forwarder)
         );

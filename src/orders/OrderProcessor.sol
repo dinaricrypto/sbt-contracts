@@ -68,6 +68,22 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         OrderStatus status;
     }
 
+    // TODO: do nested structs pack efficiently? If so, use FeeRatesStorage.FeeRates
+    struct FeeRatesStorage {
+        bool set;
+        uint64 perOrderFeeBuy;
+        uint24 percentageFeeRateBuy;
+        uint64 perOrderFeeSell;
+        uint24 percentageFeeRateSell;
+    }
+
+    struct FeeRates {
+        uint64 perOrderFeeBuy;
+        uint24 percentageFeeRateBuy;
+        uint64 perOrderFeeSell;
+        uint24 percentageFeeRateSell;
+    }
+
     /// @dev Zero address
     error ZeroAddress();
     /// @dev Orders are paused
@@ -99,8 +115,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     event OrdersPaused(bool paused);
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
-    /// @dev Emitted when fee schedule contract is set
-    event FeeScheduleSet(address indexed requester, IFeeSchedule indexed feeSchedule);
+    /// @dev Emitted when fees are set
+    event FeesSet(address indexed account, FeeRates feeRates);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
@@ -126,12 +142,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Address to receive fees
     address public treasury;
 
-    /// @notice Flat fee per order in ethers decimals
-    uint64 public perOrderFee;
-
-    /// @notice Percentage fee take per order in hundredths of a bp
-    uint24 public percentageFeeRate;
-
     /// @notice Transfer restrictor checker
     ITokenLockCheck public tokenLockCheck;
 
@@ -156,33 +166,26 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @inheritdoc IOrderProcessor
     mapping(address => uint256) public maxOrderDecimals;
 
-    mapping(address => IFeeSchedule) public feeSchedule;
+    /// @notice Fee schedule for requester
+    mapping(address => FeeRatesStorage) private _accountFees;
 
     /// ------------------ Initialization ------------------ ///
 
     /// @notice Initialize contract
     /// @param _owner Owner of contract
     /// @param _treasury Address to receive fees
-    /// @param _perOrderFee Base flat fee per order in ethers decimals
-    /// @param _percentageFeeRate Percentage fee take per order in hundredths of a bp
+    /// @param defaultFeeRates Default fee rates
     /// @param _tokenLockCheck Token lock check contract
     /// @dev Treasury cannot be zero address
-    constructor(
-        address _owner,
-        address _treasury,
-        uint64 _perOrderFee,
-        uint24 _percentageFeeRate,
-        ITokenLockCheck _tokenLockCheck
-    ) AccessControlDefaultAdminRules(0, _owner) {
+    constructor(address _owner, address _treasury, FeeRates memory defaultFeeRates, ITokenLockCheck _tokenLockCheck)
+        AccessControlDefaultAdminRules(0, _owner)
+    {
         // Don't send fees to zero address
         if (_treasury == address(0)) revert ZeroAddress();
-        // Check percentage fee is less than 100%
-        FeeLib.checkPercentageFeeRate(_percentageFeeRate);
 
         // Initialize
         treasury = _treasury;
-        perOrderFee = _perOrderFee;
-        percentageFeeRate = _percentageFeeRate;
+        _setFees(address(0), defaultFeeRates);
         tokenLockCheck = _tokenLockCheck;
     }
 
@@ -206,21 +209,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TreasurySet(account);
     }
 
-    /// @notice Set the base and percentage fees
-    /// @param _perOrderFee Base flat fee per order in ethers decimals
-    /// @param _percentageFeeRate Percentage fee per order in hundredths of a bp
-    /// @dev Only callable by owner
-    function setFees(uint64 _perOrderFee, uint24 _percentageFeeRate) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        // Check percentage fee is less than 100%
-        FeeLib.checkPercentageFeeRate(_percentageFeeRate);
-
-        // Update fees
-        perOrderFee = _perOrderFee;
-        percentageFeeRate = _percentageFeeRate;
-        // Emit new fees
-        emit FeeSet(_perOrderFee, _percentageFeeRate);
-    }
-
     /// @notice Pause/unpause orders
     /// @param pause Pause orders if true, unpause if false
     /// @dev Only callable by admin
@@ -237,16 +225,52 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
-    /// @notice Set fee schedule for requester
-    /// @param requester Requester address
-    /// @param _feeSchedule Fee schedule contract
+    /// @notice Set default fee rates
+    /// @param feeRates Fee rates
     /// @dev Only callable by admin
-    function setFeeScheduleForRequester(address requester, IFeeSchedule _feeSchedule)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        feeSchedule[requester] = _feeSchedule;
-        emit FeeScheduleSet(requester, _feeSchedule);
+    function setDefaultFees(FeeRates memory feeRates) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setFees(address(0), feeRates);
+    }
+
+    /// @notice Set unique fee rates for requester
+    /// @param requester Requester address
+    /// @param feeRates Fee rates
+    /// @dev Only callable by admin
+    function setFeesForRequester(address requester, FeeRates memory feeRates) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (requester == address(0)) revert ZeroAddress();
+        _setFees(requester, feeRates);
+    }
+
+    /// @notice Reset fee rates for requester to default
+    /// @param requester Requester address
+    /// @dev Only callable by admin
+    function resetFeesForRequester(address requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (requester == address(0)) revert ZeroAddress();
+        delete _accountFees[requester];
+        FeeRatesStorage memory defaultFeeRates = _accountFees[address(0)];
+        emit FeesSet(
+            requester,
+            FeeRates({
+                perOrderFeeBuy: defaultFeeRates.perOrderFeeBuy,
+                percentageFeeRateBuy: defaultFeeRates.percentageFeeRateBuy,
+                perOrderFeeSell: defaultFeeRates.perOrderFeeSell,
+                percentageFeeRateSell: defaultFeeRates.percentageFeeRateSell
+            })
+        );
+    }
+
+    function _setFees(address account, FeeRates memory feeRates) private {
+        FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateBuy);
+        FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateSell);
+
+        _accountFees[account] = FeeRatesStorage({
+            set: true,
+            perOrderFeeBuy: feeRates.perOrderFeeBuy,
+            percentageFeeRateBuy: feeRates.percentageFeeRateBuy,
+            perOrderFeeSell: feeRates.perOrderFeeSell,
+            percentageFeeRateSell: feeRates.percentageFeeRateSell
+        });
+        emit FeesSet(account, feeRates);
     }
 
     /// @notice Set max order decimals for asset token
@@ -304,26 +328,32 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         return super.hasRole(role, account);
     }
 
-    /// @inheritdoc IOrderProcessor
-    function getFeeRatesForOrder(address requester, bool sell, address token)
-        public
-        view
-        returns (uint256 flatFee, uint24 _percentageFeeRate)
-    {
-        IFeeSchedule _feeSchedule = feeSchedule[requester];
-        // If user has a custom fee schedule but it's not zero
-        if (address(_feeSchedule) != address(0)) {
-            (uint64 customPerOrderFee, uint24 customPercentageFeeRate) =
-                _feeSchedule.getFeeRatesForOrder(requester, sell);
-            flatFee = FeeLib.flatFeeForOrder(token, customPerOrderFee);
-            _percentageFeeRate = customPercentageFeeRate;
-            return (flatFee, _percentageFeeRate);
+    function getAccountFees(address account) external view returns (FeeRates memory) {
+        FeeRatesStorage memory feeRates = _accountFees[account];
+        // If user does not have a custom fee schedule, use default
+        if (!feeRates.set) {
+            feeRates = _accountFees[address(0)];
         }
+        return FeeRates({
+            perOrderFeeBuy: feeRates.perOrderFeeBuy,
+            percentageFeeRateBuy: feeRates.percentageFeeRateBuy,
+            perOrderFeeSell: feeRates.perOrderFeeSell,
+            percentageFeeRateSell: feeRates.percentageFeeRateSell
+        });
+    }
 
-        // Default fee rates
-        flatFee = FeeLib.flatFeeForOrder(token, perOrderFee);
-        _percentageFeeRate = percentageFeeRate;
-        return (flatFee, _percentageFeeRate);
+    /// @inheritdoc IOrderProcessor
+    function getFeeRatesForOrder(address requester, bool sell, address token) public view returns (uint256, uint24) {
+        FeeRatesStorage memory feeRates = _accountFees[requester];
+        // If user does not have a custom fee schedule, use default
+        if (!feeRates.set) {
+            feeRates = _accountFees[address(0)];
+        }
+        if (sell) {
+            return (FeeLib.flatFeeForOrder(token, feeRates.perOrderFeeSell), feeRates.percentageFeeRateSell);
+        } else {
+            return (FeeLib.flatFeeForOrder(token, feeRates.perOrderFeeBuy), feeRates.percentageFeeRateBuy);
+        }
     }
 
     /// @inheritdoc IOrderProcessor
@@ -334,9 +364,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         uint256 paymentTokenOrderValue
     ) public view returns (uint256) {
         // Get fee rates
-        (uint256 flatFee, uint24 _percentageFeeRate) = getFeeRatesForOrder(requester, sell, paymentToken);
+        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, sell, paymentToken);
         // Calculate total fees
-        return FeeLib.estimateTotalFees(flatFee, _percentageFeeRate, paymentTokenOrderValue);
+        return FeeLib.estimateTotalFees(flatFee, percentageFeeRate, paymentTokenOrderValue);
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -356,13 +386,19 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
-        // black list checker
-        blackListCheck(order.assetToken, order.paymentToken, order.recipient, msg.sender);
-
-        index = nextOrderIndex[order.recipient]++;
+        // Check requester
+        index = nextOrderIndex[order.recipient];
         bytes32 id = getOrderId(order.recipient, index);
+        address requester = getRequester(id);
+        if (requester == address(0)) revert ZeroAddress();
+        // black list checker
+        blackListCheck(order.assetToken, order.paymentToken, order.recipient, requester);
+
+        // Update next order index
+        nextOrderIndex[order.recipient] = index + 1;
+
         // Calculate fees
-        uint256 flatFee = FeeLib.flatFeeForOrder(order.paymentToken, perOrderFee);
+        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, order.sell, order.paymentToken);
         uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, order.paymentTokenQuantity);
         // Check values
         _requestOrderAccounting(id, order, totalFees);
@@ -373,7 +409,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Initialize order state
         _orders[id] = OrderState({
             orderHash: hashOrder(order),
-            requester: msg.sender,
+            requester: requester,
             flatFee: flatFee,
             percentageFeeRate: percentageFeeRate,
             received: 0,
@@ -397,6 +433,15 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // Escrow payment for purchase
             IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), quantityIn);
         }
+    }
+
+    function getRequester(bytes32 id) internal view returns (address) {
+        // Determine true requester
+        if (hasRole(FORWARDER_ROLE, msg.sender)) {
+            // If order was requested by a forwarder, use the forwarder's requester on file
+            return IForwarder(msg.sender).orderSigner(id);
+        }
+        return msg.sender;
     }
 
     /// @notice Hash order data for validation
@@ -536,8 +581,10 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Order must exist
         address requester = _orders[id].requester;
         if (requester == address(0)) revert OrderNotFound();
+        // Get cancel requester
+        address cancelRequester = getRequester(id);
         // Only requester can request cancellation
-        if (requester != msg.sender) revert NotRequester();
+        if (requester != cancelRequester) revert NotRequester();
 
         _orders[id].cancellationInitiated = true;
 
@@ -577,18 +624,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // update escrowed balance
         escrowedBalanceOf[refundToken][order.recipient] -= refund;
 
-        // Determine true requester
-        address requester;
-        if (hasRole(FORWARDER_ROLE, orderState.requester)) {
-            // If order was requested by a forwarder, use the forwarder's requester on file
-            requester = IForwarder(orderState.requester).orderSigner(id);
-        } else {
-            // Otherwise use the original msg.sender as the requester
-            requester = orderState.requester;
-        }
-
         // Return escrow
-        IERC20(refundToken).safeTransfer(requester, refund);
+        IERC20(refundToken).safeTransfer(orderState.requester, refund);
     }
 
     /// ------------------ Virtuals ------------------ ///

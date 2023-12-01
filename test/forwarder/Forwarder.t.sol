@@ -5,8 +5,7 @@ import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {BuyProcessor, OrderProcessor} from "../../src/orders/BuyProcessor.sol";
-import {SellProcessor} from "../../src/orders/SellProcessor.sol";
+import {EscrowOrderProcessor, OrderProcessor} from "../../src/orders/EscrowOrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../../src/orders/BuyUnlockedProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
@@ -41,8 +40,7 @@ contract ForwarderTest is Test {
     error InsufficientBalance();
 
     Forwarder public forwarder;
-    BuyProcessor public issuer;
-    SellProcessor public sellIssuer;
+    EscrowOrderProcessor public issuer;
     BuyUnlockedProcessor public directBuyIssuer;
     MockToken public paymentToken;
     MockdShareFactory public tokenFactory;
@@ -88,20 +86,35 @@ contract ForwarderTest is Test {
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        sellIssuer = new SellProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
-        directBuyIssuer = new BuyUnlockedProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
+        directBuyIssuer = new BuyUnlockedProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
-        token.grantRole(token.BURNER_ROLE(), address(sellIssuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-        sellIssuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        sellIssuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        sellIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         directBuyIssuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         directBuyIssuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         directBuyIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
@@ -109,14 +122,12 @@ contract ForwarderTest is Test {
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(ethUsdPriceOracle);
         forwarder.setSupportedModule(address(issuer), true);
-        forwarder.setSupportedModule(address(sellIssuer), true);
         forwarder.setSupportedModule(address(directBuyIssuer), true);
         forwarder.setRelayer(relayer, true);
         vm.stopPrank();
 
         // set issuer forwarder role
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
-        sellIssuer.grantRole(sellIssuer.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMetaUtils(forwarder.DOMAIN_SEPARATOR());
@@ -407,7 +418,7 @@ contract ForwarderTest is Test {
 
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(sellIssuer), address(paymentToken), data, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
@@ -417,7 +428,7 @@ contract ForwarderTest is Test {
             preparePermitCall(shareSigUtils, address(token), type(uint256).max, user, userPrivateKey, nonce);
         multicalldata[2] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        bytes32 id = sellIssuer.getOrderId(order.recipient, 0);
+        bytes32 id = issuer.getOrderId(order.recipient, 0);
 
         // mint paymentToken Balance ex: USDC
         paymentToken.mint(user, order.paymentTokenQuantity * 1e6);
@@ -432,13 +443,13 @@ contract ForwarderTest is Test {
 
         uint256 paymentTokenBalanceAfter = paymentToken.balanceOf(user);
 
-        assertEq(uint8(sellIssuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-        assertEq(sellIssuer.getUnfilledAmount(id), order.assetTokenQuantity);
-        assertEq(sellIssuer.numOpenOrders(), 1);
-        assertEq(token.balanceOf(address(sellIssuer)), order.assetTokenQuantity);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(id), order.assetTokenQuantity);
+        assertEq(issuer.numOpenOrders(), 1);
+        assertEq(token.balanceOf(address(issuer)), order.assetTokenQuantity);
         assertEq(token.balanceOf(user), userBalanceBefore - order.assetTokenQuantity);
-        assertEq(token.balanceOf(address(sellIssuer)), issuerBalanceBefore + order.assetTokenQuantity);
-        assertEq(sellIssuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
+        assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + order.assetTokenQuantity);
+        assertEq(issuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
         assert(paymentTokenBalanceBefore > paymentTokenBalanceAfter);
     }
 
@@ -715,7 +726,17 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderModuleNotFound() public {
-        BuyProcessor issuer1 = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        EscrowOrderProcessor issuer1 = new EscrowOrderProcessor(
+            address(this),
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
         issuer1.grantRole(issuer1.FORWARDER_ROLE(), address(forwarder));
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
