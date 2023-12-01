@@ -18,13 +18,17 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         uint256 indexed distributionId, address indexed DShare, uint256 usdcAmount, uint256 dShareAmount
     );
 
+    event NewDividendDistributionSet(address indexed newDivividendDistribution);
+
+    event NewStableCoinAddress(address indexed stableCoinAddress);
+
     error ZeroAddress();
 
     /// @notice Role for approved distributors
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
 
-    /// @dev Address of the USDC token.
-    address public USDC;
+    /// @dev Address of the stablecoin to distribute.
+    address public stableCoinAddress;
 
     /// @dev Address of the dividend distribution contract.
     address public dividendDistribution;
@@ -35,21 +39,24 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     /**
      * @notice Initializes the `DualDistributor` contract.
      * @param owner The address of the owner/administrator.
-     * @param _USDC The address of the USDC token.
+     * @param _stableCoinAddress The address of the stable coin.
      * @param _dividendDistribution The address of the dividend distribution contract.
      */
-    constructor(address owner, address _USDC, address _dividendDistribution) AccessControlDefaultAdminRules(0, owner) {
-        USDC = _USDC;
+    constructor(address owner, address _stableCoinAddress, address _dividendDistribution)
+        AccessControlDefaultAdminRules(0, owner)
+    {
+        stableCoinAddress = _stableCoinAddress;
         dividendDistribution = _dividendDistribution;
     }
 
     /**
-     * @notice Updates the USDC token address.
-     * @param _USDC The new address for the USDC token.
+     * @notice Updates the stable coin address.
+     * @param _stableCoinAddress The new address for the stable coin.
      */
-    function setUSDC(address _USDC) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_USDC == address(0)) revert ZeroAddress();
-        USDC = _USDC;
+    function setStableCoinAddress(address _stableCoinAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_stableCoinAddress == address(0)) revert ZeroAddress();
+        stableCoinAddress = _stableCoinAddress;
+        emit NewStableCoinAddress(_stableCoinAddress);
     }
 
     /**
@@ -59,6 +66,7 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     function setDividendDistribution(address _dividendDistribution) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dividendDistribution == address(0)) revert ZeroAddress();
         dividendDistribution = _dividendDistribution;
+        emit NewDividendDistributionSet(_dividendDistribution);
     }
 
     /**
@@ -75,11 +83,11 @@ contract DualDistributor is AccessControlDefaultAdminRules {
      * @notice Distributes dividends to DShare and XdShare holders.
      * @dev Requires the distributor role and XdShare to be locked.
      * @param DShare Address of the DShare token.
-     * @param usdcAmount Amount of USDC to distribute.
+     * @param stableCoinAmount Amount of stable coin to distribute.
      * @param dShareAmount Amount of DShare tokens to distribute.
      * @param endTime The timestamp when the distribution stops.
      */
-    function distribute(address DShare, uint256 usdcAmount, uint256 dShareAmount, uint256 endTime)
+    function distribute(address DShare, uint256 stableCoinAmount, uint256 dShareAmount, uint256 endTime)
         external
         onlyRole(DISTRIBUTOR_ROLE)
         returns (uint256)
@@ -88,11 +96,13 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         if (XdShare == address(0)) revert ZeroAddress();
 
         emit NewDistribution(
-            IDividendDistributor(dividendDistribution).nextDistributionId(), DShare, usdcAmount, dShareAmount
+            IDividendDistributor(dividendDistribution).nextDistributionId(), DShare, stableCoinAmount, dShareAmount
         );
 
         IERC20(DShare).safeTransfer(XdShare, dShareAmount);
-        IERC20(USDC).safeIncreaseAllowance(dividendDistribution, usdcAmount);
-        return IDividendDistributor(dividendDistribution).createDistribution(USDC, usdcAmount, endTime);
+        IERC20(stableCoinAddress).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
+
+        return
+            IDividendDistributor(dividendDistribution).createDistribution(stableCoinAddress, stableCoinAmount, endTime);
     }
 }

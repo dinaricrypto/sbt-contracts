@@ -98,10 +98,11 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
         if (block.timestamp < endTime) revert DistributionRunning();
 
         uint256 totalReclaimed = distributions[_distributionId].remainingDistribution;
-        emit DistributionReclaimed(_distributionId, totalReclaimed);
 
         address token = distributions[_distributionId].token;
         delete distributions[_distributionId];
+
+        emit DistributionReclaimed(_distributionId, totalReclaimed);
 
         // Transfer the unclaimed tokens back to the distributor
         IERC20(token).safeTransfer(msg.sender, totalReclaimed);
