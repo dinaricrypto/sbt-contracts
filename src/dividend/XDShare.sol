@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import {DShare} from "../DShare.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
-import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
+import {ERC4626} from "solady/src/tokens/ERC4626.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from
