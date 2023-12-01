@@ -33,6 +33,8 @@ contract DualDistributorTest is Test {
 
     event NewStableCoinAddress(address indexed stableCoinAddress);
 
+    event NewDividendDistributionSet(address indexed newDivividendDistribution);
+
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
         token = new MockERC20("Money", "$", 6);
@@ -108,6 +110,8 @@ contract DualDistributorTest is Test {
         vm.prank(user);
         dualDistributor.setDividendDistribution(account);
 
+        vm.expectEmit(true, true, true, true);
+        emit NewDividendDistributionSet(account);
         dualDistributor.setDividendDistribution(account);
         assertEq(dualDistributor.dividendDistribution(), account);
     }

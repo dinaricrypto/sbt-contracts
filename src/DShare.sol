@@ -96,24 +96,24 @@ contract DShare is IDShare, Initializable, ERC20, AccessControlDefaultAdminRules
     /// @dev Only callable by owner or deployer
     function setName(string calldata newName) external onlyRole(DEFAULT_ADMIN_ROLE) {
         dShareStorage storage $ = _getdShareStorage();
-        emit NameSet(newName);
         $._name = newName;
+        emit NameSet(newName);
     }
 
     /// @notice Set token symbol
     /// @dev Only callable by owner or deployer
     function setSymbol(string calldata newSymbol) external onlyRole(DEFAULT_ADMIN_ROLE) {
         dShareStorage storage $ = _getdShareStorage();
-        emit SymbolSet(newSymbol);
         $._symbol = newSymbol;
+        emit SymbolSet(newSymbol);
     }
 
     /// @notice Set transfer restrictor contract
     /// @dev Only callable by owner
     function setTransferRestrictor(ITransferRestrictor newRestrictor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         dShareStorage storage $ = _getdShareStorage();
-        emit TransferRestrictorSet(newRestrictor);
         $._transferRestrictor = newRestrictor;
+        emit TransferRestrictorSet(newRestrictor);
     }
 
     /// ------------------ Minting and Burning ------------------ ///

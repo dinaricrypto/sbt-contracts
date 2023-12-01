@@ -18,6 +18,8 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         uint256 indexed distributionId, address indexed DShare, uint256 usdcAmount, uint256 dShareAmount
     );
 
+    event NewDividendDistributionSet(address indexed newDivividendDistribution);
+
     event NewStableCoinAddress(address indexed stableCoinAddress);
 
     error ZeroAddress();
@@ -53,8 +55,8 @@ contract DualDistributor is AccessControlDefaultAdminRules {
      */
     function setStableCoinAddress(address _stableCoinAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_stableCoinAddress == address(0)) revert ZeroAddress();
-        emit NewStableCoinAddress(_stableCoinAddress);
         stableCoinAddress = _stableCoinAddress;
+        emit NewStableCoinAddress(_stableCoinAddress);
     }
 
     /**
@@ -64,6 +66,7 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     function setDividendDistribution(address _dividendDistribution) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dividendDistribution == address(0)) revert ZeroAddress();
         dividendDistribution = _dividendDistribution;
+        emit NewDividendDistributionSet(_dividendDistribution);
     }
 
     /**
@@ -92,12 +95,13 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         address XdShare = dShareToXdShare[DShare];
         if (XdShare == address(0)) revert ZeroAddress();
 
+        IERC20(DShare).safeTransfer(XdShare, dShareAmount);
+        IERC20(stableCoinAddress).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
+
         emit NewDistribution(
             IDividendDistributor(dividendDistribution).nextDistributionId(), DShare, stableCoinAmount, dShareAmount
         );
 
-        IERC20(DShare).safeTransfer(XdShare, dShareAmount);
-        IERC20(stableCoinAddress).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
         return
             IDividendDistributor(dividendDistribution).createDistribution(stableCoinAddress, stableCoinAmount, endTime);
     }
