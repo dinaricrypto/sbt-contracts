@@ -95,12 +95,12 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         address XdShare = dShareToXdShare[DShare];
         if (XdShare == address(0)) revert ZeroAddress();
 
-        IERC20(DShare).safeTransfer(XdShare, dShareAmount);
-        IERC20(stableCoinAddress).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
-
         emit NewDistribution(
             IDividendDistributor(dividendDistribution).nextDistributionId(), DShare, stableCoinAmount, dShareAmount
         );
+
+        IERC20(DShare).safeTransfer(XdShare, dShareAmount);
+        IERC20(stableCoinAddress).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
 
         return
             IDividendDistributor(dividendDistribution).createDistribution(stableCoinAddress, stableCoinAmount, endTime);

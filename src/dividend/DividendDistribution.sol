@@ -84,11 +84,11 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
         // Update the total claimed tokens for this distribution.
         distributions[_distributionId].remainingDistribution -= _amount;
 
-        // Transfer the tokens to the user.
-        IERC20(distributions[_distributionId].token).safeTransfer(_recipient, _amount);
-
         // Emit an event for the claimed tokens.
         emit Distributed(_distributionId, _recipient, _amount);
+
+        // Transfer the tokens to the user.
+        IERC20(distributions[_distributionId].token).safeTransfer(_recipient, _amount);
     }
 
     /// @inheritdoc IDividendDistributor
@@ -102,9 +102,9 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
         address token = distributions[_distributionId].token;
         delete distributions[_distributionId];
 
+        emit DistributionReclaimed(_distributionId, totalReclaimed);
+
         // Transfer the unclaimed tokens back to the distributor
         IERC20(token).safeTransfer(msg.sender, totalReclaimed);
-
-        emit DistributionReclaimed(_distributionId, totalReclaimed);
     }
 }
