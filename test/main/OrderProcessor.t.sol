@@ -6,7 +6,7 @@ import "solady/test/utils/mocks/MockERC20.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShareFactory.sol";
 import "../utils/SigUtils.sol";
-import "../../src/orders/EscrowOrderProcessor.sol";
+import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -14,7 +14,7 @@ import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
-contract EscrowOrderProcessorTest is Test {
+contract OrderProcessorTest is Test {
     event TreasurySet(address indexed treasury);
     event FeesSet(address indexed account, OrderProcessor.FeeRates feeRates);
     event OrdersPaused(bool paused);
@@ -31,7 +31,7 @@ contract EscrowOrderProcessorTest is Test {
 
     MockdShareFactory tokenFactory;
     dShare token;
-    EscrowOrderProcessor issuer;
+    OrderProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
     TokenLockCheck tokenLockCheck;
@@ -58,7 +58,7 @@ contract EscrowOrderProcessorTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new EscrowOrderProcessor(
+        issuer = new OrderProcessor(
             address(this),
             treasury,
             OrderProcessor.FeeRates({
@@ -94,7 +94,9 @@ contract EscrowOrderProcessorTest is Test {
             assetTokenQuantity: sell ? 100 ether : 0,
             paymentTokenQuantity: sell ? 0 : 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            feeClaim: 0,
+            feeRecipient: address(0)
         });
     }
 
@@ -128,7 +130,9 @@ contract EscrowOrderProcessorTest is Test {
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
                 order.price,
-                order.tif
+                order.tif,
+                order.feeClaim,
+                order.feeRecipient
             )
         );
 

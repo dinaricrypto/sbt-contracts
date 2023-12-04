@@ -7,7 +7,7 @@ import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../../utils/mocks/MockToken.sol";
 import "../../utils/mocks/MockdShareFactory.sol";
 import "../../utils/SigUtils.sol";
-import "../../../src/orders/EscrowOrderProcessor.sol";
+import "../../../src/orders/OrderProcessor.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -20,7 +20,7 @@ contract BuyProcessorRequestTest is Test {
     MockdShareFactory tokenFactory;
     dShare token;
     TokenLockCheck tokenLockCheck;
-    EscrowOrderProcessor issuer;
+    OrderProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
 
@@ -50,7 +50,7 @@ contract BuyProcessorRequestTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new EscrowOrderProcessor(
+        issuer = new OrderProcessor(
             address(this),
             treasury,
             OrderProcessor.FeeRates({
@@ -93,7 +93,9 @@ contract BuyProcessorRequestTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            feeClaim: 0,
+            feeRecipient: address(0)
         });
 
         calls = new bytes[](2);

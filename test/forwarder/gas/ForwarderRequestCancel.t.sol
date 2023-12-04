@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
-import {EscrowOrderProcessor, OrderProcessor} from "../../../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor} from "../../../src/orders/OrderProcessor.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import "../../utils/mocks/MockToken.sol";
@@ -18,7 +18,7 @@ import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
-    EscrowOrderProcessor public issuer;
+    OrderProcessor public issuer;
     MockToken public paymentToken;
     MockdShareFactory public tokenFactory;
     dShare public token;
@@ -67,7 +67,7 @@ contract ForwarderRequestCancelTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new EscrowOrderProcessor(
+        issuer = new OrderProcessor(
             address(this),
             treasury,
             OrderProcessor.FeeRates({
@@ -111,7 +111,9 @@ contract ForwarderRequestCancelTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            feeClaim: 0,
+            feeRecipient: address(0)
         });
 
         // set fees

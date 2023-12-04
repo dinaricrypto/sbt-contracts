@@ -37,12 +37,13 @@ import {IFeeSchedule} from "./IFeeSchedule.sol";
 ///   2. [Optional] Operator partially fills the order (fillOrder)
 ///   3. [Optional] User requests cancellation (requestCancel)
 ///   4. Operator cancels the order (cancelOrder)
-abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit, IOrderProcessor {
+contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit, IOrderProcessor {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
 
     // Order state cleared after order is fulfilled or cancelled.
+    // TODO: smart packing
     struct OrderState {
         // Hash of order data used to validate order details stored offchain
         bytes32 orderHash;
@@ -58,6 +59,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         uint256 feesPaid;
         // Whether a cancellation for this order has been initiated
         bool cancellationInitiated;
+        // Total fees paid to claim
+        uint256 feeClaimPaid;
     }
 
     // Order state not cleared after order is fulfilled or cancelled.
@@ -106,6 +109,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     error OrderCancellationInitiated();
     /// @dev Thrown when assetTokenQuantity's precision doesn't match the expected precision in orderDecimals.
     error InvalidPrecision();
+    error LimitPriceNotSet();
+    error OrderFillBelowLimitPrice();
+    error OrderFillAboveLimitPrice();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -121,11 +127,6 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
     /// ------------------ Constants ------------------ ///
-
-    /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
-    bytes32 private constant ORDER_TYPE_HASH = keccak256(
-        "Order(address recipient,uint256 index,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
-    );
 
     /// @notice Operator role for filling and cancelling orders
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
@@ -378,6 +379,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         uint256 orderAmount = (order.sell) ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
         if (orderAmount == 0) revert ZeroValue();
+        if (order.feeClaim > 0 && order.feeRecipient == address(0)) revert ZeroAddress();
 
         // Precision checked for assetTokenQuantity
         uint256 assetPrecision = 10 ** maxOrderDecimals[order.assetToken];
@@ -397,15 +399,14 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         // Update next order index
         nextOrderIndex[order.recipient] = index + 1;
 
-        // Calculate fees
-        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, order.sell, order.paymentToken);
-        uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, order.paymentTokenQuantity);
         // Check values
-        _requestOrderAccounting(id, order, totalFees);
+        _requestOrderAccounting(id, order);
 
         // Send order to bridge
         emit OrderRequested(order.recipient, index, order);
 
+        // Calculate fees
+        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, order.sell, order.paymentToken);
         // Initialize order state
         _orders[id] = OrderState({
             orderHash: hashOrder(order),
@@ -414,7 +415,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             percentageFeeRate: percentageFeeRate,
             received: 0,
             feesPaid: 0,
-            cancellationInitiated: false
+            cancellationInitiated: false,
+            feeClaimPaid: 0
         });
         _orderInfo[id] = OrderInfo({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
         _numOpenOrders++;
@@ -426,6 +428,7 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
             // Transfer asset to contract
             IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
         } else {
+            uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, order.paymentTokenQuantity);
             uint256 quantityIn = order.paymentTokenQuantity + totalFees;
             // update escrowed balance
             escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
@@ -456,7 +459,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
                 order.price,
-                order.tif
+                order.tif,
+                order.feeClaim,
+                order.feeRecipient
             )
         );
     }
@@ -473,7 +478,9 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
                 order.price,
-                order.tif
+                order.tif,
+                order.feeClaim,
+                order.feeRecipient
             )
         );
     }
@@ -633,8 +640,10 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Perform any unique order request checks and accounting
     /// @param id Order ID
     /// @param order Order request to process
-    /// @param totalFees Total fees for order
-    function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual {}
+    function _requestOrderAccounting(bytes32 id, Order calldata order) internal virtual {
+        // Ensure that price is set for limit orders
+        if (order.orderType == OrderType.LIMIT && order.price == 0) revert LimitPriceNotSet();
+    }
 
     /// @notice Handle any unique order accounting and checks
     /// @param id Order ID
@@ -652,7 +661,61 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         uint256 unfilledAmount,
         uint256 fillAmount,
         uint256 receivedAmount
-    ) internal virtual returns (uint256 paymentEarned, uint256 feesEarned);
+    ) internal virtual returns (uint256 paymentEarned, uint256 feesEarned) {
+        if (order.sell) {
+            // For limit sell orders, ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
+            if (order.orderType == OrderType.LIMIT && receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) {
+                revert OrderFillAboveLimitPrice();
+            }
+
+            // Fees - earn up to the flat fee, then earn percentage fee on the remainder
+            // TODO: make sure that all fees are taken at total fill to prevent dust accumulating here
+            // Determine the subtotal used to calculate the percentage fee
+            uint256 subtotal = 0;
+            // If the flat fee hasn't been fully covered yet, ...
+            if (orderState.feesPaid < orderState.flatFee) {
+                // How much of the flat fee is left to cover?
+                uint256 flatFeeRemaining = orderState.flatFee - orderState.feesPaid;
+                // If the amount subject to fees is greater than the remaining flat fee, ...
+                if (receivedAmount > flatFeeRemaining) {
+                    // Earn the remaining flat fee
+                    feesEarned = flatFeeRemaining;
+                    // Calculate the subtotal by subtracting the remaining flat fee from the amount subject to fees
+                    subtotal = receivedAmount - flatFeeRemaining;
+                } else {
+                    // Otherwise, earn the amount subject to fees
+                    feesEarned = receivedAmount;
+                }
+            } else {
+                // If the flat fee has been fully covered, the subtotal is the entire fill amount
+                subtotal = receivedAmount;
+            }
+
+            // Calculate the percentage fee on the subtotal
+            if (subtotal > 0 && orderState.percentageFeeRate > 0) {
+                feesEarned += PrbMath.mulDiv18(subtotal, orderState.percentageFeeRate);
+            }
+
+            paymentEarned = receivedAmount - feesEarned;
+        } else {
+            // For limit buy orders, ensure that the received amount is greater or equal to fill amount / limit price, order price has ether decimals
+            if (order.orderType == OrderType.LIMIT && receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price))
+            {
+                revert OrderFillBelowLimitPrice();
+            }
+
+            paymentEarned = fillAmount;
+            // Fees - earn the flat fee if first fill, then earn percentage fee on the fill
+            feesEarned = 0;
+            if (orderState.feesPaid == 0) {
+                feesEarned = orderState.flatFee;
+            }
+            uint256 estimatedTotalFees =
+                FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
+            uint256 totalPercentageFees = estimatedTotalFees - orderState.flatFee;
+            feesEarned += PrbMath.mulDiv(totalPercentageFees, fillAmount, order.paymentTokenQuantity);
+        }
+    }
 
     /// @notice Move tokens for order cancellation including fees and escrow
     /// @param id Order ID
@@ -665,5 +728,18 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         Order calldata order,
         OrderState memory orderState,
         uint256 unfilledAmount
-    ) internal virtual returns (uint256 refund);
+    ) internal virtual returns (uint256 refund) {
+        if (order.sell) {
+            refund = unfilledAmount;
+        } else {
+            uint256 totalFees =
+                FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
+            // If no fills, then full refund
+            refund = unfilledAmount + totalFees;
+            if (refund < order.paymentTokenQuantity + totalFees) {
+                // Refund remaining order and fees
+                refund -= orderState.feesPaid;
+            }
+        }
+    }
 }

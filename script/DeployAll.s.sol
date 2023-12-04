@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {EscrowOrderProcessor, OrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
@@ -65,7 +65,7 @@ contract DeployAllScript is Script {
         // add USDT.e
         tokenLockCheck.setCallSelector(cfg.usdt, this.isBlocked.selector);
 
-        EscrowOrderProcessor escrowOrderProcessor = new EscrowOrderProcessor(
+        OrderProcessor orderProcessor = new OrderProcessor(
             cfg.deployer,
             cfg.treasury,
             OrderProcessor.FeeRates({
@@ -90,19 +90,19 @@ contract DeployAllScript is Script {
         );
 
         // config operator
-        escrowOrderProcessor.grantRole(escrowOrderProcessor.OPERATOR_ROLE(), cfg.operator);
+        orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
-        escrowOrderProcessor.grantRole(escrowOrderProcessor.OPERATOR_ROLE(), cfg.operator2);
+        orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator2);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator2);
 
         // config payment token
-        escrowOrderProcessor.grantRole(escrowOrderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
+        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
 
-        escrowOrderProcessor.grantRole(escrowOrderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
+        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdt);
 
-        escrowOrderProcessor.grantRole(escrowOrderProcessor.PAYMENTTOKEN_ROLE(), usdce);
+        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), usdce);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), usdce);
 
         /// ------------------ forwarder ------------------
@@ -114,12 +114,12 @@ contract DeployAllScript is Script {
         forwarder.setPaymentOracle(address(usdce), usdcoracle);
         forwarder.setPaymentOracle(address(cfg.usdt), usdtoracle);
 
-        forwarder.setSupportedModule(address(escrowOrderProcessor), true);
+        forwarder.setSupportedModule(address(orderProcessor), true);
         forwarder.setSupportedModule(address(directBuyIssuer), true);
 
         forwarder.setRelayer(cfg.relayer, true);
 
-        escrowOrderProcessor.grantRole(escrowOrderProcessor.FORWARDER_ROLE(), address(forwarder));
+        orderProcessor.grantRole(orderProcessor.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
 
         /// ------------------ dividend distributor ------------------
@@ -131,8 +131,7 @@ contract DeployAllScript is Script {
         /// ------------------ dShares ------------------
 
         // transfer ownership
-        // escrowOrderProcessor.beginDefaultAdminTransfer(owner);
-        // sellProcessor.beginDefaultAdminTransfer(owner);
+        // orderProcessor.beginDefaultAdminTransfer(owner);
         // directBuyIssuer.beginDefaultAdminTransfer(owner);
 
         vm.stopBroadcast();
@@ -140,8 +139,7 @@ contract DeployAllScript is Script {
         // // accept ownership transfer
         // vm.startBroadcast(owner);
 
-        // escrowOrderProcessor.acceptDefaultAdminTransfer();
-        // sellProcessor.acceptDefaultAdminTransfer();
+        // orderProcessor.acceptDefaultAdminTransfer();
         // directBuyIssuer.acceptDefaultAdminTransfer();
 
         // vm.stopBroadcast();

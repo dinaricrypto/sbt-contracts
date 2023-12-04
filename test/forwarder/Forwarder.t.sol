@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {EscrowOrderProcessor, OrderProcessor} from "../../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../../src/orders/BuyUnlockedProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
@@ -40,7 +40,7 @@ contract ForwarderTest is Test {
     error InsufficientBalance();
 
     Forwarder public forwarder;
-    EscrowOrderProcessor public issuer;
+    OrderProcessor public issuer;
     BuyUnlockedProcessor public directBuyIssuer;
     MockToken public paymentToken;
     MockdShareFactory public tokenFactory;
@@ -86,7 +86,7 @@ contract ForwarderTest is Test {
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new EscrowOrderProcessor(
+        issuer = new OrderProcessor(
             address(this),
             treasury,
             OrderProcessor.FeeRates({
@@ -146,7 +146,9 @@ contract ForwarderTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            feeClaim: 0,
+            feeRecipient: address(0)
         });
 
         // set fees
@@ -726,7 +728,7 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderModuleNotFound() public {
-        EscrowOrderProcessor issuer1 = new EscrowOrderProcessor(
+        OrderProcessor issuer1 = new OrderProcessor(
             address(this),
             treasury,
             OrderProcessor.FeeRates({

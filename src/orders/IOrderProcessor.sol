@@ -59,6 +59,10 @@ interface IOrderProcessor {
         uint256 price;
         // Time in force
         TIF tif;
+        // Fee claim on proceeds of the order, taken in fill token
+        uint256 feeClaim;
+        // Account receiving fee claim
+        address feeRecipient;
     }
 
     /// @dev Fully specifies order details and index used to generate order ID
