@@ -80,8 +80,8 @@ contract LimitOrderTest is Test {
             paymentTokenQuantity: sell ? 0 : orderAmount,
             price: price,
             tif: IOrderProcessor.TIF.GTC,
-            feeClaim: 0,
-            feeRecipient: address(0)
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
     }
 

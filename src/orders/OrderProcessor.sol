@@ -60,7 +60,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         // Whether a cancellation for this order has been initiated
         bool cancellationInitiated;
         // Total fees paid to claim
-        uint256 feeClaimPaid;
+        uint256 splitAmountPaid;
     }
 
     // Order state not cleared after order is fulfilled or cancelled.
@@ -379,7 +379,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         uint256 orderAmount = (order.sell) ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
         if (orderAmount == 0) revert ZeroValue();
-        if (order.feeClaim > 0 && order.feeRecipient == address(0)) revert ZeroAddress();
+        if (order.splitAmount > 0 && order.splitRecipient == address(0)) revert ZeroAddress();
 
         // Precision checked for assetTokenQuantity
         uint256 assetPrecision = 10 ** maxOrderDecimals[order.assetToken];
@@ -416,7 +416,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
             received: 0,
             feesPaid: 0,
             cancellationInitiated: false,
-            feeClaimPaid: 0
+            splitAmountPaid: 0
         });
         _orderInfo[id] = OrderInfo({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
         _numOpenOrders++;
@@ -460,8 +460,8 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
                 order.paymentTokenQuantity,
                 order.price,
                 order.tif,
-                order.feeClaim,
-                order.feeRecipient
+                order.splitAmount,
+                order.splitRecipient
             )
         );
     }
@@ -479,8 +479,8 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
                 order.paymentTokenQuantity,
                 order.price,
                 order.tif,
-                order.feeClaim,
-                order.feeRecipient
+                order.splitAmount,
+                order.splitRecipient
             )
         );
     }
@@ -515,6 +515,20 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         // Notify order filled
         emit OrderFill(order.recipient, index, fillAmount, receivedAmount, feesEarned);
 
+        // Take splitAmount from amount to distribute
+        uint256 splitAmountEarned = 0;
+        if (order.splitAmount > 0) {
+            if (orderState.splitAmountPaid < order.splitAmount) {
+                uint256 amountToDistribute = order.sell ? paymentEarned : receivedAmount;
+                uint256 splitAmountRemaining = order.splitAmount - orderState.splitAmountPaid;
+                if (amountToDistribute > splitAmountRemaining) {
+                    splitAmountEarned = splitAmountRemaining;
+                } else {
+                    splitAmountEarned = amountToDistribute;
+                }
+            }
+        }
+
         // Update order state
         uint256 unfilledAmount = orderInfo.unfilledAmount - fillAmount;
         _orderInfo[id].unfilledAmount = unfilledAmount;
@@ -535,6 +549,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
             assert(order.sell || feesPaid <= estimatedTotalFees);
             _orders[id].received = orderState.received + receivedAmount;
             _orders[id].feesPaid = feesPaid;
+            _orders[id].splitAmountPaid = orderState.splitAmountPaid + splitAmountEarned;
         }
 
         // Move tokens
@@ -547,9 +562,15 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
             // Transfer the received amount from the filler to this contract
             IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
 
+            // Send split amount first
+            if (splitAmountEarned > 0) {
+                IERC20(order.paymentToken).safeTransfer(order.splitRecipient, splitAmountEarned);
+            }
+
             // If there are proceeds from the order, transfer them to the recipient
-            if (paymentEarned > 0) {
-                IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
+            uint256 proceeds = paymentEarned - splitAmountEarned;
+            if (proceeds > 0) {
+                IERC20(order.paymentToken).safeTransfer(order.recipient, proceeds);
             }
         } else {
             // update escrowed balance
@@ -557,11 +578,19 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
             // Claim payment
             IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
 
+            // Send split amount first
+            if (splitAmountEarned > 0) {
+                IdShare(order.assetToken).mint(order.recipient, splitAmountEarned);
+            }
+
             // Mint asset
-            IdShare(order.assetToken).mint(order.recipient, receivedAmount);
+            uint256 proceeds = receivedAmount - splitAmountEarned;
+            if (proceeds > 0) {
+                IdShare(order.assetToken).mint(order.recipient, proceeds);
+            }
         }
 
-        // If there are fees from the order, transfer them to the treasury
+        // If there are protocol fees from the order, transfer them to the treasury
         if (feesEarned > 0) {
             IERC20(order.paymentToken).safeTransfer(treasury, feesEarned);
         }

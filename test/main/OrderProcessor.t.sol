@@ -95,8 +95,8 @@ contract OrderProcessorTest is Test {
             paymentTokenQuantity: sell ? 0 : 100 ether,
             price: 0,
             tif: IOrderProcessor.TIF.GTC,
-            feeClaim: 0,
-            feeRecipient: address(0)
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
     }
 
@@ -131,8 +131,8 @@ contract OrderProcessorTest is Test {
                 order.paymentTokenQuantity,
                 order.price,
                 order.tif,
-                order.feeClaim,
-                order.feeRecipient
+                order.splitAmount,
+                order.splitRecipient
             )
         );
 

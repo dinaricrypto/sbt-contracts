@@ -147,8 +147,8 @@ contract ForwarderTest is Test {
             paymentTokenQuantity: 100 ether,
             price: 0,
             tif: IOrderProcessor.TIF.GTC,
-            feeClaim: 0,
-            feeRecipient: address(0)
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
 
         // set fees
