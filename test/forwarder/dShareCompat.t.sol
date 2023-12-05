@@ -60,7 +60,6 @@ contract dShareCompatTest is Test {
         owner = vm.addr(ownerPrivateKey);
         admin = vm.addr(adminPrivateKey);
 
-
         vm.prank(admin);
         token = new MockERC20("Money", "$", 6);
         paymentToken = new MockToken("Money", "$");
