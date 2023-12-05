@@ -39,6 +39,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
+    event SellOrderGasCostUpdated(uint256 gas);
     event EthUsdOracleSet(address indexed oracle);
     event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
     event UserOperationSponsored(
@@ -135,6 +136,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     function setSellOrderGasCost(uint256 newSellOrderGasCost) external onlyOwner {
         sellOrderGasCost = newSellOrderGasCost;
+        emit SellOrderGasCostUpdated(newSellOrderGasCost);
     }
 
     /**
@@ -218,6 +220,11 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
             (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
             buyOrder = !order.sell;
 
+            // Store order signer for processor
+            requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
+            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
+            orderSigner[orderId] = metaTx.user;
+
             // Pull tokens from user and approve module to spend
             if (order.sell) {
                 // Configure order to take network fee from proceeds
@@ -242,11 +249,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
                 );
                 IERC20(order.paymentToken).safeIncreaseAllowance(metaTx.to, order.paymentTokenQuantity + fees);
             }
-
-            // Store order signer for processor
-            requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
-            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
-            orderSigner[orderId] = metaTx.user;
         } else if (functionSelector == IOrderProcessor.requestCancel.selector) {
             // Check if cancel request is from the original order signer
             // Get data from metaTx
