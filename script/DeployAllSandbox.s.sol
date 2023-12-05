@@ -46,6 +46,7 @@ contract DeployAllSandboxScript is Script {
 
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
+    uint256 constant SELL_GAS_COST = 1000000;
 
     function run() external {
         // load env variables
@@ -234,7 +235,7 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ forwarder ------------------
 
-        deployments.forwarder = new Forwarder(cfg.ethusdoracle);
+        deployments.forwarder = new Forwarder(cfg.ethusdoracle, SELL_GAS_COST);
         deployments.forwarder.setFeeBps(2000);
 
         deployments.forwarder.setPaymentOracle(address(deployments.usdc), cfg.usdcoracle);

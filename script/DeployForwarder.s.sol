@@ -27,7 +27,7 @@ contract DeployForwarderScript is Script {
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
-        Forwarder forwarder = new Forwarder(ethusdoracle);
+        Forwarder forwarder = new Forwarder(ethusdoracle, 100000);
         forwarder.setFeeBps(2000);
 
         forwarder.setPaymentOracle(usdc, usdcoracle);

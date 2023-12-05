@@ -27,6 +27,7 @@ contract DeployAllScript is Script {
 
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
+    uint256 constant SELL_GAS_COST = 1000000;
 
     function run() external {
         // load env variables
@@ -107,7 +108,7 @@ contract DeployAllScript is Script {
 
         /// ------------------ forwarder ------------------
 
-        Forwarder forwarder = new Forwarder(ethusdoracle);
+        Forwarder forwarder = new Forwarder(ethusdoracle, SELL_GAS_COST);
         forwarder.setFeeBps(2000);
 
         forwarder.setPaymentOracle(address(cfg.usdc), usdcoracle);

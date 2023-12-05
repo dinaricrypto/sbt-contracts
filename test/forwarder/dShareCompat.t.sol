@@ -47,6 +47,7 @@ contract dShareCompatTest is Test {
     address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
     uint64 priceRecencyThreshold = 30 seconds;
+    uint256 constant SELL_GAS_COST = 1000000;
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -81,7 +82,7 @@ contract dShareCompatTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(ethUSDOracle);
+        forwarder = new Forwarder(ethUSDOracle, SELL_GAS_COST);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setRelayer(relayer, true);
         forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
