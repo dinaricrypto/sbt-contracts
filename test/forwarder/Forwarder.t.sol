@@ -567,8 +567,9 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderNotApprovedByProcessorReverts() public {
-        vm.prank(admin);
+        vm.startPrank(admin);
         issuer.revokeRole(issuer.FORWARDER_ROLE(), address(forwarder));
+        vm.stopPrank();
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
