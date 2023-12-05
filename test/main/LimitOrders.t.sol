@@ -24,7 +24,9 @@ contract LimitOrderTest is Test {
     MockToken paymentToken;
 
     uint256 userPrivateKey;
+    uint256 adminPrivateKey;
     address user;
+    address admin;
 
     address constant operator = address(3);
     address constant treasury = address(4);
@@ -34,8 +36,11 @@ contract LimitOrderTest is Test {
 
     function setUp() public {
         userPrivateKey = 0x01;
+        adminPrivateKey = 0x02;
         user = vm.addr(userPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
+        vm.startPrank(admin);
         tokenFactory = new MockdShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
@@ -43,7 +48,7 @@ contract LimitOrderTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         issuer = new EscrowOrderProcessor(
-            address(this),
+            admin,
             treasury,
             OrderProcessor.FeeRates({
                 perOrderFeeBuy: 1 ether,
@@ -56,13 +61,15 @@ contract LimitOrderTest is Test {
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
 
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+
+        vm.stopPrank();
     }
 
     function createLimitOrder(bool sell, uint256 orderAmount, uint256 price)
@@ -88,6 +95,7 @@ contract LimitOrderTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         IOrderProcessor.Order memory order = createLimitOrder(false, orderAmount, _price);
 
+        vm.startPrank(admin);
         paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.startPrank(user);
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
@@ -132,6 +140,7 @@ contract LimitOrderTest is Test {
             feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
         }
 
+        vm.prank(admin);
         paymentToken.mint(user, order.paymentTokenQuantity + fees);
         vm.prank(user);
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
@@ -182,6 +191,7 @@ contract LimitOrderTest is Test {
     function testRequestOrderLimit(uint256 orderAmount, uint256 _price) public {
         IOrderProcessor.Order memory order = createLimitOrder(true, orderAmount, _price);
 
+        vm.prank(admin);
         token.mint(user, orderAmount);
         vm.prank(user);
         token.approve(address(issuer), orderAmount);
@@ -224,6 +234,7 @@ contract LimitOrderTest is Test {
 
         IOrderProcessor.Order memory order = createLimitOrder(true, orderAmount, _price);
 
+        vm.prank(admin);
         token.mint(user, orderAmount);
         vm.prank(user);
         token.approve(address(issuer), orderAmount);
@@ -231,6 +242,7 @@ contract LimitOrderTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
+        vm.prank(admin);
         paymentToken.mint(operator, receivedAmount); // Mint paymentTokens to operator to ensure they have enough
         vm.prank(operator);
         paymentToken.approve(address(issuer), receivedAmount);

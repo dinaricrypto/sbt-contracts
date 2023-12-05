@@ -38,7 +38,9 @@ contract EscrowOrderProcessorTest is Test {
     TransferRestrictor restrictor;
 
     uint256 userPrivateKey;
+    uint256 adminPrivateKey;
     address user;
+    address admin;
 
     address constant operator = address(3);
     address constant treasury = address(4);
@@ -48,8 +50,11 @@ contract EscrowOrderProcessorTest is Test {
 
     function setUp() public {
         userPrivateKey = 0x01;
+        adminPrivateKey = 0x02;
         user = vm.addr(userPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
+        vm.startPrank(admin);
         tokenFactory = new MockdShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
@@ -59,7 +64,7 @@ contract EscrowOrderProcessorTest is Test {
         tokenLockCheck.setAsDShare(address(token));
 
         issuer = new EscrowOrderProcessor(
-            address(this),
+            admin,
             treasury,
             OrderProcessor.FeeRates({
                 perOrderFeeBuy: 1 ether,
@@ -70,7 +75,7 @@ contract EscrowOrderProcessorTest is Test {
             tokenLockCheck
         );
 
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
@@ -82,6 +87,7 @@ contract EscrowOrderProcessorTest is Test {
 
         restrictor = TransferRestrictor(address(token.transferRestrictor()));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
+        vm.stopPrank();
     }
 
     function getDummyOrder(bool sell) internal view returns (IOrderProcessor.Order memory) {
@@ -100,16 +106,19 @@ contract EscrowOrderProcessorTest is Test {
 
     function testSetTreasury(address account) public {
         vm.assume(account != address(0));
+        vm.prank(admin);
         tokenLockCheck.setAsDShare(address(token));
 
         vm.expectEmit(true, true, true, true);
         emit TreasurySet(account);
+        vm.prank(admin);
         issuer.setTreasury(account);
         assertEq(issuer.treasury(), account);
     }
 
     function testSetTreasuryZeroReverts() public {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        vm.prank(admin);
         issuer.setTreasury(address(0));
     }
 
@@ -145,10 +154,12 @@ contract EscrowOrderProcessorTest is Test {
         });
         if (percentageFee >= 1_000_000) {
             vm.expectRevert(FeeLib.FeeTooLarge.selector);
+            vm.prank(admin);
             issuer.setDefaultFees(rates);
         } else {
             vm.expectEmit(true, true, true, true);
             emit FeesSet(address(0), rates);
+            vm.prank(admin);
             issuer.setDefaultFees(rates);
             OrderProcessor.FeeRates memory newRates = issuer.getAccountFees(address(0));
             assertEq(newRates.perOrderFeeBuy, perOrderFee);
@@ -174,6 +185,7 @@ contract EscrowOrderProcessorTest is Test {
     function testSetTokenLockCheck(ITokenLockCheck _tokenLockCheck) public {
         vm.expectEmit(true, true, true, true);
         emit TokenLockCheckSet(_tokenLockCheck);
+        vm.prank(admin);
         issuer.setTokenLockCheck(_tokenLockCheck);
         assertEq(address(issuer.tokenLockCheck()), address(_tokenLockCheck));
     }
@@ -181,6 +193,7 @@ contract EscrowOrderProcessorTest is Test {
     function testSetOrdersPaused(bool pause) public {
         vm.expectEmit(true, true, true, true);
         emit OrdersPaused(pause);
+        vm.prank(admin);
         issuer.setOrdersPaused(pause);
         assertEq(issuer.ordersPaused(), pause);
     }
@@ -205,6 +218,7 @@ contract EscrowOrderProcessorTest is Test {
         order.paymentTokenQuantity = orderAmount;
         uint256 quantityIn = order.paymentTokenQuantity + fees;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -234,6 +248,7 @@ contract EscrowOrderProcessorTest is Test {
         IOrderProcessor.Order memory order = getDummyOrder(true);
         order.assetTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         token.mint(user, orderAmount);
         vm.prank(user);
         token.approve(address(issuer), orderAmount);
@@ -267,6 +282,7 @@ contract EscrowOrderProcessorTest is Test {
     }
 
     function testRequestOrderPausedReverts(bool sell) public {
+        vm.prank(admin);
         issuer.setOrdersPaused(true);
 
         vm.expectRevert(OrderProcessor.Paused.selector);
@@ -286,6 +302,7 @@ contract EscrowOrderProcessorTest is Test {
     }
 
     function testPaymentTokenBlackListReverts(bool sell) public {
+        vm.prank(admin);
         paymentToken.blacklist(user);
         assert(tokenLockCheck.isTransferLocked(address(paymentToken), user));
 
@@ -330,9 +347,11 @@ contract EscrowOrderProcessorTest is Test {
 
         vm.expectEmit(true, true, true, true);
         emit MaxOrderDecimalsSet(order.assetToken, 2);
+        vm.prank(admin);
         issuer.setMaxOrderDecimals(order.assetToken, 2);
         order.assetTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         token.mint(user, order.assetTokenQuantity);
         vm.prank(user);
         token.approve(address(issuer), order.assetTokenQuantity);
@@ -344,6 +363,7 @@ contract EscrowOrderProcessorTest is Test {
         // update OrderAmount
         order.assetTokenQuantity = 100000;
 
+        vm.prank(admin);
         token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.prank(user);
@@ -353,6 +373,7 @@ contract EscrowOrderProcessorTest is Test {
     function testRequestBuyOrderWithPermit() public {
         IOrderProcessor.Order memory dummyOrder = getDummyOrder(false);
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn * 1e6);
 
         SigUtils.Permit memory permit = SigUtils.Permit({
@@ -411,7 +432,7 @@ contract EscrowOrderProcessorTest is Test {
         if (fillAmount > 0) {
             feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
         }
-
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -474,6 +495,7 @@ contract EscrowOrderProcessorTest is Test {
             }
         }
 
+        vm.prank(admin);
         token.mint(user, orderAmount);
         vm.prank(user);
         token.approve(address(issuer), orderAmount);
@@ -484,6 +506,7 @@ contract EscrowOrderProcessorTest is Test {
         uint256 escrowAmount = issuer.escrowedBalanceOf(order.assetToken, user);
         assertEq(escrowAmount, orderAmount);
 
+        vm.prank(admin);
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
         paymentToken.approve(address(issuer), receivedAmount);
@@ -534,6 +557,7 @@ contract EscrowOrderProcessorTest is Test {
         IOrderProcessor.Order memory order = getDummyOrder(false);
         order.paymentTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -577,6 +601,7 @@ contract EscrowOrderProcessorTest is Test {
         IOrderProcessor.Order memory order = getDummyOrder(true);
         order.assetTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         token.mint(user, orderAmount);
         vm.prank(user);
         token.approve(address(issuer), orderAmount);
@@ -584,6 +609,7 @@ contract EscrowOrderProcessorTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
+        vm.prank(admin);
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
         paymentToken.approve(address(issuer), receivedAmount);
@@ -648,6 +674,8 @@ contract EscrowOrderProcessorTest is Test {
     function testRequestCancel() public {
         IOrderProcessor.Order memory dummyOrder = getDummyOrder(false);
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
+
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -669,6 +697,7 @@ contract EscrowOrderProcessorTest is Test {
     function testRequestCancelNotRequesterReverts() public {
         IOrderProcessor.Order memory dummyOrder = getDummyOrder(false);
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -701,6 +730,7 @@ contract EscrowOrderProcessorTest is Test {
         IOrderProcessor.Order memory order = getDummyOrder(false);
         order.paymentTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
