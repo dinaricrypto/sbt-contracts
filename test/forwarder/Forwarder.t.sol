@@ -57,12 +57,14 @@ contract ForwarderTest is Test {
     uint256 public userPrivateKey;
     uint256 public relayerPrivateKey;
     uint256 public ownerPrivateKey;
+    uint256 public adminPrivateKey;
     uint256 flatFee;
     uint256 dummyOrderFees;
 
     address public user;
     address public relayer;
     address public owner;
+    address public admin;
     address constant treasury = address(4);
     address constant operator = address(3);
     address constant ethUsdPriceOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
@@ -77,17 +79,22 @@ contract ForwarderTest is Test {
         userPrivateKey = 0x1;
         relayerPrivateKey = 0x2;
         ownerPrivateKey = 0x3;
+        adminPrivateKey = 0x4;
         relayer = vm.addr(relayerPrivateKey);
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
+        vm.startPrank(admin);
         tokenFactory = new MockdShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        vm.stopPrank();
 
+        vm.startPrank(admin);
         issuer = new EscrowOrderProcessor(
-            address(this),
+            admin,
             treasury,
             OrderProcessor.FeeRates({
                 perOrderFeeBuy: 1 ether,
@@ -98,7 +105,7 @@ contract ForwarderTest is Test {
             tokenLockCheck
         );
         directBuyIssuer = new BuyUnlockedProcessor(
-            address(this),
+            admin,
             treasury,
             OrderProcessor.FeeRates({
                 perOrderFeeBuy: 1 ether,
@@ -109,7 +116,7 @@ contract ForwarderTest is Test {
             tokenLockCheck
         );
 
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
@@ -119,6 +126,8 @@ contract ForwarderTest is Test {
         directBuyIssuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         directBuyIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
+        vm.stopPrank();
+
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(ethUsdPriceOracle);
         forwarder.setSupportedModule(address(issuer), true);
@@ -127,12 +136,14 @@ contract ForwarderTest is Test {
         vm.stopPrank();
 
         // set issuer forwarder role
+        vm.startPrank(admin);
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMetaUtils(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
+        vm.stopPrank();
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
@@ -431,6 +442,7 @@ contract ForwarderTest is Test {
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
         // mint paymentToken Balance ex: USDC
+        vm.prank(admin);
         paymentToken.mint(user, order.paymentTokenQuantity * 1e6);
         uint256 paymentTokenBalanceBefore = paymentToken.balanceOf(user);
 
@@ -555,7 +567,9 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderNotApprovedByProcessorReverts() public {
+        vm.startPrank(admin);
         issuer.revokeRole(issuer.FORWARDER_ROLE(), address(forwarder));
+        vm.stopPrank();
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
@@ -644,6 +658,7 @@ contract ForwarderTest is Test {
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = quantityIn;
+        vm.prank(admin);
         issuer.setOrdersPaused(true);
 
         bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);

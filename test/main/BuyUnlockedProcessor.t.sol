@@ -30,7 +30,9 @@ contract BuyUnlockedProcessorTest is Test {
     MockToken paymentToken;
 
     uint256 userPrivateKey;
+    uint256 adminPrivateKey;
     address user;
+    address admin;
 
     address constant operator = address(3);
     address constant treasury = address(4);
@@ -42,8 +44,11 @@ contract BuyUnlockedProcessorTest is Test {
 
     function setUp() public {
         userPrivateKey = 0x01;
+        adminPrivateKey = 0x02;
         user = vm.addr(userPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
+        vm.startPrank(admin);
         tokenFactory = new MockdShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
@@ -51,7 +56,7 @@ contract BuyUnlockedProcessorTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         issuer = new BuyUnlockedProcessor(
-            address(this),
+            admin,
             treasury,
             OrderProcessor.FeeRates({
                 perOrderFeeBuy: 1 ether,
@@ -62,12 +67,14 @@ contract BuyUnlockedProcessorTest is Test {
             tokenLockCheck
         );
 
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+
+        vm.stopPrank();
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
@@ -93,6 +100,7 @@ contract BuyUnlockedProcessorTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -129,6 +137,7 @@ contract BuyUnlockedProcessorTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -174,6 +183,7 @@ contract BuyUnlockedProcessorTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -228,6 +238,7 @@ contract BuyUnlockedProcessorTest is Test {
         order.paymentTokenQuantity = orderAmount;
         order.price = _price;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -263,6 +274,7 @@ contract BuyUnlockedProcessorTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);

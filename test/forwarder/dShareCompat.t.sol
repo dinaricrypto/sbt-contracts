@@ -33,6 +33,7 @@ contract dShareCompatTest is Test {
     uint256 public userPrivateKey;
     uint256 public relayerPrivateKey;
     uint256 public ownerPrivateKey;
+    uint256 public adminPrivateKey;
     uint256 flatFee;
     uint256 dummyOrderFees;
     // price of payment token in wei, accounting for decimals
@@ -41,6 +42,7 @@ contract dShareCompatTest is Test {
     address public user;
     address public relayer;
     address public owner;
+    address public admin;
     address constant treasury = address(4);
     address constant operator = address(3);
     address constant ethUSDOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
@@ -52,20 +54,25 @@ contract dShareCompatTest is Test {
         userPrivateKey = 0x01;
         relayerPrivateKey = 0x02;
         ownerPrivateKey = 0x03;
+        adminPrivateKey = 0x04;
         relayer = vm.addr(relayerPrivateKey);
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
+        vm.prank(admin);
         token = new MockERC20("Money", "$", 6);
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        vm.stopPrank();
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
+        vm.startPrank(admin);
         issuer = new EscrowOrderProcessor(
-            address(this),
+            admin,
             treasury,
             OrderProcessor.FeeRates({
                 perOrderFeeBuy: 1 ether,
@@ -79,6 +86,7 @@ contract dShareCompatTest is Test {
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        vm.stopPrank();
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
         forwarder = new Forwarder(ethUSDOracle);
@@ -88,11 +96,13 @@ contract dShareCompatTest is Test {
         vm.stopPrank();
 
         // set issuer forwarder role
+        vm.startPrank(admin);
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMetaUtils(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
+        vm.stopPrank();
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,

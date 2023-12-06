@@ -30,7 +30,9 @@ contract FulfillmentRouterTest is Test {
     FulfillmentRouter router;
 
     uint256 userPrivateKey;
+    uint256 adminPrivateKey;
     address user;
+    address admin;
 
     address constant operator = address(3);
     address constant treasury = address(4);
@@ -40,8 +42,11 @@ contract FulfillmentRouterTest is Test {
 
     function setUp() public {
         userPrivateKey = 0x01;
+        adminPrivateKey = 0x02;
         user = vm.addr(userPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
+        vm.startPrank(admin);
         MockdShareFactory tokenFactory = new MockdShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
@@ -50,7 +55,7 @@ contract FulfillmentRouterTest is Test {
         tokenLockCheck.setAsDShare(address(token));
 
         issuer = new EscrowOrderProcessor(
-            address(this),
+            admin,
             treasury,
             OrderProcessor.FeeRates({
                 perOrderFeeBuy: 1 ether,
@@ -60,10 +65,10 @@ contract FulfillmentRouterTest is Test {
             }),
             tokenLockCheck
         );
-        vault = new Vault(address(this));
+        vault = new Vault(admin);
         router = new FulfillmentRouter();
 
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
@@ -73,6 +78,8 @@ contract FulfillmentRouterTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vault.grantRole(vault.AUTHORIZED_OPERATOR_ROLE(), address(router));
+
+        vm.stopPrank();
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
@@ -89,6 +96,7 @@ contract FulfillmentRouterTest is Test {
 
     function testFillOrderRevertsUnauthorized() public {
         vm.expectRevert(FulfillmentRouter.Unauthorized.selector);
+        vm.prank(admin);
         router.fillOrder(address(issuer), address(vault), dummyOrder, 0, 0, 0);
     }
 
@@ -107,6 +115,7 @@ contract FulfillmentRouterTest is Test {
         IOrderProcessor.Order memory order = dummyOrder;
         order.paymentTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
@@ -130,6 +139,7 @@ contract FulfillmentRouterTest is Test {
         order.paymentTokenQuantity = 0;
         order.assetTokenQuantity = orderAmount;
 
+        vm.prank(admin);
         token.mint(user, orderAmount);
         vm.prank(user);
         token.approve(address(issuer), orderAmount);
@@ -137,6 +147,7 @@ contract FulfillmentRouterTest is Test {
         vm.prank(user);
         uint256 index = issuer.requestOrder(order);
 
+        vm.prank(admin);
         paymentToken.mint(address(vault), receivedAmount);
 
         vm.expectEmit(true, true, true, false);

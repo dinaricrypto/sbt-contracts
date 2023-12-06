@@ -16,30 +16,34 @@ contract WrappeddShareTest is Test {
 
     address user = address(1);
     address user2 = address(2);
+    address admin = address(3);
 
     function setUp() public {
-        restrictor = new TransferRestrictor(address(this));
-        restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), address(this));
+        vm.startPrank(admin);
+        restrictor = new TransferRestrictor(admin);
+        restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), admin);
         dShare tokenImplementation = new dShare();
         token = dShare(
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(dShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(dShare.initialize, (admin, "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), admin);
 
         WrappeddShare xtokenImplementation = new WrappeddShare();
         xToken = WrappeddShare(
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(WrappeddShare.initialize, (address(this), token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                    abi.encodeCall(WrappeddShare.initialize, (admin, token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );
+
+        vm.stopPrank();
     }
 
     function overflowChecker(uint256 a, uint256 b) internal pure returns (bool) {
@@ -61,10 +65,11 @@ contract WrappeddShareTest is Test {
     }
 
     function testMint(uint128 amount, address receiver) public {
-        vm.assume(receiver != address(this));
+        vm.assume(receiver != admin);
 
         assertEq(xToken.balanceOf(user), 0);
 
+        vm.prank(admin);
         token.mint(user, amount);
 
         vm.prank(user);
@@ -77,10 +82,11 @@ contract WrappeddShareTest is Test {
     }
 
     function testRedeem(uint128 amount, address receiver) public {
-        vm.assume(receiver != address(this));
+        vm.assume(receiver != admin);
 
         assertEq(xToken.balanceOf(user), 0);
 
+        vm.prank(admin);
         token.mint(user, amount);
 
         vm.prank(user);
@@ -100,6 +106,7 @@ contract WrappeddShareTest is Test {
     function testDeposit(uint128 amount) public {
         assertEq(xToken.balanceOf(user), 0);
 
+        vm.prank(admin);
         token.mint(user, amount);
 
         vm.prank(user);
@@ -115,6 +122,7 @@ contract WrappeddShareTest is Test {
         vm.assume(amount > 0);
         assertEq(xToken.balanceOf(user), 0);
 
+        vm.prank(admin);
         token.mint(user, amount);
         uint256 balanceBefore = token.balanceOf(user);
         assertEq(balanceBefore, amount);
@@ -140,10 +148,12 @@ contract WrappeddShareTest is Test {
         vm.assume(!NumberUtils.mulDivCheckOverflow(supply, 1 ether, balancePerShare));
         vm.assume(!NumberUtils.mulDivCheckOverflow(supply, balancePerShare, 1 ether));
 
+        vm.startPrank(admin);
         // user: mint -> deposit -> split -> withdraw
         token.mint(user, supply);
         // user2: mint -> split -> convert
         token.mint(user2, supply);
+        vm.stopPrank();
 
         assertEq(xToken.balanceOf(user), 0);
         assertEq(xToken.balanceOf(user2), 0);
@@ -156,6 +166,7 @@ contract WrappeddShareTest is Test {
         assertEq(xToken.balanceOf(user), supply);
 
         // split
+        vm.prank(admin);
         token.setBalancePerShare(balancePerShare);
 
         // user redeem
@@ -178,11 +189,14 @@ contract WrappeddShareTest is Test {
         uint128 balancePerShare = 42 ether;
 
         // deposit pre-existing amount
-        token.mint(address(this), 1 ether);
+        vm.startPrank(admin);
+        token.mint(admin, 1 ether);
         token.approve(address(xToken), 1 ether);
-        xToken.deposit(1 ether, address(this));
+        xToken.deposit(1 ether, admin);
+        vm.stopPrank();
 
         // user deposit
+        vm.prank(admin);
         token.mint(user, amount);
         assertEq(xToken.balanceOf(user), 0);
 
@@ -194,6 +208,7 @@ contract WrappeddShareTest is Test {
 
         // yield 1%
         uint256 onePercent = token.totalSupply() / 100;
+        vm.prank(admin);
         token.mint(address(xToken), onePercent);
         console.log("max withdraw", xToken.maxWithdraw(user));
         uint256 yield1 = amount / 100;
@@ -202,6 +217,7 @@ contract WrappeddShareTest is Test {
         assertEq(xToken.maxWithdraw(user), amount + (yield1 > 0 ? yield1 - 1 : 0));
 
         // rebase
+        vm.prank(admin);
         token.setBalancePerShare(balancePerShare);
         uint256 rebasedOnePercent = mulDiv18(onePercent, balancePerShare);
         uint256 rebasedAmount = mulDiv18(amount, balancePerShare);
@@ -220,6 +236,7 @@ contract WrappeddShareTest is Test {
 
         // yield 1%
         uint256 yield2 = rebasedAmount / 100;
+        vm.prank(admin);
         token.mint(address(xToken), rebasedOnePercent);
         console.log("max withdraw", xToken.maxWithdraw(user));
 
@@ -245,6 +262,7 @@ contract WrappeddShareTest is Test {
 
         address alice = address(0xABCD);
 
+        vm.prank(admin);
         token.mint(alice, aliceShareAmount);
 
         vm.prank(alice);
@@ -254,6 +272,7 @@ contract WrappeddShareTest is Test {
         vm.prank(alice);
         xToken.mint(aliceShareAmount, alice);
 
+        vm.prank(admin);
         restrictor.restrict(user);
         assertEq(xToken.isBlacklisted(user), true);
 
@@ -262,6 +281,7 @@ contract WrappeddShareTest is Test {
         xToken.transfer(user, amount);
 
         // remove restrictor
+        vm.prank(admin);
         token.setTransferRestrictor(ITransferRestrictor(address(0)));
         assertEq(xToken.isBlacklisted(user), false);
 
