@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {EscrowOrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
@@ -13,7 +13,7 @@ contract DeployForwarderScript is Script {
     function run() external {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_KEY");
-        EscrowOrderProcessor orderProcessor = EscrowOrderProcessor(vm.envAddress("ISSUER"));
+        OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ISSUER"));
         BuyUnlockedProcessor directBuyProcessor = BuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
         address relayer = vm.envAddress("RELAYER");
         address usdc = vm.envAddress("USDC");
@@ -27,7 +27,7 @@ contract DeployForwarderScript is Script {
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
-        Forwarder forwarder = new Forwarder(ethusdoracle);
+        Forwarder forwarder = new Forwarder(ethusdoracle, 100000);
         forwarder.setFeeBps(2000);
 
         forwarder.setPaymentOracle(usdc, usdcoracle);

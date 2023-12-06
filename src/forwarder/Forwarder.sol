@@ -39,6 +39,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
+    event SellOrderGasCostUpdated(uint256 gas);
     event EthUsdOracleSet(address indexed oracle);
     event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
     event UserOperationSponsored(
@@ -63,6 +64,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @inheritdoc IForwarder
     uint256 public cancellationGasCost;
+
+    uint256 public sellOrderGasCost;
 
     /// @notice The set of supported modules.
     mapping(address => bool) public isSupportedModule;
@@ -90,9 +93,10 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
-    constructor(address _ethUsdOracle) EIP712("Forwarder", "1") Ownable(msg.sender) {
+    constructor(address _ethUsdOracle, uint256 initialSellOrderGasCost) EIP712("Forwarder", "1") Ownable(msg.sender) {
         feeBps = 0;
         cancellationGasCost = 0;
+        sellOrderGasCost = initialSellOrderGasCost;
         ethUsdOracle = _ethUsdOracle;
     }
 
@@ -128,6 +132,11 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     function setCancellationGasCost(uint256 newCancellationGasCost) external onlyOwner {
         cancellationGasCost = newCancellationGasCost;
         emit CancellationGasCostUpdated(newCancellationGasCost);
+    }
+
+    function setSellOrderGasCost(uint256 newSellOrderGasCost) external onlyOwner {
+        sellOrderGasCost = newSellOrderGasCost;
+        emit SellOrderGasCostUpdated(newSellOrderGasCost);
     }
 
     /**
@@ -209,7 +218,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         orderSigner[orderId] = metaTx.user;
 
         // execute low level call to issuer
-        result = metaTx.to.functionCall(metaTx.data);
+        result = metaTx.to.functionCall(data);
 
         assert(abi.decode(result, (uint256)) == requestIndex);
 
@@ -305,29 +314,20 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         );
     }
 
-    /**
-     * @dev Prepares an order request by transferring tokens from the user to this contract,
-     *      and approving the specified target contract to spend the tokens.
-     *      This function supports preparation for both buying and selling orders.
-     *
-     * @param order The details of the order, including payment and asset tokens, and the quantity.
-     * @param user The address of the user initiating the order.
-     * @param target The address of the target contract (e.g. EscrowOrderProcessor) that will execute the order.
-     */
-    function _requestOrderPreparation(IOrderProcessor.Order memory order, address user, address target) internal {
-        // Pull tokens from user and approve module to spend
-        if (order.sell) {
-            // slither-disable-next-line arbitrary-send-erc20
-            IERC20(order.assetToken).safeTransferFrom(user, address(this), order.assetTokenQuantity);
-            IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
-        } else {
-            uint256 fees = IOrderProcessor(target).estimateTotalFeesForOrder(
-                user, order.sell, order.paymentToken, order.paymentTokenQuantity
-            );
-            // slither-disable-next-line arbitrary-send-erc20
-            IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);
-            IERC20(order.paymentToken).safeIncreaseAllowance(target, order.paymentTokenQuantity + fees);
+    function _tokenAmountForGas(uint256 gasCostInWei, address token, uint256 paymentTokenPrice)
+        internal
+        view
+        returns (uint256)
+    {
+        // Apply payment token price to calculate payment amount
+        // Assumes payment token price includes token decimals
+        uint256 paymentAmount = 0;
+        try IERC20Metadata(token).decimals() returns (uint8 value) {
+            paymentAmount = gasCostInWei * 10 ** value / paymentTokenPrice;
+        } catch {
+            paymentAmount = gasCostInWei / paymentTokenPrice;
         }
+        return paymentAmount;
     }
 
     /**
@@ -342,16 +342,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      */
     function _handlePayment(address user, address paymentToken, uint256 paymentTokenPrice, uint256 gasStart) internal {
         uint256 gasUsed = gasStart - gasleft();
-        // Calculate total gas cost in wei
         uint256 totalGasCostInWei = (gasUsed + cancellationGasCost) * tx.gasprice;
-        // Apply payment token price to calculate payment amount
-        // Assumes payment token price includes token decimals
-        uint256 paymentAmount = 0;
-        try IERC20Metadata(paymentToken).decimals() returns (uint8 value) {
-            paymentAmount = totalGasCostInWei * 10 ** value / paymentTokenPrice;
-        } catch {
-            paymentAmount = totalGasCostInWei / paymentTokenPrice;
-        }
+        uint256 paymentAmount = _tokenAmountForGas(totalGasCostInWei, paymentToken, paymentTokenPrice);
 
         // Apply forwarder fee
         // slither-disable-next-line divide-before-multiply

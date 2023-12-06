@@ -59,6 +59,10 @@ interface IOrderProcessor {
         uint256 price;
         // Time in force
         TIF tif;
+        // Received amount filled to secondary address first
+        uint256 splitAmount;
+        // Account receiving split amount
+        address splitRecipient;
     }
 
     /// @dev Fully specifies order details and index used to generate order ID
