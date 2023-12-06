@@ -20,15 +20,10 @@ contract DualDistributor is AccessControlDefaultAdminRules {
 
     event NewDividendDistributionSet(address indexed newDivividendDistribution);
 
-    event NewStableCoinAddress(address indexed stableCoinAddress);
-
     error ZeroAddress();
 
     /// @notice Role for approved distributors
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
-
-    /// @dev Address of the stablecoin to distribute.
-    address public stableCoinAddress;
 
     /// @dev Address of the dividend distribution contract.
     address public dividendDistribution;
@@ -39,24 +34,10 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     /**
      * @notice Initializes the `DualDistributor` contract.
      * @param owner The address of the owner/administrator.
-     * @param _stableCoinAddress The address of the stable coin.
      * @param _dividendDistribution The address of the dividend distribution contract.
      */
-    constructor(address owner, address _stableCoinAddress, address _dividendDistribution)
-        AccessControlDefaultAdminRules(0, owner)
-    {
-        stableCoinAddress = _stableCoinAddress;
+    constructor(address owner, address _dividendDistribution) AccessControlDefaultAdminRules(0, owner) {
         dividendDistribution = _dividendDistribution;
-    }
-
-    /**
-     * @notice Updates the stable coin address.
-     * @param _stableCoinAddress The new address for the stable coin.
-     */
-    function setStableCoinAddress(address _stableCoinAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_stableCoinAddress == address(0)) revert ZeroAddress();
-        stableCoinAddress = _stableCoinAddress;
-        emit NewStableCoinAddress(_stableCoinAddress);
     }
 
     /**
@@ -82,27 +63,30 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     /**
      * @notice Distributes dividends to DShare and XdShare holders.
      * @dev Requires the distributor role and XdShare to be locked.
-     * @param DShare Address of the DShare token.
+     * @param stableCoin Address of the stable coin to distribute.
+     * @param dShare Address of the DShare token.
      * @param stableCoinAmount Amount of stable coin to distribute.
      * @param dShareAmount Amount of DShare tokens to distribute.
      * @param endTime The timestamp when the distribution stops.
      */
-    function distribute(address DShare, uint256 stableCoinAmount, uint256 dShareAmount, uint256 endTime)
-        external
-        onlyRole(DISTRIBUTOR_ROLE)
-        returns (uint256)
-    {
-        address XdShare = dShareToXdShare[DShare];
+    function distribute(
+        address stableCoin,
+        address dShare,
+        uint256 stableCoinAmount,
+        uint256 dShareAmount,
+        uint256 endTime
+    ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256) {
+        if (stableCoin == address(0)) revert ZeroAddress();
+        address XdShare = dShareToXdShare[dShare];
         if (XdShare == address(0)) revert ZeroAddress();
 
         emit NewDistribution(
-            IDividendDistributor(dividendDistribution).nextDistributionId(), DShare, stableCoinAmount, dShareAmount
+            IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, stableCoinAmount, dShareAmount
         );
 
-        IERC20(DShare).safeTransfer(XdShare, dShareAmount);
-        IERC20(stableCoinAddress).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
-
+        IERC20(dShare).safeTransfer(XdShare, dShareAmount);
+        IERC20(stableCoin).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
         return
-            IDividendDistributor(dividendDistribution).createDistribution(stableCoinAddress, stableCoinAmount, endTime);
+            IDividendDistributor(dividendDistribution).createDistribution(stableCoin, stableCoinAmount, endTime);
     }
 }

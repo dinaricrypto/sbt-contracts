@@ -31,8 +31,6 @@ contract DualDistributorTest is Test {
         uint256 indexed distributionId, address indexed DShare, uint256 usdcAmount, uint256 dShareAmount
     );
 
-    event NewStableCoinAddress(address indexed stableCoinAddress);
-
     event NewDividendDistributionSet(address indexed newDivividendDistribution);
 
     function setUp() public {
@@ -62,36 +60,13 @@ contract DualDistributorTest is Test {
         distribution = new DividendDistribution(address(this));
 
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
-        dualDistributor = new DualDistributor(address(this), address(token), address(distribution));
+        dualDistributor = new DualDistributor(address(this), address(distribution));
         dualDistributor.grantRole(dualDistributor.DISTRIBUTOR_ROLE(), distributor);
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), address(dualDistributor));
     }
 
     function testStateVar() public {
-        assertEq(dualDistributor.stableCoinAddress(), address(token));
         assertEq(dualDistributor.dividendDistribution(), address(distribution));
-    }
-
-    function testSetUsdcZeroAddressReverts() public {
-        vm.expectRevert(DualDistributor.ZeroAddress.selector);
-        dualDistributor.setStableCoinAddress(address(0));
-    }
-
-    function testSetUsdc(address usdc) public {
-        vm.assume(usdc != address(0));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
-            )
-        );
-        vm.prank(user);
-        dualDistributor.setStableCoinAddress(usdc);
-
-        vm.expectEmit(true, true, true, true);
-        emit NewStableCoinAddress(usdc);
-        dualDistributor.setStableCoinAddress(usdc);
-        assertEq(dualDistributor.stableCoinAddress(), usdc);
     }
 
     function testSetDividendDistributionZeroAddressReverts() public {
@@ -147,17 +122,21 @@ contract DualDistributorTest is Test {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), distribution.DISTRIBUTOR_ROLE()
             )
         );
-        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
+        dualDistributor.distribute(address(token), address(dtoken), amountA, amountB, endTime);
 
         vm.prank(distributor);
         vm.expectRevert(DualDistributor.ZeroAddress.selector);
-        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
+        dualDistributor.distribute(address(token), address(dtoken), amountA, amountB, endTime);
 
         dualDistributor.setXdShareForDShare(address(dtoken), address(xToken));
 
         vm.prank(distributor);
+        vm.expectRevert(DualDistributor.ZeroAddress.selector);
+        dualDistributor.distribute(address(0), address(dtoken), amountA, amountB, endTime);
+
+        vm.prank(distributor);
         vm.expectEmit(true, true, true, true);
         emit NewDistribution(0, address(dtoken), amountA, amountB);
-        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
+        dualDistributor.distribute(address(token), address(dtoken), amountA, amountB, endTime);
     }
 }
