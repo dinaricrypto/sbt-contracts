@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockdShareFactory.sol";
-import {EscrowOrderProcessor} from "../../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {OrderProcessor, IOrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -22,7 +22,7 @@ contract FulfillmentRouterTest is Test {
     event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
 
     dShare token;
-    EscrowOrderProcessor issuer;
+    OrderProcessor issuer;
     MockToken paymentToken;
     TokenLockCheck tokenLockCheck;
     TransferRestrictor restrictor;
@@ -49,7 +49,7 @@ contract FulfillmentRouterTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new EscrowOrderProcessor(
+        issuer = new OrderProcessor(
             address(this),
             treasury,
             OrderProcessor.FeeRates({
@@ -83,7 +83,9 @@ contract FulfillmentRouterTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
     }
 

@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
-import {EscrowOrderProcessor, OrderProcessor} from "../../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../../src/orders/BuyUnlockedProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
@@ -18,6 +18,7 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
+import "prb-math/Common.sol" as PrbMath;
 
 contract ForwarderTest is Test {
     event RelayerSet(address indexed relayer, bool isRelayer);
@@ -40,7 +41,7 @@ contract ForwarderTest is Test {
     error InsufficientBalance();
 
     Forwarder public forwarder;
-    EscrowOrderProcessor public issuer;
+    OrderProcessor public issuer;
     BuyUnlockedProcessor public directBuyIssuer;
     MockToken public paymentToken;
     MockdShareFactory public tokenFactory;
@@ -68,6 +69,8 @@ contract ForwarderTest is Test {
     address constant ethUsdPriceOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
     address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
+    uint256 constant SELL_GAS_COST = 1000000;
+
     bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
         "ForwardRequest(address user,address to,address paymentToken,bytes data,uint64 deadline,uint256 nonce)"
     );
@@ -86,7 +89,7 @@ contract ForwarderTest is Test {
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new EscrowOrderProcessor(
+        issuer = new OrderProcessor(
             address(this),
             treasury,
             OrderProcessor.FeeRates({
@@ -120,7 +123,7 @@ contract ForwarderTest is Test {
         directBuyIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(ethUsdPriceOracle);
+        forwarder = new Forwarder(ethUsdPriceOracle, SELL_GAS_COST);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(directBuyIssuer), true);
         forwarder.setRelayer(relayer, true);
@@ -146,7 +149,9 @@ contract ForwarderTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
 
         // set fees
@@ -405,7 +410,9 @@ contract ForwarderTest is Test {
         assertEq(hashRequest, _hash);
     }
 
-    function testSellOrder() public {
+    function testSellOrder(uint256 receivedAmount) public {
+        vm.assume(receivedAmount > 10 ** paymentToken.decimals());
+
         IOrderProcessor.Order memory order = dummyOrder;
         order.sell = true;
         order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
@@ -431,7 +438,7 @@ contract ForwarderTest is Test {
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
-        vm.expectEmit(true, true, true, true);
+        vm.expectEmit(true, true, true, false);
         emit OrderRequested(order.recipient, 0, order);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -758,7 +765,7 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderModuleNotFound() public {
-        EscrowOrderProcessor issuer1 = new EscrowOrderProcessor(
+        OrderProcessor issuer1 = new OrderProcessor(
             address(this),
             treasury,
             OrderProcessor.FeeRates({
@@ -860,6 +867,41 @@ contract ForwarderTest is Test {
         assertEq(paymentToken.balanceOf(address(issuer)), 0);
         assertLt(paymentToken.balanceOf(address(user)), userFunds);
         assertEq(paymentToken.balanceOf(address(user)), balanceUserBefore + quantityIn);
+    }
+
+    function _getPaymentPriceInWei() internal view returns (uint256) {
+        address _oracle = usdcPriceOracle;
+        // slither-disable-next-line unused-return
+        (, int256 paymentPrice,,,) = AggregatorV3Interface(_oracle).latestRoundData();
+        // slither-disable-next-line unused-return
+        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ethUsdPriceOracle).latestRoundData();
+        // adjust values to align decimals
+        uint8 paymentPriceDecimals = AggregatorV3Interface(_oracle).decimals();
+        uint8 ethUSDPriceDecimals = AggregatorV3Interface(ethUsdPriceOracle).decimals();
+        if (paymentPriceDecimals > ethUSDPriceDecimals) {
+            ethUSDPrice = ethUSDPrice * int256(10 ** (paymentPriceDecimals - ethUSDPriceDecimals));
+        } else if (paymentPriceDecimals < ethUSDPriceDecimals) {
+            paymentPrice = paymentPrice * int256(10 ** (ethUSDPriceDecimals - paymentPriceDecimals));
+        }
+        // compute payment price in wei
+        uint256 paymentPriceInWei = PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
+        return uint256(paymentPriceInWei);
+    }
+
+    function _tokenAmountForGas(uint256 gasCostInWei, address gastoken, uint256 paymentTokenPrice)
+        internal
+        view
+        returns (uint256)
+    {
+        // Apply payment token price to calculate payment amount
+        // Assumes payment token price includes token decimals
+        uint256 paymentAmount = 0;
+        try IERC20Metadata(gastoken).decimals() returns (uint8 value) {
+            paymentAmount = gasCostInWei * 10 ** value / paymentTokenPrice;
+        } catch {
+            paymentAmount = gasCostInWei / paymentTokenPrice;
+        }
+        return paymentAmount;
     }
 
     // set Permit for user

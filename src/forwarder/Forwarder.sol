@@ -39,6 +39,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
+    event SellOrderGasCostUpdated(uint256 gas);
     event EthUsdOracleSet(address indexed oracle);
     event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
     event UserOperationSponsored(
@@ -63,6 +64,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @inheritdoc IForwarder
     uint256 public cancellationGasCost;
+
+    uint256 public sellOrderGasCost;
 
     /// @notice The set of supported modules.
     mapping(address => bool) public isSupportedModule;
@@ -90,9 +93,10 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
-    constructor(address _ethUsdOracle) EIP712("Forwarder", "1") Ownable(msg.sender) {
+    constructor(address _ethUsdOracle, uint256 initialSellOrderGasCost) EIP712("Forwarder", "1") Ownable(msg.sender) {
         feeBps = 0;
         cancellationGasCost = 0;
+        sellOrderGasCost = initialSellOrderGasCost;
         ethUsdOracle = _ethUsdOracle;
     }
 
@@ -128,6 +132,11 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     function setCancellationGasCost(uint256 newCancellationGasCost) external onlyOwner {
         cancellationGasCost = newCancellationGasCost;
         emit CancellationGasCostUpdated(newCancellationGasCost);
+    }
+
+    function setSellOrderGasCost(uint256 newSellOrderGasCost) external onlyOwner {
+        sellOrderGasCost = newSellOrderGasCost;
+        emit SellOrderGasCostUpdated(newSellOrderGasCost);
     }
 
     /**
@@ -202,7 +211,12 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
         (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
         if (order.sell) revert UnsupportedCall();
-        _requestOrderPreparation(order, metaTx.user, metaTx.to);
+        uint256 fees = IOrderProcessor(metaTx.to).estimateTotalFeesForOrder(
+            metaTx.user, order.sell, order.paymentToken, order.paymentTokenQuantity
+        );
+        // slither-disable-next-line arbitrary-send-erc20
+        IERC20(order.paymentToken).safeTransferFrom(metaTx.user, address(this), order.paymentTokenQuantity + fees);
+        IERC20(order.paymentToken).safeIncreaseAllowance(metaTx.to, order.paymentTokenQuantity + fees);
         // Store order signer for processor
         requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
         bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
@@ -245,14 +259,26 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
         if (!order.sell) revert UnsupportedCall();
 
-        _requestOrderPreparation(order, metaTx.user, metaTx.to);
+        // Configure order to take network fee from proceeds
+        uint256 orderPaymentTokenPriceInWei = getPaymentPriceInWei(metaTx.paymentToken);
+        uint256 sellGasCostInToken =
+            _tokenAmountForGas(sellOrderGasCost * tx.gasprice, order.paymentToken, orderPaymentTokenPriceInWei);
+        uint256 fee = (sellGasCostInToken * feeBps) / 10000;
+        order.splitAmount = sellGasCostInToken + fee;
+        order.splitRecipient = msg.sender;
+        
+        bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
+
+        // slither-disable-next-line arbitrary-send-erc20
+        IERC20(order.assetToken).safeTransferFrom(metaTx.user, address(this), order.assetTokenQuantity);
+        IERC20(order.assetToken).safeIncreaseAllowance(metaTx.to, order.assetTokenQuantity);
         // Store order signer for processor
         requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
         bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
         orderSigner[orderId] = metaTx.user;
 
         // execute low level call to issuer
-        result = metaTx.to.functionCall(metaTx.data);
+        result = metaTx.to.functionCall(data);
     }
 
     /**
@@ -330,6 +356,22 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         }
     }
 
+    function _tokenAmountForGas(uint256 gasCostInWei, address token, uint256 paymentTokenPrice)
+        internal
+        view
+        returns (uint256)
+    {
+        // Apply payment token price to calculate payment amount
+        // Assumes payment token price includes token decimals
+        uint256 paymentAmount = 0;
+        try IERC20Metadata(token).decimals() returns (uint8 value) {
+            paymentAmount = gasCostInWei * 10 ** value / paymentTokenPrice;
+        } catch {
+            paymentAmount = gasCostInWei / paymentTokenPrice;
+        }
+        return paymentAmount;
+    }
+
     /**
      * @dev Handles the payment of transaction fees in the form of tokens. Calculates the
      *      gas used for the transaction and transfers the equivalent amount in tokens from
@@ -342,16 +384,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      */
     function _handlePayment(address user, address paymentToken, uint256 paymentTokenPrice, uint256 gasStart) internal {
         uint256 gasUsed = gasStart - gasleft();
-        // Calculate total gas cost in wei
         uint256 totalGasCostInWei = (gasUsed + cancellationGasCost) * tx.gasprice;
-        // Apply payment token price to calculate payment amount
-        // Assumes payment token price includes token decimals
-        uint256 paymentAmount = 0;
-        try IERC20Metadata(paymentToken).decimals() returns (uint8 value) {
-            paymentAmount = totalGasCostInWei * 10 ** value / paymentTokenPrice;
-        } catch {
-            paymentAmount = totalGasCostInWei / paymentTokenPrice;
-        }
+        uint256 paymentAmount = _tokenAmountForGas(totalGasCostInWei, paymentToken, paymentTokenPrice);
 
         // Apply forwarder fee
         // slither-disable-next-line divide-before-multiply
