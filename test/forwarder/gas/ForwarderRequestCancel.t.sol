@@ -131,12 +131,12 @@ contract ForwarderRequestCancelTest is Test {
         uint256 nonce = 0;
 
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), dataRequest, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), dataRequest, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         // set a request
         vm.prank(relayer);
@@ -147,12 +147,12 @@ contract ForwarderRequestCancelTest is Test {
         uint256 nonce = 1;
 
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -180,18 +180,14 @@ contract ForwarderRequestCancelTest is Test {
         );
     }
 
-    function prepareForwardRequest(
-        address _user,
-        address to,
-        address _paymentToken,
-        bytes memory data,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
+        internal
+        view
+        returns (IForwarder.ForwardRequest memory metaTx)
+    {
         SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            paymentToken: _paymentToken,
             data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
@@ -203,7 +199,6 @@ contract ForwarderRequestCancelTest is Test {
         metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            paymentToken: _paymentToken,
             data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,

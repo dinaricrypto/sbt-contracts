@@ -131,12 +131,12 @@ contract dShareCompatTest is Test {
 
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
@@ -170,13 +170,13 @@ contract dShareCompatTest is Test {
 
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
         multicalldata[1] = preparePermitCall(shareSigUtils, address(token), user, userPrivateKey, nonce);
-        multicalldata[2] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[2] = abi.encodeWithSelector(forwarder.forwardRequestSellOrder.selector, metaTx);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
@@ -206,12 +206,12 @@ contract dShareCompatTest is Test {
 
         //  Prepare ForwardRequest
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -219,9 +219,9 @@ contract dShareCompatTest is Test {
         nonce += 1;
         bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
         Forwarder.ForwardRequest memory metaTx1 =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
-        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx1);
+        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -252,18 +252,14 @@ contract dShareCompatTest is Test {
         );
     }
 
-    function prepareForwardRequest(
-        address _user,
-        address to,
-        address _paymentToken,
-        bytes memory data,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
+        internal
+        view
+        returns (IForwarder.ForwardRequest memory metaTx)
+    {
         SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            paymentToken: _paymentToken,
             data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
@@ -275,7 +271,6 @@ contract dShareCompatTest is Test {
         metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            paymentToken: _paymentToken,
             data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
