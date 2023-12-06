@@ -7,7 +7,8 @@ import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
 /// @notice Enforces transfer restrictions
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/TransferRestrictor.sol)
-/// Maintains a single `owner` who can add or remove accounts from `isBlacklisted`
+/// Maintains the `RESTRICTOR_ROLE` who can add or remove accounts from `isBlacklisted`
+/// Accounts may be restricted if they are suspected of malicious or illegal activity
 contract TransferRestrictor is AccessControlDefaultAdminRules, ITransferRestrictor {
     /// ------------------ Types ------------------ ///
 
@@ -21,7 +22,7 @@ contract TransferRestrictor is AccessControlDefaultAdminRules, ITransferRestrict
 
     /// ------------------ Constants ------------------ ///
 
-    /// @notice Role for approved distributors
+    /// @notice Role for approved compliance administrators
     bytes32 public constant RESTRICTOR_ROLE = keccak256("RESTRICTOR_ROLE");
 
     /// ------------------ State ------------------ ///
