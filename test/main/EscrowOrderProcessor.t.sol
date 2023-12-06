@@ -82,6 +82,8 @@ contract EscrowOrderProcessorTest is Test {
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.grantRole(issuer.SELL_ORDER_APPROVED_ASSETS(), address(token));
+        issuer.grantRole(issuer.BUY_ORDER_APPROVED_ASSETS(), address(token));
 
         dummyOrderFees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), 100 ether);
 
@@ -279,6 +281,45 @@ contract EscrowOrderProcessorTest is Test {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         vm.prank(user);
         issuer.requestOrder(order);
+    }
+
+    function testRequestBuyOrderInvalidOrderRole(bool sell, uint256 orderAmount) public {
+        vm.assume(orderAmount > 0);
+        IOrderProcessor.Order memory order = getDummyOrder(sell);
+        vm.startPrank(admin);
+        issuer.revokeRole(issuer.BUY_ORDER_APPROVED_ASSETS(), address(token));
+        issuer.revokeRole(issuer.SELL_ORDER_APPROVED_ASSETS(), address(token));
+        vm.stopPrank();
+
+        order.assetTokenQuantity = orderAmount;
+        order.paymentTokenQuantity = orderAmount;
+
+        vm.startPrank(admin);
+        token.mint(user, orderAmount);
+        paymentToken.mint(user, orderAmount);
+        vm.stopPrank();
+        vm.startPrank(user);
+        token.approve(address(issuer), orderAmount);
+        paymentToken.approve(address(issuer), orderAmount);
+        vm.stopPrank();
+
+        if (sell) {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    IAccessControl.AccessControlUnauthorizedAccount.selector, token, issuer.SELL_ORDER_APPROVED_ASSETS()
+                )
+            );
+            vm.prank(user);
+            issuer.requestOrder(order);
+        } else {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    IAccessControl.AccessControlUnauthorizedAccount.selector, token, issuer.BUY_ORDER_APPROVED_ASSETS()
+                )
+            );
+            vm.prank(user);
+            issuer.requestOrder(order);
+        }
     }
 
     function testRequestOrderPausedReverts(bool sell) public {

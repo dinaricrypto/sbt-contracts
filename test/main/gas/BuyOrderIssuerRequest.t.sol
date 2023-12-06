@@ -74,6 +74,9 @@ contract BuyProcessorRequestTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
+        issuer.grantRole(issuer.SELL_ORDER_APPROVED_ASSETS(), address(token));
+        issuer.grantRole(issuer.BUY_ORDER_APPROVED_ASSETS(), address(token));
+
         paymentToken.mint(user, type(uint256).max);
 
         vm.stopPrank();

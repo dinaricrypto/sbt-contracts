@@ -136,6 +136,10 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
     /// @notice Forwarder role for forwarding context awareness
     bytes32 public constant FORWARDER_ROLE = keccak256("FORWARDER_ROLE");
+    /// @notice Sell asset role for whitelisting buyable assets
+    bytes32 public constant BUY_ORDER_APPROVED_ASSETS = keccak256("BUY_ORDER_APPROVED_ASSETS");
+    /// @notice Buy asset role for whitelisting sellable assets
+    bytes32 public constant SELL_ORDER_APPROVED_ASSETS = keccak256("SELL_ORDER_APPROVED_ASSETS");
 
     /// ------------------ State ------------------ ///
 
@@ -420,12 +424,14 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         _numOpenOrders++;
 
         if (order.sell) {
+            _checkRole(SELL_ORDER_APPROVED_ASSETS, order.assetToken);
             // update escrowed balance
             escrowedBalanceOf[order.assetToken][order.recipient] += order.assetTokenQuantity;
 
             // Transfer asset to contract
             IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
         } else {
+            _checkRole(BUY_ORDER_APPROVED_ASSETS, order.assetToken);
             uint256 quantityIn = order.paymentTokenQuantity + totalFees;
             // update escrowed balance
             escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
