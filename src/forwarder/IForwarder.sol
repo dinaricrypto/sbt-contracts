@@ -63,5 +63,5 @@ interface IForwarder {
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
      * @return The return data of the forwarded function call.
      */
-    function forwardeRequestSellOrder(ForwardRequest calldata metaTx) external returns (bytes memory);
+    function forwardRequestSellOrder(ForwardRequest calldata metaTx) external returns (bytes memory);
 }
