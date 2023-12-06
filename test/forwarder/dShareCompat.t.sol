@@ -84,7 +84,7 @@ contract dShareCompatTest is Test {
         );
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        
+
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         issuer.grantRole(issuer.SELL_ASSET_ROLE(), address(token));
         issuer.grantRole(issuer.BUY_ASSET_ROLE(), address(token));

@@ -73,7 +73,7 @@ contract FulfillmentRouterTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        
+
         issuer.grantRole(issuer.OPERATOR_ROLE(), address(router));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         issuer.grantRole(issuer.SELL_ASSET_ROLE(), address(token));

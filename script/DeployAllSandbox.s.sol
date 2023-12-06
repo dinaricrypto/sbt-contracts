@@ -239,7 +239,6 @@ contract DeployAllSandboxScript is Script {
                 deployments.directBuyIssuer.SELL_ASSET_ROLE(), address(deployments.dShares[i])
             );
 
-
             deployments.dShares[i].grantRole(
                 deployments.dShares[i].MINTER_ROLE(), address(deployments.escrowOrderProcessor)
             );
