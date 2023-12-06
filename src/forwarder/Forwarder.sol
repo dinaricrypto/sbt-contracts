@@ -206,8 +206,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         uint256 gasStart = gasleft();
         _validateForwardRequest(metaTx);
 
-        uint256 requestIndex = 0;
-
         _validateFunctionSelector(metaTx.data, IOrderProcessor.requestOrder.selector);
 
         (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
@@ -217,7 +215,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         );
 
         // Store order signer for processor
-        requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
+        uint256 requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
         bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
         orderSigner[orderId] = metaTx.user;
 
