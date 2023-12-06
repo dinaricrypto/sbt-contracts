@@ -266,7 +266,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         uint256 fee = (sellGasCostInToken * feeBps) / 10000;
         order.splitAmount = sellGasCostInToken + fee;
         order.splitRecipient = msg.sender;
-        
+
         bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
 
         // slither-disable-next-line arbitrary-send-erc20
