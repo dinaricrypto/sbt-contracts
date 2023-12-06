@@ -53,4 +53,15 @@ interface IForwarder {
      * @return The return data of the forwarded function call.
      */
     function forwardRequestCancel(ForwardRequest calldata metaTx) external returns (bytes memory);
+
+    /**
+     * @notice Forwards a meta transaction to an SellOrder contract.
+     * @dev Validates the meta transaction signature, then forwards the call to the target OrderProcessor.
+     * The relayer's address is used for EIP-712 compliant signature verification.
+     * This function should only be called by the authorized relayer.
+     * @param metaTx The meta transaction containing the user address, target contract, encoded function call data,
+     * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
+     * @return The return data of the forwarded function call.
+     */
+    function forwardeRequestSellOrder(ForwardRequest calldata metaTx) external returns (bytes memory);
 }

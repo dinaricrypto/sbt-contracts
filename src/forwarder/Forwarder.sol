@@ -197,6 +197,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// ------------------------------- Forwarding -------------------------------
 
+    /// @inheritdoc IForwarder
     function forwardRequestBuyOrder(ForwardRequest calldata metaTx)
         external
         onlyRelayer
@@ -232,6 +233,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
     }
 
+    /// @inheritdoc IForwarder
     function forwardRequestCancel(ForwardRequest calldata metaTx) external onlyRelayer returns (bytes memory result) {
         _validateForwardRequest(metaTx);
 
@@ -244,6 +246,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         result = metaTx.to.functionCall(metaTx.data);
     }
 
+    /// @inheritdoc IForwarder
     function forwardRequestSellOrder(ForwardRequest calldata metaTx)
         external
         onlyRelayer
