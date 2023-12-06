@@ -8,7 +8,6 @@ interface IForwarder {
         address user; // The address of the user initiating the meta-transaction.
         address to; // The address of the target contract (e.g., OrderProcessor)
             // to which the meta-transaction should be forwarded.
-        address paymentToken; // token use to pay transaction
         bytes data; // Encoded function call that the user wants to execute
             // through the meta-transaction.
         uint64 deadline; // The time by which the meta-transaction must be mined.
