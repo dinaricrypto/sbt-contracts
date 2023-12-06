@@ -18,6 +18,8 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
         uint256 endTime; // The timestamp when the distribution stops
     }
 
+    event MinDistributionTimeSet(uint64 minDistributionTime);
+
     // Event emitted when tokens are claimed from an distribution.
     event Distributed(uint256 indexed distributionId, address indexed account, uint256 amount);
 
@@ -28,7 +30,7 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
     event DistributionReclaimed(uint256 indexed distributionId, uint256 totalReclaimed);
 
     // Custom errors
-    error EndTimeInPast(); // Error thrown when endtime is in the past.
+    error EndTimeBeforeMin(); // Error thrown when endtime is prior to minDistributionTime from now.
     error DistributionRunning(); // Error thrown when trying to reclaim tokens from an distribution that is still running.
     error DistributionEnded(); // Error thrown when trying to claim tokens from an distribution that has ended.
     error NotReclaimable(); // Error thrown when the distribution has already been reclaimed or does not exist.
@@ -43,11 +45,21 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
     // Mapping to store the information of each distribution by its ID.
     mapping(uint256 => Distribution) public distributions;
 
+    /// @notice The next distribution ID to be used.
     uint256 public nextDistributionId;
+
+    /// @notice The minimum time that must pass between the creation of a distribution and its end time.
+    uint64 public minDistributionTime = 1 days;
 
     /// ------------------- Initialization ------------------- ///
 
     constructor(address owner) AccessControlDefaultAdminRules(0, owner) {}
+
+    /// @notice Set the minimum time that must pass between the creation of a distribution and its end time.
+    function setMinDistributionTime(uint64 _minDistributionTime) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        minDistributionTime = _minDistributionTime;
+        emit MinDistributionTimeSet(_minDistributionTime);
+    }
 
     /// ------------------- Distribution Lifecycle ------------------- ///
 
@@ -58,7 +70,7 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
         returns (uint256 distributionId)
     {
         // Check if the endtime is in the past.
-        if (endTime <= block.timestamp) revert EndTimeInPast();
+        if (endTime <= block.timestamp + minDistributionTime) revert EndTimeBeforeMin();
 
         // Load the next distribution id into memory and increment it for the next time
         distributionId = nextDistributionId++;

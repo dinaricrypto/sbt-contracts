@@ -112,7 +112,7 @@ contract DualDistributorTest is Test {
     }
 
     function testDistribute(uint256 amountA, uint256 amountB, uint256 endTime) public {
-        vm.assume(endTime > block.timestamp);
+        vm.assume(endTime > block.timestamp + distribution.minDistributionTime());
 
         token.mint(address(dualDistributor), amountA);
         dtoken.mint(address(dualDistributor), amountB);
