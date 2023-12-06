@@ -23,6 +23,7 @@ contract DividendDistributionTest is Test {
         bytes32 hash;
     }
 
+    event MinDistributionTimeSet(uint64 minDistributionTime);
     event Distributed(uint256 indexed distributionId, address indexed account, uint256 amount);
     event NewDistributionCreated(
         uint256 indexed distributionId, uint256 totalDistribution, uint256 startDate, uint256 endDate
@@ -35,6 +36,21 @@ contract DividendDistributionTest is Test {
         distribution = new DividendDistribution(address(this));
 
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
+    }
+
+    function testSetMinDistributionTime(uint64 minDistributionTime) public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(user);
+        distribution.setMinDistributionTime(minDistributionTime);
+
+        vm.expectEmit(true, true, true, true);
+        emit MinDistributionTimeSet(minDistributionTime);
+        distribution.setMinDistributionTime(minDistributionTime);
+        assertEq(distribution.minDistributionTime(), minDistributionTime);
     }
 
     function testCreateNewDistribution(uint256 totalDistribution, uint256 _endTime) public {
