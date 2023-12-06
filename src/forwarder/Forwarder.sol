@@ -215,13 +215,15 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         uint256 fees = IOrderProcessor(metaTx.to).estimateTotalFeesForOrder(
             metaTx.user, order.sell, order.paymentToken, order.paymentTokenQuantity
         );
-        // slither-disable-next-line arbitrary-send-erc20
-        IERC20(order.paymentToken).safeTransferFrom(metaTx.user, address(this), order.paymentTokenQuantity + fees);
-        IERC20(order.paymentToken).safeIncreaseAllowance(metaTx.to, order.paymentTokenQuantity + fees);
+
         // Store order signer for processor
         requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
         bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
         orderSigner[orderId] = metaTx.user;
+
+        // slither-disable-next-line arbitrary-send-erc20
+        IERC20(order.paymentToken).safeTransferFrom(metaTx.user, address(this), order.paymentTokenQuantity + fees);
+        IERC20(order.paymentToken).safeIncreaseAllowance(metaTx.to, order.paymentTokenQuantity + fees);
 
         // execute low level call to issuer
         result = metaTx.to.functionCall(metaTx.data);
@@ -272,13 +274,14 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
         bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
 
-        // slither-disable-next-line arbitrary-send-erc20
-        IERC20(order.assetToken).safeTransferFrom(metaTx.user, address(this), order.assetTokenQuantity);
-        IERC20(order.assetToken).safeIncreaseAllowance(metaTx.to, order.assetTokenQuantity);
         // Store order signer for processor
         requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
         bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
         orderSigner[orderId] = metaTx.user;
+
+        // slither-disable-next-line arbitrary-send-erc20
+        IERC20(order.assetToken).safeTransferFrom(metaTx.user, address(this), order.assetTokenQuantity);
+        IERC20(order.assetToken).safeIncreaseAllowance(metaTx.to, order.assetTokenQuantity);
 
         // execute low level call to issuer
         result = metaTx.to.functionCall(data);
