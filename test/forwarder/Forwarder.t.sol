@@ -449,6 +449,26 @@ contract ForwarderTest is Test {
         assertEq(token.balanceOf(address(issuer)), order.assetTokenQuantity);
         assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + order.assetTokenQuantity);
         assertEq(issuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
+
+        // Get forwarder modified order
+        // compute payment price in wei
+        {
+            uint256 paymentTokenPriceInWei = _getPaymentPriceInWei();
+            uint256 sellGasCostInToken =
+                _tokenAmountForGas(SELL_GAS_COST * tx.gasprice, order.paymentToken, paymentTokenPriceInWei);
+            uint256 fee = (sellGasCostInToken * 100) / 10000;
+            order.splitAmount = sellGasCostInToken + fee;
+            order.splitRecipient = relayer;
+        }
+
+        // Fill order and pay network fee from proceeds
+        paymentToken.mint(operator, receivedAmount);
+        vm.startPrank(operator);
+        paymentToken.approve(address(issuer), receivedAmount);
+        issuer.fillOrder(order, 0, order.assetTokenQuantity, receivedAmount);
+        vm.stopPrank();
+        assertLt(paymentToken.balanceOf(user), receivedAmount);
+        assertGe(paymentToken.balanceOf(relayer), 0);
     }
 
     function testTakeEscrowBuyUnlockedOrder(uint256 takeAmount) public {
