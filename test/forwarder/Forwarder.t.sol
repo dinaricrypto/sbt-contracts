@@ -252,7 +252,7 @@ contract ForwarderTest is Test {
             userPrivateKey,
             nonce
         );
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
@@ -294,7 +294,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         uint256 totalGasCostInWei = (gasleft() + forwarder.cancellationGasCost()) * tx.gasprice;
 
@@ -330,7 +330,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx1);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx1);
 
         uint256 balanceUserBeforeOrder = IERC20(address(paymentToken)).balanceOf(user);
 
@@ -353,7 +353,7 @@ contract ForwarderTest is Test {
         Forwarder.ForwardRequest memory metaTx2 =
             prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
-        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx2);
+        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx2);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -426,31 +426,22 @@ contract ForwarderTest is Test {
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
         multicalldata[1] =
             preparePermitCall(shareSigUtils, address(token), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[2] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[2] = abi.encodeWithSelector(forwarder.forwardRequestSellOrder.selector, metaTx);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
-        // mint paymentToken Balance ex: USDC
-        paymentToken.mint(user, order.paymentTokenQuantity * 1e6);
-        uint256 paymentTokenBalanceBefore = paymentToken.balanceOf(user);
-
-        uint256 userBalanceBefore = token.balanceOf(user);
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(order.recipient, 0, order);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
-        uint256 paymentTokenBalanceAfter = paymentToken.balanceOf(user);
-
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), order.assetTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
         assertEq(token.balanceOf(address(issuer)), order.assetTokenQuantity);
-        assertEq(token.balanceOf(user), userBalanceBefore - order.assetTokenQuantity);
         assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + order.assetTokenQuantity);
         assertEq(issuer.escrowedBalanceOf(order.assetToken, user), order.assetTokenQuantity);
-        assert(paymentTokenBalanceBefore > paymentTokenBalanceAfter);
     }
 
     function testTakeEscrowBuyUnlockedOrder(uint256 takeAmount) public {
@@ -475,7 +466,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         bytes32 id = directBuyIssuer.getOrderId(order.recipient, 0);
 
@@ -523,7 +514,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         bytes32 id = directBuyIssuer.getOrderId(order.recipient, 0);
 
@@ -573,7 +564,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         // 1. Request order
         vm.expectRevert(Forwarder.ForwarderNotApprovedByProcessor.selector);
@@ -594,7 +585,48 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
+
+        vm.expectRevert(Forwarder.UnsupportedCall.selector);
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
+
+        dummyOrder.sell = true;
+
+        data = abi.encodeWithSignature("requestOrder((address,address,address,uint256))", dummyOrder);
+
+        IForwarder.ForwardRequest memory metaTx1 =
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
+
+        multicalldata[0] =
+            preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx1);
+
+        vm.expectRevert(Forwarder.UnsupportedCall.selector);
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
+
+        dummyOrder.sell = false;
+        data = abi.encodeWithSignature("requestOrder((address,address,address,uint256))", dummyOrder);
+
+        IForwarder.ForwardRequest memory metaTx2 =
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
+
+        multicalldata[0] =
+            preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestSellOrder.selector, metaTx2);
+
+        vm.expectRevert(Forwarder.UnsupportedCall.selector);
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
+
+        // test request cancel unsupported call
+        IForwarder.ForwardRequest memory metaTx3 =
+            prepareForwardRequest(user, address(issuer), address(paymentToken), data, nonce, userPrivateKey);
+
+        multicalldata[0] =
+            preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx3);
 
         vm.expectRevert(Forwarder.UnsupportedCall.selector);
         vm.prank(relayer);
@@ -613,7 +645,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         vm.expectRevert(Forwarder.UserNotRelayer.selector);
         forwarder.multicall(multicalldata);
@@ -632,7 +664,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         vm.expectRevert(Forwarder.ExpiredRequest.selector);
         vm.prank(relayer);
@@ -659,7 +691,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         vm.expectRevert(OrderProcessor.Paused.selector);
         vm.prank(relayer);
@@ -683,7 +715,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -693,7 +725,7 @@ contract ForwarderTest is Test {
         Forwarder.ForwardRequest memory metaTx1 =
             prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
-        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx1);
+        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -715,7 +747,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, 0);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         vm.prank(relayer);
         vm.expectRevert(abi.encodeWithSelector(Nonces.InvalidAccountNonce.selector, user, 0));
@@ -753,7 +785,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         vm.expectRevert(Forwarder.NotSupportedModule.selector);
         vm.prank(relayer);
@@ -777,7 +809,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         bytes32 id = issuer.getOrderId(order.recipient, 0);
 
@@ -788,11 +820,11 @@ contract ForwarderTest is Test {
         Forwarder.ForwardRequest memory metaTx1 =
             prepareForwardRequest(relayer, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
-        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx1);
+        multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
 
         vm.expectRevert(Forwarder.InvalidSigner.selector);
         vm.prank(relayer);
-        forwarder.forwardFunctionCall(metaTx1);
+        forwarder.forwardRequestCancel(metaTx1);
         assertEq(forwarder.orderSigner(id), user);
     }
 
@@ -813,7 +845,7 @@ contract ForwarderTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);

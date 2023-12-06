@@ -188,52 +188,81 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// ------------------------------- Forwarding -------------------------------
 
-    /// @inheritdoc IForwarder
-    function forwardFunctionCall(ForwardRequest calldata metaTx)
+    function forwardRequestBuyOrder(ForwardRequest calldata metaTx)
         external
         onlyRelayer
-        nonReentrant
         returns (bytes memory result)
     {
         uint256 gasStart = gasleft();
         _validateForwardRequest(metaTx);
 
-        // Get the function selector
-        bytes4 functionSelector = bytes4(metaTx.data[:4]);
-        // Check call
         uint256 requestIndex = 0;
-        if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            // Check if function selector is request Order to approve quantityIn
-            // Get order from data
-            (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
-            _requestOrderPreparation(order, metaTx.user, metaTx.to);
-            // Store order signer for processor
-            requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
-            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
-            orderSigner[orderId] = metaTx.user;
-        } else if (functionSelector == IOrderProcessor.requestCancel.selector) {
-            // Check if cancel request is from the original order signer
-            // Get data from metaTx
-            (address recipient, uint256 index) = abi.decode(metaTx.data[4:], (address, uint256));
-            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(recipient, index);
-            if (orderSigner[orderId] != metaTx.user) revert InvalidSigner();
-        } else {
-            revert UnsupportedCall();
-        }
+
+        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestOrder.selector);
+
+        (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
+        if (order.sell) revert UnsupportedCall();
+        _requestOrderPreparation(order, metaTx.user, metaTx.to);
+        // Store order signer for processor
+        requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
+        bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
+        orderSigner[orderId] = metaTx.user;
 
         // execute low level call to issuer
         result = metaTx.to.functionCall(metaTx.data);
 
-        if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            // Check that reentrancy hasn't shifted order index
-            assert(abi.decode(result, (uint256)) == requestIndex);
-        }
+        assert(abi.decode(result, (uint256)) == requestIndex);
 
-        // handle transaction payment
-        if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            uint256 assetPriceInWei = getPaymentPriceInWei(metaTx.paymentToken);
-            _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
-        }
+        uint256 assetPriceInWei = getPaymentPriceInWei(metaTx.paymentToken);
+
+        _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
+    }
+
+    function forwardRequestCancel(ForwardRequest calldata metaTx) external onlyRelayer returns (bytes memory result) {
+        _validateForwardRequest(metaTx);
+
+        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestCancel.selector);
+
+        (address recipient, uint256 index) = abi.decode(metaTx.data[4:], (address, uint256));
+        bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(recipient, index);
+        if (orderSigner[orderId] != metaTx.user) revert InvalidSigner();
+
+        result = metaTx.to.functionCall(metaTx.data);
+    }
+
+    function forwardRequestSellOrder(ForwardRequest calldata metaTx)
+        external
+        onlyRelayer
+        returns (bytes memory result)
+    {
+        _validateForwardRequest(metaTx);
+
+        uint256 requestIndex = 0;
+
+        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestOrder.selector);
+
+        (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
+
+        if (!order.sell) revert UnsupportedCall();
+
+        _requestOrderPreparation(order, metaTx.user, metaTx.to);
+        // Store order signer for processor
+        requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
+        bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
+        orderSigner[orderId] = metaTx.user;
+
+        // execute low level call to issuer
+        result = metaTx.to.functionCall(metaTx.data);
+    }
+
+    /**
+     * @dev Validates the function selector of the encoded function call data.
+     * @param data The encoded function call data.
+     * @param functionSelector The expected function selector.
+     */
+    function _validateFunctionSelector(bytes calldata data, bytes4 functionSelector) internal pure {
+        bytes4 selector = bytes4(data[:4]);
+        if (selector != functionSelector) revert UnsupportedCall();
     }
 
     /**

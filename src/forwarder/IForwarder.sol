@@ -33,7 +33,7 @@ interface IForwarder {
     function forwardRequestHash(ForwardRequest calldata metaTx) external pure returns (bytes32);
 
     /**
-     * @notice Forwards a meta transaction to an OrderProcessor contract.
+     * @notice Forwards a meta transaction to an BuyOrder contract.
      * @dev Validates the meta transaction signature, then forwards the call to the target OrderProcessor.
      * The relayer's address is used for EIP-712 compliant signature verification.
      * This function should only be called by the authorized relayer.
@@ -41,5 +41,16 @@ interface IForwarder {
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
      * @return The return data of the forwarded function call.
      */
-    function forwardFunctionCall(ForwardRequest calldata metaTx) external returns (bytes memory);
+    function forwardRequestBuyOrder(ForwardRequest calldata metaTx) external returns (bytes memory);
+
+    /**
+     * @notice Forwards a meta transaction to cancel an Order to OrderProcessor contract.
+     * @dev Validates the meta transaction signature, then forwards the call to the target OrderProcessor.
+     * The relayer's address is used for EIP-712 compliant signature verification.
+     * This function should only be called by the authorized relayer.
+     * @param metaTx The meta transaction containing the user address, target contract, encoded function call data,
+     * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
+     * @return The return data of the forwarded function call.
+     */
+    function forwardRequestCancel(ForwardRequest calldata metaTx) external returns (bytes memory);
 }
