@@ -86,7 +86,6 @@ contract DualDistributor is AccessControlDefaultAdminRules {
 
         IERC20(dShare).safeTransfer(XdShare, dShareAmount);
         IERC20(stableCoin).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
-        return
-            IDividendDistributor(dividendDistribution).createDistribution(stableCoin, stableCoinAmount, endTime);
+        return IDividendDistributor(dividendDistribution).createDistribution(stableCoin, stableCoinAmount, endTime);
     }
 }
