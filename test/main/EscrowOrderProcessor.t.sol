@@ -80,10 +80,10 @@ contract EscrowOrderProcessorTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
+        
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-        issuer.grantRole(issuer.SELL_ORDER_APPROVED_ASSETS(), address(token));
-        issuer.grantRole(issuer.BUY_ORDER_APPROVED_ASSETS(), address(token));
+        issuer.grantRole(issuer.SELL_ASSET_ROLE(), address(token));
+        issuer.grantRole(issuer.BUY_ASSET_ROLE(), address(token));
 
         dummyOrderFees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), 100 ether);
 
@@ -287,8 +287,8 @@ contract EscrowOrderProcessorTest is Test {
         vm.assume(orderAmount > 0);
         IOrderProcessor.Order memory order = getDummyOrder(sell);
         vm.startPrank(admin);
-        issuer.revokeRole(issuer.BUY_ORDER_APPROVED_ASSETS(), address(token));
-        issuer.revokeRole(issuer.SELL_ORDER_APPROVED_ASSETS(), address(token));
+        issuer.revokeRole(issuer.BUY_ASSET_ROLE(), address(token));
+        issuer.revokeRole(issuer.SELL_ASSET_ROLE(), address(token));
         vm.stopPrank();
 
         order.assetTokenQuantity = orderAmount;
@@ -306,7 +306,7 @@ contract EscrowOrderProcessorTest is Test {
         if (sell) {
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    IAccessControl.AccessControlUnauthorizedAccount.selector, token, issuer.SELL_ORDER_APPROVED_ASSETS()
+                    IAccessControl.AccessControlUnauthorizedAccount.selector, token, issuer.SELL_ASSET_ROLE()
                 )
             );
             vm.prank(user);
@@ -314,7 +314,7 @@ contract EscrowOrderProcessorTest is Test {
         } else {
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    IAccessControl.AccessControlUnauthorizedAccount.selector, token, issuer.BUY_ORDER_APPROVED_ASSETS()
+                    IAccessControl.AccessControlUnauthorizedAccount.selector, token, issuer.BUY_ASSET_ROLE()
                 )
             );
             vm.prank(user);
@@ -361,21 +361,6 @@ contract EscrowOrderProcessorTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IAccessControl.AccessControlUnauthorizedAccount.selector, tryPaymentToken, issuer.PAYMENTTOKEN_ROLE()
-            )
-        );
-        vm.prank(user);
-        issuer.requestOrder(order);
-    }
-
-    function testRequestOrderUnsupportedAssetReverts(bool sell) public {
-        address tryAssetToken = address(tokenFactory.deploy("Dinari Token", "dTKN"));
-
-        IOrderProcessor.Order memory order = getDummyOrder(sell);
-        order.assetToken = tryAssetToken;
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, tryAssetToken, issuer.ASSETTOKEN_ROLE()
             )
         );
         vm.prank(user);

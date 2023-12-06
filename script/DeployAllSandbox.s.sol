@@ -227,11 +227,18 @@ contract DeployAllSandboxScript is Script {
             );
 
             deployments.escrowOrderProcessor.grantRole(
-                deployments.escrowOrderProcessor.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
+                deployments.escrowOrderProcessor.BUY_ASSET_ROLE(), address(deployments.dShares[i])
+            );
+            deployments.escrowOrderProcessor.grantRole(
+                deployments.escrowOrderProcessor.SELL_ASSET_ROLE(), address(deployments.dShares[i])
             );
             deployments.directBuyIssuer.grantRole(
-                deployments.directBuyIssuer.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
+                deployments.directBuyIssuer.BUY_ASSET_ROLE(), address(deployments.dShares[i])
             );
+            deployments.directBuyIssuer.grantRole(
+                deployments.directBuyIssuer.SELL_ASSET_ROLE(), address(deployments.dShares[i])
+            );
+
 
             deployments.dShares[i].grantRole(
                 deployments.dShares[i].MINTER_ROLE(), address(deployments.escrowOrderProcessor)

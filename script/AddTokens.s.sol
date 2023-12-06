@@ -33,8 +33,8 @@ contract AddTokensScript is Script {
         }
 
         for (uint256 i = 0; i < assetTokens.length; i++) {
-            issuer.grantRole(issuer.ASSETTOKEN_ROLE(), assetTokens[i]);
-            directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), assetTokens[i]);
+            issuer.grantRole(issuer.BUY_ASSET_ROLE(), assetTokens[i]);
+            directIssuer.grantRole(directIssuer.SELL_ASSET_ROLE(), assetTokens[i]);
 
             dShare assetToken = dShare(assetTokens[i]);
             assetToken.grantRole(assetToken.MINTER_ROLE(), address(issuer));

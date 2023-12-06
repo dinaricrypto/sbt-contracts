@@ -131,15 +131,12 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     /// @notice Payment token role for whitelisting payment tokens
     bytes32 public constant PAYMENTTOKEN_ROLE = keccak256("PAYMENTTOKEN_ROLE");
-    /// @notice Asset token role for whitelisting asset tokens
-    /// @dev Tokens with decimals > 18 are not supported by current implementation
-    bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
     /// @notice Forwarder role for forwarding context awareness
     bytes32 public constant FORWARDER_ROLE = keccak256("FORWARDER_ROLE");
     /// @notice Sell asset role for whitelisting buyable assets
-    bytes32 public constant BUY_ORDER_APPROVED_ASSETS = keccak256("BUY_ORDER_APPROVED_ASSETS");
+    bytes32 public constant BUY_ASSET_ROLE = keccak256("BUY_ASSET_ROLE");
     /// @notice Buy asset role for whitelisting sellable assets
-    bytes32 public constant SELL_ORDER_APPROVED_ASSETS = keccak256("SELL_ORDER_APPROVED_ASSETS");
+    bytes32 public constant SELL_ASSET_ROLE = keccak256("SELL_ASSET_ROLE");
 
     /// ------------------ State ------------------ ///
 
@@ -388,8 +385,8 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
 
         // Check for whitelisted tokens
-        _checkRole(ASSETTOKEN_ROLE, order.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
+        _checkAssetRole(order.sell, order.assetToken);
         // Check requester
         index = nextOrderIndex[order.recipient];
         bytes32 id = getOrderId(order.recipient, index);
@@ -424,14 +421,12 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         _numOpenOrders++;
 
         if (order.sell) {
-            _checkRole(SELL_ORDER_APPROVED_ASSETS, order.assetToken);
             // update escrowed balance
             escrowedBalanceOf[order.assetToken][order.recipient] += order.assetTokenQuantity;
 
             // Transfer asset to contract
             IERC20(order.assetToken).safeTransferFrom(msg.sender, address(this), order.assetTokenQuantity);
         } else {
-            _checkRole(BUY_ORDER_APPROVED_ASSETS, order.assetToken);
             uint256 quantityIn = order.paymentTokenQuantity + totalFees;
             // update escrowed balance
             escrowedBalanceOf[order.paymentToken][order.recipient] += quantityIn;
@@ -574,6 +569,17 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
         if (tokenLockCheck.isTransferLocked(assetToken, sender)) revert Blacklist();
         if (tokenLockCheck.isTransferLocked(paymentToken, recipient)) revert Blacklist();
         if (tokenLockCheck.isTransferLocked(paymentToken, sender)) revert Blacklist();
+    }
+
+    /// @dev Check if asset token is whitelisted for buy or sell
+    /// @param sell Whether order is sell
+    /// @param assetToken Asset token
+    function _checkAssetRole(bool sell, address assetToken) internal view {
+        if (sell) {
+            _checkRole(SELL_ASSET_ROLE, assetToken);
+        } else {
+            _checkRole(BUY_ASSET_ROLE, assetToken);
+        }
     }
 
     /// @notice Request to cancel an order

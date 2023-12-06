@@ -84,10 +84,10 @@ contract dShareCompatTest is Test {
         );
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
+        
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-        issuer.grantRole(issuer.SELL_ORDER_APPROVED_ASSETS(), address(token));
-        issuer.grantRole(issuer.BUY_ORDER_APPROVED_ASSETS(), address(token));
+        issuer.grantRole(issuer.SELL_ASSET_ROLE(), address(token));
+        issuer.grantRole(issuer.BUY_ASSET_ROLE(), address(token));
         vm.stopPrank();
 
         vm.startPrank(owner); // we set an owner to deploy forwarder

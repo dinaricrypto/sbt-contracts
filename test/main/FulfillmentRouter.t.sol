@@ -73,11 +73,11 @@ contract FulfillmentRouterTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
+        
         issuer.grantRole(issuer.OPERATOR_ROLE(), address(router));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-        issuer.grantRole(issuer.SELL_ORDER_APPROVED_ASSETS(), address(token));
-        issuer.grantRole(issuer.BUY_ORDER_APPROVED_ASSETS(), address(token));
+        issuer.grantRole(issuer.SELL_ASSET_ROLE(), address(token));
+        issuer.grantRole(issuer.BUY_ASSET_ROLE(), address(token));
 
         vault.grantRole(vault.AUTHORIZED_OPERATOR_ROLE(), address(router));
 
