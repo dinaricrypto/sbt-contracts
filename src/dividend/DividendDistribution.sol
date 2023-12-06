@@ -45,14 +45,17 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
     // Mapping to store the information of each distribution by its ID.
     mapping(uint256 => Distribution) public distributions;
 
+    /// @notice The next distribution ID to be used.
     uint256 public nextDistributionId;
 
+    /// @notice The minimum time that must pass between the creation of a distribution and its end time.
     uint64 public minDistributionTime = 1 days;
 
     /// ------------------- Initialization ------------------- ///
 
     constructor(address owner) AccessControlDefaultAdminRules(0, owner) {}
 
+    /// @notice Set the minimum time that must pass between the creation of a distribution and its end time.
     function setMinDistributionTime(uint64 _minDistributionTime) external onlyRole(DEFAULT_ADMIN_ROLE) {
         minDistributionTime = _minDistributionTime;
         emit MinDistributionTimeSet(_minDistributionTime);
