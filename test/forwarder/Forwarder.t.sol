@@ -353,7 +353,7 @@ contract ForwarderTest is Test {
 
     function testRescueERC20(uint256 amount, address to) public {
         vm.assume(to != address(0) && to != address(forwarder));
-        
+
         MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$");
         paymentTokenToRescue.mint(user, amount);
 
