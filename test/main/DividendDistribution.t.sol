@@ -78,7 +78,9 @@ contract DividendDistributionTest is Test {
         vm.prank(distributor);
         token.approve(address(distribution), totalDistribution);
         vm.startPrank(distributor);
-        uint256 distributionId = distribution.createDistribution(address(token), totalDistribution, block.timestamp + distribution.minDistributionTime() + 1);
+        uint256 distributionId = distribution.createDistribution(
+            address(token), totalDistribution, block.timestamp + distribution.minDistributionTime() + 1
+        );
         vm.stopPrank();
 
         vm.expectRevert(
@@ -108,7 +110,9 @@ contract DividendDistributionTest is Test {
         vm.prank(distributor);
         token.approve(address(distribution), totalDistribution);
         vm.startPrank(distributor);
-        distribution.createDistribution(address(token), totalDistribution, block.timestamp + distribution.minDistributionTime() + 1);
+        distribution.createDistribution(
+            address(token), totalDistribution, block.timestamp + distribution.minDistributionTime() + 1
+        );
         vm.stopPrank();
         assertEq(IERC20(address(token)).balanceOf(address(distribution)), totalDistribution);
         assertEq(IERC20(address(token)).balanceOf(distributor), 0);
