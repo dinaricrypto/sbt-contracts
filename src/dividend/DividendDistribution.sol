@@ -9,7 +9,7 @@ import {IDividendDistributor} from "./IDividendDistributor.sol";
 /// @notice Distributes tokens to users over time.
 /// @dev This contract allows a DISTRIBUTOR_ROLE to create a distribution of tokens to users.
 /// It is intended as a flexible way to handle payouts while recording those payouts on-chain.
-/// A distribution is created with a pool of tokens and an end time. 
+/// A distribution is created with a pool of tokens and an end time.
 /// A DISTRIBUTOR_ROLE can then distribute from that pool to users until the end time.
 /// After the end time, the DISTRIBUTOR_ROLE can reclaim any remaining tokens.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dividend/DividendDistribution.sol)
