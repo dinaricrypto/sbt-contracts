@@ -134,8 +134,10 @@ abstract contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, S
     /// @notice Forwarder role for forwarding context awareness
     bytes32 public constant FORWARDER_ROLE = keccak256("FORWARDER_ROLE");
     /// @notice Sell asset role for whitelisting buyable assets
+    /// @dev Tokens with decimals > 18 are not supported by current implementation
     bytes32 public constant BUY_ASSET_ROLE = keccak256("BUY_ASSET_ROLE");
     /// @notice Buy asset role for whitelisting sellable assets
+    /// @dev Tokens with decimals > 18 are not supported by current implementation
     bytes32 public constant SELL_ASSET_ROLE = keccak256("SELL_ASSET_ROLE");
 
     /// ------------------ State ------------------ ///
