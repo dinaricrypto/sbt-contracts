@@ -398,7 +398,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         _requestOrderAccounting(id, order);
 
         // Send order to bridge
-        emit OrderRequested(id, order.recipient, order);
+        emit OrderRequested(id, requester, order);
 
         // Calculate fees
         (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, order.sell, order.paymentToken);
@@ -455,8 +455,8 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
                 order.paymentTokenQuantity,
                 order.price,
                 order.tif,
-                order.splitAmount,
-                order.splitRecipient
+                order.splitRecipient,
+                order.splitAmount
             )
         );
     }
@@ -474,8 +474,8 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
                 order.paymentTokenQuantity,
                 order.price,
                 order.tif,
-                order.splitAmount,
-                order.splitRecipient
+                order.splitRecipient,
+                order.splitAmount
             )
         );
     }
@@ -502,7 +502,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
             _fillOrderAccounting(id, order, orderState, orderInfo.unfilledAmount, fillAmount, receivedAmount);
 
         // Notify order filled
-        emit OrderFill(id, order.recipient, fillAmount, receivedAmount, feesEarned);
+        emit OrderFill(id, orderState.requester, fillAmount, receivedAmount, feesEarned);
 
         // Take splitAmount from amount to distribute
         uint256 splitAmountEarned = 0;
@@ -525,7 +525,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         if (unfilledAmount == 0) {
             _orderInfo[id].status = OrderStatus.FULFILLED;
             // Notify order fulfilled
-            emit OrderFulfilled(id, order.recipient);
+            emit OrderFulfilled(id, orderState.requester);
             // Clear order state
             delete _orders[id];
             _numOpenOrders--;
@@ -628,7 +628,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
 
         // Notify order cancelled
-        emit OrderCancelled(id, order.recipient, reason);
+        emit OrderCancelled(id, orderState.requester, reason);
         // Order is cancelled
         _orderInfo[id].status = OrderStatus.CANCELLED;
         // Clear order state

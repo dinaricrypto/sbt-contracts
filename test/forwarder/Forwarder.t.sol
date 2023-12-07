@@ -439,7 +439,7 @@ contract ForwarderTest is Test {
 
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, false);
-        emit OrderRequested(0, order.recipient, order);
+        emit OrderRequested(0, user, order);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 

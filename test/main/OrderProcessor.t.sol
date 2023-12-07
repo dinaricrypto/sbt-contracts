@@ -101,8 +101,8 @@ contract OrderProcessorTest is Test {
             paymentTokenQuantity: sell ? 0 : 100 ether,
             price: 0,
             tif: IOrderProcessor.TIF.GTC,
-            splitAmount: 0,
-            splitRecipient: address(0)
+            splitRecipient: address(0),
+            splitAmount: 0
         });
     }
 
@@ -259,7 +259,7 @@ contract OrderProcessorTest is Test {
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
-        emit OrderRequested(0, order.recipient, order);
+        emit OrderRequested(0, user, order);
         vm.prank(user);
         uint256 id = issuer.requestOrder(order);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
