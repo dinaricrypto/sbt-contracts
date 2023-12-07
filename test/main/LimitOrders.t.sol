@@ -12,9 +12,9 @@ import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 
 contract LimitOrderTest is Test {
-    event OrderRequested(address indexed recipient, uint256 indexed index, IOrderProcessor.Order order);
+    event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
     event OrderFill(
-        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+        uint256 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
     );
 
     MockdShareFactory tokenFactory;
@@ -110,10 +110,9 @@ contract LimitOrderTest is Test {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
             uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(user, 0, order);
-            uint256 index = issuer.requestOrder(order);
-            bytes32 id = issuer.getOrderId(order.recipient, index);
-            assertEq(index, 0);
+            emit OrderRequested(0, user, order);
+            uint256 id = issuer.requestOrder(order);
+            assertEq(id, 0);
             assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
             assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
             assertEq(issuer.numOpenOrders(), 1);
@@ -146,21 +145,20 @@ contract LimitOrderTest is Test {
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
-        uint256 index = issuer.requestOrder(order);
+        uint256 id = issuer.requestOrder(order);
 
-        bytes32 id = issuer.getOrderId(order.recipient, index);
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else if (fillAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
             vm.expectRevert(EscrowOrderProcessor.OrderFillBelowLimitPrice.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else {
             // balances before
             uint256 userAssetBefore = token.balanceOf(user);
@@ -169,9 +167,9 @@ contract LimitOrderTest is Test {
             vm.assume(fillAmount < orderAmount);
             vm.expectEmit(true, true, true, false);
             // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
-            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
+            emit OrderFill(id, order.recipient, fillAmount, receivedAmount, 0);
             vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            issuer.fillOrder(id, order, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
@@ -196,7 +194,6 @@ contract LimitOrderTest is Test {
         vm.prank(user);
         token.approve(address(issuer), orderAmount);
 
-        bytes32 id = issuer.getOrderId(order.recipient, 0);
         if (orderAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(user);
@@ -210,10 +207,10 @@ contract LimitOrderTest is Test {
             uint256 userBalanceBefore = token.balanceOf(user);
             uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
             vm.expectEmit(true, true, true, true);
-            emit OrderRequested(user, 0, order);
+            emit OrderRequested(0, user, order);
             vm.prank(user);
-            uint256 index = issuer.requestOrder(order);
-            assertEq(index, 0);
+            uint256 id = issuer.requestOrder(order);
+            assertEq(id, 0);
             assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
             assertEq(issuer.getUnfilledAmount(id), orderAmount);
             assertEq(issuer.numOpenOrders(), 1);
@@ -240,35 +237,34 @@ contract LimitOrderTest is Test {
         token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
-        uint256 index = issuer.requestOrder(order);
+        uint256 id = issuer.requestOrder(order);
 
         vm.prank(admin);
         paymentToken.mint(operator, receivedAmount); // Mint paymentTokens to operator to ensure they have enough
         vm.prank(operator);
         paymentToken.approve(address(issuer), receivedAmount);
 
-        bytes32 id = issuer.getOrderId(order.recipient, 0);
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else if (fillAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) {
             vm.expectRevert(EscrowOrderProcessor.OrderFillAboveLimitPrice.selector);
             vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else {
             // balances before
             uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, false);
             // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
-            emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
+            emit OrderFill(id, order.recipient, fillAmount, receivedAmount, 0);
             vm.prank(operator);
-            issuer.fillOrder(order, index, fillAmount, receivedAmount);
+            issuer.fillOrder(id, order, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);

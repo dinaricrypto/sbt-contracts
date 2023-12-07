@@ -145,8 +145,6 @@ contract dShareCompatTest is Test {
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
         multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        bytes32 id = issuer.getOrderId(order.recipient, 0);
-
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
 
@@ -154,8 +152,8 @@ contract dShareCompatTest is Test {
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
-        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-        assertEq(issuer.getUnfilledAmount(id), dummyOrder.paymentTokenQuantity);
+        assertEq(uint8(issuer.getOrderStatus(0)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(0), dummyOrder.paymentTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
 
         assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
@@ -185,16 +183,14 @@ contract dShareCompatTest is Test {
         multicalldata[1] = preparePermitCall(shareSigUtils, address(token), user, userPrivateKey, nonce);
         multicalldata[2] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
 
-        bytes32 id = issuer.getOrderId(order.recipient, 0);
-
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
-        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-        assertEq(issuer.getUnfilledAmount(id), order.assetTokenQuantity);
+        assertEq(uint8(issuer.getOrderStatus(0)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(0), order.assetTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
         assertEq(token.balanceOf(address(issuer)), order.assetTokenQuantity);
         assertEq(token.balanceOf(user), userBalanceBefore - order.assetTokenQuantity);
@@ -224,7 +220,7 @@ contract dShareCompatTest is Test {
         forwarder.multicall(multicalldata);
 
         nonce += 1;
-        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
         Forwarder.ForwardRequest memory metaTx1 =
             prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
@@ -232,7 +228,7 @@ contract dShareCompatTest is Test {
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
-        assertEq(issuer.cancelRequested(issuer.getOrderId(order.recipient, 0)), true);
+        assertEq(issuer.cancelRequested(0), true);
     }
 
     // utils functions

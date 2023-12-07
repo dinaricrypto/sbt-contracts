@@ -71,7 +71,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     mapping(address => bool) public isRelayer;
 
     /// @inheritdoc IForwarder
-    mapping(bytes32 => address) public orderSigner;
+    mapping(uint256 => address) public orderSigner;
 
     address public ethUsdOracle;
 
@@ -201,21 +201,19 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         // Get the function selector
         bytes4 functionSelector = bytes4(metaTx.data[:4]);
         // Check call
-        uint256 requestIndex = 0;
+        uint256 orderId = 0;
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
             // Check if function selector is request Order to approve quantityIn
             // Get order from data
             (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
             _requestOrderPreparation(order, metaTx.user, metaTx.to);
             // Store order signer for processor
-            requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
-            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
+            orderId = IOrderProcessor(metaTx.to).nextOrderId();
             orderSigner[orderId] = metaTx.user;
         } else if (functionSelector == IOrderProcessor.requestCancel.selector) {
             // Check if cancel request is from the original order signer
             // Get data from metaTx
-            (address recipient, uint256 index) = abi.decode(metaTx.data[4:], (address, uint256));
-            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(recipient, index);
+            orderId = abi.decode(metaTx.data[4:], (uint256));
             if (orderSigner[orderId] != metaTx.user) revert InvalidSigner();
         } else {
             revert UnsupportedCall();
@@ -225,8 +223,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         result = metaTx.to.functionCall(metaTx.data);
 
         if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            // Check that reentrancy hasn't shifted order index
-            assert(abi.decode(result, (uint256)) == requestIndex);
+            // Check that reentrancy hasn't shifted order id
+            assert(abi.decode(result, (uint256)) == orderId);
         }
 
         // handle transaction payment

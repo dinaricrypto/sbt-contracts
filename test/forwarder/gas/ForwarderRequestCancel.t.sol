@@ -134,7 +134,7 @@ contract ForwarderRequestCancelTest is Test {
 
         deal(address(paymentToken), user, (dummyOrder.paymentTokenQuantity + fees) * 1e6);
 
-        dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
+        dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
         bytes memory dataRequest = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
         uint256 nonce = 0;

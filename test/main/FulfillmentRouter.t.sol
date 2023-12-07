@@ -16,10 +16,10 @@ import {FulfillmentRouter} from "../../src/orders/FulfillmentRouter.sol";
 
 contract FulfillmentRouterTest is Test {
     event OrderFill(
-        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+        uint256 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
     );
-    event OrderFulfilled(address indexed recipient, uint256 indexed index);
-    event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
+    event OrderFulfilled(uint256 indexed id, address indexed recipient);
+    event OrderCancelled(uint256 indexed id, address indexed recipient, string reason);
 
     dShare token;
     EscrowOrderProcessor issuer;
@@ -97,7 +97,7 @@ contract FulfillmentRouterTest is Test {
     function testFillOrderRevertsUnauthorized() public {
         vm.expectRevert(FulfillmentRouter.Unauthorized.selector);
         vm.prank(admin);
-        router.fillOrder(address(issuer), address(vault), dummyOrder, 0, 0, 0);
+        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0);
     }
 
     function testFillBuyOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
@@ -121,12 +121,12 @@ contract FulfillmentRouterTest is Test {
         paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
-        uint256 index = issuer.requestOrder(order);
+        uint256 id = issuer.requestOrder(order);
 
         vm.expectEmit(true, true, true, false);
-        emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
+        emit OrderFill(id, order.recipient, fillAmount, receivedAmount, 0);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), order, index, fillAmount, receivedAmount);
+        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
     }
 
     function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
@@ -145,14 +145,14 @@ contract FulfillmentRouterTest is Test {
         token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
-        uint256 index = issuer.requestOrder(order);
+        uint256 id = issuer.requestOrder(order);
 
         vm.prank(admin);
         paymentToken.mint(address(vault), receivedAmount);
 
         vm.expectEmit(true, true, true, false);
-        emit OrderFill(order.recipient, index, fillAmount, receivedAmount, 0);
+        emit OrderFill(id, order.recipient, fillAmount, receivedAmount, 0);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), order, index, fillAmount, receivedAmount);
+        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
     }
 }
