@@ -23,13 +23,13 @@ contract EscrowOrderProcessor is OrderProcessor {
 
     /// ------------------ Order Lifecycle ------------------ ///
 
-    function _requestOrderAccounting(bytes32, Order calldata order, uint256) internal virtual override {
+    function _requestOrderAccounting(uint256, Order calldata order, uint256) internal virtual override {
         // Ensure that price is set for limit orders
         if (order.orderType == OrderType.LIMIT && order.price == 0) revert LimitPriceNotSet();
     }
 
     function _fillOrderAccounting(
-        bytes32,
+        uint256,
         Order calldata order,
         OrderState memory orderState,
         uint256,
@@ -92,7 +92,7 @@ contract EscrowOrderProcessor is OrderProcessor {
     }
 
     /// @inheritdoc OrderProcessor
-    function _cancelOrderAccounting(bytes32, Order calldata order, OrderState memory orderState, uint256 unfilledAmount)
+    function _cancelOrderAccounting(uint256, Order calldata order, OrderState memory orderState, uint256 unfilledAmount)
         internal
         virtual
         override
