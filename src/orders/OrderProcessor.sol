@@ -128,12 +128,6 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
 
     /// ------------------ Constants ------------------ ///
 
-    /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
-    // FIXME
-    bytes32 private constant ORDER_TYPE_HASH = keccak256(
-        "Order(address recipient,uint256 index,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
-    );
-
     /// @notice Operator role for filling and cancelling orders
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     /// @notice Payment token role for whitelisting payment tokens
