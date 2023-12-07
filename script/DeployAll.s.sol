@@ -3,8 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {BuyProcessor} from "../src/orders/BuyProcessor.sol";
-import {SellProcessor} from "../src/orders/SellProcessor.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
@@ -28,6 +27,7 @@ contract DeployAllScript is Script {
 
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
+    uint256 constant SELL_GAS_COST = 1000000;
 
     function run() external {
         // load env variables
@@ -66,53 +66,61 @@ contract DeployAllScript is Script {
         // add USDT.e
         tokenLockCheck.setCallSelector(cfg.usdt, this.isBlocked.selector);
 
-        BuyProcessor buyProcessor =
-            new BuyProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
+        OrderProcessor orderProcessor = new OrderProcessor(
+            cfg.deployer,
+            cfg.treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: perOrderFee,
+                percentageFeeRateBuy: percentageFeeRate,
+                perOrderFeeSell: perOrderFee,
+                percentageFeeRateSell: percentageFeeRate
+            }),
+            tokenLockCheck
+        );
 
-        SellProcessor sellProcessor =
-            new SellProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
-
-        BuyUnlockedProcessor directBuyIssuer =
-            new BuyUnlockedProcessor(cfg.deployer, cfg.treasury, perOrderFee, percentageFeeRate, tokenLockCheck);
+        BuyUnlockedProcessor directBuyIssuer = new BuyUnlockedProcessor(
+            cfg.deployer,
+            cfg.treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: perOrderFee,
+                percentageFeeRateBuy: percentageFeeRate,
+                perOrderFeeSell: perOrderFee,
+                percentageFeeRateSell: percentageFeeRate
+            }),
+            tokenLockCheck
+        );
 
         // config operator
-        buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator);
-        sellProcessor.grantRole(sellProcessor.OPERATOR_ROLE(), cfg.operator);
+        orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
-        buyProcessor.grantRole(buyProcessor.OPERATOR_ROLE(), cfg.operator2);
-        sellProcessor.grantRole(sellProcessor.OPERATOR_ROLE(), cfg.operator2);
+        orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator2);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator2);
 
         // config payment token
-        buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
-        sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
+        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
 
-        buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
-        sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
+        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdt);
 
-        buyProcessor.grantRole(buyProcessor.PAYMENTTOKEN_ROLE(), usdce);
-        sellProcessor.grantRole(sellProcessor.PAYMENTTOKEN_ROLE(), usdce);
+        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), usdce);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), usdce);
 
         /// ------------------ forwarder ------------------
 
-        Forwarder forwarder = new Forwarder(ethusdoracle);
+        Forwarder forwarder = new Forwarder(ethusdoracle, SELL_GAS_COST);
         forwarder.setFeeBps(2000);
 
         forwarder.setPaymentOracle(address(cfg.usdc), usdcoracle);
         forwarder.setPaymentOracle(address(usdce), usdcoracle);
         forwarder.setPaymentOracle(address(cfg.usdt), usdtoracle);
 
-        forwarder.setSupportedModule(address(buyProcessor), true);
-        forwarder.setSupportedModule(address(sellProcessor), true);
+        forwarder.setSupportedModule(address(orderProcessor), true);
         forwarder.setSupportedModule(address(directBuyIssuer), true);
 
         forwarder.setRelayer(cfg.relayer, true);
 
-        buyProcessor.grantRole(buyProcessor.FORWARDER_ROLE(), address(forwarder));
-        sellProcessor.grantRole(sellProcessor.FORWARDER_ROLE(), address(forwarder));
+        orderProcessor.grantRole(orderProcessor.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
 
         /// ------------------ dividend distributor ------------------
@@ -124,8 +132,7 @@ contract DeployAllScript is Script {
         /// ------------------ dShares ------------------
 
         // transfer ownership
-        // buyProcessor.beginDefaultAdminTransfer(owner);
-        // sellProcessor.beginDefaultAdminTransfer(owner);
+        // orderProcessor.beginDefaultAdminTransfer(owner);
         // directBuyIssuer.beginDefaultAdminTransfer(owner);
 
         vm.stopBroadcast();
@@ -133,8 +140,7 @@ contract DeployAllScript is Script {
         // // accept ownership transfer
         // vm.startBroadcast(owner);
 
-        // buyProcessor.acceptDefaultAdminTransfer();
-        // sellProcessor.acceptDefaultAdminTransfer();
+        // orderProcessor.acceptDefaultAdminTransfer();
         // directBuyIssuer.acceptDefaultAdminTransfer();
 
         // vm.stopBroadcast();

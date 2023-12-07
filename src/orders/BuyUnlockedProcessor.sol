@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
-import {BuyProcessor, ITokenLockCheck} from "./BuyProcessor.sol";
+import {OrderProcessor, IFeeSchedule, ITokenLockCheck} from "./OrderProcessor.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/BuyUnlockedProcessor.sol)
@@ -25,43 +25,39 @@ import {BuyProcessor, ITokenLockCheck} from "./BuyProcessor.sol";
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract BuyUnlockedProcessor is BuyProcessor {
+contract BuyUnlockedProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
 
+    error NotBuyOrder();
     /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
 
     /// @dev Emitted when `amount` of escrowed payment is taken for order
-    event EscrowTaken(address indexed recipient, uint256 indexed index, uint256 amount);
+    event EscrowTaken(uint256 indexed id, address indexed recipient, uint256 amount);
     /// @dev Emitted when `amount` of escrowed payment is returned for order
-    event EscrowReturned(address indexed recipient, uint256 indexed index, uint256 amount);
+    event EscrowReturned(uint256 indexed id, address indexed recipient, uint256 amount);
 
     /// ------------------ State ------------------ ///
 
     /// @dev orderId => escrow
-    mapping(bytes32 => uint256) public getOrderEscrow;
+    mapping(uint256 => uint256) public getOrderEscrow;
 
-    constructor(
-        address _owner,
-        address _treasury,
-        uint64 _perOrderFee,
-        uint24 _percentageFeeRate,
-        ITokenLockCheck _tokenLockCheck
-    ) BuyProcessor(_owner, _treasury, _perOrderFee, _percentageFeeRate, _tokenLockCheck) {}
+    constructor(address _owner, address _treasury, FeeRates memory defaultFeeRates, ITokenLockCheck _tokenLockCheck)
+        OrderProcessor(_owner, _treasury, defaultFeeRates, _tokenLockCheck)
+    {}
 
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @notice Take escrowed payment for an order
+    /// @param id order id
     /// @param order Order
-    /// @param index order index
     /// @param amount Amount of escrowed payment token to take
     /// @dev Only callable by operator
-    function takeEscrow(Order calldata order, uint256 index, uint256 amount) external onlyRole(OPERATOR_ROLE) {
+    function takeEscrow(uint256 id, Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
-        bytes32 id = getOrderId(order.recipient, index);
         // Verify order data
         bytes32 orderHash = _getOrderHash(id);
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
@@ -73,21 +69,20 @@ contract BuyUnlockedProcessor is BuyProcessor {
         getOrderEscrow[id] = escrow - amount;
         escrowedBalanceOf[order.paymentToken][order.recipient] -= amount;
         // Notify escrow taken
-        emit EscrowTaken(order.recipient, index, amount);
+        emit EscrowTaken(id, order.recipient, amount);
 
         // Take escrowed payment
         IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
     }
 
     /// @notice Return unused escrowed payment for an order
+    /// @param id order id
     /// @param order Order
-    /// @param index order index
     /// @param amount Amount of payment token to return to escrow
     /// @dev Only callable by operator
-    function returnEscrow(Order calldata order, uint256 index, uint256 amount) external onlyRole(OPERATOR_ROLE) {
+    function returnEscrow(uint256 id, Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
         // No nonsense
         if (amount == 0) revert ZeroValue();
-        bytes32 id = getOrderId(order.recipient, index);
         // Verify order data
         bytes32 orderHash = _getOrderHash(id);
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
@@ -101,23 +96,25 @@ contract BuyUnlockedProcessor is BuyProcessor {
         getOrderEscrow[id] = escrow + amount;
         escrowedBalanceOf[order.paymentToken][order.recipient] += amount;
         // Notify escrow returned
-        emit EscrowReturned(order.recipient, index, amount);
+        emit EscrowReturned(id, order.recipient, amount);
 
         // Return payment to escrow
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
     }
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(bytes32 id, Order calldata order, uint256 totalFees) internal virtual override {
+    function _requestOrderAccounting(uint256 id, Order calldata order) internal virtual override {
+        // Only buy orders
+        if (order.sell) revert NotBuyOrder();
         // Compile standard buy order
-        super._requestOrderAccounting(id, order, totalFees);
+        super._requestOrderAccounting(id, order);
         // Initialize escrow tracking for order
         getOrderEscrow[id] = order.paymentTokenQuantity;
     }
 
     /// @inheritdoc OrderProcessor
     function _fillOrderAccounting(
-        bytes32 id,
+        uint256 id,
         Order calldata order,
         OrderState memory orderState,
         uint256 unfilledAmount,
@@ -134,7 +131,7 @@ contract BuyUnlockedProcessor is BuyProcessor {
 
     /// @inheritdoc OrderProcessor
     function _cancelOrderAccounting(
-        bytes32 id,
+        uint256 id,
         Order calldata order,
         OrderState memory orderState,
         uint256 unfilledAmount

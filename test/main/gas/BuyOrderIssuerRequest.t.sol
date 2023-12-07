@@ -5,27 +5,29 @@ import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../../utils/mocks/MockToken.sol";
-import "../../utils/mocks/MockdShareFactory.sol";
+import "../../utils/mocks/MockDShareFactory.sol";
 import "../../utils/SigUtils.sol";
-import "../../../src/orders/BuyProcessor.sol";
+import "../../../src/orders/OrderProcessor.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {NumberUtils} from "../../utils/NumberUtils.sol";
+import {NumberUtils} from "../../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
 
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
 
-    MockdShareFactory tokenFactory;
+    MockDShareFactory tokenFactory;
     DShare token;
     TokenLockCheck tokenLockCheck;
-    BuyProcessor issuer;
+    OrderProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
 
     uint256 userPrivateKey;
+    uint256 adminPrivateKey;
     address user;
+    address admin;
 
     address constant operator = address(3);
     address constant treasury = address(4);
@@ -41,18 +43,31 @@ contract BuyProcessorRequestTest is Test {
 
     function setUp() public {
         userPrivateKey = 0x01;
+        adminPrivateKey = 0x02;
         user = vm.addr(userPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
-        tokenFactory = new MockdShareFactory();
+        vm.startPrank(admin);
+        tokenFactory = new MockDShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        issuer = new OrderProcessor(
+            admin,
+            treasury,
+            OrderProcessor.FeeRates({
+                perOrderFeeBuy: 1 ether,
+                percentageFeeRateBuy: 5_000,
+                perOrderFeeSell: 1 ether,
+                percentageFeeRateSell: 5_000
+            }),
+            tokenLockCheck
+        );
 
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
@@ -60,6 +75,8 @@ contract BuyProcessorRequestTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         paymentToken.mint(user, type(uint256).max);
+
+        vm.stopPrank();
 
         SigUtils.Permit memory permit = SigUtils.Permit({
             owner: user,
@@ -83,7 +100,9 @@ contract BuyProcessorRequestTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
 
         calls = new bytes[](2);

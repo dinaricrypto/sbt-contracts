@@ -28,8 +28,8 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     /// @dev Address of the dividend distribution contract.
     address public dividendDistribution;
 
-    /// @dev Mapping to store the relationship between DShare and XdShare.
-    mapping(address DShare => address XdShare) public dShareToXdShare;
+    /// @dev Mapping to store the relationship between dShare and WrappedDShare.
+    mapping(address DShare => address WrappedDShare) public dShareToWrappedDShare;
 
     /**
      * @notice Initializes the `DualDistributor` contract.
@@ -53,11 +53,11 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     /**
      * @notice Adds a new pair of DShare and XdShare addresses.
      * @param _dShare Address of the DShare token.
-     * @param _XdShare Address of the XdShare token.
+     * @param _WrappedDShare Address of the XdShare token.
      */
-    function setXdShareForDShare(address _dShare, address _XdShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setWrappedDShareForDShare(address _dShare, address _WrappedDShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dShare == address(0)) revert ZeroAddress();
-        dShareToXdShare[_dShare] = _XdShare;
+        dShareToWrappedDShare[_dShare] = _WrappedDShare;
     }
 
     /**
@@ -77,14 +77,14 @@ contract DualDistributor is AccessControlDefaultAdminRules {
         uint256 endTime
     ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256) {
         if (stableCoin == address(0)) revert ZeroAddress();
-        address XdShare = dShareToXdShare[dShare];
-        if (XdShare == address(0)) revert ZeroAddress();
+        address wrappedDShare = dShareToWrappedDShare[dShare];
+        if (wrappedDShare == address(0)) revert ZeroAddress();
 
         emit NewDistribution(
             IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, stableCoinAmount, dShareAmount
         );
 
-        IERC20(dShare).safeTransfer(XdShare, dShareAmount);
+        IERC20(dShare).safeTransfer(wrappedDShare, dShareAmount);
         IERC20(stableCoin).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
         return IDividendDistributor(dividendDistribution).createDistribution(stableCoin, stableCoinAmount, endTime);
     }

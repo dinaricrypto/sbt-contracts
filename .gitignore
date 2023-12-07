@@ -57,5 +57,5 @@ docs/*.png
 *.synctex(busy)
 latex/*.pdf
 
-# data
+# data files
 *.csv

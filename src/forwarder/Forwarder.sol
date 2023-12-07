@@ -12,7 +12,7 @@ import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/Reentrancy
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
 import "prb-math/Common.sol" as PrbMath;
-import {Nonces} from "../common/Nonces.sol";
+import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IForwarder} from "./IForwarder.sol";
 
@@ -39,6 +39,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
+    event SellOrderGasCostUpdated(uint256 gas);
     event EthUsdOracleSet(address indexed oracle);
     event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
     event UserOperationSponsored(
@@ -51,9 +52,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// ------------------------------- Constants -------------------------------
 
-    bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
-        "ForwardRequest(address user,address to,address paymentToken,bytes data,uint64 deadline,uint256 nonce)"
-    );
+    bytes private constant FORWARDREQUEST_TYPE =
+        abi.encodePacked("ForwardRequest(address user,address to,bytes data,uint64 deadline,uint256 nonce)");
     bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
 
     /// ------------------------------- Storage -------------------------------
@@ -64,6 +64,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     /// @inheritdoc IForwarder
     uint256 public cancellationGasCost;
 
+    uint256 public sellOrderGasCost;
+
     /// @notice The set of supported modules.
     mapping(address => bool) public isSupportedModule;
 
@@ -71,7 +73,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     mapping(address => bool) public isRelayer;
 
     /// @inheritdoc IForwarder
-    mapping(bytes32 => address) public orderSigner;
+    mapping(uint256 => address) public orderSigner;
 
     address public ethUsdOracle;
 
@@ -90,9 +92,10 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
-    constructor(address _ethUsdOracle) EIP712("Forwarder", "1") Ownable(msg.sender) {
+    constructor(address _ethUsdOracle, uint256 initialSellOrderGasCost) EIP712("Forwarder", "1") Ownable(msg.sender) {
         feeBps = 0;
         cancellationGasCost = 0;
+        sellOrderGasCost = initialSellOrderGasCost;
         ethUsdOracle = _ethUsdOracle;
     }
 
@@ -128,6 +131,11 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     function setCancellationGasCost(uint256 newCancellationGasCost) external onlyOwner {
         cancellationGasCost = newCancellationGasCost;
         emit CancellationGasCostUpdated(newCancellationGasCost);
+    }
+
+    function setSellOrderGasCost(uint256 newSellOrderGasCost) external onlyOwner {
+        sellOrderGasCost = newSellOrderGasCost;
+        emit SellOrderGasCostUpdated(newSellOrderGasCost);
     }
 
     /**
@@ -189,7 +197,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     /// ------------------------------- Forwarding -------------------------------
 
     /// @inheritdoc IForwarder
-    function forwardFunctionCall(ForwardRequest calldata metaTx)
+    function forwardRequestBuyOrder(ForwardRequest calldata metaTx)
         external
         onlyRelayer
         nonReentrant
@@ -198,39 +206,97 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         uint256 gasStart = gasleft();
         _validateForwardRequest(metaTx);
 
-        // Get the function selector
-        bytes4 functionSelector = bytes4(metaTx.data[:4]);
-        // Check call
-        if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            // Check if function selector is request Order to approve quantityIn
-            // Get order from data
-            (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
-            _requestOrderPreparation(order, metaTx.user, metaTx.to);
-        } else if (functionSelector == IOrderProcessor.requestCancel.selector) {
-            // Check if cancel request is from the original order signer
-            // Get data from metaTx
-            (address recipient, uint256 index) = abi.decode(metaTx.data[4:], (address, uint256));
-            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(recipient, index);
-            if (orderSigner[orderId] != metaTx.user) revert InvalidSigner();
-        } else {
-            revert UnsupportedCall();
-        }
+        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestOrder.selector);
+
+        (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
+        if (order.sell) revert UnsupportedCall();
+        uint256 fees = IOrderProcessor(metaTx.to).estimateTotalFeesForOrder(
+            metaTx.user, order.sell, order.paymentToken, order.paymentTokenQuantity
+        );
+
+        // Store order signer for processor
+        uint256 orderId = IOrderProcessor(metaTx.to).nextOrderId();
+        orderSigner[orderId] = metaTx.user;
+
+        // slither-disable-next-line arbitrary-send-erc20
+        IERC20(order.paymentToken).safeTransferFrom(metaTx.user, address(this), order.paymentTokenQuantity + fees);
+        IERC20(order.paymentToken).safeIncreaseAllowance(metaTx.to, order.paymentTokenQuantity + fees);
 
         // execute low level call to issuer
         result = metaTx.to.functionCall(metaTx.data);
 
-        if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            uint256 id = abi.decode(result, (uint256));
-            // get order ID
-            bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, id);
-            orderSigner[orderId] = metaTx.user;
-        }
+        // Check that reentrancy hasn't shifted order id
+        assert(abi.decode(result, (uint256)) == orderId);
 
-        // handle transaction payment
-        if (functionSelector == IOrderProcessor.requestOrder.selector) {
-            uint256 assetPriceInWei = getPaymentPriceInWei(metaTx.paymentToken);
-            _handlePayment(metaTx.user, metaTx.paymentToken, assetPriceInWei, gasStart);
-        }
+        uint256 assetPriceInWei = getPaymentPriceInWei(order.paymentToken);
+
+        _handlePayment(metaTx.user, order.paymentToken, assetPriceInWei, gasStart);
+    }
+
+    /// @inheritdoc IForwarder
+    function forwardRequestCancel(ForwardRequest calldata metaTx)
+        external
+        onlyRelayer
+        nonReentrant
+        returns (bytes memory result)
+    {
+        _validateForwardRequest(metaTx);
+
+        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestCancel.selector);
+
+        uint256 orderId = abi.decode(metaTx.data[4:], (uint256));
+        if (orderSigner[orderId] != metaTx.user) revert InvalidSigner();
+
+        result = metaTx.to.functionCall(metaTx.data);
+    }
+
+    /// @inheritdoc IForwarder
+    function forwardRequestSellOrder(ForwardRequest calldata metaTx)
+        external
+        onlyRelayer
+        nonReentrant
+        returns (bytes memory result)
+    {
+        _validateForwardRequest(metaTx);
+
+        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestOrder.selector);
+
+        (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
+
+        if (!order.sell) revert UnsupportedCall();
+
+        // Configure order to take network fee from proceeds
+        uint256 orderPaymentTokenPriceInWei = getPaymentPriceInWei(order.paymentToken);
+        uint256 sellGasCostInToken =
+            _tokenAmountForGas(sellOrderGasCost * tx.gasprice, order.paymentToken, orderPaymentTokenPriceInWei);
+        uint256 fee = (sellGasCostInToken * feeBps) / 10000;
+        order.splitAmount = sellGasCostInToken + fee;
+        order.splitRecipient = msg.sender;
+
+        bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
+
+        // Store order signer for processor
+        uint256 orderId = IOrderProcessor(metaTx.to).nextOrderId();
+        orderSigner[orderId] = metaTx.user;
+
+        // slither-disable-next-line arbitrary-send-erc20
+        IERC20(order.assetToken).safeTransferFrom(metaTx.user, address(this), order.assetTokenQuantity);
+        IERC20(order.assetToken).safeIncreaseAllowance(metaTx.to, order.assetTokenQuantity);
+
+        // execute low level call to issuer
+        result = metaTx.to.functionCall(data);
+        // Check that reentrancy hasn't shifted order id
+        assert(abi.decode(result, (uint256)) == orderId);
+    }
+
+    /**
+     * @dev Validates the function selector of the encoded function call data.
+     * @param data The encoded function call data.
+     * @param functionSelector The expected function selector.
+     */
+    function _validateFunctionSelector(bytes calldata data, bytes4 functionSelector) internal pure {
+        bytes4 selector = bytes4(data[:4]);
+        if (selector != functionSelector) revert UnsupportedCall();
     }
 
     /**
@@ -245,7 +311,10 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         // slither-disable-next-line unused-return
         _useCheckedNonce(metaTx.user, metaTx.nonce);
 
-        if (paymentOracle[metaTx.paymentToken] == address(0)) revert UnsupportedToken();
+        if (bytes4(metaTx.data[:4]) == IOrderProcessor.requestOrder.selector) {
+            (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
+            if (paymentOracle[order.paymentToken] == address(0)) revert UnsupportedToken();
+        }
 
         bytes32 typedDataHash = _hashTypedDataV4(forwardRequestHash(metaTx));
 
@@ -262,40 +331,25 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     function forwardRequestHash(ForwardRequest calldata metaTx) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                FORWARDREQUEST_TYPEHASH,
-                metaTx.user,
-                metaTx.to,
-                metaTx.paymentToken,
-                keccak256(metaTx.data),
-                metaTx.deadline,
-                metaTx.nonce
+                FORWARDREQUEST_TYPEHASH, metaTx.user, metaTx.to, keccak256(metaTx.data), metaTx.deadline, metaTx.nonce
             )
         );
     }
 
-    /**
-     * @dev Prepares an order request by transferring tokens from the user to this contract,
-     *      and approving the specified target contract to spend the tokens.
-     *      This function supports preparation for both buying and selling orders.
-     *
-     * @param order The details of the order, including payment and asset tokens, and the quantity.
-     * @param user The address of the user initiating the order.
-     * @param target The address of the target contract (e.g. BuyProcessor or SellProcessor) that will execute the order.
-     */
-    function _requestOrderPreparation(IOrderProcessor.Order memory order, address user, address target) internal {
-        // Pull tokens from user and approve module to spend
-        if (order.sell) {
-            // slither-disable-next-line arbitrary-send-erc20
-            IERC20(order.assetToken).safeTransferFrom(user, address(this), order.assetTokenQuantity);
-            IERC20(order.assetToken).safeIncreaseAllowance(target, order.assetTokenQuantity);
-        } else {
-            uint256 fees = IOrderProcessor(target).estimateTotalFeesForOrder(
-                user, order.sell, order.paymentToken, order.paymentTokenQuantity
-            );
-            // slither-disable-next-line arbitrary-send-erc20
-            IERC20(order.paymentToken).safeTransferFrom(user, address(this), order.paymentTokenQuantity + fees);
-            IERC20(order.paymentToken).safeIncreaseAllowance(target, order.paymentTokenQuantity + fees);
+    function _tokenAmountForGas(uint256 gasCostInWei, address token, uint256 paymentTokenPrice)
+        internal
+        view
+        returns (uint256)
+    {
+        // Apply payment token price to calculate payment amount
+        // Assumes payment token price includes token decimals
+        uint256 paymentAmount = 0;
+        try IERC20Metadata(token).decimals() returns (uint8 value) {
+            paymentAmount = gasCostInWei * 10 ** value / paymentTokenPrice;
+        } catch {
+            paymentAmount = gasCostInWei / paymentTokenPrice;
         }
+        return paymentAmount;
     }
 
     /**
@@ -310,16 +364,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      */
     function _handlePayment(address user, address paymentToken, uint256 paymentTokenPrice, uint256 gasStart) internal {
         uint256 gasUsed = gasStart - gasleft();
-        // Calculate total gas cost in wei
         uint256 totalGasCostInWei = (gasUsed + cancellationGasCost) * tx.gasprice;
-        // Apply payment token price to calculate payment amount
-        // Assumes payment token price includes token decimals
-        uint256 paymentAmount = 0;
-        try IERC20Metadata(paymentToken).decimals() returns (uint8 value) {
-            paymentAmount = totalGasCostInWei * 10 ** value / paymentTokenPrice;
-        } catch {
-            paymentAmount = totalGasCostInWei / paymentTokenPrice;
-        }
+        uint256 paymentAmount = _tokenAmountForGas(totalGasCostInWei, paymentToken, paymentTokenPrice);
 
         // Apply forwarder fee
         // slither-disable-next-line divide-before-multiply
