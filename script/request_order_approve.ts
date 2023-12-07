@@ -110,12 +110,10 @@ async function main() {
   if (!events) throw new Error("no events");
   const orderEvent = events.find((event: any) => event && event.name === "OrderRequested");
   if (!orderEvent) throw new Error("no order event");
-  const orderAccount = orderEvent.args[0];
-  const orderAccountIndex = orderEvent.args[1];
-  console.log(`Order Account: ${orderAccount}`);
-  console.log(`Order Index for Account: ${orderAccountIndex}`);
-  const orderId = await buyProcessor.getOrderId(orderAccount, orderAccountIndex);
+  const orderId = orderEvent.args[0];
+  const orderAccount = orderEvent.args[1];
   console.log(`Order ID: ${orderId}`);
+  console.log(`Order Account: ${orderAccount}`);
 
   // use order id to get order status
   const remaining = await buyProcessor.getRemainingOrder(orderId);

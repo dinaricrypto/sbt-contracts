@@ -25,7 +25,9 @@ contract BuyProcessorRequestTest is Test {
     SigUtils sigUtils;
 
     uint256 userPrivateKey;
+    uint256 adminPrivateKey;
     address user;
+    address admin;
 
     address constant operator = address(3);
     address constant treasury = address(4);
@@ -41,8 +43,11 @@ contract BuyProcessorRequestTest is Test {
 
     function setUp() public {
         userPrivateKey = 0x01;
+        adminPrivateKey = 0x02;
         user = vm.addr(userPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
+        vm.startPrank(admin);
         tokenFactory = new MockdShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
@@ -51,7 +56,7 @@ contract BuyProcessorRequestTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
         issuer = new OrderProcessor(
-            address(this),
+            admin,
             treasury,
             OrderProcessor.FeeRates({
                 perOrderFeeBuy: 1 ether,
@@ -62,7 +67,7 @@ contract BuyProcessorRequestTest is Test {
             tokenLockCheck
         );
 
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
@@ -70,6 +75,8 @@ contract BuyProcessorRequestTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
         paymentToken.mint(user, type(uint256).max);
+
+        vm.stopPrank();
 
         SigUtils.Permit memory permit = SigUtils.Permit({
             owner: user,

@@ -23,8 +23,10 @@ contract dShareTest is Test {
     dShare token;
     address restrictor_role = address(1);
     address user = address(2);
+    address admin = address(3);
 
     function setUp() public {
+        vm.prank(admin);
         restrictor = new TransferRestrictor(address(this));
         dShare tokenImplementation = new dShare();
         token = dShare(
@@ -36,6 +38,7 @@ contract dShareTest is Test {
             )
         );
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
+        vm.stopPrank();
     }
 
     function testTransferOwnerShip() public {
@@ -70,6 +73,8 @@ contract dShareTest is Test {
 
         // new owner accept admin transfer
         token.acceptDefaultAdminTransfer();
+
+        vm.stopPrank();
 
         assertEq(token.hasRole(0, address(this)), false);
         assertEq(token.owner(), newAdmin);

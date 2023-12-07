@@ -26,7 +26,7 @@ interface IForwarder {
     function isRelayer(address relayer) external view returns (bool);
 
     /// @notice The mapping of order IDs to signers used for order cancellation protection.
-    function orderSigner(bytes32 orderId) external view returns (address);
+    function orderSigner(uint256 orderId) external view returns (address);
 
     /// @notice EIP-712 compliant forward request hash function.
     function forwardRequestHash(ForwardRequest calldata metaTx) external pure returns (bytes32);

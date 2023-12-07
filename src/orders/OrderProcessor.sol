@@ -128,6 +128,12 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
 
     /// ------------------ Constants ------------------ ///
 
+    /// @dev Used to create EIP-712 compliant hashes as order IDs from order requests and salts
+    // FIXME
+    bytes32 private constant ORDER_TYPE_HASH = keccak256(
+        "Order(address recipient,uint256 index,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
+    );
+
     /// @notice Operator role for filling and cancelling orders
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     /// @notice Payment token role for whitelisting payment tokens
@@ -153,13 +159,13 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
     uint256 private _numOpenOrders;
 
     /// @inheritdoc IOrderProcessor
-    mapping(address => uint256) public nextOrderIndex;
+    uint256 public nextOrderId;
 
     /// @dev Active order state
-    mapping(bytes32 => OrderState) private _orders;
+    mapping(uint256 => OrderState) private _orders;
 
     /// @dev Persisted order state
-    mapping(bytes32 => OrderInfo) private _orderInfo;
+    mapping(uint256 => OrderInfo) private _orderInfo;
 
     /// @inheritdoc IOrderProcessor
     mapping(address => mapping(address => uint256)) public escrowedBalanceOf;
@@ -291,32 +297,27 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
     }
 
     /// @inheritdoc IOrderProcessor
-    function getOrderId(address recipient, uint256 index) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(recipient, index));
-    }
-
-    /// @inheritdoc IOrderProcessor
-    function getOrderStatus(bytes32 id) external view returns (OrderStatus) {
+    function getOrderStatus(uint256 id) external view returns (OrderStatus) {
         return _orderInfo[id].status;
     }
 
     /// @inheritdoc IOrderProcessor
-    function getUnfilledAmount(bytes32 id) public view returns (uint256) {
+    function getUnfilledAmount(uint256 id) public view returns (uint256) {
         return _orderInfo[id].unfilledAmount;
     }
 
     /// @inheritdoc IOrderProcessor
-    function getTotalReceived(bytes32 id) public view returns (uint256) {
+    function getTotalReceived(uint256 id) public view returns (uint256) {
         return _orders[id].received;
     }
 
     /// @notice Has order cancellation been requested?
     /// @param id Order ID
-    function cancelRequested(bytes32 id) external view returns (bool) {
+    function cancelRequested(uint256 id) external view returns (bool) {
         return _orders[id].cancellationInitiated;
     }
 
-    function _getOrderHash(bytes32 id) internal view returns (bytes32) {
+    function _getOrderHash(uint256 id) internal view returns (bytes32) {
         return _orders[id].orderHash;
     }
 
@@ -373,7 +374,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc IOrderProcessor
-    function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 index) {
+    function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 id) {
         // cheap checks first
         if (order.recipient == address(0)) revert ZeroAddress();
         uint256 orderAmount = (order.sell) ? order.assetTokenQuantity : order.paymentTokenQuantity;
@@ -388,22 +389,22 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);
         _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
+        // Cache order id
+        id = nextOrderId;
         // Check requester
-        index = nextOrderIndex[order.recipient];
-        bytes32 id = getOrderId(order.recipient, index);
         address requester = getRequester(id);
         if (requester == address(0)) revert ZeroAddress();
         // black list checker
         blackListCheck(order.assetToken, order.paymentToken, order.recipient, requester);
 
-        // Update next order index
-        nextOrderIndex[order.recipient] = index + 1;
+        // Update next order id
+        nextOrderId = id + 1;
 
         // Check values
         _requestOrderAccounting(id, order);
 
         // Send order to bridge
-        emit OrderRequested(order.recipient, index, order);
+        emit OrderRequested(id, order.recipient, order);
 
         // Calculate fees
         (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, order.sell, order.paymentToken);
@@ -438,7 +439,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         }
     }
 
-    function getRequester(bytes32 id) internal view returns (address) {
+    function getRequester(uint256 id) internal view returns (address) {
         // Determine true requester
         if (hasRole(FORWARDER_ROLE, msg.sender)) {
             // If order was requested by a forwarder, use the forwarder's requester on file
@@ -485,20 +486,13 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         );
     }
 
-    /// @notice Fill an order
-    /// @param order Order to fill
-    /// @param index order index
-    /// @param fillAmount Amount of order token to fill
-    /// @param receivedAmount Amount of received token
-    /// @dev Only callable by operator
-    function fillOrder(Order calldata order, uint256 index, uint256 fillAmount, uint256 receivedAmount)
+    /// @inheritdoc IOrderProcessor
+    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount)
         external
         onlyRole(OPERATOR_ROLE)
     {
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
-        if (nextOrderIndex[order.recipient] == 0) revert OrderNotFound();
-        bytes32 id = getOrderId(order.recipient, index);
         OrderState memory orderState = _orders[id];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
@@ -513,7 +507,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
             _fillOrderAccounting(id, order, orderState, orderInfo.unfilledAmount, fillAmount, receivedAmount);
 
         // Notify order filled
-        emit OrderFill(order.recipient, index, fillAmount, receivedAmount, feesEarned);
+        emit OrderFill(id, order.recipient, fillAmount, receivedAmount, feesEarned);
 
         // Take splitAmount from amount to distribute
         uint256 splitAmountEarned = 0;
@@ -536,7 +530,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         if (unfilledAmount == 0) {
             _orderInfo[id].status = OrderStatus.FULFILLED;
             // Notify order fulfilled
-            emit OrderFulfilled(order.recipient, index);
+            emit OrderFulfilled(id, order.recipient);
             // Clear order state
             delete _orders[id];
             _numOpenOrders--;
@@ -607,12 +601,10 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
     }
 
     /// @notice Request to cancel an order
-    /// @param recipient Recipient of order fills
-    /// @param index Order index
+    /// @param id Order id
     /// @dev Only callable by initial order requester
     /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
-    function requestCancel(address recipient, uint256 index) external {
-        bytes32 id = getOrderId(recipient, index);
+    function requestCancel(uint256 id) external {
         if (_orders[id].cancellationInitiated) revert OrderCancellationInitiated();
         // Order must exist
         address requester = _orders[id].requester;
@@ -625,19 +617,15 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         _orders[id].cancellationInitiated = true;
 
         // Send cancel request to bridge
-        emit CancelRequested(recipient, index);
+        emit CancelRequested(id, requester);
     }
 
     /// @notice Cancel an order
     /// @param order Order to cancel
-    /// @param index Order index
+    /// @param id Order id
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(Order calldata order, uint256 index, string calldata reason)
-        external
-        onlyRole(OPERATOR_ROLE)
-    {
-        bytes32 id = getOrderId(order.recipient, index);
+    function cancelOrder(uint256 id, Order calldata order, string calldata reason) external onlyRole(OPERATOR_ROLE) {
         OrderState memory orderState = _orders[id];
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
@@ -645,7 +633,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
         if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
 
         // Notify order cancelled
-        emit OrderCancelled(order.recipient, index, reason);
+        emit OrderCancelled(id, order.recipient, reason);
         // Order is cancelled
         _orderInfo[id].status = OrderStatus.CANCELLED;
         // Clear order state
@@ -669,7 +657,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
     /// @notice Perform any unique order request checks and accounting
     /// @param id Order ID
     /// @param order Order request to process
-    function _requestOrderAccounting(bytes32 id, Order calldata order) internal virtual {
+    function _requestOrderAccounting(uint256 id, Order calldata order) internal virtual {
         // Ensure that price is set for limit orders
         if (order.orderType == OrderType.LIMIT && order.price == 0) revert LimitPriceNotSet();
     }
@@ -684,7 +672,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
     /// @return paymentEarned Amount of payment token earned to be paid to operator or recipient
     /// @return feesEarned Amount of fees earned to be paid to treasury
     function _fillOrderAccounting(
-        bytes32 id,
+        uint256 id,
         Order calldata order,
         OrderState memory orderState,
         uint256 unfilledAmount,
@@ -753,7 +741,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
     /// @param unfilledAmount Amount of order token remaining to be used
     /// @return refund Amount of order token to refund to user
     function _cancelOrderAccounting(
-        bytes32 id,
+        uint256 id,
         Order calldata order,
         OrderState memory orderState,
         uint256 unfilledAmount

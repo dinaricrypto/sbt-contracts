@@ -73,7 +73,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     mapping(address => bool) public isRelayer;
 
     /// @inheritdoc IForwarder
-    mapping(bytes32 => address) public orderSigner;
+    mapping(uint256 => address) public orderSigner;
 
     address public ethUsdOracle;
 
@@ -215,8 +215,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         );
 
         // Store order signer for processor
-        uint256 requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
-        bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
+        uint256 orderId = IOrderProcessor(metaTx.to).nextOrderId();
         orderSigner[orderId] = metaTx.user;
 
         // slither-disable-next-line arbitrary-send-erc20
@@ -226,8 +225,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         // execute low level call to issuer
         result = metaTx.to.functionCall(metaTx.data);
 
-        // Check that reentrancy hasn't shifted order index
-        assert(abi.decode(result, (uint256)) == requestIndex);
+        // Check that reentrancy hasn't shifted order id
+        assert(abi.decode(result, (uint256)) == orderId);
 
         uint256 assetPriceInWei = getPaymentPriceInWei(order.paymentToken);
 
@@ -245,8 +244,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
         _validateFunctionSelector(metaTx.data, IOrderProcessor.requestCancel.selector);
 
-        (address recipient, uint256 index) = abi.decode(metaTx.data[4:], (address, uint256));
-        bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(recipient, index);
+        uint256 orderId = abi.decode(metaTx.data[4:], (uint256));
         if (orderSigner[orderId] != metaTx.user) revert InvalidSigner();
 
         result = metaTx.to.functionCall(metaTx.data);
@@ -278,8 +276,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
 
         // Store order signer for processor
-        uint256 requestIndex = IOrderProcessor(metaTx.to).nextOrderIndex(metaTx.user);
-        bytes32 orderId = IOrderProcessor(metaTx.to).getOrderId(metaTx.user, requestIndex);
+        uint256 orderId = IOrderProcessor(metaTx.to).nextOrderId();
         orderSigner[orderId] = metaTx.user;
 
         // slither-disable-next-line arbitrary-send-erc20
@@ -288,8 +285,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
         // execute low level call to issuer
         result = metaTx.to.functionCall(data);
-        // Check that reentrancy hasn't shifted order index
-        assert(abi.decode(result, (uint256)) == requestIndex);
+        // Check that reentrancy hasn't shifted order id
+        assert(abi.decode(result, (uint256)) == orderId);
     }
 
     /**

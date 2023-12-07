@@ -20,8 +20,8 @@ contract FulfillmentRouter {
     function fillOrder(
         address orderProcessor,
         address vault,
+        uint256 orderId,
         IOrderProcessor.Order calldata order,
-        uint256 index,
         uint256 fillAmount,
         uint256 receivedAmount
     ) external {
@@ -33,10 +33,10 @@ contract FulfillmentRouter {
             IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), receivedAmount);
             // fill order with payment token
             IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
-            IOrderProcessor(orderProcessor).fillOrder(order, index, fillAmount, receivedAmount);
+            IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount);
         } else {
             // fill order and receive payment token
-            IOrderProcessor(orderProcessor).fillOrder(order, index, fillAmount, receivedAmount);
+            IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount);
             // deposit payment token into vault
             IERC20(order.paymentToken).safeTransfer(vault, fillAmount);
         }

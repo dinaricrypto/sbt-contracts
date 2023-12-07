@@ -12,10 +12,12 @@ contract DividendDistributionTest is Test {
     MockERC20 token;
 
     uint256 public userPrivateKey;
-    uint256 public ownerPrivateKey;
+    uint256 public user2PrivateKey;
+    uint256 public adminPrivateKey;
 
-    address public user = address(1);
-    address public user2 = address(2);
+    address public user;
+    address public user2;
+    address public admin;
     address public distributor = address(4);
 
     struct HashAndDataTuple {
@@ -30,17 +32,26 @@ contract DividendDistributionTest is Test {
     event DistributionReclaimed(uint256 indexed distributionId, uint256 totalReclaimed);
 
     function setUp() public {
-        token = new MockERC20("Money", "$", 6);
+        userPrivateKey = 0x01;
+        user2PrivateKey = 0x02;
+        adminPrivateKey = 0x03;
+        user = vm.addr(userPrivateKey);
+        user2 = vm.addr(user2PrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
-        distribution = new DividendDistribution(address(this));
+        vm.startPrank(admin);
+        token = new MockERC20("Money", "$", 6);
+        distribution = new DividendDistribution(admin);
 
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
+        vm.stopPrank();
     }
 
     function testCreateNewDistribution(uint256 totalDistribution, uint256 _endTime) public {
         vm.assume(totalDistribution < 1e8);
         assertEq(IERC20(address(token)).balanceOf(address(distribution)), 0);
 
+        vm.prank(admin);
         token.mint(distributor, totalDistribution);
 
         vm.prank(distributor);

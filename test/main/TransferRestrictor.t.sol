@@ -11,10 +11,13 @@ contract TransferRestrictorTest is Test {
 
     TransferRestrictor public restrictor;
     address public restrictor_role = address(1);
+    address public admin = address(2);
 
     function setUp() public {
-        restrictor = new TransferRestrictor(address(this));
+        vm.startPrank(admin);
+        restrictor = new TransferRestrictor(admin);
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
+        vm.stopPrank();
     }
 
     function testInvalidRoleAccess(address account) public {

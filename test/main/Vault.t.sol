@@ -10,6 +10,7 @@ import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessCon
 contract VaultTest is Test {
     Vault vault;
     address user;
+    address admin;
     address mockAddress;
 
     MockToken paymentToken;
@@ -18,17 +19,23 @@ contract VaultTest is Test {
     event FundsWithdrawn(IERC20 token, address to, uint256 amount);
 
     function setUp() public {
-        vault = new Vault(address(this));
         user = address(2);
         mockAddress = address(3);
+        admin = address(4);
 
+        vault = new Vault(admin);
+
+        vm.startPrank(admin);
         paymentToken = new MockToken("Money", "$");
         rescueToken = new MockToken("RescueMoney", "$");
+        vm.stopPrank();
     }
 
     function testDepositInVaultAndRescue(uint256 amount) public {
+        vm.startPrank(admin);
         paymentToken.mint(user, amount);
         rescueToken.mint(user, amount);
+        vm.stopPrank();
 
         vm.prank(user);
         paymentToken.transfer(address(vault), amount);
@@ -48,6 +55,7 @@ contract VaultTest is Test {
         vm.prank(user);
         vault.rescueERC20(rescueToken, user, amount);
 
+        vm.prank(admin);
         vault.rescueERC20(rescueToken, user, amount);
 
         assertEq(rescueToken.balanceOf(user), amount);
@@ -56,6 +64,8 @@ contract VaultTest is Test {
     function testWithdrawFunds(address to, uint256 amount) public {
         assertEq(paymentToken.balanceOf(address(to)), 0);
         vm.assume(to != address(0));
+
+        vm.prank(admin);
         paymentToken.mint(address(vault), amount);
 
         vm.expectRevert(
@@ -66,12 +76,15 @@ contract VaultTest is Test {
         vm.prank(user);
         vault.withdrawFunds(paymentToken, to, amount);
 
+        vm.startPrank(admin);
         vault.grantRole(vault.AUTHORIZED_OPERATOR_ROLE(), mockAddress);
+        vm.stopPrank();
 
         vm.expectEmit(true, true, true, true);
         emit FundsWithdrawn(paymentToken, to, amount);
-        vm.prank(mockAddress);
+        vm.startPrank(mockAddress);
         vault.withdrawFunds(paymentToken, to, amount);
+        vm.stopPrank();
         assertEq(paymentToken.balanceOf(address(to)), amount);
     }
 }

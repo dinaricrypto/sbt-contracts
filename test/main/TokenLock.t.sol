@@ -11,12 +11,17 @@ contract TokenLockTest is Test {
     MockToken token2;
     TokenLockCheck tokenLockCheck;
     address user;
+    address admin;
 
     function setUp() public {
         user = address(1);
+        admin = address(2);
+
+        vm.startPrank(admin);
         token = new MockToken("Money", "$");
         token2 = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(token), address(token2));
+        vm.stopPrank();
     }
 
     function testLocked() public {
@@ -24,16 +29,20 @@ contract TokenLockTest is Test {
         assertEq(tokenLockCheck.isTransferLocked(address(token2), user), false);
         assertEq(tokenLockCheck.isTransferLocked(user, user), false);
 
+        vm.startPrank(admin);
         token.blacklist(user);
         token2.blacklist(user);
         assertEq(tokenLockCheck.isTransferLocked(address(token), user), true);
         assertEq(tokenLockCheck.isTransferLocked(address(token2), user), true);
+        vm.stopPrank();
     }
 
     function testCallSelector() public {
         vm.expectRevert(Address.FailedInnerCall.selector);
+        vm.startPrank(admin);
         tokenLockCheck.setCallSelector(address(token), 0x032f29a1); // lock selector doesn't exist for token contract
 
         tokenLockCheck.setCallSelector(address(token), token.isBlacklisted.selector);
+        vm.stopPrank();
     }
 }
