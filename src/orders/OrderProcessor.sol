@@ -487,6 +487,7 @@ contract OrderProcessor is AccessControlDefaultAdminRules, Multicall, SelfPermit
     }
 
     /// @inheritdoc IOrderProcessor
+    // slither-disable-next-line cyclomatic-complexity
     function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount)
         external
         onlyRole(OPERATOR_ROLE)
