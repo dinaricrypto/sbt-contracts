@@ -9,7 +9,7 @@ import {OrderProcessor} from "../../../src/orders/OrderProcessor.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import "../../utils/mocks/MockToken.sol";
-import "../../utils/mocks/MockdShareFactory.sol";
+import "../../utils/mocks/MockDShareFactory.sol";
 import "../../utils/SigMetaUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
@@ -20,8 +20,8 @@ contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
     OrderProcessor public issuer;
     MockToken public paymentToken;
-    MockdShareFactory public tokenFactory;
-    dShare public token;
+    MockDShareFactory public tokenFactory;
+    DShare public token;
 
     SigMetaUtils public sigMeta;
     SigUtils public paymentSigUtils;
@@ -64,7 +64,7 @@ contract ForwarderRequestCancelTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockdShareFactory();
+        tokenFactory = new MockDShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));

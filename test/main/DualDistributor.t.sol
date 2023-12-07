@@ -5,8 +5,8 @@ import "forge-std/Test.sol";
 import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
 import {DualDistributor} from "../../src/dividend/DualDistributor.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {WrappeddShare} from "../../src/WrappeddShare.sol";
-import {dShare} from "../../src/dShare.sol";
+import {WrappedDShare} from "../../src/WrappedDShare.sol";
+import {DShare} from "../../src/DShare.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
@@ -16,8 +16,8 @@ contract DualDistributorTest is Test {
     DividendDistribution distribution;
     DualDistributor dualDistributor;
     TransferRestrictor restrictor;
-    WrappeddShare xToken;
-    dShare dtoken;
+    WrappedDShare xToken;
+    DShare dtoken;
     MockERC20 token;
 
     uint256 userPrivateKey;
@@ -29,28 +29,30 @@ contract DualDistributorTest is Test {
     address distributor = address(4);
 
     event NewDistribution(
-        uint256 indexed distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount
+        uint256 indexed distributionId, address indexed DShare, uint256 usdcAmount, uint256 dShareAmount
     );
+
+    event NewDividendDistributionSet(address indexed newDivividendDistribution);
 
     function setUp() public {
         vm.startPrank(admin);
         restrictor = new TransferRestrictor(admin);
         token = new MockERC20("Money", "$", 6);
-        dShare tokenImplementation = new dShare();
-        dtoken = dShare(
+        DShare tokenImplementation = new DShare();
+        dtoken = DShare(
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(dShare.initialize, (admin, "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (admin, "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
-        WrappeddShare xtokenImplementation = new WrappeddShare();
-        xToken = WrappeddShare(
+        WrappedDShare xtokenImplementation = new WrappedDShare();
+        xToken = WrappedDShare(
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(WrappeddShare.initialize, (admin, dtoken, "Dinari xdToken", "xdTKN"))
+                    abi.encodeCall(WrappedDShare.initialize, (admin, dtoken, "Dinari xdToken", "xdTKN"))
                 )
             )
         );
@@ -60,7 +62,7 @@ contract DualDistributorTest is Test {
         distribution = new DividendDistribution(admin);
 
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
-        dualDistributor = new DualDistributor(admin, address(token), address(distribution));
+        dualDistributor = new DualDistributor(admin, address(distribution));
         dualDistributor.grantRole(dualDistributor.DISTRIBUTOR_ROLE(), distributor);
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), address(dualDistributor));
 
@@ -68,30 +70,7 @@ contract DualDistributorTest is Test {
     }
 
     function testStateVar() public {
-        assertEq(dualDistributor.USDC(), address(token));
         assertEq(dualDistributor.dividendDistribution(), address(distribution));
-    }
-
-    function testSetUsdcZeroAddressReverts() public {
-        vm.expectRevert(DualDistributor.ZeroAddress.selector);
-        vm.prank(admin);
-        dualDistributor.setUSDC(address(0));
-    }
-
-    function testSetUsdc(address usdc) public {
-        vm.assume(usdc != address(0));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
-            )
-        );
-        vm.prank(user);
-        dualDistributor.setUSDC(usdc);
-
-        vm.prank(admin);
-        dualDistributor.setUSDC(usdc);
-        assertEq(dualDistributor.USDC(), usdc);
     }
 
     function testSetDividendDistributionZeroAddressReverts() public {
@@ -111,18 +90,20 @@ contract DualDistributorTest is Test {
         vm.prank(user);
         dualDistributor.setDividendDistribution(account);
 
+        vm.expectEmit(true, true, true, true);
+        emit NewDividendDistributionSet(account);
         vm.prank(admin);
         dualDistributor.setDividendDistribution(account);
         assertEq(dualDistributor.dividendDistribution(), account);
     }
 
-    function testSetWrappeddShareForDShareZeroAddressReverts() public {
+    function testSetWrappedDShareForDShareZeroAddressReverts() public {
         vm.expectRevert(DualDistributor.ZeroAddress.selector);
         vm.prank(admin);
-        dualDistributor.setWrappeddShareForDShare(address(0), address(1));
+        dualDistributor.setWrappedDShareForDShare(address(0), address(1));
     }
 
-    function testSetWrappeddShareForDShare(address _dShare, address _WrappeddShare) public {
+    function testSetWrappedDShareForDShare(address _dShare, address _WrappedDShare) public {
         vm.assume(_dShare != address(0));
 
         vm.expectRevert(
@@ -131,15 +112,15 @@ contract DualDistributorTest is Test {
             )
         );
         vm.prank(user);
-        dualDistributor.setWrappeddShareForDShare(_dShare, _WrappeddShare);
+        dualDistributor.setWrappedDShareForDShare(_dShare, _WrappedDShare);
 
         vm.prank(admin);
-        dualDistributor.setWrappeddShareForDShare(_dShare, _WrappeddShare);
-        assertEq(dualDistributor.dShareToWrappeddShare(_dShare), _WrappeddShare);
+        dualDistributor.setWrappedDShareForDShare(_dShare, _WrappedDShare);
+        assertEq(dualDistributor.dShareToWrappedDShare(_dShare), _WrappedDShare);
     }
 
     function testDistribute(uint256 amountA, uint256 amountB, uint256 endTime) public {
-        vm.assume(endTime > block.timestamp);
+        vm.assume(endTime > block.timestamp + distribution.minDistributionTime());
 
         vm.startPrank(admin);
         token.mint(address(dualDistributor), amountA);
@@ -151,18 +132,22 @@ contract DualDistributorTest is Test {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), distribution.DISTRIBUTOR_ROLE()
             )
         );
-        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
+        dualDistributor.distribute(address(token), address(dtoken), amountA, amountB, endTime);
 
         vm.prank(distributor);
         vm.expectRevert(DualDistributor.ZeroAddress.selector);
-        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
+        dualDistributor.distribute(address(token), address(dtoken), amountA, amountB, endTime);
 
         vm.prank(admin);
-        dualDistributor.setWrappeddShareForDShare(address(dtoken), address(xToken));
+        dualDistributor.setWrappedDShareForDShare(address(dtoken), address(xToken));
+
+        vm.prank(distributor);
+        vm.expectRevert(DualDistributor.ZeroAddress.selector);
+        dualDistributor.distribute(address(0), address(dtoken), amountA, amountB, endTime);
 
         vm.prank(distributor);
         vm.expectEmit(true, true, true, true);
         emit NewDistribution(0, address(dtoken), amountA, amountB);
-        dualDistributor.distribute(address(dtoken), amountA, amountB, endTime);
+        dualDistributor.distribute(address(token), address(dtoken), amountA, amountB, endTime);
     }
 }

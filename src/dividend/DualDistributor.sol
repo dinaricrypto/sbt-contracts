@@ -8,48 +8,36 @@ import {IDividendDistributor} from "./IDividendDistributor.sol";
 
 /**
  * @title DualDistributor Contract
- * @notice A contract to manage the distribution of dividends for both USDC and dShare.
+ * @notice A contract to manage the distribution of dividends for both USDC and DShare.
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dividend/DualDistributor.sol)
  */
 contract DualDistributor is AccessControlDefaultAdminRules {
     using SafeERC20 for IERC20;
 
     event NewDistribution(
-        uint256 indexed distributionId, address indexed dShare, uint256 usdcAmount, uint256 dShareAmount
+        uint256 indexed distributionId, address indexed DShare, uint256 usdcAmount, uint256 dShareAmount
     );
+
+    event NewDividendDistributionSet(address indexed newDivividendDistribution);
 
     error ZeroAddress();
 
     /// @notice Role for approved distributors
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
 
-    /// @dev Address of the USDC token.
-    address public USDC;
-
     /// @dev Address of the dividend distribution contract.
     address public dividendDistribution;
 
-    /// @dev Mapping to store the relationship between dShare and WrappeddShare.
-    mapping(address dShare => address WrappeddShare) public dShareToWrappeddShare;
+    /// @dev Mapping to store the relationship between dShare and WrappedDShare.
+    mapping(address DShare => address WrappedDShare) public dShareToWrappedDShare;
 
     /**
      * @notice Initializes the `DualDistributor` contract.
      * @param owner The address of the owner/administrator.
-     * @param _USDC The address of the USDC token.
      * @param _dividendDistribution The address of the dividend distribution contract.
      */
-    constructor(address owner, address _USDC, address _dividendDistribution) AccessControlDefaultAdminRules(0, owner) {
-        USDC = _USDC;
+    constructor(address owner, address _dividendDistribution) AccessControlDefaultAdminRules(0, owner) {
         dividendDistribution = _dividendDistribution;
-    }
-
-    /**
-     * @notice Updates the USDC token address.
-     * @param _USDC The new address for the USDC token.
-     */
-    function setUSDC(address _USDC) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_USDC == address(0)) revert ZeroAddress();
-        USDC = _USDC;
     }
 
     /**
@@ -59,40 +47,45 @@ contract DualDistributor is AccessControlDefaultAdminRules {
     function setDividendDistribution(address _dividendDistribution) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dividendDistribution == address(0)) revert ZeroAddress();
         dividendDistribution = _dividendDistribution;
+        emit NewDividendDistributionSet(_dividendDistribution);
     }
 
     /**
-     * @notice Adds a new pair of dShare and WrappeddShare addresses.
-     * @param _dShare Address of the dShare token.
-     * @param _WrappeddShare Address of the WrappeddShare token.
+     * @notice Adds a new pair of DShare and XdShare addresses.
+     * @param _dShare Address of the DShare token.
+     * @param _WrappedDShare Address of the XdShare token.
      */
-    function setWrappeddShareForDShare(address _dShare, address _WrappeddShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setWrappedDShareForDShare(address _dShare, address _WrappedDShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_dShare == address(0)) revert ZeroAddress();
-        dShareToWrappeddShare[_dShare] = _WrappeddShare;
+        dShareToWrappedDShare[_dShare] = _WrappedDShare;
     }
 
     /**
-     * @notice Distributes dividends to dShare and WrappeddShare holders.
-     * @dev Requires the distributor role and WrappeddShare to be locked.
-     * @param dShare Address of the dShare token.
-     * @param usdcAmount Amount of USDC to distribute.
-     * @param dShareAmount Amount of dShare tokens to distribute.
+     * @notice Distributes dividends to DShare and XdShare holders.
+     * @dev Requires the distributor role and XdShare to be locked.
+     * @param stableCoin Address of the stable coin to distribute.
+     * @param dShare Address of the DShare token.
+     * @param stableCoinAmount Amount of stable coin to distribute.
+     * @param dShareAmount Amount of DShare tokens to distribute.
      * @param endTime The timestamp when the distribution stops.
      */
-    function distribute(address dShare, uint256 usdcAmount, uint256 dShareAmount, uint256 endTime)
-        external
-        onlyRole(DISTRIBUTOR_ROLE)
-        returns (uint256)
-    {
-        address WrappeddShare = dShareToWrappeddShare[dShare];
-        if (WrappeddShare == address(0)) revert ZeroAddress();
+    function distribute(
+        address stableCoin,
+        address dShare,
+        uint256 stableCoinAmount,
+        uint256 dShareAmount,
+        uint256 endTime
+    ) external onlyRole(DISTRIBUTOR_ROLE) returns (uint256) {
+        if (stableCoin == address(0)) revert ZeroAddress();
+        address wrappedDShare = dShareToWrappedDShare[dShare];
+        if (wrappedDShare == address(0)) revert ZeroAddress();
 
         emit NewDistribution(
-            IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, usdcAmount, dShareAmount
+            IDividendDistributor(dividendDistribution).nextDistributionId(), dShare, stableCoinAmount, dShareAmount
         );
 
-        IERC20(dShare).safeTransfer(WrappeddShare, dShareAmount);
-        IERC20(USDC).safeIncreaseAllowance(dividendDistribution, usdcAmount);
-        return IDividendDistributor(dividendDistribution).createDistribution(USDC, usdcAmount, endTime);
+        IERC20(dShare).safeTransfer(wrappedDShare, dShareAmount);
+        IERC20(stableCoin).safeIncreaseAllowance(dividendDistribution, stableCoinAmount);
+        return IDividendDistributor(dividendDistribution).createDistribution(stableCoin, stableCoinAmount, endTime);
     }
 }

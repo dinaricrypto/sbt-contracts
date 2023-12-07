@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
-import "../utils/mocks/MockdShareFactory.sol";
+import "../utils/mocks/MockDShareFactory.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -17,8 +17,8 @@ contract LimitOrderTest is Test {
         uint256 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
     );
 
-    MockdShareFactory tokenFactory;
-    dShare token;
+    MockDShareFactory tokenFactory;
+    DShare token;
     TokenLockCheck tokenLockCheck;
     OrderProcessor issuer;
     MockToken paymentToken;
@@ -41,7 +41,7 @@ contract LimitOrderTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockdShareFactory();
+        tokenFactory = new MockDShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 

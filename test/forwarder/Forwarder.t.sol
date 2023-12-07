@@ -10,7 +10,7 @@ import {BuyUnlockedProcessor} from "../../src/orders/BuyUnlockedProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShareFactory.sol";
+import "../utils/mocks/MockDShareFactory.sol";
 import "../utils/SigMetaUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
@@ -46,8 +46,8 @@ contract ForwarderTest is Test {
     OrderProcessor public issuer;
     BuyUnlockedProcessor public directBuyIssuer;
     MockToken public paymentToken;
-    MockdShareFactory public tokenFactory;
-    dShare public token;
+    MockDShareFactory public tokenFactory;
+    DShare public token;
 
     SigMetaUtils public sigMeta;
     SigUtils public paymentSigUtils;
@@ -90,7 +90,7 @@ contract ForwarderTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockdShareFactory();
+        tokenFactory = new MockDShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
@@ -377,7 +377,7 @@ contract ForwarderTest is Test {
     }
 
     function testRescueERC20(uint256 amount, address to) public {
-        vm.assume(to != address(0));
+        vm.assume(to != address(0) && to != address(forwarder));
 
         MockToken paymentTokenToRescue = new MockToken("RescueMoney", "$");
         paymentTokenToRescue.mint(user, amount);

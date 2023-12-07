@@ -4,15 +4,14 @@ pragma solidity 0.8.22;
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {AccessControlDefaultAdminRulesUpgradeable} from
     "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
-import {IdShare, ITransferRestrictor} from "./IdShare.sol";
-
+import {IDShare, ITransferRestrictor} from "./IDShare.sol";
 import {ERC20Rebasing} from "./ERC20Rebasing.sol";
 
 /// @notice Core token contract for bridged assets. Rebases on stock splits.
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
-contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAdminRulesUpgradeable {
+contract DShare is IDShare, Initializable, ERC20Rebasing, AccessControlDefaultAdminRulesUpgradeable {
     /// ------------------ Types ------------------ ///
 
     error Unauthorized();
@@ -44,7 +43,7 @@ contract dShare is IdShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
         uint128 _balancePerShare;
     }
 
-    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.dShare")) - 1)) & ~bytes32(uint256(0xff))
+    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.DShare")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant dShareStorageLocation = 0x7315beb2381679795e06870021c0fca5deb85616e29e098c2e7b7e488f185800;
 
     function _getdShareStorage() private pure returns (dShareStorage storage $) {

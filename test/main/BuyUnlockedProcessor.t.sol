@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockdShareFactory.sol";
+import "../utils/mocks/MockDShareFactory.sol";
 import "../../src/orders/BuyUnlockedProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -23,8 +23,8 @@ contract BuyUnlockedProcessorTest is Test {
     event CancelRequested(uint256 indexed id, address indexed requester);
     event OrderCancelled(uint256 indexed id, address indexed recipient, string reason);
 
-    MockdShareFactory tokenFactory;
-    dShare token;
+    MockDShareFactory tokenFactory;
+    DShare token;
     TokenLockCheck tokenLockCheck;
     BuyUnlockedProcessor issuer;
     MockToken paymentToken;
@@ -49,7 +49,7 @@ contract BuyUnlockedProcessorTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockdShareFactory();
+        tokenFactory = new MockDShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 

@@ -2,17 +2,17 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import {dShare} from "../../src/dShare.sol";
-import {WrappeddShare} from "../../src/WrappeddShare.sol";
+import {DShare} from "../../src/DShare.sol";
+import {WrappedDShare} from "../../src/WrappedDShare.sol";
 import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 
-contract WrappeddShareTest is Test {
+contract WrappedDShareTest is Test {
     TransferRestrictor public restrictor;
-    dShare public token;
-    WrappeddShare public xToken;
+    DShare public token;
+    WrappedDShare public xToken;
 
     address user = address(1);
     address user2 = address(2);
@@ -22,23 +22,23 @@ contract WrappeddShareTest is Test {
         vm.startPrank(admin);
         restrictor = new TransferRestrictor(admin);
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), admin);
-        dShare tokenImplementation = new dShare();
-        token = dShare(
+        DShare tokenImplementation = new DShare();
+        token = DShare(
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(dShare.initialize, (admin, "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (admin, "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
         token.grantRole(token.MINTER_ROLE(), admin);
 
-        WrappeddShare xtokenImplementation = new WrappeddShare();
-        xToken = WrappeddShare(
+        WrappedDShare xtokenImplementation = new WrappedDShare();
+        xToken = WrappedDShare(
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(WrappeddShare.initialize, (admin, token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                    abi.encodeCall(WrappedDShare.initialize, (admin, token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );

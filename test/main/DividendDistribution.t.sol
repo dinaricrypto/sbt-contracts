@@ -25,6 +25,7 @@ contract DividendDistributionTest is Test {
         bytes32 hash;
     }
 
+    event MinDistributionTimeSet(uint64 minDistributionTime);
     event Distributed(uint256 indexed distributionId, address indexed account, uint256 amount);
     event NewDistributionCreated(
         uint256 indexed distributionId, uint256 totalDistribution, uint256 startDate, uint256 endDate
@@ -47,6 +48,22 @@ contract DividendDistributionTest is Test {
         vm.stopPrank();
     }
 
+    function testSetMinDistributionTime(uint64 minDistributionTime) public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        vm.prank(user);
+        distribution.setMinDistributionTime(minDistributionTime);
+
+        vm.expectEmit(true, true, true, true);
+        emit MinDistributionTimeSet(minDistributionTime);
+        vm.prank(admin);
+        distribution.setMinDistributionTime(minDistributionTime);
+        assertEq(distribution.minDistributionTime(), minDistributionTime);
+    }
+
     function testCreateNewDistribution(uint256 totalDistribution, uint256 _endTime) public {
         vm.assume(totalDistribution < 1e8);
         assertEq(IERC20(address(token)).balanceOf(address(distribution)), 0);
@@ -57,8 +74,8 @@ contract DividendDistributionTest is Test {
         vm.prank(distributor);
         token.approve(address(distribution), totalDistribution);
 
-        if (_endTime <= block.timestamp) {
-            vm.expectRevert(DividendDistribution.EndTimeInPast.selector);
+        if (_endTime <= block.timestamp + distribution.minDistributionTime()) {
+            vm.expectRevert(DividendDistribution.EndTimeBeforeMin.selector);
             vm.prank(distributor);
             distribution.createDistribution(address(token), totalDistribution, _endTime);
         } else {
@@ -88,8 +105,11 @@ contract DividendDistributionTest is Test {
 
         vm.prank(distributor);
         token.approve(address(distribution), totalDistribution);
-        vm.prank(distributor);
-        uint256 distributionId = distribution.createDistribution(address(token), totalDistribution, block.timestamp + 1);
+        vm.startPrank(distributor);
+        uint256 distributionId = distribution.createDistribution(
+            address(token), totalDistribution, block.timestamp + distribution.minDistributionTime() + 1
+        );
+        vm.stopPrank();
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -117,8 +137,11 @@ contract DividendDistributionTest is Test {
 
         vm.prank(distributor);
         token.approve(address(distribution), totalDistribution);
-        vm.prank(distributor);
-        distribution.createDistribution(address(token), totalDistribution, block.timestamp + 1);
+        vm.startPrank(distributor);
+        distribution.createDistribution(
+            address(token), totalDistribution, block.timestamp + distribution.minDistributionTime() + 1
+        );
+        vm.stopPrank();
         assertEq(IERC20(address(token)).balanceOf(address(distribution)), totalDistribution);
         assertEq(IERC20(address(token)).balanceOf(distributor), 0);
 

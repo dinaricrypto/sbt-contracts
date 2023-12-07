@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
-import {dShare} from "../src/dShare.sol";
+import {DShare} from "../src/DShare.sol";
 
 contract AddTokensScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
@@ -36,7 +36,7 @@ contract AddTokensScript is Script {
             issuer.grantRole(issuer.ASSETTOKEN_ROLE(), assetTokens[i]);
             directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), assetTokens[i]);
 
-            dShare assetToken = dShare(assetTokens[i]);
+            DShare assetToken = DShare(assetTokens[i]);
             assetToken.grantRole(assetToken.MINTER_ROLE(), address(issuer));
             assetToken.grantRole(assetToken.BURNER_ROLE(), address(issuer));
             assetToken.grantRole(assetToken.MINTER_ROLE(), address(directIssuer));

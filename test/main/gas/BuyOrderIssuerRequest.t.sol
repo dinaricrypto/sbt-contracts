@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../../utils/mocks/MockToken.sol";
-import "../../utils/mocks/MockdShareFactory.sol";
+import "../../utils/mocks/MockDShareFactory.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/OrderProcessor.sol";
 import "../../../src/orders/IOrderProcessor.sol";
@@ -17,8 +17,8 @@ import {FeeLib} from "../../../src/common/FeeLib.sol";
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
 
-    MockdShareFactory tokenFactory;
-    dShare token;
+    MockDShareFactory tokenFactory;
+    DShare token;
     TokenLockCheck tokenLockCheck;
     OrderProcessor issuer;
     MockToken paymentToken;
@@ -48,7 +48,7 @@ contract BuyProcessorRequestTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockdShareFactory();
+        tokenFactory = new MockDShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());

@@ -4,8 +4,8 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import {MockToken} from "../test/utils/mocks/MockToken.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
-import {dShare} from "../src/dShare.sol";
-import {WrappeddShare} from "../src/WrappeddShare.sol";
+import {DShare} from "../src/DShare.sol";
+import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
@@ -33,10 +33,10 @@ contract DeployAllSandboxScript is Script {
         TransferRestrictor transferRestrictor;
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
-        dShare[] dShares;
+        DShare[] dShares;
         address wrappeddShareImplementation;
         UpgradeableBeacon wrappeddShareBeacon;
-        WrappeddShare[] wrappeddShares;
+        WrappedDShare[] wrappeddShares;
         TokenLockCheck tokenLockCheck;
         OrderProcessor orderProcessor;
         BuyUnlockedProcessor directBuyIssuer;
@@ -84,13 +84,13 @@ contract DeployAllSandboxScript is Script {
         deployments.transferRestrictor = new TransferRestrictor(cfg.deployer);
 
         // deploy dShares logic implementation
-        deployments.dShareImplementation = address(new dShare());
+        deployments.dShareImplementation = address(new DShare());
 
         // deploy dShares beacon
         deployments.dShareBeacon = new UpgradeableBeacon(deployments.dShareImplementation, cfg.deployer);
 
         // deploy wrapped dShares logic implementation
-        deployments.wrappeddShareImplementation = address(new WrappeddShare());
+        deployments.wrappeddShareImplementation = address(new WrappedDShare());
 
         // deploy wrapped dShares beacon
         deployments.wrappeddShareBeacon = new UpgradeableBeacon(deployments.wrappeddShareImplementation, cfg.deployer);
@@ -125,29 +125,29 @@ contract DeployAllSandboxScript is Script {
         dShareSymbols[11] = "SPY.d";
         dShareSymbols[12] = "USFR.d";
 
-        deployments.dShares = new dShare[](13);
-        deployments.wrappeddShares = new WrappeddShare[](13);
+        deployments.dShares = new DShare[](13);
+        deployments.wrappeddShares = new WrappedDShare[](13);
 
         for (uint256 i = 0; i < deployments.dShares.length; i++) {
-            // deploy dShare
-            deployments.dShares[i] = dShare(
+            // deploy DShare
+            deployments.dShares[i] = DShare(
                 address(
                     new BeaconProxy(
                         address(deployments.dShareBeacon),
                         abi.encodeCall(
-                            dShare.initialize,
+                            DShare.initialize,
                             (cfg.deployer, dShareNames[i], dShareSymbols[i], deployments.transferRestrictor)
                         )
                     )
                 )
             );
-            // deploy wrapped dShare
-            deployments.wrappeddShares[i] = WrappeddShare(
+            // deploy wrapped DShare
+            deployments.wrappeddShares[i] = WrappedDShare(
                 address(
                     new BeaconProxy(
                         address(deployments.wrappeddShareBeacon),
                         abi.encodeCall(
-                            WrappeddShare.initialize,
+                            WrappedDShare.initialize,
                             (
                                 cfg.deployer,
                                 deployments.dShares[i],
