@@ -7,7 +7,7 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {dShare} from "../src/dShare.sol";
 import {WrappeddShare} from "../src/WrappeddShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
-import {EscrowOrderProcessor, OrderProcessor} from "../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
@@ -38,7 +38,7 @@ contract DeployAllSandboxScript is Script {
         UpgradeableBeacon wrappeddShareBeacon;
         WrappeddShare[] wrappeddShares;
         TokenLockCheck tokenLockCheck;
-        EscrowOrderProcessor escrowOrderProcessor;
+        OrderProcessor orderProcessor;
         BuyUnlockedProcessor directBuyIssuer;
         Forwarder forwarder;
         DividendDistribution dividendDistributor;
@@ -46,6 +46,7 @@ contract DeployAllSandboxScript is Script {
 
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
+    uint256 constant SELL_GAS_COST = 1000000;
 
     function run() external {
         // load env variables
@@ -170,7 +171,7 @@ contract DeployAllSandboxScript is Script {
         // add USDC.e
         deployments.tokenLockCheck.setCallSelector(address(deployments.usdce), deployments.usdce.isBlacklisted.selector);
 
-        deployments.escrowOrderProcessor = new EscrowOrderProcessor(
+        deployments.orderProcessor = new OrderProcessor(
             cfg.deployer,
             cfg.treasury,
             OrderProcessor.FeeRates({
@@ -195,27 +196,21 @@ contract DeployAllSandboxScript is Script {
         );
 
         // config operator
-        deployments.escrowOrderProcessor.grantRole(deployments.escrowOrderProcessor.OPERATOR_ROLE(), cfg.operator);
+        deployments.orderProcessor.grantRole(deployments.orderProcessor.OPERATOR_ROLE(), cfg.operator);
         deployments.directBuyIssuer.grantRole(deployments.directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
-        deployments.escrowOrderProcessor.grantRole(
-            deployments.escrowOrderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdc)
-        );
+        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdc));
         deployments.directBuyIssuer.grantRole(
             deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdc)
         );
 
-        deployments.escrowOrderProcessor.grantRole(
-            deployments.escrowOrderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdt)
-        );
+        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdt));
         deployments.directBuyIssuer.grantRole(
             deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdt)
         );
 
-        deployments.escrowOrderProcessor.grantRole(
-            deployments.escrowOrderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdce)
-        );
+        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdce));
         deployments.directBuyIssuer.grantRole(
             deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdce)
         );
@@ -226,38 +221,34 @@ contract DeployAllSandboxScript is Script {
                 address(deployments.dShares[i]), deployments.dShares[i].isBlacklisted.selector
             );
 
-            deployments.escrowOrderProcessor.grantRole(
-                deployments.escrowOrderProcessor.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
+            deployments.orderProcessor.grantRole(
+                deployments.orderProcessor.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
             );
             deployments.directBuyIssuer.grantRole(
                 deployments.directBuyIssuer.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
             );
 
-            deployments.dShares[i].grantRole(
-                deployments.dShares[i].MINTER_ROLE(), address(deployments.escrowOrderProcessor)
-            );
-            deployments.dShares[i].grantRole(
-                deployments.dShares[i].BURNER_ROLE(), address(deployments.escrowOrderProcessor)
-            );
+            deployments.dShares[i].grantRole(deployments.dShares[i].MINTER_ROLE(), address(deployments.orderProcessor));
+            deployments.dShares[i].grantRole(deployments.dShares[i].BURNER_ROLE(), address(deployments.orderProcessor));
             deployments.dShares[i].grantRole(deployments.dShares[i].MINTER_ROLE(), address(deployments.directBuyIssuer));
         }
 
         /// ------------------ forwarder ------------------
 
-        deployments.forwarder = new Forwarder(cfg.ethusdoracle);
+        deployments.forwarder = new Forwarder(cfg.ethusdoracle, SELL_GAS_COST);
         deployments.forwarder.setFeeBps(2000);
 
         deployments.forwarder.setPaymentOracle(address(deployments.usdc), cfg.usdcoracle);
         deployments.forwarder.setPaymentOracle(address(deployments.usdce), cfg.usdcoracle);
         deployments.forwarder.setPaymentOracle(address(deployments.usdt), cfg.usdcoracle);
 
-        deployments.forwarder.setSupportedModule(address(deployments.escrowOrderProcessor), true);
+        deployments.forwarder.setSupportedModule(address(deployments.orderProcessor), true);
         deployments.forwarder.setSupportedModule(address(deployments.directBuyIssuer), true);
 
         deployments.forwarder.setRelayer(cfg.relayer, true);
 
-        deployments.escrowOrderProcessor.grantRole(
-            deployments.escrowOrderProcessor.FORWARDER_ROLE(), address(deployments.forwarder)
+        deployments.orderProcessor.grantRole(
+            deployments.orderProcessor.FORWARDER_ROLE(), address(deployments.forwarder)
         );
         deployments.directBuyIssuer.grantRole(
             deployments.directBuyIssuer.FORWARDER_ROLE(), address(deployments.forwarder)

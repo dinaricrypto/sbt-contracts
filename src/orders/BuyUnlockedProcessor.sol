@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {OrderProcessor} from "./OrderProcessor.sol";
-import {EscrowOrderProcessor, IFeeSchedule, ITokenLockCheck} from "./EscrowOrderProcessor.sol";
+import {OrderProcessor, IFeeSchedule, ITokenLockCheck} from "./OrderProcessor.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/BuyUnlockedProcessor.sol)
@@ -25,7 +25,7 @@ import {EscrowOrderProcessor, IFeeSchedule, ITokenLockCheck} from "./EscrowOrder
 ///   4. [Optional] User requests cancellation (requestCancel)
 ///   5. Operator returns unused payment to contract (returnEscrow)
 ///   6. Operator cancels the order (cancelOrder)
-contract BuyUnlockedProcessor is EscrowOrderProcessor {
+contract BuyUnlockedProcessor is OrderProcessor {
     using SafeERC20 for IERC20;
 
     /// ------------------ Types ------------------ ///
@@ -45,7 +45,7 @@ contract BuyUnlockedProcessor is EscrowOrderProcessor {
     mapping(uint256 => uint256) public getOrderEscrow;
 
     constructor(address _owner, address _treasury, FeeRates memory defaultFeeRates, ITokenLockCheck _tokenLockCheck)
-        EscrowOrderProcessor(_owner, _treasury, defaultFeeRates, _tokenLockCheck)
+        OrderProcessor(_owner, _treasury, defaultFeeRates, _tokenLockCheck)
     {}
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -103,11 +103,11 @@ contract BuyUnlockedProcessor is EscrowOrderProcessor {
     }
 
     /// @inheritdoc OrderProcessor
-    function _requestOrderAccounting(uint256 id, Order calldata order, uint256 totalFees) internal virtual override {
+    function _requestOrderAccounting(uint256 id, Order calldata order) internal virtual override {
         // Only buy orders
         if (order.sell) revert NotBuyOrder();
         // Compile standard buy order
-        super._requestOrderAccounting(id, order, totalFees);
+        super._requestOrderAccounting(id, order);
         // Initialize escrow tracking for order
         getOrderEscrow[id] = order.paymentTokenQuantity;
     }

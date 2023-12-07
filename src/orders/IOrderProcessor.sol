@@ -59,21 +59,24 @@ interface IOrderProcessor {
         uint256 price;
         // Time in force
         TIF tif;
+        // Account receiving split amount
+        address splitRecipient;
+        // Received amount filled to secondary address first
+        uint256 splitAmount;
     }
 
-    // TODO: replace recipient with requester?
     /// @dev Fully specifies order details and order ID
-    event OrderRequested(uint256 indexed id, address indexed recipient, Order order);
+    event OrderRequested(uint256 indexed id, address indexed requester, Order order);
     /// @dev Emitted for each fill
     event OrderFill(
-        uint256 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+        uint256 indexed id, address indexed requester, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
     );
     /// @dev Emitted when order is completely filled, terminal
-    event OrderFulfilled(uint256 indexed id, address indexed recipient);
+    event OrderFulfilled(uint256 indexed id, address indexed requester);
     /// @dev Emitted when order cancellation is requested
     event CancelRequested(uint256 indexed id, address indexed requester);
     /// @dev Emitted when order is cancelled, terminal
-    event OrderCancelled(uint256 indexed id, address indexed recipient, string reason);
+    event OrderCancelled(uint256 indexed id, address indexed requester, string reason);
 
     /// ------------------ Getters ------------------ ///
 

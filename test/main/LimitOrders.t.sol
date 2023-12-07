@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import "../utils/mocks/MockdShareFactory.sol";
-import "../../src/orders/EscrowOrderProcessor.sol";
+import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
@@ -20,7 +20,7 @@ contract LimitOrderTest is Test {
     MockdShareFactory tokenFactory;
     dShare token;
     TokenLockCheck tokenLockCheck;
-    EscrowOrderProcessor issuer;
+    OrderProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -47,7 +47,7 @@ contract LimitOrderTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new EscrowOrderProcessor(
+        issuer = new OrderProcessor(
             admin,
             treasury,
             OrderProcessor.FeeRates({
@@ -86,7 +86,9 @@ contract LimitOrderTest is Test {
             assetTokenQuantity: sell ? orderAmount : 0,
             paymentTokenQuantity: sell ? 0 : orderAmount,
             price: price,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
     }
 
@@ -104,7 +106,7 @@ contract LimitOrderTest is Test {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
             issuer.requestOrder(order);
         } else if (_price == 0) {
-            vm.expectRevert(EscrowOrderProcessor.LimitPriceNotSet.selector);
+            vm.expectRevert(OrderProcessor.LimitPriceNotSet.selector);
             issuer.requestOrder(order);
         } else {
             uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -156,7 +158,7 @@ contract LimitOrderTest is Test {
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
-            vm.expectRevert(EscrowOrderProcessor.OrderFillBelowLimitPrice.selector);
+            vm.expectRevert(OrderProcessor.OrderFillBelowLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else {
@@ -199,7 +201,7 @@ contract LimitOrderTest is Test {
             vm.prank(user);
             issuer.requestOrder(order);
         } else if (_price == 0) {
-            vm.expectRevert(EscrowOrderProcessor.LimitPriceNotSet.selector);
+            vm.expectRevert(OrderProcessor.LimitPriceNotSet.selector);
             vm.prank(user);
             issuer.requestOrder(order);
         } else {
@@ -253,7 +255,7 @@ contract LimitOrderTest is Test {
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) {
-            vm.expectRevert(EscrowOrderProcessor.OrderFillAboveLimitPrice.selector);
+            vm.expectRevert(OrderProcessor.OrderFillAboveLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
         } else {

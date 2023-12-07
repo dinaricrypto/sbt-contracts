@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
-import {EscrowOrderProcessor, OrderProcessor} from "../../../src/orders/EscrowOrderProcessor.sol";
+import {OrderProcessor} from "../../../src/orders/OrderProcessor.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import "../../utils/mocks/MockToken.sol";
@@ -18,7 +18,7 @@ import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 
 contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
-    EscrowOrderProcessor public issuer;
+    OrderProcessor public issuer;
     MockToken public paymentToken;
     MockdShareFactory public tokenFactory;
     dShare public token;
@@ -49,6 +49,7 @@ contract ForwarderRequestCancelTest is Test {
     address constant ethUSDOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
     address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
+    uint256 constant SELL_GAS_COST = 1000000;
     uint64 priceRecencyThreshold = 30 seconds;
     bytes dataCancel;
 
@@ -73,8 +74,7 @@ contract ForwarderRequestCancelTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        vm.startPrank(admin);
-        issuer = new EscrowOrderProcessor(
+        issuer = new OrderProcessor(
             admin,
             treasury,
             OrderProcessor.FeeRates({
@@ -86,17 +86,17 @@ contract ForwarderRequestCancelTest is Test {
             tokenLockCheck
         );
 
+        vm.startPrank(admin);
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-
         vm.stopPrank();
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(ethUSDOracle);
+        forwarder = new Forwarder(ethUSDOracle, SELL_GAS_COST);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setRelayer(relayer, true);
         forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
@@ -123,7 +123,9 @@ contract ForwarderRequestCancelTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
 
         // set fees
@@ -140,12 +142,12 @@ contract ForwarderRequestCancelTest is Test {
         uint256 nonce = 0;
 
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), dataRequest, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), dataRequest, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         // set a request
         vm.prank(relayer);
@@ -156,12 +158,12 @@ contract ForwarderRequestCancelTest is Test {
         uint256 nonce = 1;
 
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -189,18 +191,14 @@ contract ForwarderRequestCancelTest is Test {
         );
     }
 
-    function prepareForwardRequest(
-        address _user,
-        address to,
-        address _paymentToken,
-        bytes memory data,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
+        internal
+        view
+        returns (IForwarder.ForwardRequest memory metaTx)
+    {
         SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            paymentToken: _paymentToken,
             data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
@@ -212,7 +210,6 @@ contract ForwarderRequestCancelTest is Test {
         metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            paymentToken: _paymentToken,
             data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
