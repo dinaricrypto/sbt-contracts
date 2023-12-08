@@ -33,11 +33,10 @@ contract BuyUnlockedProcessor is OrderProcessor {
     /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
 
-    // TODO: replace recipient with requester
     /// @dev Emitted when `amount` of escrowed payment is taken for order
-    event EscrowTaken(uint256 indexed id, address indexed recipient, uint256 amount);
+    event EscrowTaken(uint256 indexed id, address indexed requester, uint256 amount);
     /// @dev Emitted when `amount` of escrowed payment is returned for order
-    event EscrowReturned(uint256 indexed id, address indexed recipient, uint256 amount);
+    event EscrowReturned(uint256 indexed id, address indexed requester, uint256 amount);
 
     /// ------------------ State ------------------ ///
 
@@ -85,9 +84,10 @@ contract BuyUnlockedProcessor is OrderProcessor {
 
         // Update escrow tracking
         $._getOrderEscrow[id] = escrow - amount;
-        _decreaseEscrowedBalanceOf(order.paymentToken, order.recipient, amount);
+        address requester = _getRequester(id);
+        _decreaseEscrowedBalanceOf(order.paymentToken, requester, amount);
         // Notify escrow taken
-        emit EscrowTaken(id, order.recipient, amount);
+        emit EscrowTaken(id, requester, amount);
 
         // Take escrowed payment
         IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
@@ -113,9 +113,10 @@ contract BuyUnlockedProcessor is OrderProcessor {
 
         // Update escrow tracking
         $._getOrderEscrow[id] = escrow + amount;
-        _increaseEscrowedBalanceOf(order.paymentToken, order.recipient, amount);
+        address requester = _getRequester(id);
+        _increaseEscrowedBalanceOf(order.paymentToken, requester, amount);
         // Notify escrow returned
-        emit EscrowReturned(id, order.recipient, amount);
+        emit EscrowReturned(id, requester, amount);
 
         // Return payment to escrow
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);

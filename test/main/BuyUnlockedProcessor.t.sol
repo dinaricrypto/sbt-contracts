@@ -132,7 +132,7 @@ contract BuyUnlockedProcessorTest is Test {
             issuer.takeEscrow(id, order, takeAmount);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit EscrowTaken(id, order.recipient, takeAmount);
+            emit EscrowTaken(id, user, takeAmount);
             vm.prank(operator);
             issuer.takeEscrow(id, order, takeAmount);
             assertEq(paymentToken.balanceOf(operator), takeAmount);
@@ -173,7 +173,7 @@ contract BuyUnlockedProcessorTest is Test {
             issuer.returnEscrow(id, order, returnAmount);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit EscrowReturned(id, order.recipient, returnAmount);
+            emit EscrowReturned(id, user, returnAmount);
             vm.prank(operator);
             issuer.returnEscrow(id, order, returnAmount);
             assertEq(issuer.getOrderEscrow(id), returnAmount);

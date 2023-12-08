@@ -80,7 +80,6 @@ contract OrderProcessor is
         OrderStatus status;
     }
 
-    // TODO: move to interface
     struct FeeRates {
         uint64 perOrderFeeBuy;
         uint24 percentageFeeRateBuy;
@@ -164,7 +163,7 @@ contract OrderProcessor is
         mapping(uint256 => OrderState) _orders;
         // Persisted order state
         mapping(uint256 => OrderInfo) _orderInfo;
-        // Escrowed balance of asset token
+        // Escrowed balance of asset token per requester
         mapping(address => mapping(address => uint256)) _escrowedBalanceOf;
         // Max order decimals for asset token
         mapping(address => uint256) _maxOrderDecimals;
@@ -249,9 +248,9 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function escrowedBalanceOf(address token, address user) public view override returns (uint256) {
+    function escrowedBalanceOf(address token, address requester) public view override returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._escrowedBalanceOf[token][user];
+        return $._escrowedBalanceOf[token][requester];
     }
 
     /// @inheritdoc IOrderProcessor
@@ -764,6 +763,11 @@ contract OrderProcessor is
     function _getOrderHash(uint256 id) internal view returns (bytes32) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._orders[id].orderHash;
+    }
+
+    function _getRequester(uint256 id) internal view returns (address) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._orders[id].requester;
     }
 
     function _increaseEscrowedBalanceOf(address token, address user, uint256 amount) internal {

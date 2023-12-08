@@ -98,11 +98,11 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getTotalReceived(uint256 id) external view returns (uint256);
 
-    /// @notice This function fetches the total balance held in escrow for a given user and token
+    /// @notice This function fetches the total balance held in escrow for a given requester and token
     /// @param token The address of the token for which the escrowed balance is fetched
-    /// @param user The address of the user for which the escrowed balance is fetched
-    /// @return Returns the total amount of the specific token held in escrow for the given user
-    function escrowedBalanceOf(address token, address user) external view returns (uint256);
+    /// @param requester The address of the requester for which the escrowed balance is fetched
+    /// @return Returns the total amount of the specific token held in escrow for the given requester
+    function escrowedBalanceOf(address token, address requester) external view returns (uint256);
 
     /// @notice This function retrieves the number of decimal places configured for a given token
     /// @param token The address of the token for which the number of decimal places is fetched
