@@ -34,6 +34,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     error ForwarderNotApprovedByProcessor();
     error NotSupportedModule();
     error UnsupportedToken();
+    error InvalidSplitRecipient();
 
     event RelayerSet(address indexed relayer, bool isRelayer);
     event SupportedModuleSet(address indexed module, bool isSupported);
@@ -271,6 +272,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
             _tokenAmountForGas(sellOrderGasCost * tx.gasprice, order.paymentToken, orderPaymentTokenPriceInWei);
         uint256 fee = (sellGasCostInToken * feeBps) / 10000;
         order.splitAmount = sellGasCostInToken + fee;
+
+        _checkSplitRecipient(order.splitRecipient);
         order.splitRecipient = msg.sender;
 
         bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
@@ -325,6 +328,14 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         if (!IOrderProcessor(metaTx.to).hasRole(IOrderProcessor(metaTx.to).FORWARDER_ROLE(), address(this))) {
             revert ForwarderNotApprovedByProcessor();
         }
+    }
+
+    /**
+     * @dev Validates the split recipient address.
+     * @param splitRecipient The address of the split recipient.
+     */
+    function _checkSplitRecipient(address splitRecipient) internal pure {
+        if (splitRecipient != address(0)) revert InvalidSplitRecipient();
     }
 
     /// @inheritdoc IForwarder
