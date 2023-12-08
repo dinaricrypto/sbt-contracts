@@ -10,6 +10,7 @@ import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LimitOrderTest is Test {
     event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
@@ -47,16 +48,27 @@ contract LimitOrderTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new OrderProcessor(
-            admin,
-            treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: 1 ether,
-                percentageFeeRateBuy: 5_000,
-                perOrderFeeSell: 1 ether,
-                percentageFeeRateSell: 5_000
-            }),
-            tokenLockCheck
+        OrderProcessor issuerImpl = new OrderProcessor();
+        issuer = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(issuerImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            admin,
+                            treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: 1 ether,
+                                percentageFeeRateBuy: 5_000,
+                                perOrderFeeSell: 1 ether,
+                                percentageFeeRateSell: 5_000
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
@@ -138,7 +150,7 @@ contract LimitOrderTest is Test {
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
-            feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
+            feesEarned = flatFee + mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
         }
 
         vm.prank(admin);
@@ -157,7 +169,7 @@ contract LimitOrderTest is Test {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
-        } else if (receivedAmount < PrbMath.mulDiv(fillAmount, 1 ether, order.price)) {
+        } else if (receivedAmount < mulDiv(fillAmount, 1 ether, order.price)) {
             vm.expectRevert(OrderProcessor.OrderFillBelowLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
@@ -254,7 +266,7 @@ contract LimitOrderTest is Test {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
-        } else if (receivedAmount < PrbMath.mulDiv18(fillAmount, order.price)) {
+        } else if (receivedAmount < mulDiv18(fillAmount, order.price)) {
             vm.expectRevert(OrderProcessor.OrderFillAboveLimitPrice.selector);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);

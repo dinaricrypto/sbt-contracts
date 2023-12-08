@@ -2,8 +2,7 @@
 pragma solidity 0.8.22;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {OrderProcessor} from "./OrderProcessor.sol";
-import {OrderProcessor, IFeeSchedule, ITokenLockCheck} from "./OrderProcessor.sol";
+import {OrderProcessor, ITokenLockCheck} from "./OrderProcessor.sol";
 
 /// @notice Contract managing market purchase orders for bridged assets with direct payment
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/BuyUnlockedProcessor.sol)
@@ -34,6 +33,7 @@ contract BuyUnlockedProcessor is OrderProcessor {
     /// @dev Escrowed payment has been taken
     error UnreturnedEscrow();
 
+    // TODO: replace recipient with requester
     /// @dev Emitted when `amount` of escrowed payment is taken for order
     event EscrowTaken(uint256 indexed id, address indexed recipient, uint256 amount);
     /// @dev Emitted when `amount` of escrowed payment is returned for order
@@ -41,12 +41,29 @@ contract BuyUnlockedProcessor is OrderProcessor {
 
     /// ------------------ State ------------------ ///
 
-    /// @dev orderId => escrow
-    mapping(uint256 => uint256) public getOrderEscrow;
+    struct BuyUnlockedProcessorStorage {
+        // Order escrow tracking
+        mapping(uint256 => uint256) _getOrderEscrow;
+    }
 
-    constructor(address _owner, address _treasury, FeeRates memory defaultFeeRates, ITokenLockCheck _tokenLockCheck)
-        OrderProcessor(_owner, _treasury, defaultFeeRates, _tokenLockCheck)
-    {}
+    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.BuyUnlockedProcessor")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant BuyUnlockedProcessorStorageLocation =
+        0x9ef2e27f0661cd1c5e17cad73e47154b2655f2434621cc5680ed2d93095efa00;
+
+    function _getBuyUnlockedProcessorStorage() private pure returns (BuyUnlockedProcessorStorage storage $) {
+        assembly {
+            $.slot := BuyUnlockedProcessorStorageLocation
+        }
+    }
+
+    /// ------------------ Getters ------------------ ///
+
+    /// @notice Get the amount of payment token escrowed for an order
+    /// @param id order id
+    function getOrderEscrow(uint256 id) external view returns (uint256) {
+        BuyUnlockedProcessorStorage storage $ = _getBuyUnlockedProcessorStorage();
+        return $._getOrderEscrow[id];
+    }
 
     /// ------------------ Order Lifecycle ------------------ ///
 
@@ -62,12 +79,13 @@ contract BuyUnlockedProcessor is OrderProcessor {
         bytes32 orderHash = _getOrderHash(id);
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
         // Can't take more than escrowed
-        uint256 escrow = getOrderEscrow[id];
+        BuyUnlockedProcessorStorage storage $ = _getBuyUnlockedProcessorStorage();
+        uint256 escrow = $._getOrderEscrow[id];
         if (amount > escrow) revert AmountTooLarge();
 
         // Update escrow tracking
-        getOrderEscrow[id] = escrow - amount;
-        escrowedBalanceOf[order.paymentToken][order.recipient] -= amount;
+        $._getOrderEscrow[id] = escrow - amount;
+        _decreaseEscrowedBalanceOf(order.paymentToken, order.recipient, amount);
         // Notify escrow taken
         emit EscrowTaken(id, order.recipient, amount);
 
@@ -88,13 +106,14 @@ contract BuyUnlockedProcessor is OrderProcessor {
         if (orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
         // Can only return unused amount
         uint256 unfilledAmount = getUnfilledAmount(id);
-        uint256 escrow = getOrderEscrow[id];
+        BuyUnlockedProcessorStorage storage $ = _getBuyUnlockedProcessorStorage();
+        uint256 escrow = $._getOrderEscrow[id];
         // Unused amount = remaining order - remaining escrow
         if (escrow + amount > unfilledAmount) revert AmountTooLarge();
 
         // Update escrow tracking
-        getOrderEscrow[id] = escrow + amount;
-        escrowedBalanceOf[order.paymentToken][order.recipient] += amount;
+        $._getOrderEscrow[id] = escrow + amount;
+        _increaseEscrowedBalanceOf(order.paymentToken, order.recipient, amount);
         // Notify escrow returned
         emit EscrowReturned(id, order.recipient, amount);
 
@@ -109,7 +128,8 @@ contract BuyUnlockedProcessor is OrderProcessor {
         // Compile standard buy order
         super._requestOrderAccounting(id, order);
         // Initialize escrow tracking for order
-        getOrderEscrow[id] = order.paymentTokenQuantity;
+        BuyUnlockedProcessorStorage storage $ = _getBuyUnlockedProcessorStorage();
+        $._getOrderEscrow[id] = order.paymentTokenQuantity;
     }
 
     /// @inheritdoc OrderProcessor
@@ -122,7 +142,8 @@ contract BuyUnlockedProcessor is OrderProcessor {
         uint256 receivedAmount
     ) internal virtual override returns (uint256 paymentEarned, uint256 feesEarned) {
         // Can't fill more than payment previously taken from escrow
-        uint256 escrow = getOrderEscrow[id];
+        BuyUnlockedProcessorStorage storage $ = _getBuyUnlockedProcessorStorage();
+        uint256 escrow = $._getOrderEscrow[id];
         if (fillAmount > unfilledAmount - escrow) revert AmountTooLarge();
 
         paymentEarned = 0;
@@ -137,11 +158,12 @@ contract BuyUnlockedProcessor is OrderProcessor {
         uint256 unfilledAmount
     ) internal virtual override returns (uint256 refund) {
         // Prohibit cancel if escrowed payment has been taken and not returned or filled
-        uint256 escrow = getOrderEscrow[id];
+        BuyUnlockedProcessorStorage storage $ = _getBuyUnlockedProcessorStorage();
+        uint256 escrow = $._getOrderEscrow[id];
         if (unfilledAmount != escrow) revert UnreturnedEscrow();
 
         // Clear the escrow record
-        delete getOrderEscrow[id];
+        delete $._getOrderEscrow[id];
 
         // Standard buy order accounting
         refund = super._cancelOrderAccounting(id, order, orderState, unfilledAmount);

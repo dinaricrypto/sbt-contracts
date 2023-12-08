@@ -8,6 +8,7 @@ import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
     struct DeployConfig {
@@ -66,28 +67,50 @@ contract DeployAllScript is Script {
         // add USDT.e
         tokenLockCheck.setCallSelector(cfg.usdt, this.isBlocked.selector);
 
-        OrderProcessor orderProcessor = new OrderProcessor(
-            cfg.deployer,
-            cfg.treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: perOrderFee,
-                percentageFeeRateBuy: percentageFeeRate,
-                perOrderFeeSell: perOrderFee,
-                percentageFeeRateSell: percentageFeeRate
-            }),
-            tokenLockCheck
+        OrderProcessor orderProcessorImpl = new OrderProcessor();
+        OrderProcessor orderProcessor = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(orderProcessorImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            cfg.deployer,
+                            cfg.treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: perOrderFee,
+                                percentageFeeRateBuy: percentageFeeRate,
+                                perOrderFeeSell: perOrderFee,
+                                percentageFeeRateSell: percentageFeeRate
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
-        BuyUnlockedProcessor directBuyIssuer = new BuyUnlockedProcessor(
-            cfg.deployer,
-            cfg.treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: perOrderFee,
-                percentageFeeRateBuy: percentageFeeRate,
-                perOrderFeeSell: perOrderFee,
-                percentageFeeRateSell: percentageFeeRate
-            }),
-            tokenLockCheck
+        BuyUnlockedProcessor directBuyIssuerImpl = new BuyUnlockedProcessor();
+        BuyUnlockedProcessor directBuyIssuer = BuyUnlockedProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(directBuyIssuerImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            cfg.deployer,
+                            cfg.treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: perOrderFee,
+                                percentageFeeRateBuy: percentageFeeRate,
+                                perOrderFeeSell: perOrderFee,
+                                percentageFeeRateSell: percentageFeeRate
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
         // config operator

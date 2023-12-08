@@ -10,6 +10,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {FeeLib} from "../../src/common/FeeLib.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract BuyUnlockedProcessorTest is Test {
     event EscrowTaken(uint256 indexed id, address indexed recipient, uint256 amount);
@@ -55,16 +56,27 @@ contract BuyUnlockedProcessorTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new BuyUnlockedProcessor(
-            admin,
-            treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: 1 ether,
-                percentageFeeRateBuy: 5_000,
-                perOrderFeeSell: 1 ether,
-                percentageFeeRateSell: 5_000
-            }),
-            tokenLockCheck
+        BuyUnlockedProcessor issuerImpl = new BuyUnlockedProcessor();
+        issuer = BuyUnlockedProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(issuerImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            admin,
+                            treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: 1 ether,
+                                percentageFeeRateBuy: 5_000,
+                                perOrderFeeSell: 1 ether,
+                                percentageFeeRateSell: 5_000
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
         token.grantRole(token.MINTER_ROLE(), admin);

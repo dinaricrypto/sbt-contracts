@@ -14,6 +14,7 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {ERC20, MockERC20} from "solady/test/utils/mocks/MockERC20.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 // test that forwarder and processors do not assume dShares are dShares
 contract dShareCompatTest is Test {
@@ -71,16 +72,27 @@ contract dShareCompatTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new OrderProcessor(
-            admin,
-            treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: 1 ether,
-                percentageFeeRateBuy: 5_000,
-                perOrderFeeSell: 1 ether,
-                percentageFeeRateSell: 5_000
-            }),
-            tokenLockCheck
+        OrderProcessor issuerImpl = new OrderProcessor();
+        issuer = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(issuerImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            admin,
+                            treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: 1 ether,
+                                percentageFeeRateBuy: 5_000,
+                                perOrderFeeSell: 1 ether,
+                                percentageFeeRateSell: 5_000
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
         vm.startPrank(admin);
