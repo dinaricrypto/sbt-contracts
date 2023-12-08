@@ -13,6 +13,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
@@ -55,16 +56,27 @@ contract BuyProcessorRequestTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        issuer = new OrderProcessor(
-            admin,
-            treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: 1 ether,
-                percentageFeeRateBuy: 5_000,
-                perOrderFeeSell: 1 ether,
-                percentageFeeRateSell: 5_000
-            }),
-            tokenLockCheck
+        OrderProcessor issuerImpl = new OrderProcessor();
+        issuer = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(issuerImpl),
+                    abi.encodeCall(
+                        issuerImpl.initialize,
+                        (
+                            admin,
+                            treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: 1 ether,
+                                percentageFeeRateBuy: 5_000,
+                                perOrderFeeSell: 1 ether,
+                                percentageFeeRateSell: 5_000
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
         token.grantRole(token.MINTER_ROLE(), admin);

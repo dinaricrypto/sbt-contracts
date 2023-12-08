@@ -14,8 +14,9 @@ import "../../utils/SigMetaUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
-// additional tests for gas profiling
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+// additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
     OrderProcessor public issuer;
@@ -74,16 +75,27 @@ contract ForwarderRequestCancelTest is Test {
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new OrderProcessor(
-            admin,
-            treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: 1 ether,
-                percentageFeeRateBuy: 5_000,
-                perOrderFeeSell: 1 ether,
-                percentageFeeRateSell: 5_000
-            }),
-            tokenLockCheck
+        OrderProcessor issuerImpl = new OrderProcessor();
+        issuer = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(issuerImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            admin,
+                            treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: 1 ether,
+                                percentageFeeRateBuy: 5_000,
+                                perOrderFeeSell: 1 ether,
+                                percentageFeeRateSell: 5_000
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
         vm.startPrank(admin);

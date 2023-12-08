@@ -13,6 +13,7 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract OrderProcessorTest is Test {
     event TreasurySet(address indexed treasury);
@@ -63,16 +64,27 @@ contract OrderProcessorTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
-        issuer = new OrderProcessor(
-            admin,
-            treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: 1 ether,
-                percentageFeeRateBuy: 5_000,
-                perOrderFeeSell: 1 ether,
-                percentageFeeRateSell: 5_000
-            }),
-            tokenLockCheck
+        OrderProcessor issuerImpl = new OrderProcessor();
+        issuer = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(issuerImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            admin,
+                            treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: 1 ether,
+                                percentageFeeRateBuy: 5_000,
+                                perOrderFeeSell: 1 ether,
+                                percentageFeeRateSell: 5_000
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
         token.grantRole(token.MINTER_ROLE(), admin);
@@ -172,7 +184,7 @@ contract OrderProcessorTest is Test {
             assertEq(newRates.percentageFeeRateSell, percentageFee);
             assertEq(
                 FeeLib.percentageFeeForValue(value, newRates.percentageFeeRateBuy),
-                PrbMath.mulDiv(value, percentageFee, 1_000_000)
+                mulDiv(value, percentageFee, 1_000_000)
             );
             MockERC20 newToken = new MockERC20("Test Token", "TEST", tokenDecimals);
             if (tokenDecimals > 18) {
@@ -428,7 +440,7 @@ contract OrderProcessorTest is Test {
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
-            feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
+            feesEarned = flatFee + mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
         }
         vm.prank(admin);
         paymentToken.mint(user, quantityIn);
@@ -487,7 +499,7 @@ contract OrderProcessorTest is Test {
             if (receivedAmount <= flatFee) {
                 feesEarned = receivedAmount;
             } else {
-                feesEarned = flatFee + PrbMath.mulDiv18(receivedAmount - flatFee, percentageFeeRate);
+                feesEarned = flatFee + mulDiv18(receivedAmount - flatFee, percentageFeeRate);
             }
         }
 
@@ -612,7 +624,7 @@ contract OrderProcessorTest is Test {
             if (receivedAmount <= flatFee) {
                 feesEarned = receivedAmount;
             } else {
-                feesEarned = flatFee + PrbMath.mulDiv18(receivedAmount - flatFee, percentageFeeRate);
+                feesEarned = flatFee + mulDiv18(receivedAmount - flatFee, percentageFeeRate);
             }
         }
 
@@ -729,7 +741,7 @@ contract OrderProcessorTest is Test {
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {
-            feesEarned = flatFee + PrbMath.mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
+            feesEarned = flatFee + mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, 100);
         }

@@ -14,6 +14,7 @@ import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllSandboxScript is Script {
     struct DeployConfig {
@@ -38,7 +39,9 @@ contract DeployAllSandboxScript is Script {
         UpgradeableBeacon wrappeddShareBeacon;
         WrappedDShare[] wrappeddShares;
         TokenLockCheck tokenLockCheck;
+        OrderProcessor orderProcessorImplementation;
         OrderProcessor orderProcessor;
+        BuyUnlockedProcessor directBuyIssuerImplementation;
         BuyUnlockedProcessor directBuyIssuer;
         Forwarder forwarder;
         DividendDistribution dividendDistributor;
@@ -171,28 +174,50 @@ contract DeployAllSandboxScript is Script {
         // add USDC.e
         deployments.tokenLockCheck.setCallSelector(address(deployments.usdce), deployments.usdce.isBlacklisted.selector);
 
-        deployments.orderProcessor = new OrderProcessor(
-            cfg.deployer,
-            cfg.treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: perOrderFee,
-                percentageFeeRateBuy: percentageFeeRate,
-                perOrderFeeSell: perOrderFee,
-                percentageFeeRateSell: percentageFeeRate
-            }),
-            deployments.tokenLockCheck
+        deployments.orderProcessorImplementation = new OrderProcessor();
+        deployments.orderProcessor = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(deployments.orderProcessorImplementation),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            cfg.deployer,
+                            cfg.treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: perOrderFee,
+                                percentageFeeRateBuy: percentageFeeRate,
+                                perOrderFeeSell: perOrderFee,
+                                percentageFeeRateSell: percentageFeeRate
+                            }),
+                            deployments.tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
-        deployments.directBuyIssuer = new BuyUnlockedProcessor(
-            cfg.deployer,
-            cfg.treasury,
-            OrderProcessor.FeeRates({
-                perOrderFeeBuy: perOrderFee,
-                percentageFeeRateBuy: percentageFeeRate,
-                perOrderFeeSell: perOrderFee,
-                percentageFeeRateSell: percentageFeeRate
-            }),
-            deployments.tokenLockCheck
+        deployments.directBuyIssuerImplementation = new BuyUnlockedProcessor();
+        deployments.directBuyIssuer = BuyUnlockedProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(deployments.directBuyIssuerImplementation),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            cfg.deployer,
+                            cfg.treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: perOrderFee,
+                                percentageFeeRateBuy: percentageFeeRate,
+                                perOrderFeeSell: perOrderFee,
+                                percentageFeeRateSell: percentageFeeRate
+                            }),
+                            deployments.tokenLockCheck
+                        )
+                    )
+                )
+            )
         );
 
         // config operator
