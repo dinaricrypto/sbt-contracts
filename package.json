@@ -16,7 +16,7 @@
     "coverage": "./script/coverage.sh",
     "snapshot": "forge snapshot --match-path 'test/main/**/*'",
     "snapshot:fork": "./script/snapshot-fork.sh",
-    "gas": "forge test --match-path 'test/main/**/*' --gas-report --fuzz-seed 1 | grep '^|' > .gas-report",
+    "gas": "./script/gasreport.sh",
     "gas:fork": "./script/gas-fork.sh",
     "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
     "deployall:arb": "./script/deployall-arb-noverify.sh",
