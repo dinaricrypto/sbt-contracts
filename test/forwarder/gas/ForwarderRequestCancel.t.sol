@@ -3,24 +3,25 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {Forwarder, IForwarder} from "../../../src/forwarder/Forwarder.sol";
-import {Nonces} from "../../../src/common/Nonces.sol";
+import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
-import {BuyProcessor, OrderProcessor} from "../../../src/orders/BuyProcessor.sol";
+import {OrderProcessor} from "../../../src/orders/OrderProcessor.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/IOrderProcessor.sol";
 import "../../utils/mocks/MockToken.sol";
-import "../../utils/mocks/MockdShareFactory.sol";
+import "../../utils/mocks/MockDShareFactory.sol";
 import "../../utils/SigMetaUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
-// additional tests for gas profiling
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
+// additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {
     Forwarder public forwarder;
-    BuyProcessor public issuer;
+    OrderProcessor public issuer;
     MockToken public paymentToken;
-    MockdShareFactory public tokenFactory;
+    MockDShareFactory public tokenFactory;
     DShare public token;
 
     SigMetaUtils public sigMeta;
@@ -34,6 +35,7 @@ contract ForwarderRequestCancelTest is Test {
     uint256 public userPrivateKey;
     uint256 public relayerPrivateKey;
     uint256 public ownerPrivateKey;
+    uint256 public adminPrivateKey;
     uint256 flatFee;
     uint256 dummyOrderFees;
     // price of payment token in wei, accounting for decimals
@@ -42,11 +44,13 @@ contract ForwarderRequestCancelTest is Test {
     address public user;
     address public relayer;
     address public owner;
+    address public admin;
     address constant treasury = address(4);
     address constant operator = address(3);
     address constant ethUSDOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
     address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
 
+    uint256 constant SELL_GAS_COST = 1000000;
     uint64 priceRecencyThreshold = 30 seconds;
     bytes dataCancel;
 
@@ -54,40 +58,70 @@ contract ForwarderRequestCancelTest is Test {
         userPrivateKey = 0x01;
         relayerPrivateKey = 0x02;
         ownerPrivateKey = 0x03;
+        adminPrivateKey = 0x04;
         relayer = vm.addr(relayerPrivateKey);
         user = vm.addr(userPrivateKey);
         owner = vm.addr(ownerPrivateKey);
+        admin = vm.addr(adminPrivateKey);
 
-        tokenFactory = new MockdShareFactory();
+        vm.startPrank(admin);
+        tokenFactory = new MockDShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        vm.stopPrank();
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
         // e.g. (1 ether / 1867) * (0.997 / 10 ** paymentToken.decimals());
         paymentTokenPrice = uint256(0.997 ether) / 1867 / 10 ** paymentToken.decimals();
 
-        issuer = new BuyProcessor(address(this), treasury, 1 ether, 5_000, tokenLockCheck);
+        OrderProcessor issuerImpl = new OrderProcessor();
+        issuer = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(issuerImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            admin,
+                            treasury,
+                            OrderProcessor.FeeRates({
+                                perOrderFeeBuy: 1 ether,
+                                percentageFeeRateBuy: 5_000,
+                                perOrderFeeSell: 1 ether,
+                                percentageFeeRateSell: 5_000
+                            }),
+                            tokenLockCheck
+                        )
+                    )
+                )
+            )
+        );
 
-        token.grantRole(token.MINTER_ROLE(), address(this));
+        vm.startPrank(admin);
+        token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        vm.stopPrank();
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(ethUSDOracle);
+        forwarder = new Forwarder(ethUSDOracle, SELL_GAS_COST);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setRelayer(relayer, true);
         forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
         vm.stopPrank();
 
+        vm.startPrank(admin);
         issuer.grantRole(issuer.FORWARDER_ROLE(), address(forwarder));
 
         sigMeta = new SigMetaUtils(forwarder.DOMAIN_SEPARATOR());
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
+
+        vm.stopPrank();
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
@@ -101,7 +135,9 @@ contract ForwarderRequestCancelTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC
+            tif: IOrderProcessor.TIF.GTC,
+            splitAmount: 0,
+            splitRecipient: address(0)
         });
 
         // set fees
@@ -112,18 +148,18 @@ contract ForwarderRequestCancelTest is Test {
 
         deal(address(paymentToken), user, (dummyOrder.paymentTokenQuantity + fees) * 1e6);
 
-        dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, user, 0);
+        dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
         bytes memory dataRequest = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
 
         uint256 nonce = 0;
 
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), dataRequest, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), dataRequest, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
 
         // set a request
         vm.prank(relayer);
@@ -134,12 +170,12 @@ contract ForwarderRequestCancelTest is Test {
         uint256 nonce = 1;
 
         IForwarder.ForwardRequest memory metaTx =
-            prepareForwardRequest(user, address(issuer), address(paymentToken), dataCancel, nonce, userPrivateKey);
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(paymentSigUtils, address(paymentToken), user, userPrivateKey, nonce);
-        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardFunctionCall.selector, metaTx);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx);
 
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
@@ -167,18 +203,14 @@ contract ForwarderRequestCancelTest is Test {
         );
     }
 
-    function prepareForwardRequest(
-        address _user,
-        address to,
-        address _paymentToken,
-        bytes memory data,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.ForwardRequest memory metaTx) {
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
+        internal
+        view
+        returns (IForwarder.ForwardRequest memory metaTx)
+    {
         SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            paymentToken: _paymentToken,
             data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
@@ -190,7 +222,6 @@ contract ForwarderRequestCancelTest is Test {
         metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            paymentToken: _paymentToken,
             data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,

@@ -59,53 +59,50 @@ interface IOrderProcessor {
         uint256 price;
         // Time in force
         TIF tif;
+        // Account receiving split amount
+        address splitRecipient;
+        // Received amount filled to secondary address first
+        uint256 splitAmount;
     }
 
-    /// @dev Fully specifies order details and index used to generate order ID
-    event OrderRequested(address indexed recipient, uint256 indexed index, Order order);
+    /// @dev Fully specifies order details and order ID
+    event OrderRequested(uint256 indexed id, address indexed requester, Order order);
     /// @dev Emitted for each fill
     event OrderFill(
-        address indexed recipient, uint256 indexed index, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+        uint256 indexed id, address indexed requester, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
     );
     /// @dev Emitted when order is completely filled, terminal
-    event OrderFulfilled(address indexed recipient, uint256 indexed index);
+    event OrderFulfilled(uint256 indexed id, address indexed requester);
     /// @dev Emitted when order cancellation is requested
-    event CancelRequested(address indexed recipient, uint256 indexed index);
+    event CancelRequested(uint256 indexed id, address indexed requester);
     /// @dev Emitted when order is cancelled, terminal
-    event OrderCancelled(address indexed recipient, uint256 indexed index, string reason);
+    event OrderCancelled(uint256 indexed id, address indexed requester, string reason);
 
     /// ------------------ Getters ------------------ ///
 
     /// @notice Total number of open orders
     function numOpenOrders() external view returns (uint256);
 
-    /// @notice Next order index to use for onchain enumeration of orders per recipient
-    /// @param recipient Recipient of order fills
-    function nextOrderIndex(address recipient) external view returns (uint256);
-
-    /// @notice Get order ID from order recipient and index
-    /// @param recipient Recipient of order fills
-    /// @param index Recipient order index
-    /// @dev Order ID is used as key to store order state
-    function getOrderId(address recipient, uint256 index) external pure returns (bytes32);
+    /// @notice Next order id to be used
+    function nextOrderId() external view returns (uint256);
 
     /// @notice Status of a given order
     /// @param id Order ID
-    function getOrderStatus(bytes32 id) external view returns (OrderStatus);
+    function getOrderStatus(uint256 id) external view returns (OrderStatus);
 
     /// @notice Get remaining order quantity to fill
     /// @param id Order ID
-    function getUnfilledAmount(bytes32 id) external view returns (uint256);
+    function getUnfilledAmount(uint256 id) external view returns (uint256);
 
     /// @notice Get total received for order
     /// @param id Order ID
-    function getTotalReceived(bytes32 id) external view returns (uint256);
+    function getTotalReceived(uint256 id) external view returns (uint256);
 
-    /// @notice This function fetches the total balance held in escrow for a given user and token
+    /// @notice This function fetches the total balance held in escrow for a given requester and token
     /// @param token The address of the token for which the escrowed balance is fetched
-    /// @param user The address of the user for which the escrowed balance is fetched
-    /// @return Returns the total amount of the specific token held in escrow for the given user
-    function escrowedBalanceOf(address token, address user) external view returns (uint256);
+    /// @param requester The address of the requester for which the escrowed balance is fetched
+    /// @return Returns the total amount of the specific token held in escrow for the given requester
+    function escrowedBalanceOf(address token, address requester) external view returns (uint256);
 
     /// @notice This function retrieves the number of decimal places configured for a given token
     /// @param token The address of the token for which the number of decimal places is fetched
@@ -141,28 +138,28 @@ interface IOrderProcessor {
 
     /// @notice Request an order
     /// @param order Order request to submit
+    /// @return id Order id
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
     function requestOrder(Order calldata order) external returns (uint256);
 
     /// @notice Fill an order
+    /// @param id order id
     /// @param order Order request to fill
-    /// @param index order index
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    function fillOrder(Order calldata order, uint256 index, uint256 fillAmount, uint256 receivedAmount) external;
+    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
 
     /// @notice Request to cancel an order
-    /// @param recipient Recipient of order fills
-    /// @param index Order index
+    /// @param id Order id
     /// @dev Only callable by initial order requester
     /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
-    function requestCancel(address recipient, uint256 index) external;
+    function requestCancel(uint256 id) external;
 
     /// @notice Cancel an order
+    /// @param order id
     /// @param order Order request to cancel
-    /// @param order index
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(Order calldata order, uint256 index, string calldata reason) external;
+    function cancelOrder(uint256 id, Order calldata order, string calldata reason) external;
 }

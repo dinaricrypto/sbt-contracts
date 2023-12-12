@@ -6,7 +6,7 @@ import {TransferRestrictor} from "../../../src/TransferRestrictor.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
-contract MockdShareFactory {
+contract MockDShareFactory {
     DShare public implementation;
     TransferRestrictor public transferRestrictor;
     UpgradeableBeacon public beacon;

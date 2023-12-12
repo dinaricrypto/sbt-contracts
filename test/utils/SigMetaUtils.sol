@@ -3,9 +3,8 @@ pragma solidity 0.8.22;
 
 contract SigMetaUtils {
     bytes32 internal immutable DOMAIN_SEPARATOR;
-    bytes private constant FORWARDREQUEST_TYPE = abi.encodePacked(
-        "ForwardRequest(address user,address to,address paymentToken,bytes data,uint64 deadline,uint256 nonce)"
-    );
+    bytes private constant FORWARDREQUEST_TYPE =
+        abi.encodePacked("ForwardRequest(address user,address to,bytes data,uint64 deadline,uint256 nonce)");
     bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
 
     constructor(bytes32 _DOMAIN_SEPARATOR) {
@@ -15,7 +14,6 @@ contract SigMetaUtils {
     struct ForwardRequest {
         address user;
         address to;
-        address paymentToken;
         bytes data;
         uint64 deadline;
         uint256 nonce;
@@ -24,13 +22,7 @@ contract SigMetaUtils {
     function _hashForwardRequest(ForwardRequest calldata metaTx) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                FORWARDREQUEST_TYPEHASH,
-                metaTx.user,
-                metaTx.to,
-                metaTx.paymentToken,
-                keccak256(metaTx.data),
-                metaTx.deadline,
-                metaTx.nonce
+                FORWARDREQUEST_TYPEHASH, metaTx.user, metaTx.to, keccak256(metaTx.data), metaTx.deadline, metaTx.nonce
             )
         );
     }

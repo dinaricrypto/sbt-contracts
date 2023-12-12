@@ -10,62 +10,47 @@ import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract DeployAllScript is Script {
+contract DeployScript is Script {
+    // TODO: vault, fulfillment router
     struct DeployConfig {
         address deployer;
-        // address owner;
+        ITokenLockCheck tokenLockCheck;
         address treasury;
         address operator;
         address operator2;
         address usdc;
-        address usdt;
+        address usdcOracle;
+        address ethUsdOracle;
         address relayer;
-        address oracle;
     }
-
-    // Tether
-    mapping(address => bool) public isBlocked;
 
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
-    uint256 constant SELL_GAS_COST = 1000000;
+    uint256 constant SELL_GAS_COST = 421502;
+    uint256 constant CANCEL_GAS_COST = 64523;
+    uint16 constant FORWARDER_FEE_BPS = 2000;
 
     function run() external {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
-        // uint256 ownerKey = vm.envUint("OWNER_KEY");
         DeployConfig memory cfg = DeployConfig({
             deployer: vm.addr(deployerPrivateKey),
-            // owner: vm.addr(ownerKey),
+            tokenLockCheck: TokenLockCheck(vm.envAddress("TOKENLOCKCHECK")),
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
             operator2: vm.envAddress("OPERATOR2"),
             usdc: vm.envAddress("USDC"),
-            usdt: vm.envAddress("USDT"),
-            // usdt: address(0),
-            relayer: vm.envAddress("RELAYER"),
-            oracle: vm.envAddress("ORACLE")
+            usdcOracle: vm.envAddress("USDCORACLE"),
+            ethUsdOracle: vm.envAddress("ETHUSDORACLE"),
+            relayer: vm.envAddress("RELAYER")
         });
-        address usdcoracle = vm.envAddress("USDCORACLE");
-        address usdtoracle = vm.envAddress("USDTORACLE");
-        address ethusdoracle = vm.envAddress("ETHUSDORACLE");
-
-        address usdce = 0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8;
 
         console.log("deployer: %s", cfg.deployer);
-        // console.log("owner: %s", cfg.owner);
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
         /// ------------------ order processors ------------------
-
-        // deploy blacklist prechecker
-        TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, address(0));
-        // add USDC.e
-        tokenLockCheck.setCallSelector(usdce, IERC20Usdc.isBlacklisted.selector);
-        // add USDT.e
-        tokenLockCheck.setCallSelector(cfg.usdt, this.isBlocked.selector);
 
         OrderProcessor orderProcessorImpl = new OrderProcessor();
         OrderProcessor orderProcessor = OrderProcessor(
@@ -83,7 +68,7 @@ contract DeployAllScript is Script {
                                 perOrderFeeSell: perOrderFee,
                                 percentageFeeRateSell: percentageFeeRate
                             }),
-                            tokenLockCheck
+                            cfg.tokenLockCheck
                         )
                     )
                 )
@@ -106,7 +91,7 @@ contract DeployAllScript is Script {
                                 perOrderFeeSell: perOrderFee,
                                 percentageFeeRateSell: percentageFeeRate
                             }),
-                            tokenLockCheck
+                            cfg.tokenLockCheck
                         )
                     )
                 )
@@ -123,20 +108,13 @@ contract DeployAllScript is Script {
         orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
 
-        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
-        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdt);
-
-        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), usdce);
-        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), usdce);
-
         /// ------------------ forwarder ------------------
 
-        Forwarder forwarder = new Forwarder(ethusdoracle, SELL_GAS_COST);
-        forwarder.setFeeBps(2000);
+        Forwarder forwarder = new Forwarder(cfg.ethUsdOracle, SELL_GAS_COST);
+        forwarder.setCancellationGasCost(CANCEL_GAS_COST);
+        forwarder.setFeeBps(FORWARDER_FEE_BPS);
 
-        forwarder.setPaymentOracle(address(cfg.usdc), usdcoracle);
-        forwarder.setPaymentOracle(address(usdce), usdcoracle);
-        forwarder.setPaymentOracle(address(cfg.usdt), usdtoracle);
+        forwarder.setPaymentOracle(address(cfg.usdc), cfg.usdcOracle);
 
         forwarder.setSupportedModule(address(orderProcessor), true);
         forwarder.setSupportedModule(address(directBuyIssuer), true);
@@ -146,26 +124,6 @@ contract DeployAllScript is Script {
         orderProcessor.grantRole(orderProcessor.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
 
-        /// ------------------ dividend distributor ------------------
-
-        // new DividendDistribution(cfg.deployer);
-
-        // add dividend operator
-
-        /// ------------------ dShares ------------------
-
-        // transfer ownership
-        // orderProcessor.beginDefaultAdminTransfer(owner);
-        // directBuyIssuer.beginDefaultAdminTransfer(owner);
-
         vm.stopBroadcast();
-
-        // // accept ownership transfer
-        // vm.startBroadcast(owner);
-
-        // orderProcessor.acceptDefaultAdminTransfer();
-        // directBuyIssuer.acceptDefaultAdminTransfer();
-
-        // vm.stopBroadcast();
     }
 }
