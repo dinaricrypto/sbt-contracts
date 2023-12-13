@@ -22,14 +22,11 @@ import {FeeLib} from "../common/FeeLib.sol";
 import {IForwarder} from "../forwarder/IForwarder.sol";
 
 /// @notice Base contract managing orders for bridged assets
-/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
-/// Orders are submitted by users and filled by operators
-/// Handling of fees is left to the inheriting contract
-/// Each inheritor can craft a unique order processing flow
-/// It is recommended that implementations offer a single process for all orders
-///   This maintains clarity for users and for interpreting contract token balances
-/// Specifies a generic order request struct such that
-///   inheriting contracts must implement unique request methods to handle multiple order processes simultaneously
+/// Orders are submitted by users, emitted by the contract, and filled by operators
+/// Fees are accumulated as order is filled
+/// The incoming token is escrowed until the order is filled or cancelled
+/// The incoming token is refunded if the order is cancelled
+/// Implicitly assumes that asset tokens are dShare and can be burned
 /// Order lifecycle (fulfillment):
 ///   1. User requests an order (requestOrder)
 ///   2. [Optional] Operator partially fills the order (fillOrder)
@@ -39,6 +36,7 @@ import {IForwarder} from "../forwarder/IForwarder.sol";
 ///   2. [Optional] Operator partially fills the order (fillOrder)
 ///   3. [Optional] User requests cancellation (requestCancel)
 ///   4. Operator cancels the order (cancelOrder)
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
 contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
