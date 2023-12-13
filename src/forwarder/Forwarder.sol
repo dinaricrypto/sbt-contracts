@@ -265,6 +265,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
 
         if (!order.sell) revert UnsupportedCall();
+        if (order.splitRecipient != address(0)) revert InvalidSplitRecipient();
 
         // Configure order to take network fee from proceeds
         uint256 orderPaymentTokenPriceInWei = getPaymentPriceInWei(order.paymentToken);
@@ -273,7 +274,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         uint256 fee = (sellGasCostInToken * feeBps) / 10000;
         order.splitAmount = sellGasCostInToken + fee;
 
-        _checkSplitRecipient(order.splitRecipient);
         order.splitRecipient = msg.sender;
 
         bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
@@ -328,14 +328,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         if (!IOrderProcessor(metaTx.to).hasRole(IOrderProcessor(metaTx.to).FORWARDER_ROLE(), address(this))) {
             revert ForwarderNotApprovedByProcessor();
         }
-    }
-
-    /**
-     * @dev Validates the split recipient address.
-     * @param splitRecipient The address of the split recipient.
-     */
-    function _checkSplitRecipient(address splitRecipient) internal pure {
-        if (splitRecipient != address(0)) revert InvalidSplitRecipient();
     }
 
     /// @inheritdoc IForwarder
