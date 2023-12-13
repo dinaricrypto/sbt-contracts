@@ -436,6 +436,36 @@ contract ForwarderTest is Test {
         assertEq(hashRequest, _hash);
     }
 
+    function testSellOrderRevertSplitRecipientSet(address _splitRecipient) public {
+        vm.assume(_splitRecipient != address(0));
+        IOrderProcessor.Order memory order = dummyOrder;
+        order.sell = true;
+        order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
+        order.splitRecipient = _splitRecipient;
+
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
+        uint256 nonce = 0;
+
+        deal(address(token), user, order.assetTokenQuantity * 1e6);
+
+        //  Prepare ForwardRequest
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
+
+        // calldata
+        bytes[] memory multicalldata = new bytes[](3);
+        multicalldata[0] =
+            preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
+        multicalldata[1] =
+            preparePermitCall(shareSigUtils, address(token), type(uint256).max, user, userPrivateKey, nonce);
+        multicalldata[2] = abi.encodeWithSelector(forwarder.forwardRequestSellOrder.selector, metaTx);
+
+        vm.expectRevert(Forwarder.InvalidSplitRecipient.selector);
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
+    }
+
     function testSellOrder(uint256 receivedAmount) public {
         vm.assume(receivedAmount > 10 ** paymentToken.decimals());
 

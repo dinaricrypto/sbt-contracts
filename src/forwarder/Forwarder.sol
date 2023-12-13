@@ -34,6 +34,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     error ForwarderNotApprovedByProcessor();
     error NotSupportedModule();
     error UnsupportedToken();
+    error InvalidSplitRecipient();
 
     event RelayerSet(address indexed relayer, bool isRelayer);
     event SupportedModuleSet(address indexed module, bool isSupported);
@@ -264,6 +265,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
 
         if (!order.sell) revert UnsupportedCall();
+        if (order.splitRecipient != address(0)) revert InvalidSplitRecipient();
 
         // Configure order to take network fee from proceeds
         uint256 orderPaymentTokenPriceInWei = getPaymentPriceInWei(order.paymentToken);
@@ -271,6 +273,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
             _tokenAmountForGas(sellOrderGasCost * tx.gasprice, order.paymentToken, orderPaymentTokenPriceInWei);
         uint256 fee = (sellGasCostInToken * feeBps) / 10000;
         order.splitAmount = sellGasCostInToken + fee;
+
         order.splitRecipient = msg.sender;
 
         bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
