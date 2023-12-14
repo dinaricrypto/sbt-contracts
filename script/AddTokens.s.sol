@@ -9,9 +9,9 @@ import {DShare} from "../src/DShare.sol";
 contract AddTokensScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         OrderProcessor issuer = OrderProcessor(vm.envAddress("ISSUER"));
-        BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("DIRECT_ISSUER"));
+        BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("UNLOCKED_ISSUER"));
 
         address[1] memory paymentTokens = [
             0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F // fake USDC

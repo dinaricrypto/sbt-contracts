@@ -7,6 +7,7 @@ import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
+import {DShare} from "../src/DShare.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -107,6 +108,24 @@ contract DeployScript is Script {
         // config payment token
         orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
         directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
+
+        // config asset token
+        address[5] memory assetTokens = [
+            0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D,
+            0x1128E84D3Feae1FAb65c36508bCA6E1FA55a7172,
+            0xd75870ab648E5158E07Fe0A3141AbcBd4Ac329aa,
+            0x54c0f59d9a8CF63423A7137e6bcD8e9bA169216e,
+            0x0c55e03b976a57B13Bf7Faa592e5df367c57f1F1
+        ];
+        for (uint256 i = 0; i < assetTokens.length; i++) {
+            orderProcessor.grantRole(orderProcessor.ASSETTOKEN_ROLE(), assetTokens[i]);
+            directBuyIssuer.grantRole(directBuyIssuer.ASSETTOKEN_ROLE(), assetTokens[i]);
+
+            DShare assetToken = DShare(assetTokens[i]);
+            assetToken.grantRole(assetToken.MINTER_ROLE(), address(orderProcessor));
+            assetToken.grantRole(assetToken.BURNER_ROLE(), address(orderProcessor));
+            assetToken.grantRole(assetToken.MINTER_ROLE(), address(directBuyIssuer));
+        }
 
         /// ------------------ forwarder ------------------
 
