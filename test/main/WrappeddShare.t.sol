@@ -10,6 +10,9 @@ import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 
 contract WrappedDShareTest is Test {
+    event NameSet(string name);
+    event SymbolSet(string symbol);
+
     TransferRestrictor public restrictor;
     DShare public token;
     WrappedDShare public xToken;
@@ -62,6 +65,22 @@ contract WrappedDShareTest is Test {
         assertEq(xToken.symbol(), "dTKN.d.x");
         assertEq(xToken.decimals(), 18);
         assertEq(xToken.asset(), address(token));
+    }
+
+    function testSetName(string memory name) public {
+        vm.expectEmit(true, true, true, true);
+        emit NameSet(name);
+        vm.prank(admin);
+        xToken.setName(name);
+        assertEq(xToken.name(), name);
+    }
+
+    function testSetSymbol(string memory symbol) public {
+        vm.expectEmit(true, true, true, true);
+        emit SymbolSet(symbol);
+        vm.prank(admin);
+        xToken.setSymbol(symbol);
+        assertEq(xToken.symbol(), symbol);
     }
 
     function testMint(uint128 amount, address receiver) public {
