@@ -22,6 +22,9 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
 
     using SafeERC20 for IERC20;
 
+    event NameSet(string name);
+    event SymbolSet(string symbol);
+
     /// ------------------- State ------------------- ///
 
     struct WrappedDShareStorage {
@@ -55,6 +58,28 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
+    }
+
+    /// ------------------- Administration ------------------- ///
+
+    /**
+     * @dev Sets the name of the WrappedDShare token.
+     * @param name_ The new name.
+     */
+    function setName(string memory name_) external onlyOwner {
+        WrappedDShareStorage storage $ = _getWrappedDShareStorage();
+        $._name = name_;
+        emit NameSet(name_);
+    }
+
+    /**
+     * @dev Sets the symbol of the WrappedDShare token.
+     * @param symbol_ The new symbol.
+     */
+    function setSymbol(string memory symbol_) external onlyOwner {
+        WrappedDShareStorage storage $ = _getWrappedDShareStorage();
+        $._symbol = symbol_;
+        emit SymbolSet(symbol_);
     }
 
     /// ------------------- Getters ------------------- ///
