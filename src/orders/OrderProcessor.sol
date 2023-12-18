@@ -12,6 +12,7 @@ import {
 } from "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
 import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
@@ -163,7 +164,7 @@ contract OrderProcessor is
         mapping(uint256 => OrderInfo) _orderInfo;
         // Escrowed balance of asset token per requester
         mapping(address => mapping(address => uint256)) _escrowedBalanceOf;
-        // Max order decimals for asset token
+        // Max order decimals for asset token, defaults to 0 decimals
         mapping(address => uint256) _maxOrderDecimals;
         // Fee schedule for requester
         mapping(address => FeeRatesStorage) _accountFees;
@@ -430,6 +431,8 @@ contract OrderProcessor is
     /// @param decimals Max order decimals
     /// @dev Only callable by admin
     function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        uint8 tokenDecimals = IERC20Metadata(token).decimals();
+        if (decimals > tokenDecimals) revert InvalidPrecision();
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._maxOrderDecimals[token] = decimals;
         emit MaxOrderDecimalsSet(token, decimals);
@@ -448,9 +451,13 @@ contract OrderProcessor is
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
-        // Precision checked for assetTokenQuantity
-        uint256 assetPrecision = 10 ** $._maxOrderDecimals[order.assetToken];
-        if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
+        // Precision checked for assetTokenQuantity, market buys excluded
+        if (order.sell || order.orderType == OrderType.LIMIT) {
+            // Check for max order decimals (assetTokenQuantity)
+            uint8 assetTokenDecimals = IERC20Metadata(order.assetToken).decimals();
+            uint256 assetPrecision = 10 ** (assetTokenDecimals - $._maxOrderDecimals[order.assetToken]);
+            if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
+        }
 
         // Check for whitelisted tokens
         _checkRole(ASSETTOKEN_ROLE, order.assetToken);

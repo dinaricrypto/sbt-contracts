@@ -88,6 +88,7 @@ contract FulfillmentRouterTest is Test {
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), address(router));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.setMaxOrderDecimals(address(token), token.decimals());
 
         vault.grantRole(vault.AUTHORIZED_OPERATOR_ROLE(), address(router));
 
