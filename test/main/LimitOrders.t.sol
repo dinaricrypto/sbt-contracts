@@ -80,7 +80,7 @@ contract LimitOrderTest is Test {
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-        issuer.setMaxOrderDecimals(address(token), token.decimals());
+        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         vm.stopPrank();
     }

@@ -131,7 +131,7 @@ contract OrderProcessor is
     /// @dev Emitted when fees are set
     event FeesSet(address indexed account, FeeRates feeRates);
     /// @dev Emitted when OrderDecimal is set
-    event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
+    event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
 
     /// ------------------ Constants ------------------ ///
 
@@ -165,7 +165,7 @@ contract OrderProcessor is
         // Escrowed balance of asset token per requester
         mapping(address => mapping(address => uint256)) _escrowedBalanceOf;
         // Max order decimals for asset token, defaults to 0 decimals
-        mapping(address => uint256) _maxOrderDecimals;
+        mapping(address => int8) _maxOrderDecimals;
         // Fee schedule for requester
         mapping(address => FeeRatesStorage) _accountFees;
     }
@@ -253,7 +253,7 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function maxOrderDecimals(address token) public view override returns (uint256) {
+    function maxOrderDecimals(address token) public view override returns (int8) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._maxOrderDecimals[token];
     }
@@ -430,9 +430,9 @@ contract OrderProcessor is
     /// @param token Asset token
     /// @param decimals Max order decimals
     /// @dev Only callable by admin
-    function setMaxOrderDecimals(address token, uint256 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setMaxOrderDecimals(address token, int8 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
         uint8 tokenDecimals = IERC20Metadata(token).decimals();
-        if (decimals > tokenDecimals) revert InvalidPrecision();
+        if (decimals > int8(tokenDecimals)) revert InvalidPrecision();
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._maxOrderDecimals[token] = decimals;
         emit MaxOrderDecimalsSet(token, decimals);
@@ -455,7 +455,7 @@ contract OrderProcessor is
         if (order.sell || order.orderType == OrderType.LIMIT) {
             // Check for max order decimals (assetTokenQuantity)
             uint8 assetTokenDecimals = IERC20Metadata(order.assetToken).decimals();
-            uint256 assetPrecision = 10 ** (assetTokenDecimals - $._maxOrderDecimals[order.assetToken]);
+            uint256 assetPrecision = 10 ** uint8(int8(assetTokenDecimals) - $._maxOrderDecimals[order.assetToken]);
             if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
         }
 

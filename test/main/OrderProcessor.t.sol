@@ -20,7 +20,7 @@ contract OrderProcessorTest is Test {
     event FeesSet(address indexed account, OrderProcessor.FeeRates feeRates);
     event OrdersPaused(bool paused);
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
-    event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
+    event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
 
     event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
     event OrderFill(
@@ -94,7 +94,7 @@ contract OrderProcessorTest is Test {
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
-        issuer.setMaxOrderDecimals(address(token), token.decimals());
+        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         dummyOrderFees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), 100 ether);
 
