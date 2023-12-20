@@ -121,14 +121,12 @@ contract OrderProcessor is
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
-    /// @dev Emitted when `perOrderFee` and `percentageFeeRate` are set
-    event FeeSet(uint64 perOrderFee, uint24 percentageFeeRate);
     /// @dev Emitted when orders are paused/unpaused
     event OrdersPaused(bool paused);
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     /// @dev Emitted when fees are set
-    event FeesSet(address indexed account, FeeRates feeRates);
+    event FeesSet(address indexed account, address indexed paymentToken, FeeRates feeRates);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
 
@@ -165,8 +163,9 @@ contract OrderProcessor is
         mapping(address => mapping(address => uint256)) _escrowedBalanceOf;
         // Max order decimals for asset token
         mapping(address => uint256) _maxOrderDecimals;
-        // Fee schedule for requester
-        mapping(address => FeeRatesStorage) _accountFees;
+        // Fee schedule for requester, per paymentToken
+        // Uses address(0) to store default fee schedule
+        mapping(address => mapping(address => FeeRatesStorage)) _accountFees;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
@@ -184,15 +183,13 @@ contract OrderProcessor is
     /// @notice Initialize contract
     /// @param _owner Owner of contract
     /// @param _treasury Address to receive fees
-    /// @param defaultFeeRates Default fee rates
     /// @param _tokenLockCheck Token lock check contract
     /// @dev Treasury cannot be zero address
-    function initialize(
-        address _owner,
-        address _treasury,
-        FeeRates memory defaultFeeRates,
-        ITokenLockCheck _tokenLockCheck
-    ) public virtual initializer {
+    function initialize(address _owner, address _treasury, ITokenLockCheck _tokenLockCheck)
+        public
+        virtual
+        initializer
+    {
         __AccessControlDefaultAdminRules_init(0, _owner);
         __Multicall_init();
 
@@ -202,7 +199,6 @@ contract OrderProcessor is
         // Initialize
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._treasury = _treasury;
-        _setFees(address(0), defaultFeeRates);
         $._tokenLockCheck = _tokenLockCheck;
     }
 
@@ -291,12 +287,12 @@ contract OrderProcessor is
         return super.hasRole(role, account);
     }
 
-    function getAccountFees(address account) external view returns (FeeRates memory) {
+    function getAccountFees(address account, address paymentToken) external view returns (FeeRates memory) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        FeeRatesStorage memory feeRates = $._accountFees[account];
-        // If user does not have a custom fee schedule, use default
+        FeeRatesStorage memory feeRates = $._accountFees[account][paymentToken];
+        // If user,paymentToken does not have a custom fee schedule, use default
         if (!feeRates.set) {
-            feeRates = $._accountFees[address(0)];
+            feeRates = $._accountFees[address(0)][paymentToken];
         }
         return FeeRates({
             perOrderFeeBuy: feeRates.perOrderFeeBuy,
@@ -307,17 +303,21 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function getFeeRatesForOrder(address requester, bool sell, address token) public view returns (uint256, uint24) {
+    function getFeeRatesForOrder(address requester, bool sell, address paymentToken)
+        public
+        view
+        returns (uint256, uint24)
+    {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        FeeRatesStorage memory feeRates = $._accountFees[requester];
+        FeeRatesStorage memory feeRates = $._accountFees[requester][paymentToken];
         // If user does not have a custom fee schedule, use default
         if (!feeRates.set) {
-            feeRates = $._accountFees[address(0)];
+            feeRates = $._accountFees[address(0)][paymentToken];
         }
         if (sell) {
-            return (FeeLib.flatFeeForOrder(token, feeRates.perOrderFeeSell), feeRates.percentageFeeRateSell);
+            return (FeeLib.flatFeeForOrder(paymentToken, feeRates.perOrderFeeSell), feeRates.percentageFeeRateSell);
         } else {
-            return (FeeLib.flatFeeForOrder(token, feeRates.perOrderFeeBuy), feeRates.percentageFeeRateBuy);
+            return (FeeLib.flatFeeForOrder(paymentToken, feeRates.perOrderFeeBuy), feeRates.percentageFeeRateBuy);
         }
     }
 
@@ -375,32 +375,39 @@ contract OrderProcessor is
     }
 
     /// @notice Set default fee rates
+    /// @param paymentToken Payment token
     /// @param feeRates Fee rates
     /// @dev Only callable by admin
-    function setDefaultFees(FeeRates memory feeRates) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _setFees(address(0), feeRates);
+    function setDefaultFees(address paymentToken, FeeRates memory feeRates) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _setFees(address(0), paymentToken, feeRates);
     }
 
     /// @notice Set unique fee rates for requester
     /// @param requester Requester address
+    /// @param paymentToken Payment token
     /// @param feeRates Fee rates
     /// @dev Only callable by admin
-    function setFeesForRequester(address requester, FeeRates memory feeRates) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setFees(address requester, address paymentToken, FeeRates memory feeRates)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         if (requester == address(0)) revert ZeroAddress();
-        _setFees(requester, feeRates);
+        _setFees(requester, paymentToken, feeRates);
     }
 
     /// @notice Reset fee rates for requester to default
     /// @param requester Requester address
+    /// @param paymentToken Payment token
     /// @dev Only callable by admin
-    function resetFeesForRequester(address requester) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function resetFees(address requester, address paymentToken) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (requester == address(0)) revert ZeroAddress();
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        delete $._accountFees[requester];
-        FeeRatesStorage memory defaultFeeRates = $._accountFees[address(0)];
+        delete $._accountFees[requester][paymentToken];
+        FeeRatesStorage memory defaultFeeRates = $._accountFees[address(0)][paymentToken];
         emit FeesSet(
             requester,
+            paymentToken,
             FeeRates({
                 perOrderFeeBuy: defaultFeeRates.perOrderFeeBuy,
                 percentageFeeRateBuy: defaultFeeRates.percentageFeeRateBuy,
@@ -410,19 +417,19 @@ contract OrderProcessor is
         );
     }
 
-    function _setFees(address account, FeeRates memory feeRates) private {
+    function _setFees(address account, address paymentToken, FeeRates memory feeRates) private {
         FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateBuy);
         FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateSell);
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        $._accountFees[account] = FeeRatesStorage({
+        $._accountFees[account][paymentToken] = FeeRatesStorage({
             set: true,
             perOrderFeeBuy: feeRates.perOrderFeeBuy,
             percentageFeeRateBuy: feeRates.percentageFeeRateBuy,
             perOrderFeeSell: feeRates.perOrderFeeSell,
             percentageFeeRateSell: feeRates.percentageFeeRateSell
         });
-        emit FeesSet(account, feeRates);
+        emit FeesSet(account, paymentToken, feeRates);
     }
 
     /// @notice Set max order decimals for asset token
