@@ -18,7 +18,7 @@ contract DeployScript is Script {
         ITokenLockCheck tokenLockCheck;
         address treasury;
         address operator;
-        address operator2;
+        // address operator2;
         address usdc;
         address usdcOracle;
         address ethUsdOracle;
@@ -39,7 +39,7 @@ contract DeployScript is Script {
             tokenLockCheck: TokenLockCheck(vm.envAddress("TOKENLOCKCHECK")),
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
-            operator2: vm.envAddress("OPERATOR2"),
+            // operator2: vm.envAddress("OPERATOR2"),
             usdc: vm.envAddress("USDC"),
             usdcOracle: vm.envAddress("USDCORACLE"),
             ethUsdOracle: vm.envAddress("ETHUSDORACLE"),
@@ -76,41 +76,43 @@ contract DeployScript is Script {
         // config operator
         orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator);
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
-        orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator2);
-        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator2);
-
-        // config payment tokens
-        address[1] memory paymentTokens = [cfg.usdc];
-
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: perOrderFee,
-            percentageFeeRateBuy: percentageFeeRate,
-            perOrderFeeSell: perOrderFee,
-            percentageFeeRateSell: percentageFeeRate
-        });
-        for (uint256 i = 0; i < paymentTokens.length; i++) {
-            orderProcessor.setDefaultFees(paymentTokens[i], defaultFees);
-            directBuyIssuer.setDefaultFees(paymentTokens[i], defaultFees);
-        }
+        // orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator2);
+        // directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator2);
 
         // config asset token
-        address[16] memory assetTokens = [
-            0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D,
-            0x1128E84D3Feae1FAb65c36508bCA6E1FA55a7172,
-            0xd75870ab648E5158E07Fe0A3141AbcBd4Ac329aa,
-            0x54c0f59d9a8CF63423A7137e6bcD8e9bA169216e,
-            0x0c55e03b976a57B13Bf7Faa592e5df367c57f1F1,
-            0x337EA4a24945124d6B0934e423124031A02e7dd4,
-            0x115223789f2A4B4438AE550600f4DB3B9eb2d755,
-            0xB5046bf7e05Cdaa769980273eAdfF380E4B3d014,
-            0x41bE0b3368c4757B2EaD7f8Cc60D47fd64c12E9C,
-            0xcc1f553cC4938c7F06f33BEd73323991e912D055,
-            0x8b00335862D6d75BDE5DAB6b9911f6474f2b5B84,
-            0xE1326241f9f30c3685F438a2F49d00A3a5412D0E,
-            0x243648D75AFA4bd283E6E78487259E503C54d8d9,
-            0x003728979b6d6764ca24627c7c96E498b6D1FeAD,
-            0xDD54790958dcb11777a7fE61D9Ab5900BB94a21a,
-            0x4E4A5E70bbdaB4B4bE333C6a072E42017B520c29
+        address[13] memory assetTokens = [
+            // 0xCe38e140fC3982a6bCEbc37b040913EF2Cd6C5a7,
+            // 0x3AD63B3C0eA6d7A093ff98fdE040baddc389EcDc,
+            // 0xF4BD09B048248876E39Fcf2e0CDF1aee1240a9D2,
+            // 0x9C46e1B70d447B770Dbfc8D450543a431aF6DF3A,
+            // 0x4DaFFfDDEa93DdF1e0e7B61E844331455053Ce5c,
+            // 0x5B6424769823e82A1829B0A8bcAf501bFFD90d25,
+            // 0x77308F8B63A99b24b262D930E0218ED2f49F8475,
+            // 0x8E50D11a54CFF859b202b7Fe5225353bE0646410,
+            // 0x8240aFFe697CdE618AD05c3c8963f5Bfe152650b,
+            // 0x3c9f23dB4DDC5655f7be636358D319A3De1Ff0c4,
+            // 0x519062155B0591627C8A0C0958110A8C5639DcA6,
+            // 0xF1f18F765F118c3598cC54dCaC1D0e12066263Fe,
+            // 0x36d37B6cbCA364Cf1D843efF8C2f6824491bcF81,
+            // 0x46b979440AC257151EE5a5bC9597B76386907FA1,
+            // 0x67BaD479F77488f0f427584e267e66086a7Da43A,
+            // 0xd8F728AdB72a46Ae2c92234AE8870D04907786C5,
+            // 0x118346C2bb9d24412ed58C53bF9BB6f61A20d7Ec,
+            // 0x0c29891dC5060618c779E2A45fbE4808Aa5aE6aD,
+            // 0xeb0D1360A14c3b162f2974DAA5d218E0c1090146
+            0x6B6F9456f6EA68fbE0ECDBa35a2812ca09027ec6,
+            0x1e22A348A0a740E320FA70A5936ed5645f20E099,
+            0xed12e3394e78C2B0074aa4479b556043cC84503C,
+            0x690545833Cb240E49BC64EA4838819a26576134e,
+            0x954E82364Bffa51Bb5d96e1e7f242f15D1Fb80dd,
+            0x0422B59b7c80ff87E0564571bD4Bada669280831,
+            0x930E85C59B257fc48997B3F597a92b3CAef2bFB4,
+            0xbc0838eCfb952C79E7eb4d25AEF3820611E1ABfd,
+            0x8D66331a76060e57E1d8Af220E535e354f13fE58,
+            0x1f572c4677C9766d1B10d02DD2EC5a5B81b55Cd8,
+            0x43Fa0a32064946a9bDa8af68213D0cdcc040DD4a,
+            0x47A346407b0fbDDc0C6aE5229e2BB72185fCD60a,
+            0x9eaD913Bb441bd28b51e515b57e302ecbFDeeC61
         ];
         for (uint256 i = 0; i < assetTokens.length; i++) {
             orderProcessor.grantRole(orderProcessor.ASSETTOKEN_ROLE(), assetTokens[i]);
@@ -137,6 +139,24 @@ contract DeployScript is Script {
 
         orderProcessor.grantRole(orderProcessor.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
+
+        // config payment tokens
+        address[1] memory paymentTokens = [cfg.usdc];
+
+        address[1] memory paymentTokenOracles = [cfg.usdcOracle];
+
+        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
+            perOrderFeeBuy: perOrderFee,
+            percentageFeeRateBuy: percentageFeeRate,
+            perOrderFeeSell: perOrderFee,
+            percentageFeeRateSell: percentageFeeRate
+        });
+        for (uint256 i = 0; i < paymentTokens.length; i++) {
+            orderProcessor.setDefaultFees(paymentTokens[i], defaultFees);
+            directBuyIssuer.setDefaultFees(paymentTokens[i], defaultFees);
+
+            forwarder.setPaymentOracle(paymentTokens[i], paymentTokenOracles[i]);
+        }
 
         vm.stopBroadcast();
     }
