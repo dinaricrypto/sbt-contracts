@@ -163,7 +163,7 @@ contract OrderProcessor is
         // Escrowed balance of asset token per requester
         mapping(address => mapping(address => uint256)) _escrowedBalanceOf;
         // Max order decimals for asset token, defaults to 0 decimals
-        mapping(address => uint256) _maxOrderDecimals;
+        mapping(address => int8) _maxOrderDecimals;
         // Fee schedule for requester, per paymentToken
         // Uses address(0) to store default fee schedule
         mapping(address => mapping(address => FeeRatesStorage)) _accountFees;
