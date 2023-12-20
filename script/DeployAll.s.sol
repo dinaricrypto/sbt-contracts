@@ -72,20 +72,7 @@ contract DeployAllScript is Script {
             address(
                 new ERC1967Proxy(
                     address(orderProcessorImpl),
-                    abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (
-                            cfg.deployer,
-                            cfg.treasury,
-                            OrderProcessor.FeeRates({
-                                perOrderFeeBuy: perOrderFee,
-                                percentageFeeRateBuy: percentageFeeRate,
-                                perOrderFeeSell: perOrderFee,
-                                percentageFeeRateSell: percentageFeeRate
-                            }),
-                            tokenLockCheck
-                        )
-                    )
+                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, tokenLockCheck))
                 )
             )
         );
@@ -95,20 +82,7 @@ contract DeployAllScript is Script {
             address(
                 new ERC1967Proxy(
                     address(directBuyIssuerImpl),
-                    abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (
-                            cfg.deployer,
-                            cfg.treasury,
-                            OrderProcessor.FeeRates({
-                                perOrderFeeBuy: perOrderFee,
-                                percentageFeeRateBuy: percentageFeeRate,
-                                perOrderFeeSell: perOrderFee,
-                                percentageFeeRateSell: percentageFeeRate
-                            }),
-                            tokenLockCheck
-                        )
-                    )
+                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, tokenLockCheck))
                 )
             )
         );
@@ -120,14 +94,21 @@ contract DeployAllScript is Script {
         directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator2);
 
         // config payment token
-        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdc);
-        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdc);
+        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
+            perOrderFeeBuy: perOrderFee,
+            percentageFeeRateBuy: percentageFeeRate,
+            perOrderFeeSell: perOrderFee,
+            percentageFeeRateSell: percentageFeeRate
+        });
 
-        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), cfg.usdt);
-        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), cfg.usdt);
+        orderProcessor.setDefaultFees(cfg.usdc, defaultFees);
+        directBuyIssuer.setDefaultFees(cfg.usdc, defaultFees);
 
-        orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), usdce);
-        directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), usdce);
+        orderProcessor.setDefaultFees(cfg.usdt, defaultFees);
+        directBuyIssuer.setDefaultFees(cfg.usdt, defaultFees);
+
+        orderProcessor.setDefaultFees(usdce, defaultFees);
+        directBuyIssuer.setDefaultFees(usdce, defaultFees);
 
         /// ------------------ forwarder ------------------
 

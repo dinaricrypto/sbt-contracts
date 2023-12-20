@@ -52,37 +52,29 @@ contract LimitOrderTest is Test {
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
-                    address(issuerImpl),
-                    abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (
-                            admin,
-                            treasury,
-                            OrderProcessor.FeeRates({
-                                perOrderFeeBuy: 1 ether,
-                                percentageFeeRateBuy: 5_000,
-                                perOrderFeeSell: 1 ether,
-                                percentageFeeRateSell: 5_000
-                            }),
-                            tokenLockCheck
-                        )
-                    )
+                    address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck))
                 )
             )
         );
-
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
 
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
+        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
+            perOrderFeeBuy: 1 ether,
+            percentageFeeRateBuy: 5_000,
+            perOrderFeeSell: 1 ether,
+            percentageFeeRateSell: 5_000
+        });
+        issuer.setDefaultFees(address(paymentToken), defaultFees);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         vm.stopPrank();
+
+        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
     }
 
     function createLimitOrder(bool sell, uint256 orderAmount, uint256 price)
