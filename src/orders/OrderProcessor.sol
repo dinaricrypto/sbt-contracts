@@ -110,6 +110,7 @@ contract OrderProcessor is
     error AmountTooLarge();
     /// @dev Order type mismatch
     error OrderTypeMismatch();
+    error UnsupportedToken(address token);
     /// @dev blacklist address
     error Blacklist();
     /// @dev Custom error when an order cancellation has already been initiated
@@ -135,8 +136,6 @@ contract OrderProcessor is
 
     /// @notice Operator role for filling and cancelling orders
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-    /// @notice Payment token role for whitelisting payment tokens
-    bytes32 public constant PAYMENTTOKEN_ROLE = keccak256("PAYMENTTOKEN_ROLE");
     /// @notice Asset token role for whitelisting asset tokens
     /// @dev Tokens with decimals > 18 are not supported by current implementation
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
@@ -467,8 +466,8 @@ contract OrderProcessor is
         }
 
         // Check for whitelisted tokens
-        _checkRole(ASSETTOKEN_ROLE, order.assetToken);
-        _checkRole(PAYMENTTOKEN_ROLE, order.paymentToken);
+        if (!hasRole(ASSETTOKEN_ROLE, order.assetToken)) revert UnsupportedToken(order.assetToken);
+        if (!$._accountFees[address(0)][order.paymentToken].set) revert UnsupportedToken(order.paymentToken);
         // Cache order id
         id = $._nextOrderId;
         // Check requester

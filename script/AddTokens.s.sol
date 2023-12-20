@@ -13,10 +13,6 @@ contract AddTokensScript is Script {
         OrderProcessor issuer = OrderProcessor(vm.envAddress("ISSUER"));
         BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("UNLOCKED_ISSUER"));
 
-        address[1] memory paymentTokens = [
-            0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F // fake USDC
-        ];
-
         address[16] memory assetTokens = [
             0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D,
             0x1128E84D3Feae1FAb65c36508bCA6E1FA55a7172,
@@ -37,11 +33,6 @@ contract AddTokensScript is Script {
         ];
 
         vm.startBroadcast(deployerPrivateKey);
-
-        for (uint256 i = 0; i < paymentTokens.length; i++) {
-            issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), paymentTokens[i]);
-            directIssuer.grantRole(directIssuer.PAYMENTTOKEN_ROLE(), paymentTokens[i]);
-        }
 
         for (uint256 i = 0; i < assetTokens.length; i++) {
             issuer.grantRole(issuer.ASSETTOKEN_ROLE(), assetTokens[i]);

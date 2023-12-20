@@ -84,7 +84,6 @@ contract OrderProcessorTest is Test {
             percentageFeeRateSell: 5_000
         });
         issuer.setDefaultFees(address(paymentToken), defaultFees);
-        issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
@@ -329,11 +328,7 @@ contract OrderProcessorTest is Test {
         IOrderProcessor.Order memory order = getDummyOrder(sell);
         order.paymentToken = tryPaymentToken;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, tryPaymentToken, issuer.PAYMENTTOKEN_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, tryPaymentToken));
         vm.prank(user);
         issuer.requestOrder(order);
     }
@@ -344,11 +339,7 @@ contract OrderProcessorTest is Test {
         IOrderProcessor.Order memory order = getDummyOrder(sell);
         order.assetToken = tryAssetToken;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, tryAssetToken, issuer.ASSETTOKEN_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, tryAssetToken));
         vm.prank(user);
         issuer.requestOrder(order);
     }

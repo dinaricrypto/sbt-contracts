@@ -89,7 +89,6 @@ contract dShareCompatTest is Test {
             percentageFeeRateSell: 5_000
         });
         issuer.setDefaultFees(address(paymentToken), defaultFees);
-        issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         vm.stopPrank();

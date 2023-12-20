@@ -127,11 +127,9 @@ contract ForwarderTest is Test {
             percentageFeeRateSell: 5_000
         });
         issuer.setDefaultFees(address(paymentToken), defaultFees);
-        issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         directBuyIssuer.setDefaultFees(address(paymentToken), defaultFees);
-        directBuyIssuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         directBuyIssuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         directBuyIssuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         vm.stopPrank();

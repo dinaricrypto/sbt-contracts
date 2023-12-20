@@ -90,9 +90,7 @@ contract DeployScript is Script {
         });
         for (uint256 i = 0; i < paymentTokens.length; i++) {
             orderProcessor.setDefaultFees(paymentTokens[i], defaultFees);
-            orderProcessor.grantRole(orderProcessor.PAYMENTTOKEN_ROLE(), paymentTokens[i]);
             directBuyIssuer.setDefaultFees(paymentTokens[i], defaultFees);
-            directBuyIssuer.grantRole(directBuyIssuer.PAYMENTTOKEN_ROLE(), paymentTokens[i]);
         }
 
         // config asset token

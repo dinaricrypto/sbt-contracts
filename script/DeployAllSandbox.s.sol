@@ -207,25 +207,13 @@ contract DeployAllSandboxScript is Script {
         });
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdc), defaultFees);
-        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdc));
         deployments.directBuyIssuer.setDefaultFees(address(deployments.usdc), defaultFees);
-        deployments.directBuyIssuer.grantRole(
-            deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdc)
-        );
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdt), defaultFees);
-        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdt));
         deployments.directBuyIssuer.setDefaultFees(address(deployments.usdt), defaultFees);
-        deployments.directBuyIssuer.grantRole(
-            deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdt)
-        );
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdce), defaultFees);
-        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdce));
         deployments.directBuyIssuer.setDefaultFees(address(deployments.usdce), defaultFees);
-        deployments.directBuyIssuer.grantRole(
-            deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdce)
-        );
 
         // config asset token
         for (uint256 i = 0; i < deployments.dShares.length; i++) {
