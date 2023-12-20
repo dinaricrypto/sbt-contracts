@@ -679,11 +679,11 @@ contract OrderProcessor is
         // If order is completely filled then clear order state
         if (newUnfilledAmount == 0) {
             $._orderInfo[id].status = OrderStatus.FULFILLED;
-            // Notify order fulfilled
-            emit OrderFulfilled(id, orderState.requester);
             // Clear order state
             delete $._orders[id];
             $._numOpenOrders--;
+            // Notify order fulfilled
+            emit OrderFulfilled(id, orderState.requester);
         } else {
             // Otherwise update order state
             uint256 feesPaid = orderState.feesPaid + feesEarned;
@@ -748,14 +748,15 @@ contract OrderProcessor is
         // Verify order data
         if (orderState.orderHash != hashOrderCalldata(order)) revert InvalidOrderData();
 
-        // Notify order cancelled
-        emit OrderCancelled(id, orderState.requester, reason);
         // Order is cancelled
         $._orderInfo[id].status = OrderStatus.CANCELLED;
         // Clear order state
 
         delete $._orders[id];
         $._numOpenOrders--;
+
+        // Notify order cancelled
+        emit OrderCancelled(id, orderState.requester, reason);
 
         // Calculate refund
         uint256 refund = _cancelOrderAccounting(id, order, orderState, $._orderInfo[id].unfilledAmount);
