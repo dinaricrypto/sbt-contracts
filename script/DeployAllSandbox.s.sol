@@ -179,20 +179,7 @@ contract DeployAllSandboxScript is Script {
             address(
                 new ERC1967Proxy(
                     address(deployments.orderProcessorImplementation),
-                    abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (
-                            cfg.deployer,
-                            cfg.treasury,
-                            OrderProcessor.FeeRates({
-                                perOrderFeeBuy: perOrderFee,
-                                percentageFeeRateBuy: percentageFeeRate,
-                                perOrderFeeSell: perOrderFee,
-                                percentageFeeRateSell: percentageFeeRate
-                            }),
-                            deployments.tokenLockCheck
-                        )
-                    )
+                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deployments.tokenLockCheck))
                 )
             )
         );
@@ -202,20 +189,7 @@ contract DeployAllSandboxScript is Script {
             address(
                 new ERC1967Proxy(
                     address(deployments.directBuyIssuerImplementation),
-                    abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (
-                            cfg.deployer,
-                            cfg.treasury,
-                            OrderProcessor.FeeRates({
-                                perOrderFeeBuy: perOrderFee,
-                                percentageFeeRateBuy: percentageFeeRate,
-                                perOrderFeeSell: perOrderFee,
-                                percentageFeeRateSell: percentageFeeRate
-                            }),
-                            deployments.tokenLockCheck
-                        )
-                    )
+                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deployments.tokenLockCheck))
                 )
             )
         );
@@ -225,20 +199,21 @@ contract DeployAllSandboxScript is Script {
         deployments.directBuyIssuer.grantRole(deployments.directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
-        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdc));
-        deployments.directBuyIssuer.grantRole(
-            deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdc)
-        );
+        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
+            perOrderFeeBuy: perOrderFee,
+            percentageFeeRateBuy: percentageFeeRate,
+            perOrderFeeSell: perOrderFee,
+            percentageFeeRateSell: percentageFeeRate
+        });
 
-        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdt));
-        deployments.directBuyIssuer.grantRole(
-            deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdt)
-        );
+        deployments.orderProcessor.setDefaultFees(address(deployments.usdc), defaultFees);
+        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdc), defaultFees);
 
-        deployments.orderProcessor.grantRole(deployments.orderProcessor.PAYMENTTOKEN_ROLE(), address(deployments.usdce));
-        deployments.directBuyIssuer.grantRole(
-            deployments.directBuyIssuer.PAYMENTTOKEN_ROLE(), address(deployments.usdce)
-        );
+        deployments.orderProcessor.setDefaultFees(address(deployments.usdt), defaultFees);
+        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdt), defaultFees);
+
+        deployments.orderProcessor.setDefaultFees(address(deployments.usdce), defaultFees);
+        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdce), defaultFees);
 
         // config asset token
         for (uint256 i = 0; i < deployments.dShares.length; i++) {

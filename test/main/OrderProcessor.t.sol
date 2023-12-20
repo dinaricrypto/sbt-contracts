@@ -17,7 +17,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 
 contract OrderProcessorTest is Test {
     event TreasurySet(address indexed treasury);
-    event FeesSet(address indexed account, OrderProcessor.FeeRates feeRates);
+    event FeesSet(address indexed account, address indexed paymentToken, OrderProcessor.FeeRates feeRates);
     event OrdersPaused(bool paused);
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
@@ -68,21 +68,7 @@ contract OrderProcessorTest is Test {
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
-                    address(issuerImpl),
-                    abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (
-                            admin,
-                            treasury,
-                            OrderProcessor.FeeRates({
-                                perOrderFeeBuy: 1 ether,
-                                percentageFeeRateBuy: 5_000,
-                                perOrderFeeSell: 1 ether,
-                                percentageFeeRateSell: 5_000
-                            }),
-                            tokenLockCheck
-                        )
-                    )
+                    address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck))
                 )
             )
         );
@@ -91,7 +77,13 @@ contract OrderProcessorTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
+        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
+            perOrderFeeBuy: 1 ether,
+            percentageFeeRateBuy: 5_000,
+            perOrderFeeSell: 1 ether,
+            percentageFeeRateSell: 5_000
+        });
+        issuer.setDefaultFees(address(paymentToken), defaultFees);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
@@ -162,7 +154,13 @@ contract OrderProcessorTest is Test {
         assertEq(hashToTest, orderHash);
     }
 
-    function testSetDefaultFees(uint64 perOrderFee, uint24 percentageFee, uint8 tokenDecimals, uint256 value) public {
+    function testSetDefaultFees(
+        address testToken,
+        uint64 perOrderFee,
+        uint24 percentageFee,
+        uint8 tokenDecimals,
+        uint256 value
+    ) public {
         OrderProcessor.FeeRates memory rates = OrderProcessor.FeeRates({
             perOrderFeeBuy: perOrderFee,
             percentageFeeRateBuy: percentageFee,
@@ -172,13 +170,13 @@ contract OrderProcessorTest is Test {
         if (percentageFee >= 1_000_000) {
             vm.expectRevert(FeeLib.FeeTooLarge.selector);
             vm.prank(admin);
-            issuer.setDefaultFees(rates);
+            issuer.setDefaultFees(testToken, rates);
         } else {
             vm.expectEmit(true, true, true, true);
-            emit FeesSet(address(0), rates);
+            emit FeesSet(address(0), testToken, rates);
             vm.prank(admin);
-            issuer.setDefaultFees(rates);
-            OrderProcessor.FeeRates memory newRates = issuer.getAccountFees(address(0));
+            issuer.setDefaultFees(testToken, rates);
+            OrderProcessor.FeeRates memory newRates = issuer.getAccountFees(address(0), testToken);
             assertEq(newRates.perOrderFeeBuy, perOrderFee);
             assertEq(newRates.percentageFeeRateBuy, percentageFee);
             assertEq(newRates.perOrderFeeSell, perOrderFee);
@@ -330,11 +328,7 @@ contract OrderProcessorTest is Test {
         IOrderProcessor.Order memory order = getDummyOrder(sell);
         order.paymentToken = tryPaymentToken;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, tryPaymentToken, issuer.PAYMENTTOKEN_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, tryPaymentToken));
         vm.prank(user);
         issuer.requestOrder(order);
     }
@@ -345,11 +339,7 @@ contract OrderProcessorTest is Test {
         IOrderProcessor.Order memory order = getDummyOrder(sell);
         order.assetToken = tryAssetToken;
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, tryAssetToken, issuer.ASSETTOKEN_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, tryAssetToken));
         vm.prank(user);
         issuer.requestOrder(order);
     }

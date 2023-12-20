@@ -79,21 +79,7 @@ contract ForwarderRequestCancelTest is Test {
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
-                    address(issuerImpl),
-                    abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (
-                            admin,
-                            treasury,
-                            OrderProcessor.FeeRates({
-                                perOrderFeeBuy: 1 ether,
-                                percentageFeeRateBuy: 5_000,
-                                perOrderFeeSell: 1 ether,
-                                percentageFeeRateSell: 5_000
-                            }),
-                            tokenLockCheck
-                        )
-                    )
+                    address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck))
                 )
             )
         );
@@ -102,7 +88,13 @@ contract ForwarderRequestCancelTest is Test {
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
+        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
+            perOrderFeeBuy: 1 ether,
+            percentageFeeRateBuy: 5_000,
+            perOrderFeeSell: 1 ether,
+            percentageFeeRateSell: 5_000
+        });
+        issuer.setDefaultFees(address(paymentToken), defaultFees);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         vm.stopPrank();
