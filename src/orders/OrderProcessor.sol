@@ -51,22 +51,21 @@ contract OrderProcessor is
     /// ------------------ Types ------------------ ///
 
     // Order state cleared after order is fulfilled or cancelled.
-    // TODO: smart packing
     struct OrderState {
         // Hash of order data used to validate order details stored offchain
         bytes32 orderHash;
-        // Account that requested the order
-        address requester;
         // Flat fee at time of order request
         uint256 flatFee;
         // Percentage fee rate at time of order request
         uint24 percentageFeeRate;
+        // Account that requested the order
+        address requester;
+        // Whether a cancellation for this order has been initiated
+        bool cancellationInitiated;
         // Total amount of received token due to fills
         uint256 received;
         // Total fees paid to treasury
         uint256 feesPaid;
-        // Whether a cancellation for this order has been initiated
-        bool cancellationInitiated;
         // Total fees paid to claim
         uint256 splitAmountPaid;
     }
