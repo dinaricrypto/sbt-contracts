@@ -20,7 +20,7 @@ contract OrderProcessorTest is Test {
     event FeesSet(address indexed account, address indexed paymentToken, OrderProcessor.FeeRates feeRates);
     event OrdersPaused(bool paused);
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
-    event MaxOrderDecimalsSet(address indexed assetToken, uint256 decimals);
+    event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
 
     event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
     event OrderFill(
@@ -87,6 +87,7 @@ contract OrderProcessorTest is Test {
         issuer.grantRole(issuer.PAYMENTTOKEN_ROLE(), address(paymentToken));
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         dummyOrderFees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), 100 ether);
 
@@ -357,9 +358,9 @@ contract OrderProcessorTest is Test {
         OrderProcessor.Order memory order = getDummyOrder(true);
 
         vm.expectEmit(true, true, true, true);
-        emit MaxOrderDecimalsSet(order.assetToken, 2);
+        emit MaxOrderDecimalsSet(order.assetToken, 0);
         vm.prank(admin);
-        issuer.setMaxOrderDecimals(order.assetToken, 2);
+        issuer.setMaxOrderDecimals(order.assetToken, 0);
         order.assetTokenQuantity = orderAmount;
 
         vm.prank(admin);
@@ -372,9 +373,11 @@ contract OrderProcessorTest is Test {
         issuer.requestOrder(order);
 
         // update OrderAmount
-        order.assetTokenQuantity = 100000;
+        order.assetTokenQuantity = 10 ** token.decimals();
 
         vm.prank(admin);
+        token.mint(user, order.assetTokenQuantity);
+        vm.prank(user);
         token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.prank(user);
