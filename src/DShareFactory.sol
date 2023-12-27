@@ -7,6 +7,8 @@ import {IDShareFactory} from "./IDShareFactory.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 
+///@notice Factory to create new dShares
+///@author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/DShareFactory.sol)
 contract DShareFactory is IDShareFactory {
     DShare public implementation;
     UpgradeableBeacon public beacon;
@@ -30,19 +32,24 @@ contract DShareFactory is IDShareFactory {
         beacon = _beacon;
     }
 
-    //
+    /// @notice Sets a new implementation for the dShare
+    /// @param _implementation New implementation
     function setNewImplementation(DShare _implementation) external {
         if (address(_implementation) == address(0)) revert InvalidImplementation();
         implementation = _implementation;
         emit NewImplementSet(address(_implementation));
     }
 
+    /// @notice Sets a new transfer restrictor for the dShare
+    /// @param _transferRestrictor New transfer restrictor
     function setNewTransferRestrictor(TransferRestrictor _transferRestrictor) external {
         if (address(_transferRestrictor) == address(0)) revert InvalidTransferRestrictor();
         transferRestrictor = _transferRestrictor;
         emit NewTransferRestrictorSet(address(_transferRestrictor));
     }
 
+    /// @notice Sets a new beacon for the dShare
+    /// @param _beacon New beacon
     function setNewBeacon(UpgradeableBeacon _beacon) external {
         if (address(_beacon) == address(0)) revert InvalidBeacon();
         beacon = _beacon;
