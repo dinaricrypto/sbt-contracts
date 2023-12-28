@@ -16,9 +16,8 @@ interface IOrderProcessor {
     }
 
     // Time in force
-    enum TIF
-    // Good until end of day
-    {
+    enum TIF {
+        // Good until end of day
         DAY,
         // Good until cancelled
         GTC,
@@ -29,9 +28,8 @@ interface IOrderProcessor {
     }
 
     // Order status enum
-    enum OrderStatus
-    // Order is active
-    {
+    enum OrderStatus {
+        // Order is active
         ACTIVE,
         // Order is completely filled
         FULFILLED,
