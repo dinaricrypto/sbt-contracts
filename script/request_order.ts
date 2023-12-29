@@ -3,9 +3,9 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const buyProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.1.0/buy_processor.json');
-const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
-const buyProcessorAbi = buyProcessorData.abi;
+const orderProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.3.0/order_processor.json');
+const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
+const orderProcessorAbi = orderProcessorData.abi;
 
 // EIP-2612 abi
 const eip2612Abi = [
@@ -57,7 +57,7 @@ async function main() {
   // setup values
   const privateKey = process.env.PRIVATE_KEY;
   if (!privateKey) throw new Error("empty key");
-  const RPC_URL = process.env.TEST_RPC_URL;
+  const RPC_URL = process.env.RPC_URL;
   if (!RPC_URL) throw new Error("empty rpc url");
   const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
   const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
@@ -66,7 +66,7 @@ async function main() {
   const provider = ethers.getDefaultProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
   const chainId = Number((await provider.getNetwork()).chainId);
-  const buyProcessorAddress = buyProcessorData.networkAddresses[chainId];
+  const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
 
   // connect signer to payment token contract
   const paymentToken = new ethers.Contract(
@@ -76,19 +76,19 @@ async function main() {
   );
 
   // connect signer to buy processor contract
-  const buyProcessor = new ethers.Contract(
-    buyProcessorAddress,
-    buyProcessorAbi,
+  const orderProcessor = new ethers.Contract(
+    orderProcessorAddress,
+    orderProcessorAbi,
     signer,
   );
 
   // ------------------ Configure Order ------------------
 
-  // order amount
+  // order amount ($1000)
   const orderAmount = BigInt(1000_000_000);
 
   // get fees to add to order
-  const fees = await buyProcessor.estimateTotalFeesForOrder(paymentTokenAddress, orderAmount);
+  const fees = await orderProcessor.estimateTotalFeesForOrder(signer.address, false, paymentTokenAddress, orderAmount);
   const totalSpendAmount = orderAmount + fees;
   console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
 
@@ -113,7 +113,7 @@ async function main() {
   // permit message to sign
   const permitMessage = {
     owner: signer.address,
-    spender: buyProcessorAddress,
+    spender: orderProcessorAddress,
     value: totalSpendAmount,
     nonce: nonce,
     deadline: deadline
@@ -124,7 +124,7 @@ async function main() {
   const permitSignature = ethers.Signature.from(permitSignatureBytes);
 
   // create selfPermit call data
-  const selfPermitData = buyProcessor.interface.encodeFunctionData("selfPermit", [
+  const selfPermitData = orderProcessor.interface.encodeFunctionData("selfPermit", [
     paymentTokenAddress,
     permitMessage.owner,
     permitMessage.value,
@@ -138,20 +138,22 @@ async function main() {
 
   // create requestOrder call data
   // see IOrderProcessor.Order struct for order parameters
-  const requestOrderData = buyProcessor.interface.encodeFunctionData("requestOrder", [[
+  const requestOrderData = orderProcessor.interface.encodeFunctionData("requestOrder", [[
     signer.address,
     assetToken,
     paymentTokenAddress,
-    false,
-    0,
+    false, // Buy Order
+    0, // Market Order
     0,
     orderAmount, // fees will be added to this amount
-    0,
-    1,
+    0, // Unused limit price
+    1, // GTC
+    ethers.ZeroAddress, // split recipient
+    0, // split amount
   ]]);
 
   // submit permit + request order multicall transaction
-  const tx = await buyProcessor.multicall([
+  const tx = await orderProcessor.multicall([
     selfPermitData,
     requestOrderData,
   ]);
@@ -159,7 +161,7 @@ async function main() {
   console.log(tx.hash);
 
   // get order id from event
-  const events = receipt.logs.map((log: any) => buyProcessor.interface.parseLog(log));
+  const events = receipt.logs.map((log: any) => orderProcessor.interface.parseLog(log));
   if (!events) throw new Error("no events");
   const orderEvent = events.find((event: any) => event && event.name === "OrderRequested");
   if (!orderEvent) throw new Error("no order event");
@@ -168,9 +170,9 @@ async function main() {
   console.log(`Order ID: ${orderId}`);
   console.log(`Order Account: ${orderAccount}`);
 
-  // use order id to get order status
-  const remaining = await buyProcessor.getRemainingOrder(orderId);
-  console.log(`Order Remaining: ${remaining}`);
+  // use order id to get order status (ACTIVE, FULFILLED, CANCELLED)
+  const orderStatus = await orderProcessor.getOrderStatus(orderId);
+  console.log(`Order Status: ${orderStatus}`);
 }
 
 main()
