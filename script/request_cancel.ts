@@ -3,9 +3,9 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const buyProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.1.0/buy_processor.json');
-const buyProcessorData = JSON.parse(fs.readFileSync(buyProcessorDataPath, 'utf8'));
-const buyProcessorAbi = buyProcessorData.abi;
+const orderProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.3.0/order_processor.json');
+const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
+const orderProcessorAbi = orderProcessorData.abi;
 
 async function main() {
 
@@ -14,25 +14,26 @@ async function main() {
   // setup values
   const privateKey = process.env.PRIVATE_KEY;
   if (!privateKey) throw new Error("empty key");
-  const RPC_URL = process.env.TEST_RPC_URL;
+  const RPC_URL = process.env.RPC_URL;
   if (!RPC_URL) throw new Error("empty rpc url");
 
   // setup provider and signer
   const provider = ethers.getDefaultProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
-  const chainId = (await provider.getNetwork()).chainId;
-  const buyProcessorAddress = buyProcessorData.networkAddresses[chainId];
+  const chainId = Number((await provider.getNetwork()).chainId);
+  const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
+  console.log(`Order Processor Address: ${orderProcessorAddress}`);
 
   // connect signer to buy processor contract
-  const buyProcessor = new ethers.Contract(
-    buyProcessorAddress,
-    buyProcessorAbi,
+  const orderProcessor = new ethers.Contract(
+    orderProcessorAddress,
+    orderProcessorAbi,
     signer,
   );
 
-  const index = 0;
+  const orderId = 0;
 
-  const tx = await buyProcessor.requestCancel(signer.address, index);
+  const tx = await orderProcessor.requestCancel(orderId);
   console.log(`tx hash: ${tx.hash}`);
   await tx.wait();
 }

@@ -59,7 +59,7 @@ async function main() {
   if (!privateKey) throw new Error("empty key");
   const RPC_URL = process.env.RPC_URL;
   if (!RPC_URL) throw new Error("empty rpc url");
-  const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C";
+  const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C"; // SPY
   const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
   
   // setup provider and signer
@@ -67,6 +67,7 @@ async function main() {
   const signer = new ethers.Wallet(privateKey, provider);
   const chainId = Number((await provider.getNetwork()).chainId);
   const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
+  console.log(`Order Processor Address: ${orderProcessorAddress}`);
 
   // connect signer to payment token contract
   const paymentToken = new ethers.Contract(
@@ -142,10 +143,10 @@ async function main() {
     signer.address,
     assetToken,
     paymentTokenAddress,
-    false, // Buy Order
+    false, // Buy Order (Change to true for Sell Order)
     0, // Market Order
-    0,
-    orderAmount, // fees will be added to this amount
+    0, // Asset amount to sell. Ignored for buys. Fees will be taken from proceeds for sells.
+    orderAmount, // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
     0, // Unused limit price
     1, // GTC
     ethers.ZeroAddress, // split recipient
