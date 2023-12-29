@@ -6,6 +6,7 @@ import {DShare} from "./DShare.sol";
 import {IDShareFactory} from "./IDShareFactory.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
+import {CREATE3} from "solady/src/utils/CREATE3.sol";
 
 ///@notice Factory to create new dShares
 ///@author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/DShareFactory.sol)
@@ -69,19 +70,14 @@ contract DShareFactory is IDShareFactory {
             )
         );
 
-        // Compute the salt with owner, name and symbol
-        bytes32 salt = keccak256(abi.encode(bytecode, name));
+        // Compute the salt with symbol
+        bytes32 salt = keccak256(abi.encode(symbol));
 
-        // Predicted address
-        address predictedAddress = address(
-            uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(this), salt, keccak256(bytecode)))))
-        );
+        address predictedAddress = CREATE3.getDeployed(salt);
 
         address dShareAddress;
 
-        assembly {
-            dShareAddress := create2(0, add(bytecode, 32), mload(bytecode), salt)
-        }
+        dShareAddress = CREATE3.deploy(salt, bytecode, 0);
 
         // Check if the deployment was successful
         if (dShareAddress != predictedAddress) revert DeploymentRevert();

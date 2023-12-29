@@ -7,6 +7,7 @@ import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {DShare} from "../../src/DShare.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
+import {CREATE3} from "solady/src/utils/CREATE3.sol";
 
 contract DShareFactoryTest is Test {
     DShareFactory factory;
@@ -61,26 +62,23 @@ contract DShareFactoryTest is Test {
         factory.setNewBeacon(beacon);
     }
 
-    function testDeployNewDShareViaFactory() public {
+    function testDeployNewDShareViaFactory(string memory symbol) public {
         bytes memory bytecode = type(BeaconProxy).creationCode;
         bytecode = abi.encodePacked(
             bytecode,
             abi.encode(
                 address(beacon),
-                abi.encodeWithSelector(DShare.initialize.selector, address(this), "Dinari Token", "dTKN", restrictor)
+                abi.encodeWithSelector(DShare.initialize.selector, address(this), "Dinari Token", symbol, restrictor)
             )
         );
 
         // Compute the salt the same way as in the createDShare function
-        bytes32 salt = keccak256(abi.encode(bytecode, "Dinari Token"));
+        bytes32 salt = keccak256(abi.encode(symbol));
 
-        // Calculate the predicted address the same way as in the createDShare function
-        address predictedAddress = address(
-            uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), address(factory), salt, keccak256(bytecode)))))
-        );
+        address predictedAddress = CREATE3.getDeployed(salt, address(factory));
 
         vm.expectEmit(true, true, true, true);
         emit DShareCreated(predictedAddress);
-        factory.createDShare(address(this), "Dinari Token", "dTKN");
+        factory.createDShare(address(this), "Dinari Token", symbol);
     }
 }
