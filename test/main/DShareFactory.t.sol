@@ -15,9 +15,9 @@ contract DShareFactoryTest is Test {
     UpgradeableBeacon beacon;
 
     event DShareCreated(address indexed dShare);
-    event NewImplementSet(address indexed newImplementation);
-    event NewTransferRestrictorSet(address indexed newTransferRestrictor);
-    event NewBeaconSet(address indexed newBeacon);
+    event NewImplementSet(address indexed implementation);
+    event NewTransferRestrictorSet(address indexed transferRestrictor);
+    event NewBeaconSet(address indexed beacon);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
@@ -28,26 +28,26 @@ contract DShareFactoryTest is Test {
     }
 
     function testDeployNewFactory() public {
-        vm.expectRevert(DShareFactory.InvalidImplementation.selector);
+        vm.expectRevert(DShareFactory.ZeroAddress.selector);
         DShareFactory newFactory = new DShareFactory(DShare(address(0)), restrictor, beacon);
 
-        vm.expectRevert(DShareFactory.InvalidTransferRestrictor.selector);
+        vm.expectRevert(DShareFactory.ZeroAddress.selector);
         newFactory = new DShareFactory(DShare(address(1)), TransferRestrictor(address(0)), beacon);
 
-        vm.expectRevert(DShareFactory.InvalidBeacon.selector);
+        vm.expectRevert(DShareFactory.ZeroAddress.selector);
         newFactory = new DShareFactory(DShare(address(1)), restrictor, UpgradeableBeacon(address(0)));
 
         newFactory = new DShareFactory(tokenImplementation, restrictor, beacon);
     }
 
     function testSetter() public {
-        vm.expectRevert(DShareFactory.InvalidImplementation.selector);
+        vm.expectRevert(DShareFactory.ZeroAddress.selector);
         factory.setNewImplementation(DShare(address(0)));
 
-        vm.expectRevert(DShareFactory.InvalidTransferRestrictor.selector);
+        vm.expectRevert(DShareFactory.ZeroAddress.selector);
         factory.setNewTransferRestrictor(TransferRestrictor(address(0)));
 
-        vm.expectRevert(DShareFactory.InvalidBeacon.selector);
+        vm.expectRevert(DShareFactory.ZeroAddress.selector);
         factory.setNewBeacon(UpgradeableBeacon(address(0)));
 
         vm.expectEmit(true, true, true, true);

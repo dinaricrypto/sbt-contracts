@@ -14,19 +14,18 @@ contract DShareFactory is IDShareFactory {
     UpgradeableBeacon public beacon;
     TransferRestrictor public transferRestrictor;
 
-    error InvalidImplementation();
-    error InvalidTransferRestrictor();
-    error InvalidBeacon();
+    error ZeroAddress();
     error DeploymentRevert();
 
-    event NewImplementSet(address indexed newImplementation);
-    event NewTransferRestrictorSet(address indexed newTransferRestrictor);
-    event NewBeaconSet(address indexed newBeacon);
+    event NewImplementSet(address indexed implementation);
+    event NewTransferRestrictorSet(address indexed transferRestrictor);
+    event NewBeaconSet(address indexed beacon);
 
     constructor(DShare _implementation, TransferRestrictor _transferRestrictor, UpgradeableBeacon _beacon) {
-        if (address(_beacon) == address(0)) revert InvalidBeacon();
-        if (address(_transferRestrictor) == address(0)) revert InvalidTransferRestrictor();
-        if (address(_implementation) == address(0)) revert InvalidImplementation();
+        if (
+            address(_beacon) == address(0) || address(_transferRestrictor) == address(0)
+                || address(_implementation) == address(0)
+        ) revert ZeroAddress();
         implementation = _implementation;
         transferRestrictor = _transferRestrictor;
         beacon = _beacon;
@@ -35,7 +34,7 @@ contract DShareFactory is IDShareFactory {
     /// @notice Sets a new implementation for the dShare
     /// @param _implementation New implementation
     function setNewImplementation(DShare _implementation) external {
-        if (address(_implementation) == address(0)) revert InvalidImplementation();
+        if (address(_implementation) == address(0)) revert ZeroAddress();
         implementation = _implementation;
         emit NewImplementSet(address(_implementation));
     }
@@ -43,7 +42,7 @@ contract DShareFactory is IDShareFactory {
     /// @notice Sets a new transfer restrictor for the dShare
     /// @param _transferRestrictor New transfer restrictor
     function setNewTransferRestrictor(TransferRestrictor _transferRestrictor) external {
-        if (address(_transferRestrictor) == address(0)) revert InvalidTransferRestrictor();
+        if (address(_transferRestrictor) == address(0)) revert ZeroAddress();
         transferRestrictor = _transferRestrictor;
         emit NewTransferRestrictorSet(address(_transferRestrictor));
     }
@@ -51,7 +50,7 @@ contract DShareFactory is IDShareFactory {
     /// @notice Sets a new beacon for the dShare
     /// @param _beacon New beacon
     function setNewBeacon(UpgradeableBeacon _beacon) external {
-        if (address(_beacon) == address(0)) revert InvalidBeacon();
+        if (address(_beacon) == address(0)) revert ZeroAddress();
         beacon = _beacon;
         emit NewBeaconSet(address(_beacon));
     }
