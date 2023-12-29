@@ -67,7 +67,13 @@ interface IOrderProcessor {
     event OrderRequested(uint256 indexed id, address indexed requester, Order order);
     /// @dev Emitted for each fill
     event OrderFill(
-        uint256 indexed id, address indexed requester, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+        uint256 indexed id,
+        address indexed requester,
+        address paymentToken,
+        address assetToken,
+        uint256 fillAmount,
+        uint256 receivedAmount,
+        uint256 feesPaid
     );
     /// @dev Emitted when order is completely filled, terminal
     event OrderFulfilled(uint256 indexed id, address indexed requester);

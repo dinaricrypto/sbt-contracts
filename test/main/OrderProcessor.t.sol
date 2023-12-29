@@ -24,7 +24,13 @@ contract OrderProcessorTest is Test {
 
     event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
     event OrderFill(
-        uint256 indexed id, address indexed recipient, uint256 fillAmount, uint256 receivedAmount, uint256 feesPaid
+        uint256 indexed id,
+        address indexed requester,
+        address paymentToken,
+        address assetToken,
+        uint256 fillAmount,
+        uint256 receivedAmount,
+        uint256 feesPaid
     );
     event OrderFulfilled(uint256 indexed id, address indexed recipient);
     event CancelRequested(uint256 indexed id, address indexed requester);
@@ -458,7 +464,7 @@ contract OrderProcessorTest is Test {
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, false);
             // since we can't capture
-            emit OrderFill(id, order.recipient, fillAmount, receivedAmount, 0);
+            emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
@@ -527,7 +533,7 @@ contract OrderProcessorTest is Test {
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, false);
             // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
-            emit OrderFill(id, order.recipient, fillAmount, receivedAmount, 0);
+            emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
@@ -629,7 +635,9 @@ contract OrderProcessorTest is Test {
             uint256 secondReceivedAmount = receivedAmount - firstReceivedAmount;
             // first fill
             vm.expectEmit(true, true, true, false);
-            emit OrderFill(id, order.recipient, firstFillAmount, firstReceivedAmount, 0);
+            emit OrderFill(
+                id, order.recipient, order.paymentToken, order.assetToken, firstFillAmount, firstReceivedAmount, 0
+            );
             vm.prank(operator);
             issuer.fillOrder(id, order, firstFillAmount, firstReceivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - firstFillAmount);

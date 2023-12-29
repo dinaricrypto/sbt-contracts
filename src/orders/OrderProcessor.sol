@@ -589,7 +589,9 @@ contract OrderProcessor is
             _fillOrderAccounting(id, order, orderState, orderInfo.unfilledAmount, fillAmount, receivedAmount);
 
         // Notify order filled
-        emit OrderFill(id, orderState.requester, fillAmount, receivedAmount, feesEarned);
+        emit OrderFill(
+            id, orderState.requester, order.paymentToken, order.assetToken, fillAmount, receivedAmount, feesEarned
+        );
 
         // Take splitAmount from amount to distribute
         uint256 splitAmountEarned = 0;
