@@ -60,6 +60,7 @@ contract DShareFactory is IDShareFactory {
     /// @param owner of the proxy
     /// @param name Name of the dShare
     /// @param symbol Symbol of the dShare
+    /// @return dshareAddress Address of the new dShare
     function createDShare(address owner, string memory name, string memory symbol)
         external
         returns (address dshareAddress)
@@ -76,13 +77,15 @@ contract DShareFactory is IDShareFactory {
         // Compute the salt with symbol
         bytes32 salt = keccak256(abi.encode(symbol));
 
+        // Predict the address of the contract
         address predictedAddress = CREATE3.getDeployed(salt);
 
+        // Deploy the contract
         dshareAddress = CREATE3.deploy(salt, bytecode, 0);
 
         // Check if the deployment was successful
         if (dshareAddress != predictedAddress) revert DeploymentRevert();
-
+        
         emit DShareCreated(dshareAddress);
     }
 }
