@@ -85,7 +85,7 @@ contract DShareFactory is IDShareFactory {
 
         // Check if the deployment was successful
         if (dshareAddress != predictedAddress) revert DeploymentRevert();
-        
+
         emit DShareCreated(dshareAddress);
     }
 }
