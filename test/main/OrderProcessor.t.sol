@@ -635,7 +635,9 @@ contract OrderProcessorTest is Test {
             uint256 secondReceivedAmount = receivedAmount - firstReceivedAmount;
             // first fill
             vm.expectEmit(true, true, true, false);
-            emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, firstFillAmount, firstReceivedAmount, 0);
+            emit OrderFill(
+                id, order.recipient, order.paymentToken, order.assetToken, firstFillAmount, firstReceivedAmount, 0
+            );
             vm.prank(operator);
             issuer.fillOrder(id, order, firstFillAmount, firstReceivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - firstFillAmount);
