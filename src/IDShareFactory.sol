@@ -9,5 +9,5 @@ interface IDShareFactory {
     /// @param owner of the proxy
     /// @param name Name of the dShare
     /// @param symbol Symbol of the dShare
-    function createDShare(address owner, string memory name, string memory symbol) external;
+    function createDShare(address owner, string memory name, string memory symbol) external returns (address);
 }

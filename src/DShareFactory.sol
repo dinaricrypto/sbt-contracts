@@ -60,7 +60,10 @@ contract DShareFactory is IDShareFactory {
     /// @param owner of the proxy
     /// @param name Name of the dShare
     /// @param symbol Symbol of the dShare
-    function createDShare(address owner, string memory name, string memory symbol) external {
+    function createDShare(address owner, string memory name, string memory symbol)
+        external
+        returns (address dshareAddress)
+    {
         // slither-disable-next-line too-many-digits
         bytes memory bytecode = abi.encodePacked(
             type(BeaconProxy).creationCode,
@@ -75,13 +78,11 @@ contract DShareFactory is IDShareFactory {
 
         address predictedAddress = CREATE3.getDeployed(salt);
 
-        address dShareAddress;
-
-        dShareAddress = CREATE3.deploy(salt, bytecode, 0);
+        dshareAddress = CREATE3.deploy(salt, bytecode, 0);
 
         // Check if the deployment was successful
-        if (dShareAddress != predictedAddress) revert DeploymentRevert();
+        if (dshareAddress != predictedAddress) revert DeploymentRevert();
 
-        emit DShareCreated(dShareAddress);
+        emit DShareCreated(dshareAddress);
     }
 }
