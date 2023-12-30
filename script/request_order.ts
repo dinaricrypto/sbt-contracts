@@ -85,7 +85,7 @@ async function main() {
 
   // ------------------ Configure Order ------------------
 
-  // order amount ($1000)
+  // order amount (1000 USDC)
   const orderAmount = BigInt(1000_000_000);
 
   // get fees to add to order
