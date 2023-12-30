@@ -23,12 +23,16 @@ import (
 )
 
 const (
-	AssetToken          = "0xBCf1c387ced4655DdFB19Ea9599B19d4077f202D"
-	PaymentTokenAddress = "0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F"
+	AssetToken          = "0xed12e3394e78C2B0074aa4479b556043cC84503C"
+	PaymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff"
 )
 
 type OrderFee struct {
 	TotalFee *big.Int
+}
+
+type NameData struct {
+	Name string
 }
 
 type NonceData struct {
@@ -45,32 +49,8 @@ type OrderStruct struct {
 	PaymentTokenQuantity *big.Int
 	Price                *big.Int
 	Tif                  uint8
-}
-
-func loadABI(filePath string) (string, error) {
-	// Read the file
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-
-	// Unmarshal the JSON into a map
-	var contractData map[string]interface{}
-	err = json.Unmarshal(data, &contractData)
-	if err != nil {
-		return "", err
-	}
-
-	// Extract the ABI from the map and convert it back into a JSON string
-	abiData, ok := contractData["abi"]
-	if !ok {
-		return "", fmt.Errorf("ABI not found in contract data")
-	}
-	abiBytes, err := json.Marshal(abiData)
-	if err != nil {
-		return "", err
-	}
-	return string(abiBytes), nil
+	SplitRecipient       common.Address
+	SplitAmount          *big.Int
 }
 
 func main() {
@@ -126,7 +106,7 @@ func main() {
 	}
 
 	// Establish a connection to the Ethereum client using the RPC URL from environment variables
-	rpcURL := os.Getenv("TEST_RPC_URL")
+	rpcURL := os.Getenv("RPC_URL")
 	client, err := ethclient.Dial(rpcURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to the Ethereum client: %v", err)
@@ -164,7 +144,7 @@ func main() {
 	signer, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
 
 	// Setup the ABI (Application Binary Interface) and the contract binding for the processor contract
-	data, err := os.ReadFile("../sbt-deployments/src/v0.1.0/buy_processor.json")
+	data, err := os.ReadFile("../../lib/sbt-deployments/src/v0.3.0/order_processor.json")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -175,7 +155,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Use the default address from the loaded data if available, otherwise use the constant BuyProcessorAddress
+	// Use the default address from the loaded data if available, otherwise use the constant OrderProcessorAddress
 	// Use networkAddresses map from JSON data
 	networkAddresses, ok := contractData["networkAddresses"].(map[string]interface{})
 	if !ok {
@@ -202,7 +182,7 @@ func main() {
 	}
 
 	processorAddress := common.HexToAddress(processorAddressStr)
-	fmt.Println("buy processor address at:", processorAddress)
+	fmt.Println("order processor address at:", processorAddress)
 
 	// Load ABI from file
 	abiArray, ok := contractData["abi"].([]interface{})
@@ -218,13 +198,13 @@ func main() {
 
 	abiString := string(abiBytes)
 
-	buyProcessorAbi, err := abi.JSON(strings.NewReader(abiString))
+	processorAbi, err := abi.JSON(strings.NewReader(abiString))
 	if err != nil {
 		log.Fatalf("Failed to parse contract ABI: %v", err)
 	}
 
 	// Create the processor contract instance
-	processorContract := bind.NewBoundContract(processorAddress, buyProcessorAbi, client, client, client)
+	processorContract := bind.NewBoundContract(processorAddress, processorAbi, client, client, client)
 
 	// ------------------ Configure Order ------------------
 
@@ -237,7 +217,7 @@ func main() {
 	fees := new(OrderFee)
 	feeTxResult = append(feeTxResult, fees)
 	paymentTokenAddr := common.HexToAddress(PaymentTokenAddress)
-	err = processorContract.Call(&bind.CallOpts{}, &feeTxResult, "estimateTotalFeesForOrder", paymentTokenAddr, orderAmount)
+	err = processorContract.Call(&bind.CallOpts{}, &feeTxResult, "estimateTotalFeesForOrder", account.Address, false, paymentTokenAddr, orderAmount)
 	if err != nil {
 		log.Fatalf("Failed to call estimateTotalFeesForOrder function: %v", err)
 	}
@@ -249,12 +229,20 @@ func main() {
 
 	// ------------------ Configure Permit ------------------
 
-	// Get nonce & block information to set up the transaction
-	noncesAbi, err := abi.JSON(strings.NewReader(noncesAbiString))
+	// Get nonce & contract information to set up the transaction
+	eip2612Abi, err := abi.JSON(strings.NewReader(eip2612AbiString))
 	if err != nil {
 		log.Fatalf("Failed to parse contract ABI: %v", err)
 	}
-	paymentTokenContract := bind.NewBoundContract(paymentTokenAddr, noncesAbi, client, client, client)
+	paymentTokenContract := bind.NewBoundContract(paymentTokenAddr, eip2612Abi, client, client, client)
+	var nameTxResult []interface{}
+	name := new(NameData)
+	nameTxResult = append(nameTxResult, name)
+	err = paymentTokenContract.Call(&bind.CallOpts{}, &nameTxResult, "name")
+	if err != nil {
+		log.Fatalf("Failed to call name function: %v", err)
+	}
+	fmt.Println("Name:", name.Name)
 	var nonceTxResult []interface{}
 	nonce := new(NonceData)
 	nonceTxResult = append(nonceTxResult, nonce)
@@ -279,8 +267,8 @@ func main() {
 
 	// Create the domain struct based on EIP712 requirements
 	domainStruct := apitypes.TypedDataDomain{
-		Name:              "USD Coin",
-		Version:           "1",
+		Name:              name.Name,
+		Version:           "1", // Version may be different in the wild
 		ChainId:           math.NewHexOrDecimal256(chainID.Int64()),
 		VerifyingContract: PaymentTokenAddress,
 	}
@@ -344,7 +332,7 @@ func main() {
 	copy(rArray[:], r)
 	copy(sArray[:], s)
 
-	selfPermitData, err := buyProcessorAbi.Pack(
+	selfPermitData, err := processorAbi.Pack(
 		"selfPermit",
 		paymentTokenAddr,
 		account.Address,
@@ -371,9 +359,11 @@ func main() {
 		PaymentTokenQuantity: orderAmount,
 		Price:                big.NewInt(0),
 		Tif:                  1,
+		SplitRecipient:       common.BigToAddress(big.NewInt(0)),
+		SplitAmount:          big.NewInt(0),
 	}
 
-	requestOrderData, err := buyProcessorAbi.Pack(
+	requestOrderData, err := processorAbi.Pack(
 		"requestOrder",
 		order,
 	)
@@ -420,40 +410,7 @@ func main() {
 	}
 }
 
-const noncesAbiString = `[
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "account",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "currentNonce",
-          "type": "uint256"
-        }
-      ],
-      "name": "InvalidAccountNonce",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        }
-      ],
-      "name": "nonces",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    }
+const eip2612AbiString = `[
+	{"type":"function","name":"name","inputs":[],"outputs":[{"name":"","type":"string","internalType":"string"}],"stateMutability":"view"},
+    {"type":"function","name":"nonces","inputs":[{"name":"owner","type":"address","internalType":"address"}],"outputs":[{"name":"result","type":"uint256","internalType":"uint256"}],"stateMutability":"view"}
 ]`
