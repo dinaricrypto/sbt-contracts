@@ -10,6 +10,7 @@ const orderProcessorAbi = orderProcessorData.abi;
 // EIP-2612 abi
 const eip2612Abi = [
   "function name() external view returns (string memory)",
+  "function decimals() external view returns (uint8)",
   "function version() external view returns (string memory)",
   "function nonces(address owner) external view returns (uint256)",
 ];
@@ -59,9 +60,9 @@ async function main() {
   if (!privateKey) throw new Error("empty key");
   const RPC_URL = process.env.RPC_URL;
   if (!RPC_URL) throw new Error("empty rpc url");
-  const assetToken = "0xed12e3394e78C2B0074aa4479b556043cC84503C"; // SPY
+  const assetTokenAddress = "0xed12e3394e78C2B0074aa4479b556043cC84503C"; // SPY
   const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
-  
+
   // setup provider and signer
   const provider = ethers.getDefaultProvider(RPC_URL);
   const signer = new ethers.Wallet(privateKey, provider);
@@ -72,6 +73,13 @@ async function main() {
   // connect signer to payment token contract
   const paymentToken = new ethers.Contract(
     paymentTokenAddress,
+    eip2612Abi,
+    signer,
+  );
+
+  // connect signer to asset token contract
+  const assetToken = new ethers.Contract(
+    assetTokenAddress,
     eip2612Abi,
     signer,
   );
@@ -87,8 +95,23 @@ async function main() {
 
   // order amount (1000 USDC)
   const orderAmount = BigInt(1000_000_000);
+  // buy order (Change to true for Sell Order)
+  const sellOrder = false;
+  // market order
+  const orderType = Number(0);
 
-  // get fees to add to order
+  // check the order precision doesn't exceed max decimals
+  // applicable to sell and limit orders only
+  if (sellOrder || orderType === 1) {
+    const maxDecimals = await orderProcessor.maxOrderDecimals(assetTokenAddress);
+    const assetTokenDecimals = await assetToken.decimals();
+    const allowablePrecision = 10 ** (assetTokenDecimals - maxDecimals);
+    if (Number(orderAmount) % allowablePrecision != 0) {
+      throw new Error(`Order amount precision exceeds max decimals of ${maxDecimals}`);
+    }
+  }
+
+  // get fees, fees will be added to buy order deposit or taken from sell order proceeds
   const fees = await orderProcessor.estimateTotalFeesForOrder(signer.address, false, paymentTokenAddress, orderAmount);
   const totalSpendAmount = orderAmount + fees;
   console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
@@ -141,10 +164,10 @@ async function main() {
   // see IOrderProcessor.Order struct for order parameters
   const requestOrderData = orderProcessor.interface.encodeFunctionData("requestOrder", [[
     signer.address,
-    assetToken,
+    assetTokenAddress,
     paymentTokenAddress,
-    false, // Buy Order (Change to true for Sell Order)
-    0, // Market Order
+    sellOrder,
+    orderType,
     0, // Asset amount to sell. Ignored for buys. Fees will be taken from proceeds for sells.
     orderAmount, // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
     0, // Unused limit price
