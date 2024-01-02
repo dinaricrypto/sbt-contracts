@@ -277,7 +277,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
         order.splitRecipient = msg.sender;
 
-
         // Store order signer for processor
         uint256 nextOrderId = IOrderProcessor(metaTx.to).nextOrderId();
         orderSigner[nextOrderId] = metaTx.user;
