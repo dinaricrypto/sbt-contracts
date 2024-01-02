@@ -206,11 +206,52 @@ func main() {
 	// Create the processor contract instance
 	processorContract := bind.NewBoundContract(processorAddress, processorAbi, client, client, client)
 
+	// Get token ABI
+	eip2612Abi, err := abi.JSON(strings.NewReader(eip2612AbiString))
+	if err != nil {
+		log.Fatalf("Failed to parse contract ABI: %v", err)
+	}
+
 	// ------------------ Configure Order ------------------
 
-	// Set order amount
+	// Set order amount (10 USDC)
 	orderAmount := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e6))
 	fmt.Println("Order Amount:", orderAmount.String())
+	// Set buy or sell (false = buy, true = sell)
+	sellOrder := false
+	// Set order type (0 = limit, 1 = market)
+	orderType := uint8(0)
+
+	// Check the order decimals does not exceed max decimals
+	// Applicable to sell and limit orders only
+	if sellOrder || orderType == 1 {
+		// Call the 'maxOrderDecimals' method on the contract to get max order decimals
+		var maxDecimalsTxResult []interface{}
+		maxDecimals := new(big.Int)
+		maxDecimalsTxResult = append(maxDecimalsTxResult, maxDecimals)
+		err = processorContract.Call(&bind.CallOpts{}, &maxDecimalsTxResult, "maxOrderDecimals")
+		if err != nil {
+			log.Fatalf("Failed to call getOrderDecimals function: %v", err)
+		}
+		fmt.Println("Order Decimals:", maxDecimals)
+
+		// Call 'decimals' method on the asset token contract to get token decimals
+		var assetTokenDecimalsTxResult []interface{}
+		assetTokenDecimals := new(big.Int)
+		assetTokenDecimalsTxResult = append(assetTokenDecimalsTxResult, assetTokenDecimals)
+		assetTokenContract := bind.NewBoundContract(common.HexToAddress(AssetToken), eip2612Abi, client, client, client)
+		err = assetTokenContract.Call(&bind.CallOpts{}, &assetTokenDecimalsTxResult, "decimals")
+		if err != nil {
+			log.Fatalf("Failed to call decimals function: %v", err)
+		}
+		fmt.Println("Asset Token Decimals:", assetTokenDecimals)
+
+		// Calculate the allowable decimals
+		allowableDecimals := new(big.Int).Sub(assetTokenDecimals, maxDecimals)
+		if new(big.Int).Mod(orderAmount, allowableDecimals) != big.NewInt(0) {
+			log.Fatalf("Order amount exceeds max alloeable decimals: %v", allowableDecimals)
+		}
+	}
 
 	// Call the 'estimateTotalFeesForOrder' method on the contract to get total fees
 	var feeTxResult []interface{}
@@ -229,11 +270,7 @@ func main() {
 
 	// ------------------ Configure Permit ------------------
 
-	// Get nonce & contract information to set up the transaction
-	eip2612Abi, err := abi.JSON(strings.NewReader(eip2612AbiString))
-	if err != nil {
-		log.Fatalf("Failed to parse contract ABI: %v", err)
-	}
+	// Call the 'name' method on the payment token contract to get token name
 	paymentTokenContract := bind.NewBoundContract(paymentTokenAddr, eip2612Abi, client, client, client)
 	var nameTxResult []interface{}
 	name := new(NameData)
@@ -353,8 +390,8 @@ func main() {
 		Recipient:            account.Address,
 		AssetToken:           common.HexToAddress(AssetToken),
 		PaymentToken:         paymentTokenAddr,
-		Sell:                 false,
-		OrderType:            0,
+		Sell:                 sellOrder,
+		OrderType:            orderType,
 		AssetTokenQuantity:   big.NewInt(0),
 		PaymentTokenQuantity: orderAmount,
 		Price:                big.NewInt(0),
@@ -412,5 +449,6 @@ func main() {
 
 const eip2612AbiString = `[
 	{"type":"function","name":"name","inputs":[],"outputs":[{"name":"","type":"string","internalType":"string"}],"stateMutability":"view"},
+	{"type":"function","name":"decimals","inputs":[],"outputs":[{"name":"","type":"uint8","internalType":"uint8"}],"stateMutability":"view"},
     {"type":"function","name":"nonces","inputs":[{"name":"owner","type":"address","internalType":"address"}],"outputs":[{"name":"result","type":"uint256","internalType":"uint256"}],"stateMutability":"view"}
 ]`
