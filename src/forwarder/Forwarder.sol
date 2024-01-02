@@ -52,10 +52,21 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     );
 
     /// ------------------------------- Constants -------------------------------
+    bytes private constant ORDER_TYPE = abi.encodePacked(
+        "Order(address recipient, address assetToken, address paymentToken, bool sell, uint256 orderType, uint256 assetTokenQuantity, uint256 paymentTokenQuantity, uint256 price, uint256 tif, address splitRecipient, uint256 splitAmount)"
+    );
 
-    bytes private constant FORWARDREQUEST_TYPE =
-        abi.encodePacked("ForwardRequest(address user,address to,bytes data,uint64 deadline,uint256 nonce)");
-    bytes32 private constant FORWARDREQUEST_TYPEHASH = keccak256(FORWARDREQUEST_TYPE);
+    bytes32 private constant ORDER_TYPEHASH = keccak256(ORDER_TYPE);
+
+    bytes private constant ORDER_FORWARDREQUEST_TYPE =
+        abi.encodePacked("OrderForwardRequest(address user,address to,bytes32 orderHash,uint64 deadline,uint256 nonce)");
+
+    bytes32 private constant ORDER_FORWARDREQUEST_TYPEHASH = keccak256(ORDER_FORWARDREQUEST_TYPE);
+
+    bytes private constant CANCEL_FORWARDREQUEST_TYPE =
+        abi.encodePacked("CancelForwardRequest(address user,address to,uint256 orderId,uint64 deadline,uint256 nonce)");
+
+    bytes32 private constant CANCEL_FORWARDREQUEST_TYPEHASH = keccak256(CANCEL_FORWARDREQUEST_TYPE);
 
     /// ------------------------------- Storage -------------------------------
 
@@ -198,7 +209,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     /// ------------------------------- Forwarding -------------------------------
 
     /// @inheritdoc IForwarder
-    function forwardRequestBuyOrder(ForwardRequest calldata metaTx)
+    function forwardRequestBuyOrder(OrderForwardRequest calldata metaTx)
         external
         onlyRelayer
         nonReentrant
@@ -207,9 +218,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         uint256 gasStart = gasleft();
         _validateForwardRequest(metaTx);
 
-        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestOrder.selector);
-
-        (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
+        IOrderProcessor.Order memory order = metaTx.order;
         if (order.sell) revert UnsupportedCall();
         uint256 fees = IOrderProcessor(metaTx.to).estimateTotalFeesForOrder(
             metaTx.user, order.sell, order.paymentToken, order.paymentTokenQuantity
@@ -223,8 +232,10 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         IERC20(order.paymentToken).safeTransferFrom(metaTx.user, address(this), order.paymentTokenQuantity + fees);
         IERC20(order.paymentToken).safeIncreaseAllowance(metaTx.to, order.paymentTokenQuantity + fees);
 
+        bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestOrder.selector, order);
+
         // execute low level call to issuer
-        result = metaTx.to.functionCall(metaTx.data);
+        result = metaTx.to.functionCall(data);
 
         // Check that reentrancy hasn't shifted order id
         assert(abi.decode(result, (uint256)) == orderId);
@@ -235,24 +246,21 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     }
 
     /// @inheritdoc IForwarder
-    function forwardRequestCancel(ForwardRequest calldata metaTx)
+    function forwardRequestCancel(CancelForwardRequest calldata metaTx)
         external
         onlyRelayer
         nonReentrant
         returns (bytes memory result)
     {
-        _validateForwardRequest(metaTx);
+        if (orderSigner[metaTx.orderId] != metaTx.user) revert InvalidSigner();
 
-        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestCancel.selector);
+        bytes memory data = abi.encodeWithSelector(IOrderProcessor.requestCancel.selector, metaTx.orderId);
 
-        uint256 orderId = abi.decode(metaTx.data[4:], (uint256));
-        if (orderSigner[orderId] != metaTx.user) revert InvalidSigner();
-
-        result = metaTx.to.functionCall(metaTx.data);
+        result = metaTx.to.functionCall(data);
     }
 
     /// @inheritdoc IForwarder
-    function forwardRequestSellOrder(ForwardRequest calldata metaTx)
+    function forwardRequestSellOrder(OrderForwardRequest calldata metaTx)
         external
         onlyRelayer
         nonReentrant
@@ -260,9 +268,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     {
         _validateForwardRequest(metaTx);
 
-        _validateFunctionSelector(metaTx.data, IOrderProcessor.requestOrder.selector);
-
-        (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
+        IOrderProcessor.Order memory order = metaTx.order;
 
         if (!order.sell) revert UnsupportedCall();
         if (order.splitRecipient != address(0)) revert InvalidSplitRecipient();
@@ -292,34 +298,15 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         assert(abi.decode(result, (uint256)) == orderId);
     }
 
-    /**
-     * @dev Validates the function selector of the encoded function call data.
-     * @param data The encoded function call data.
-     * @param functionSelector The expected function selector.
-     */
-    function _validateFunctionSelector(bytes calldata data, bytes4 functionSelector) internal pure {
-        bytes4 selector = bytes4(data[:4]);
-        if (selector != functionSelector) revert UnsupportedCall();
-    }
-
-    /**
-     * @dev Validates the forward request by checking the oracle price, target address, deadline,
-     *      verifying the price attestation, checking the nonce, and ensuring that the signer of the request is valid.
-     * @param metaTx The meta transaction containing the user address, target contract, encoded function call data,
-     *      deadline, nonce, payment token oracle price, and the signature components (v, r, s).
-     */
-    function _validateForwardRequest(ForwardRequest calldata metaTx) internal {
+    function _validateForwardRequest(OrderForwardRequest calldata metaTx) internal {
         if (metaTx.deadline < block.timestamp) revert ExpiredRequest();
         if (!isSupportedModule[metaTx.to]) revert NotSupportedModule();
         // slither-disable-next-line unused-return
         _useCheckedNonce(metaTx.user, metaTx.nonce);
 
-        if (bytes4(metaTx.data[:4]) == IOrderProcessor.requestOrder.selector) {
-            (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
-            if (paymentOracle[order.paymentToken] == address(0)) revert UnsupportedToken();
-        }
+        if (paymentOracle[metaTx.order.paymentToken] == address(0)) revert UnsupportedToken();
 
-        bytes32 typedDataHash = _hashTypedDataV4(forwardRequestHash(metaTx));
+        bytes32 typedDataHash = _hashTypedDataV4(orderForwardRequestHash(metaTx));
 
         address signer = ECDSA.recover(typedDataHash, metaTx.signature);
         if (signer != metaTx.user) revert InvalidSigner();
@@ -331,10 +318,39 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     }
 
     /// @inheritdoc IForwarder
-    function forwardRequestHash(ForwardRequest calldata metaTx) public pure returns (bytes32) {
+    function orderForwardRequestHash(OrderForwardRequest calldata metaTx) public pure returns (bytes32) {
         return keccak256(
             abi.encode(
-                FORWARDREQUEST_TYPEHASH, metaTx.user, metaTx.to, keccak256(metaTx.data), metaTx.deadline, metaTx.nonce
+                ORDER_FORWARDREQUEST_TYPEHASH,
+                metaTx.user,
+                metaTx.to,
+                keccak256(
+                    abi.encodePacked(
+                        ORDER_TYPEHASH,
+                        metaTx.order.recipient,
+                        metaTx.order.assetToken,
+                        metaTx.order.paymentToken,
+                        metaTx.order.sell,
+                        metaTx.order.orderType,
+                        metaTx.order.assetTokenQuantity,
+                        metaTx.order.paymentTokenQuantity,
+                        metaTx.order.price,
+                        metaTx.order.tif,
+                        metaTx.order.splitRecipient,
+                        metaTx.order.splitAmount
+                    )
+                ),
+                metaTx.deadline,
+                metaTx.nonce
+            )
+        );
+    }
+
+    /// @inheritdoc IForwarder
+    function cancelForwardRequestHash(CancelForwardRequest calldata metaTx) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                CANCEL_FORWARDREQUEST_TYPEHASH, metaTx.user, metaTx.to, metaTx.orderId, metaTx.deadline, metaTx.nonce
             )
         );
     }

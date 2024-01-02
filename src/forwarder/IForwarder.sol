@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.22;
 
+import {IOrderProcessor} from "../orders/IOrderProcessor.sol";
+
 /// @notice Contract interface for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/forwarder/IForwarder.sol)
 interface IForwarder {
@@ -16,6 +18,24 @@ interface IForwarder {
         bytes signature; // ECDSA signature of the user authorizing the meta-transaction.
     }
 
+    struct OrderForwardRequest {
+        address user;
+        address to;
+        IOrderProcessor.Order order;
+        uint256 deadline;
+        uint256 nonce;
+        bytes signature;
+    }
+
+    struct CancelForwardRequest {
+        address user;
+        address to;
+        uint256 orderId;
+        uint256 deadline;
+        uint256 nonce;
+        bytes signature;
+    }
+
     /// @notice The fee rate in basis points (1 basis point = 0.01%) for paying gas fees in tokens.
     function feeBps() external view returns (uint16);
 
@@ -28,8 +48,11 @@ interface IForwarder {
     /// @notice The mapping of order IDs to signers used for order cancellation protection.
     function orderSigner(uint256 orderId) external view returns (address);
 
-    /// @notice EIP-712 compliant forward request hash function.
-    function forwardRequestHash(ForwardRequest calldata metaTx) external pure returns (bytes32);
+    /// @notice EIP-712 compliant order forward request hash function.
+    function orderForwardRequestHash(OrderForwardRequest calldata metaTx) external pure returns (bytes32);
+
+    /// @notice EIP-712 compliant cancel forward request hash function.
+    function cancelForwardRequestHash(CancelForwardRequest calldata metaTx) external pure returns (bytes32);
 
     /**
      * @notice Forwards a meta transaction to an BuyOrder contract.
@@ -40,7 +63,7 @@ interface IForwarder {
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
      * @return The return data of the forwarded function call.
      */
-    function forwardRequestBuyOrder(ForwardRequest calldata metaTx) external returns (bytes memory);
+    function forwardRequestBuyOrder(OrderForwardRequest calldata metaTx) external returns (bytes memory);
 
     /**
      * @notice Forwards a meta transaction to cancel an Order to OrderProcessor contract.
@@ -51,7 +74,7 @@ interface IForwarder {
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
      * @return The return data of the forwarded function call.
      */
-    function forwardRequestCancel(ForwardRequest calldata metaTx) external returns (bytes memory);
+    function forwardRequestCancel(CancelForwardRequest calldata metaTx) external returns (bytes memory);
 
     /**
      * @notice Forwards a meta transaction to an SellOrder contract.
@@ -62,5 +85,5 @@ interface IForwarder {
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
      * @return The return data of the forwarded function call.
      */
-    function forwardRequestSellOrder(ForwardRequest calldata metaTx) external returns (bytes memory);
+    function forwardRequestSellOrder(OrderForwardRequest calldata metaTx) external returns (bytes memory);
 }
