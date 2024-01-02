@@ -53,7 +53,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// ------------------------------- Constants -------------------------------
     bytes private constant ORDER_TYPE = abi.encodePacked(
-        "Order(address recipient, address assetToken, address paymentToken, bool sell, uint256 orderType, uint256 assetTokenQuantity, uint256 paymentTokenQuantity, uint256 price, uint256 tif, address splitRecipient, uint256 splitAmount)"
+        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint256 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint256 tif,address splitRecipient,uint256 splitAmount)"
     );
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(ORDER_TYPE);
