@@ -218,9 +218,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         uint256 gasStart = gasleft();
         _validateOrderForwardRequest(metaTx);
 
-        if (paymentOracle[metaTx.order.paymentToken] == address(0)) revert UnsupportedToken();
-
         IOrderProcessor.Order memory order = metaTx.order;
+
         if (order.sell) revert UnsupportedCall();
         uint256 fees = IOrderProcessor(metaTx.to).estimateTotalFeesForOrder(
             metaTx.user, order.sell, order.paymentToken, order.paymentTokenQuantity
@@ -231,7 +230,9 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         orderSigner[nextOrderId] = metaTx.user;
 
         // slither-disable-next-line arbitrary-send-erc20
-        IERC20(order.paymentToken).safeTransferFrom(metaTx.user, address(this), order.paymentTokenQuantity + fees);
+        IERC20(order.paymentToken).safeTransferFrom(
+            metaTx.user, address(this), order.paymentTokenQuantity + fees
+        );
         IERC20(order.paymentToken).safeIncreaseAllowance(metaTx.to, order.paymentTokenQuantity + fees);
 
         // execute request buy order
@@ -247,8 +248,11 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @inheritdoc IForwarder
     function forwardRequestCancel(CancelForwardRequest calldata metaTx) external onlyRelayer nonReentrant {
-        _validateCancelForwardRequest(metaTx);
+        bytes32 typedDataHash = _hashTypedDataV4(cancelForwardRequestHash(metaTx));
+        _validateForwardRequest(metaTx.user, metaTx.to, metaTx.deadline, metaTx.nonce, metaTx.signature, typedDataHash);
+
         if (orderSigner[metaTx.orderId] != metaTx.user) revert InvalidSigner();
+
         IOrderProcessor(metaTx.to).requestCancel(metaTx.orderId);
     }
 
@@ -260,8 +264,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         returns (uint256 orderId)
     {
         _validateOrderForwardRequest(metaTx);
-
-        if (paymentOracle[metaTx.order.paymentToken] == address(0)) revert UnsupportedToken();
 
         IOrderProcessor.Order memory order = metaTx.order;
 
@@ -291,6 +293,14 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         assert(orderId == nextOrderId);
     }
 
+    /// @notice Validate OrderForwardRequest meta transaction.
+    /// @param metaTx The meta transaction to validate.
+    function _validateOrderForwardRequest(OrderForwardRequest calldata metaTx) internal {
+        bytes32 typedDataHash = _hashTypedDataV4(orderForwardRequestHash(metaTx));
+        _validateForwardRequest(metaTx.user, metaTx.to, metaTx.deadline, metaTx.nonce, metaTx.signature, typedDataHash);
+        if (paymentOracle[metaTx.order.paymentToken] == address(0)) revert UnsupportedToken();
+    }
+
     /// @notice Validates a meta transaction signature and nonce.
     /// @dev Reverts if the signature is invalid or the nonce has already been used.
     /// @param user The address of the user who signed the meta transaction.
@@ -317,20 +327,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         if (!IOrderProcessor(to).hasRole(IOrderProcessor(to).FORWARDER_ROLE(), address(this))) {
             revert ForwarderNotApprovedByProcessor();
         }
-    }
-
-    /// @notice Validate OrderForwardRequest meta transaction.
-    /// @param metaTx The meta transaction to validate.
-    function _validateOrderForwardRequest(OrderForwardRequest calldata metaTx) internal {
-        bytes32 typedDataHash = _hashTypedDataV4(orderForwardRequestHash(metaTx));
-        _validateForwardRequest(metaTx.user, metaTx.to, metaTx.deadline, metaTx.nonce, metaTx.signature, typedDataHash);
-    }
-
-    /// @notice Validate CancelForwardRequest meta transaction.
-    /// @param metaTx The meta transaction to validate.
-    function _validateCancelForwardRequest(CancelForwardRequest calldata metaTx) internal {
-        bytes32 typedDataHash = _hashTypedDataV4(cancelForwardRequestHash(metaTx));
-        _validateForwardRequest(metaTx.user, metaTx.to, metaTx.deadline, metaTx.nonce, metaTx.signature, typedDataHash);
     }
 
     /// @inheritdoc IForwarder
