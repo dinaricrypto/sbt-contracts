@@ -63,7 +63,7 @@ interface IForwarder {
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
      * @return The return data of the forwarded function call.
      */
-    function forwardRequestBuyOrder(OrderForwardRequest calldata metaTx) external returns (bytes memory);
+    function forwardRequestBuyOrder(OrderForwardRequest calldata metaTx) external returns (uint256);
 
     /**
      * @notice Forwards a meta transaction to cancel an Order to OrderProcessor contract.
@@ -72,9 +72,8 @@ interface IForwarder {
      * This function should only be called by the authorized relayer.
      * @param metaTx The meta transaction containing the user address, target contract, encoded function call data,
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
-     * @return The return data of the forwarded function call.
      */
-    function forwardRequestCancel(CancelForwardRequest calldata metaTx) external returns (bytes memory);
+    function forwardRequestCancel(CancelForwardRequest calldata metaTx) external;
 
     /**
      * @notice Forwards a meta transaction to an SellOrder contract.
@@ -85,5 +84,5 @@ interface IForwarder {
      * deadline, nonce, payment token oracle price, and the signature components (v, r, s).
      * @return The return data of the forwarded function call.
      */
-    function forwardRequestSellOrder(OrderForwardRequest calldata metaTx) external returns (bytes memory);
+    function forwardRequestSellOrder(OrderForwardRequest calldata metaTx) external returns (uint256);
 }
