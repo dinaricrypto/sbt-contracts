@@ -230,9 +230,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
         orderSigner[nextOrderId] = metaTx.user;
 
         // slither-disable-next-line arbitrary-send-erc20
-        IERC20(order.paymentToken).safeTransferFrom(
-            metaTx.user, address(this), order.paymentTokenQuantity + fees
-        );
+        IERC20(order.paymentToken).safeTransferFrom(metaTx.user, address(this), order.paymentTokenQuantity + fees);
         IERC20(order.paymentToken).safeIncreaseAllowance(metaTx.to, order.paymentTokenQuantity + fees);
 
         // execute request buy order
