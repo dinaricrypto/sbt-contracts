@@ -9,21 +9,9 @@ const orderProcessorAbi = orderProcessorData.abi;
 
 // token abi
 const tokenAbi = [
-  "function name() external view returns (string memory)",
+  "function approve(address spender, uint256 value) external returns (bool)",
   "function decimals() external view returns (uint8)",
-  "function version() external view returns (string memory)",
-  "function nonces(address owner) external view returns (uint256)",
 ];
-
-async function getContractVersion(contract: ethers.Contract): Promise<string> {
-  let contractVersion = '1';
-  try {
-    contractVersion = await contract.version();
-  } catch {
-    // do nothing
-  }
-  return contractVersion;
-}
 
 async function main() {
 
@@ -116,53 +104,18 @@ async function main() {
   const totalSpendAmount = orderAmount + fees;
   console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
 
-  // ------------------ Configure Permit ------------------
+  // ------------------ Approve Spend ------------------
 
-  // permit nonce for user
-  const nonce = await paymentToken.nonces(signer.address);
-  // 5 minute deadline from current blocktime
-  const blockNumber = await provider.getBlockNumber();
-  const blockTime = (await provider.getBlock(blockNumber))?.timestamp;
-  if (!blockTime) throw new Error("no block time");
-  const deadline = blockTime + 60 * 5;
-
-  // unique signature domain for payment token
-  const permitDomain = {
-    name: await paymentToken.name(),
-    version: await getContractVersion(paymentToken),
-    chainId: (await provider.getNetwork()).chainId,
-    verifyingContract: paymentTokenAddress,
-  };
-
-  // permit message to sign
-  const permitMessage = {
-    owner: signer.address,
-    spender: orderProcessorAddress,
-    value: totalSpendAmount,
-    nonce: nonce,
-    deadline: deadline
-  };
-
-  // sign permit to spend payment token
-  const permitSignatureBytes = await signer.signTypedData(permitDomain, permitTypes, permitMessage);
-  const permitSignature = ethers.Signature.from(permitSignatureBytes);
-
-  // create selfPermit call data
-  const selfPermitData = orderProcessor.interface.encodeFunctionData("selfPermit", [
-    paymentTokenAddress,
-    permitMessage.owner,
-    permitMessage.value,
-    permitMessage.deadline,
-    permitSignature.v,
-    permitSignature.r,
-    permitSignature.s
-  ]);
+  // approve buy processor to spend payment token
+  const approveTx = await paymentToken.approve(orderProcessorAddress, totalSpendAmount);
+  await approveTx.wait();
+  console.log(`approve tx hash: ${approveTx.hash}`);
 
   // ------------------ Submit Order ------------------
 
-  // create requestOrder call data
+  // submit request order transaction
   // see IOrderProcessor.Order struct for order parameters
-  const requestOrderData = orderProcessor.interface.encodeFunctionData("requestOrder", [[
+  const tx = await orderProcessor.requestOrder([
     signer.address,
     assetTokenAddress,
     paymentTokenAddress,
@@ -174,15 +127,9 @@ async function main() {
     1, // GTC
     ethers.ZeroAddress, // split recipient
     0, // split amount
-  ]]);
-
-  // submit permit + request order multicall transaction
-  const tx = await orderProcessor.multicall([
-    selfPermitData,
-    requestOrderData,
   ]);
   const receipt = await tx.wait();
-  console.log(tx.hash);
+  console.log(`tx hash: ${tx.hash}`);
 
   // get order id from event
   const events = receipt.logs.map((log: any) => orderProcessor.interface.parseLog(log));
