@@ -11,35 +11,41 @@ async function main() {
 
   // ------------------ Setup ------------------
 
-  // setup values
-  const privateKey = process.env.PRIVATE_KEY;
-  if (!privateKey) throw new Error("empty key");
-  const RPC_URL = process.env.RPC_URL;
+  // get account to listen for
+  const requester = process.env.USER_ADDRESS;
+  if (!requester) throw new Error("empty user address");
+
+  // get websockets rpc url
+  const RPC_URL = process.env.RPC_URL_WSS;
   if (!RPC_URL) throw new Error("empty rpc url");
 
   // setup provider and signer
   const provider = ethers.getDefaultProvider(RPC_URL);
-  const signer = new ethers.Wallet(privateKey, provider);
   const chainId = Number((await provider.getNetwork()).chainId);
   const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
   console.log(`Order Processor Address: ${orderProcessorAddress}`);
 
-  // connect signer to order processor contract
+  // connect provider to order processor contract
   const orderProcessor = new ethers.Contract(
     orderProcessorAddress,
     orderProcessorAbi,
-    signer,
+    provider,
   );
 
-  const orderId = 0;
+  // ------------------ Listen ------------------
 
-  const tx = await orderProcessor.requestCancel(orderId);
-  console.log(`tx hash: ${tx.hash}`);
-  await tx.wait();
+  // fill event filter for a specific account
+  const filter = orderProcessor.filters.OrderFill(null, requester);
+
+  // listen for fill events
+  await orderProcessor.on(filter, (event: ethers.ContractEventPayload) => {
+    const [orderId, requesterAccount, fillAmount, receivedAmount, feesPaid] = event.args;
+    console.log(`Account ${requesterAccount} Order ${orderId} filled for ${fillAmount}, received ${receivedAmount}, paid ${feesPaid}`);
+  });
+
 }
 
 main()
-  .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
     process.exit(1);
