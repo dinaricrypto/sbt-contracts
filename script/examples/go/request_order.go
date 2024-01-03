@@ -144,7 +144,7 @@ func main() {
 	signer, _ := bind.NewKeyedTransactorWithChainID(privateKey, chainID)
 
 	// Setup the ABI (Application Binary Interface) and the contract binding for the processor contract
-	data, err := os.ReadFile("../../lib/sbt-deployments/src/v0.3.0/order_processor.json")
+	data, err := os.ReadFile("../../../lib/sbt-deployments/src/v0.3.0/order_processor.json")
 	if err != nil {
 		log.Fatal(err)
 	}
