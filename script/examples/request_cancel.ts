@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const orderProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.3.0/order_processor.json');
+const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.3.0/order_processor.json');
 const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
 const orderProcessorAbi = orderProcessorData.abi;
 
@@ -24,7 +24,7 @@ async function main() {
   const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
   console.log(`Order Processor Address: ${orderProcessorAddress}`);
 
-  // connect signer to buy processor contract
+  // connect signer to order processor contract
   const orderProcessor = new ethers.Contract(
     orderProcessorAddress,
     orderProcessorAbi,

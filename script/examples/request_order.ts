@@ -3,12 +3,12 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const orderProcessorDataPath = path.resolve(__dirname, '../lib/sbt-deployments/src/v0.3.0/order_processor.json');
+const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.3.0/order_processor.json');
 const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
 const orderProcessorAbi = orderProcessorData.abi;
 
-// EIP-2612 abi
-const eip2612Abi = [
+// token abi
+const tokenAbi = [
   "function name() external view returns (string memory)",
   "function decimals() external view returns (uint8)",
   "function version() external view returns (string memory)",
@@ -73,14 +73,14 @@ async function main() {
   // connect signer to payment token contract
   const paymentToken = new ethers.Contract(
     paymentTokenAddress,
-    eip2612Abi,
+    tokenAbi,
     signer,
   );
 
   // connect signer to asset token contract
   const assetToken = new ethers.Contract(
     assetTokenAddress,
-    eip2612Abi,
+    tokenAbi,
     signer,
   );
 
