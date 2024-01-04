@@ -5,11 +5,12 @@ import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessCon
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IVault} from "./IVault.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
+import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 
 /// @notice Specialized multicall for fulfilling orders with vault funds.
 /// @dev Uses vault to remove the need for operator wallets to hold (non-gas) funds.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/FulfillmentRouter.sol)
-contract FulfillmentRouter {
+contract FulfillmentRouter is Multicall {
     using SafeERC20 for IERC20;
 
     error Unauthorized();

@@ -108,9 +108,13 @@ contract FulfillmentRouterTest is Test {
     }
 
     function testFillOrderRevertsUnauthorized() public {
+        bytes[] memory multicallData = new bytes[](1);
+
+        multicallData[0] =
+            abi.encodeWithSelector(router.fillOrder.selector, address(issuer), address(vault), 0, dummyOrder, 0, 0);
         vm.expectRevert(FulfillmentRouter.Unauthorized.selector);
         vm.prank(admin);
-        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0);
+        router.multicall(multicallData);
     }
 
     function testFillBuyOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
@@ -136,10 +140,16 @@ contract FulfillmentRouterTest is Test {
         vm.prank(user);
         uint256 id = issuer.requestOrder(order);
 
+        bytes[] memory multicallData = new bytes[](1);
+
+        multicallData[0] = abi.encodeWithSelector(
+            router.fillOrder.selector, address(issuer), address(vault), id, order, fillAmount, receivedAmount
+        );
+
         vm.expectEmit(true, true, true, false);
         emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
+        router.multicall(multicallData);
     }
 
     function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
@@ -163,9 +173,15 @@ contract FulfillmentRouterTest is Test {
         vm.prank(admin);
         paymentToken.mint(address(vault), receivedAmount);
 
+        bytes[] memory multicallData = new bytes[](1);
+
+        multicallData[0] = abi.encodeWithSelector(
+            router.fillOrder.selector, address(issuer), address(vault), id, order, fillAmount, receivedAmount
+        );
+
         vm.expectEmit(true, true, true, false);
         emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
+        router.multicall(multicallData);
     }
 }
