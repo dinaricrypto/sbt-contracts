@@ -11,33 +11,19 @@ import {CREATE3} from "solady/src/utils/CREATE3.sol";
 ///@notice Factory to create new dShares
 ///@author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/DShareFactory.sol)
 contract DShareFactory is IDShareFactory {
-    DShare public implementation;
     UpgradeableBeacon public beacon;
     TransferRestrictor public transferRestrictor;
 
     error ZeroAddress();
     error DeploymentRevert();
 
-    event NewImplementSet(address indexed implementation);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
     event NewBeaconSet(address indexed beacon);
 
-    constructor(DShare _implementation, TransferRestrictor _transferRestrictor, UpgradeableBeacon _beacon) {
-        if (
-            address(_beacon) == address(0) || address(_transferRestrictor) == address(0)
-                || address(_implementation) == address(0)
-        ) revert ZeroAddress();
-        implementation = _implementation;
+    constructor(TransferRestrictor _transferRestrictor, UpgradeableBeacon _beacon) {
+        if (address(_beacon) == address(0) || address(_transferRestrictor) == address(0)) revert ZeroAddress();
         transferRestrictor = _transferRestrictor;
         beacon = _beacon;
-    }
-
-    /// @notice Sets a new implementation for the dShare
-    /// @param _implementation New implementation
-    function setNewImplementation(DShare _implementation) external {
-        if (address(_implementation) == address(0)) revert ZeroAddress();
-        implementation = _implementation;
-        emit NewImplementSet(address(_implementation));
     }
 
     /// @notice Sets a new transfer restrictor for the dShare
