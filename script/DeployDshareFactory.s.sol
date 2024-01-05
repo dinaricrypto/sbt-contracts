@@ -7,22 +7,18 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {CREATE3} from "solady/src/utils/CREATE3.sol";
 
-contract DeployDshareFactory is Script {
+contract DeployDshareFactoryScript is Script {
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         TransferRestrictor restrictor = TransferRestrictor(vm.envAddress("RESTRICTOR"));
         UpgradeableBeacon beacon = UpgradeableBeacon(vm.envAddress("BEACON"));
 
-        bytes memory bytecode = abi.encodePacked(
-            type(DShareFactory).creationCode,
-            abi.encode(restrictor, beacon)
-        );
+        bytes memory bytecode = abi.encodePacked(type(DShareFactory).creationCode, abi.encode(restrictor, beacon));
 
         bytes32 salt = keccak256(abi.encode(restrictor, beacon));
-        
+
         vm.startBroadcast(deployerPrivateKey);
         CREATE3.deploy(salt, bytecode, 0);
         vm.stopBroadcast();
-
     }
 }
