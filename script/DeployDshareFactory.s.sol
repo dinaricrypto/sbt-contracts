@@ -2,7 +2,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
-import {DShareFactory} from "../../src/DShareFactory.sol";
+import {DShareFactory} from "../src/DShareFactory.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {CREATE3} from "solady/src/utils/CREATE3.sol";
