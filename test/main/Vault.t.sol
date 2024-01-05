@@ -70,14 +70,14 @@ contract VaultTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user, vault.AUTHORIZED_OPERATOR_ROLE()
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, vault.OPERATOR_ROLE()
             )
         );
         vm.prank(user);
         vault.withdrawFunds(paymentToken, to, amount);
 
         vm.startPrank(admin);
-        vault.grantRole(vault.AUTHORIZED_OPERATOR_ROLE(), mockAddress);
+        vault.grantRole(vault.OPERATOR_ROLE(), mockAddress);
         vm.stopPrank();
 
         vm.expectEmit(true, true, true, true);

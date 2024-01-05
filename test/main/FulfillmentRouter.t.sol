@@ -70,7 +70,7 @@ contract FulfillmentRouterTest is Test {
             )
         );
         vault = new Vault(admin);
-        router = new FulfillmentRouter();
+        router = new FulfillmentRouter(admin);
 
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
@@ -85,10 +85,10 @@ contract FulfillmentRouterTest is Test {
         issuer.setDefaultFees(address(paymentToken), defaultFees);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), address(router));
-        issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
-        vault.grantRole(vault.AUTHORIZED_OPERATOR_ROLE(), address(router));
+        vault.grantRole(vault.OPERATOR_ROLE(), address(router));
+        router.grantRole(router.OPERATOR_ROLE(), operator);
 
         vm.stopPrank();
 
@@ -108,7 +108,11 @@ contract FulfillmentRouterTest is Test {
     }
 
     function testFillOrderRevertsUnauthorized() public {
-        vm.expectRevert(FulfillmentRouter.Unauthorized.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, admin, router.OPERATOR_ROLE()
+            )
+        );
         vm.prank(admin);
         router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0);
     }

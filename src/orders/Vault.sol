@@ -3,11 +3,8 @@ pragma solidity 0.8.22;
 
 import {IVault} from "./IVault.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {
-    AccessControlDefaultAdminRules,
-    AccessControl,
-    IAccessControl
-} from "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
+import {AccessControlDefaultAdminRules} from
+    "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 
 /// @title Vault Contract
 /// @notice This contract is used for managing and executing withdrawals of ERC20 tokens.
@@ -18,7 +15,7 @@ contract Vault is IVault, AccessControlDefaultAdminRules {
     event FundsWithdrawn(IERC20 token, address user, uint256 amount);
 
     /// @notice Role identifier for an authorized router
-    bytes32 public constant AUTHORIZED_OPERATOR_ROLE = keccak256("AUTHORIZED_OPERATOR_ROLE");
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     /// @notice Constructor to initialize the Vault with an admin
     /// @param admin Address of the default admin
@@ -34,15 +31,11 @@ contract Vault is IVault, AccessControlDefaultAdminRules {
     }
 
     /// @notice Withdraws funds from the vault to a specified user.
-    /// @dev Can only be called by an account with the AUTHORIZED_OPERATOR_ROLE.
+    /// @dev Can only be called by an account with the OPERATOR_ROLE.
     /// @param token ERC20 token to be withdrawn
     /// @param user User address to receive the withdrawn funds
     /// @param amount Amount of tokens to withdraw
-    function withdrawFunds(IERC20 token, address user, uint256 amount)
-        external
-        override
-        onlyRole(AUTHORIZED_OPERATOR_ROLE)
-    {
+    function withdrawFunds(IERC20 token, address user, uint256 amount) external override onlyRole(OPERATOR_ROLE) {
         emit FundsWithdrawn(token, user, amount);
         token.safeTransfer(user, amount);
     }
