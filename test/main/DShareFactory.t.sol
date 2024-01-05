@@ -16,7 +16,6 @@ contract DShareFactoryTest is Test {
     UpgradeableBeacon beacon;
 
     event DShareCreated(address indexed dShare);
-    event NewImplementSet(address indexed implementation);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
     event NewBeaconSet(address indexed beacon);
 
@@ -25,35 +24,26 @@ contract DShareFactoryTest is Test {
         tokenImplementation = new DShare();
         beacon = new UpgradeableBeacon(address(tokenImplementation), address(this));
 
-        factory = new DShareFactory(tokenImplementation, restrictor, beacon);
+        factory = new DShareFactory(restrictor, beacon);
     }
 
     function testDeployNewFactory() public {
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        DShareFactory newFactory = new DShareFactory(DShare(address(0)), restrictor, beacon);
+        DShareFactory newFactory = new DShareFactory(TransferRestrictor(address(0)), beacon);
 
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        newFactory = new DShareFactory(DShare(address(1)), TransferRestrictor(address(0)), beacon);
+        newFactory = new DShareFactory(restrictor, UpgradeableBeacon(address(0)));
 
-        vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        newFactory = new DShareFactory(DShare(address(1)), restrictor, UpgradeableBeacon(address(0)));
-
-        newFactory = new DShareFactory(tokenImplementation, restrictor, beacon);
+        newFactory = new DShareFactory(restrictor, beacon);
     }
 
     function testSetter() public {
-        vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        factory.setNewImplementation(DShare(address(0)));
-
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
         factory.setNewTransferRestrictor(TransferRestrictor(address(0)));
 
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
         factory.setNewBeacon(UpgradeableBeacon(address(0)));
 
-        vm.expectEmit(true, true, true, true);
-        emit NewImplementSet(address(tokenImplementation));
-        factory.setNewImplementation(tokenImplementation);
         vm.expectEmit(true, true, true, true);
         emit NewTransferRestrictorSet(address(restrictor));
         factory.setNewTransferRestrictor(restrictor);
