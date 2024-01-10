@@ -467,6 +467,7 @@ contract OrderProcessor is
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
+    // slither-disable-next-line cyclomatic-complexity
     function _initializeOrder(Order calldata order, address requester) private returns (uint256 id) {
         // ------------------ Checks ------------------ //
 
@@ -600,8 +601,8 @@ contract OrderProcessor is
         if (fillAmount > orderInfo.unfilledAmount) revert AmountTooLarge();
 
         // Calculate earned fees and handle any unique checks
-        uint256 paymentEarned;
-        uint256 feesEarned;
+        uint256 paymentEarned = 0;
+        uint256 feesEarned = 0;
         if (order.sell) {
             // For limit sell orders, ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv18(fillAmount, order.price)) {
@@ -658,8 +659,6 @@ contract OrderProcessor is
                 uint256 escrowTaken = orderInfo.unfilledAmount - $._getOrderEscrow[id];
                 if (fillAmount > escrowTaken) {
                     paymentEarned = fillAmount - escrowTaken;
-                } else {
-                    paymentEarned = 0;
                 }
             } else {
                 paymentEarned = fillAmount;
