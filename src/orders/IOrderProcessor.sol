@@ -29,6 +29,8 @@ interface IOrderProcessor {
 
     // Order status enum
     enum OrderStatus {
+        // Order has never existed
+        NONE,
         // Order is active
         ACTIVE,
         // Order is completely filled
