@@ -105,8 +105,7 @@ contract BuyProcessorRequestTest is Test {
             paymentTokenQuantity: 1 ether,
             price: 0,
             tif: IOrderProcessor.TIF.GTC,
-            splitAmount: 0,
-            splitRecipient: address(0)
+            escrowUnlocked: false
         });
 
         calls = new bytes[](2);

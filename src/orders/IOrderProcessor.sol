@@ -57,12 +57,30 @@ interface IOrderProcessor {
         uint256 price;
         // Time in force
         TIF tif;
-        // Account receiving split amount
-        address splitRecipient;
-        // Received amount filled to secondary address first
-        uint256 splitAmount;
+        // Escrow unlocked
+        bool escrowUnlocked;
     }
 
+    struct OrderRequest {
+        // EIP-712 typed data hash of order
+        bytes32 orderHash;
+        // Signature expiration timestamp
+        uint256 deadline;
+        // Order request nonce
+        uint256 nonce;
+    }
+
+    struct Signature {
+        // Signature expiration timestamp
+        uint256 deadline;
+        // Signature nonce
+        uint256 nonce;
+        // Signature bytes (r, s, v)
+        bytes signature;
+    }
+
+    /// @dev Emitted for each order
+    event OrderCreated(uint256 indexed id, address indexed requester);
     /// @dev Fully specifies order details and order ID
     event OrderRequested(uint256 indexed id, address indexed requester, Order order);
     /// @dev Emitted for each fill
@@ -136,12 +154,25 @@ interface IOrderProcessor {
         uint256 paymentTokenOrderValue
     ) external view returns (uint256);
 
-    /// @dev Returns `true` if `account` has been granted `role`.
-    function hasRole(bytes32 role, address account) external view returns (bool);
-
-    function FORWARDER_ROLE() external view returns (bytes32);
-
     /// ------------------ Actions ------------------ ///
+
+    /// @notice Lock tokens and initialize signed order
+    /// @param order Order request to initialize
+    /// @param signature Signature for order
+    /// @return id Order id
+    /// @dev Only callable by operator
+    // TODO: better name?
+    function pullPaymentForSignedOrder(Order calldata order, Signature calldata signature) external returns (uint256);
+
+    /// @notice Initialize and fill signed order
+    /// @param id order id
+    /// @param order Order request to fill
+    /// @param fillAmount Amount of order token to fill
+    /// @param receivedAmount Amount of received token
+    /// @dev Only callable by operator
+    /// @dev Same as calling lockEscrowForSignedOrder and fillOrder
+    // TODO: implement
+    // function fillSignedOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
 
     /// @notice Request an order
     /// @param order Order request to submit
@@ -162,7 +193,6 @@ interface IOrderProcessor {
     /// @dev Only callable by initial order requester
     /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
     function requestCancel(uint256 id) external;
-
     /// @notice Cancel an order
     /// @param order id
     /// @param order Order request to cancel

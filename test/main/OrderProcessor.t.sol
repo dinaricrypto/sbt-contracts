@@ -112,8 +112,7 @@ contract OrderProcessorTest is Test {
             paymentTokenQuantity: sell ? 0 : 100 ether,
             price: 0,
             tif: IOrderProcessor.TIF.GTC,
-            splitRecipient: address(0),
-            splitAmount: 0
+            escrowUnlocked: false
         });
     }
 
@@ -133,31 +132,6 @@ contract OrderProcessorTest is Test {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         vm.prank(admin);
         issuer.setTreasury(address(0));
-    }
-
-    function testCheckHash(bool sell) public {
-        IOrderProcessor.Order memory order = getDummyOrder(sell);
-        bytes32 orderHash = issuer.hashOrder(order);
-        bytes32 orderCallDataHash = issuer.hashOrderCalldata(order);
-
-        bytes32 hashToTest = keccak256(
-            abi.encode(
-                order.recipient,
-                order.assetToken,
-                order.paymentToken,
-                order.sell,
-                order.orderType,
-                order.assetTokenQuantity,
-                order.paymentTokenQuantity,
-                order.price,
-                order.tif,
-                order.splitAmount,
-                order.splitRecipient
-            )
-        );
-
-        assertEq(orderHash, orderCallDataHash);
-        assertEq(hashToTest, orderHash);
     }
 
     function testSetDefaultFees(

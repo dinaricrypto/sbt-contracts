@@ -4,9 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
-import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
-import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -77,21 +75,9 @@ contract DeployAllScript is Script {
             )
         );
 
-        BuyUnlockedProcessor directBuyIssuerImpl = new BuyUnlockedProcessor();
-        BuyUnlockedProcessor directBuyIssuer = BuyUnlockedProcessor(
-            address(
-                new ERC1967Proxy(
-                    address(directBuyIssuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, tokenLockCheck))
-                )
-            )
-        );
-
         // config operator
         orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator);
-        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
         orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator2);
-        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator2);
 
         // config payment token
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
@@ -102,30 +88,10 @@ contract DeployAllScript is Script {
         });
 
         orderProcessor.setDefaultFees(cfg.usdc, defaultFees);
-        directBuyIssuer.setDefaultFees(cfg.usdc, defaultFees);
 
         orderProcessor.setDefaultFees(cfg.usdt, defaultFees);
-        directBuyIssuer.setDefaultFees(cfg.usdt, defaultFees);
 
         orderProcessor.setDefaultFees(usdce, defaultFees);
-        directBuyIssuer.setDefaultFees(usdce, defaultFees);
-
-        /// ------------------ forwarder ------------------
-
-        Forwarder forwarder = new Forwarder(ethusdoracle, SELL_GAS_COST);
-        forwarder.setFeeBps(2000);
-
-        forwarder.setPaymentOracle(address(cfg.usdc), usdcoracle);
-        forwarder.setPaymentOracle(address(usdce), usdcoracle);
-        forwarder.setPaymentOracle(address(cfg.usdt), usdtoracle);
-
-        forwarder.setSupportedModule(address(orderProcessor), true);
-        forwarder.setSupportedModule(address(directBuyIssuer), true);
-
-        forwarder.setRelayer(cfg.relayer, true);
-
-        orderProcessor.grantRole(orderProcessor.FORWARDER_ROLE(), address(forwarder));
-        directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
 
         /// ------------------ dividend distributor ------------------
 

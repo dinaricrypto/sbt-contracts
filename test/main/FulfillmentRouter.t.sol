@@ -102,8 +102,7 @@ contract FulfillmentRouterTest is Test {
             paymentTokenQuantity: 100 ether,
             price: 0,
             tif: IOrderProcessor.TIF.GTC,
-            splitAmount: 0,
-            splitRecipient: address(0)
+            escrowUnlocked: false
         });
     }
 

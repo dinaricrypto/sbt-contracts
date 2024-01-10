@@ -8,8 +8,6 @@ import {DShare} from "../src/DShare.sol";
 import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
-import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
-import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -41,9 +39,6 @@ contract DeployAllSandboxScript is Script {
         TokenLockCheck tokenLockCheck;
         OrderProcessor orderProcessorImplementation;
         OrderProcessor orderProcessor;
-        BuyUnlockedProcessor directBuyIssuerImplementation;
-        BuyUnlockedProcessor directBuyIssuer;
-        Forwarder forwarder;
         DividendDistribution dividendDistributor;
     }
 
@@ -184,19 +179,8 @@ contract DeployAllSandboxScript is Script {
             )
         );
 
-        deployments.directBuyIssuerImplementation = new BuyUnlockedProcessor();
-        deployments.directBuyIssuer = BuyUnlockedProcessor(
-            address(
-                new ERC1967Proxy(
-                    address(deployments.directBuyIssuerImplementation),
-                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deployments.tokenLockCheck))
-                )
-            )
-        );
-
         // config operator
         deployments.orderProcessor.grantRole(deployments.orderProcessor.OPERATOR_ROLE(), cfg.operator);
-        deployments.directBuyIssuer.grantRole(deployments.directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
@@ -207,13 +191,10 @@ contract DeployAllSandboxScript is Script {
         });
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdc), defaultFees);
-        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdc), defaultFees);
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdt), defaultFees);
-        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdt), defaultFees);
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdce), defaultFees);
-        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdce), defaultFees);
 
         // config asset token
         for (uint256 i = 0; i < deployments.dShares.length; i++) {
@@ -224,35 +205,10 @@ contract DeployAllSandboxScript is Script {
             deployments.orderProcessor.grantRole(
                 deployments.orderProcessor.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
             );
-            deployments.directBuyIssuer.grantRole(
-                deployments.directBuyIssuer.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
-            );
 
             deployments.dShares[i].grantRole(deployments.dShares[i].MINTER_ROLE(), address(deployments.orderProcessor));
             deployments.dShares[i].grantRole(deployments.dShares[i].BURNER_ROLE(), address(deployments.orderProcessor));
-            deployments.dShares[i].grantRole(deployments.dShares[i].MINTER_ROLE(), address(deployments.directBuyIssuer));
         }
-
-        /// ------------------ forwarder ------------------
-
-        deployments.forwarder = new Forwarder(cfg.ethusdoracle, SELL_GAS_COST);
-        deployments.forwarder.setFeeBps(2000);
-
-        deployments.forwarder.setPaymentOracle(address(deployments.usdc), cfg.usdcoracle);
-        deployments.forwarder.setPaymentOracle(address(deployments.usdce), cfg.usdcoracle);
-        deployments.forwarder.setPaymentOracle(address(deployments.usdt), cfg.usdcoracle);
-
-        deployments.forwarder.setSupportedModule(address(deployments.orderProcessor), true);
-        deployments.forwarder.setSupportedModule(address(deployments.directBuyIssuer), true);
-
-        deployments.forwarder.setRelayer(cfg.relayer, true);
-
-        deployments.orderProcessor.grantRole(
-            deployments.orderProcessor.FORWARDER_ROLE(), address(deployments.forwarder)
-        );
-        deployments.directBuyIssuer.grantRole(
-            deployments.directBuyIssuer.FORWARDER_ROLE(), address(deployments.forwarder)
-        );
 
         /// ------------------ dividend distributor ------------------
 

@@ -24,8 +24,7 @@ contract Order is Script {
             0,
             0,
             IOrderProcessor.TIF.GTC,
-            address(0),
-            0
+            false
         );
         // IERC20(order.assetToken).safeIncreaseAllowance(address(issuer), order.assetTokenQuantity);
         issuer.requestOrder(order);

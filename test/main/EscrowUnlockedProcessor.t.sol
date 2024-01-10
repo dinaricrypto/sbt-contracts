@@ -4,19 +4,17 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockDShareFactory.sol";
-import "../../src/orders/BuyUnlockedProcessor.sol";
-import "../../src/orders/IOrderProcessor.sol";
+import "../../src/orders/OrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract BuyUnlockedProcessorTest is Test {
+contract EscrowUnlockedProcessorTest is Test {
     event EscrowTaken(uint256 indexed id, address indexed recipient, uint256 amount);
     event EscrowReturned(uint256 indexed id, address indexed recipient, uint256 amount);
 
-    event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
     event OrderFill(
         uint256 indexed id,
         address indexed requester,
@@ -26,14 +24,12 @@ contract BuyUnlockedProcessorTest is Test {
         uint256 receivedAmount,
         uint256 feesPaid
     );
-    event OrderFulfilled(uint256 indexed id, address indexed recipient);
-    event CancelRequested(uint256 indexed id, address indexed requester);
     event OrderCancelled(uint256 indexed id, address indexed recipient, string reason);
 
     MockDShareFactory tokenFactory;
     DShare token;
     TokenLockCheck tokenLockCheck;
-    BuyUnlockedProcessor issuer;
+    OrderProcessor issuer;
     MockToken paymentToken;
 
     uint256 userPrivateKey;
@@ -62,8 +58,8 @@ contract BuyUnlockedProcessorTest is Test {
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
 
-        BuyUnlockedProcessor issuerImpl = new BuyUnlockedProcessor();
-        issuer = BuyUnlockedProcessor(
+        OrderProcessor issuerImpl = new OrderProcessor();
+        issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
                     address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck))
@@ -98,8 +94,7 @@ contract BuyUnlockedProcessorTest is Test {
             paymentTokenQuantity: 100 ether,
             price: 0,
             tif: IOrderProcessor.TIF.GTC,
-            splitAmount: 0,
-            splitRecipient: address(0)
+            escrowUnlocked: true
         });
     }
 
@@ -184,6 +179,8 @@ contract BuyUnlockedProcessorTest is Test {
     {
         vm.assume(takeAmount > 0);
         vm.assume(takeAmount <= orderAmount);
+        vm.assume(fillAmount > 0);
+        vm.assume(fillAmount <= takeAmount);
         uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
@@ -202,29 +199,19 @@ contract BuyUnlockedProcessorTest is Test {
         vm.prank(operator);
         issuer.takeEscrow(id, order, takeAmount);
 
-        if (fillAmount == 0) {
-            vm.expectRevert(OrderProcessor.ZeroValue.selector);
-            vm.prank(operator);
-            issuer.fillOrder(id, order, fillAmount, receivedAmount);
-        } else if (fillAmount > orderAmount || fillAmount > takeAmount) {
-            vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
-            vm.prank(operator);
-            issuer.fillOrder(id, order, fillAmount, receivedAmount);
+        vm.expectEmit(true, true, true, false);
+        // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
+        emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
+        vm.prank(operator);
+        issuer.fillOrder(id, order, fillAmount, receivedAmount);
+        assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
+        if (fillAmount == orderAmount) {
+            assertEq(issuer.numOpenOrders(), 0);
+            assertEq(issuer.getTotalReceived(id), 0);
+            assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
         } else {
-            vm.expectEmit(true, true, true, false);
-            // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
-            emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
-            vm.prank(operator);
-            issuer.fillOrder(id, order, fillAmount, receivedAmount);
-            assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
-            if (fillAmount == orderAmount) {
-                assertEq(issuer.numOpenOrders(), 0);
-                assertEq(issuer.getTotalReceived(id), 0);
-                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
-            } else {
-                assertEq(issuer.getTotalReceived(id), receivedAmount);
-                assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-            }
+            assertEq(issuer.getTotalReceived(id), receivedAmount);
+            assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         }
     }
 
@@ -289,7 +276,7 @@ contract BuyUnlockedProcessorTest is Test {
         vm.prank(operator);
         issuer.takeEscrow(id, order, takeAmount);
 
-        vm.expectRevert(BuyUnlockedProcessor.UnreturnedEscrow.selector);
+        vm.expectRevert(OrderProcessor.UnreturnedEscrow.selector);
         vm.prank(operator);
         issuer.cancelOrder(id, order, "");
     }

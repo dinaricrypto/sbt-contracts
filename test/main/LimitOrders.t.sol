@@ -98,8 +98,7 @@ contract LimitOrderTest is Test {
             paymentTokenQuantity: sell ? 0 : orderAmount,
             price: price,
             tif: IOrderProcessor.TIF.GTC,
-            splitAmount: 0,
-            splitRecipient: address(0)
+            escrowUnlocked: false
         });
     }
 

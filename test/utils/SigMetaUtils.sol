@@ -7,7 +7,7 @@ contract SigMetaUtils {
     bytes32 internal immutable DOMAIN_SEPARATOR;
 
     bytes private constant ORDER_TYPE = abi.encodePacked(
-        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint256 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint256 tif,address splitRecipient,uint256 splitAmount)"
+        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint256 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint256 tif)"
     );
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(ORDER_TYPE);
@@ -59,9 +59,7 @@ contract SigMetaUtils {
                         metaTx.order.assetTokenQuantity,
                         metaTx.order.paymentTokenQuantity,
                         metaTx.order.price,
-                        metaTx.order.tif,
-                        metaTx.order.splitRecipient,
-                        metaTx.order.splitAmount
+                        metaTx.order.tif
                     )
                 ),
                 metaTx.deadline,
