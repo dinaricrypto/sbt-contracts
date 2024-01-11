@@ -10,12 +10,14 @@ import {
     AccessControlUpgradeable,
     IAccessControl
 } from "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {EIP712Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/cryptography/EIP712Upgradeable.sol";
 import {NoncesUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/NoncesUpgradeable.sol";
 import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
+import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {ITransferRestrictor} from "../ITransferRestrictor.sol";
@@ -25,12 +27,13 @@ import {FeeLib} from "../common/FeeLib.sol";
 
 /// @notice Core contract managing orders for dShare tokens
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
-// TODO: take non-refundable network fee in payment token
 // TODO: reduce unnecessary storage reads
+// FIXME: individual fees can be set when there is no default
 contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
     AccessControlDefaultAdminRulesUpgradeable,
+    EIP712Upgradeable,
     NoncesUpgradeable,
     MulticallUpgradeable,
     SelfPermit,
@@ -81,6 +84,7 @@ contract OrderProcessor is
         uint24 percentageFeeRateSell;
     }
 
+    error InvalidSignature();
     /// @dev Signature deadline expired
     error ExpiredSignature();
     /// @dev Zero address
@@ -125,6 +129,8 @@ contract OrderProcessor is
     event FeesSet(address indexed account, address indexed paymentToken, FeeRates feeRates);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
+    event EthUsdOracleSet(address indexed ethUsdOracle);
+    event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
 
     /// ------------------ Constants ------------------ ///
 
@@ -135,8 +141,9 @@ contract OrderProcessor is
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
+        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif,bool escrowUnlocked)"
     );
+
     bytes32 private constant ORDER_REQUEST_TYPEHASH =
         keccak256("OrderRequest(bytes32 orderHash,uint256 deadline,uint256 nonce)");
 
@@ -166,6 +173,10 @@ contract OrderProcessor is
         mapping(address => mapping(address => FeeRatesStorage)) _accountFees;
         // Order escrow tracking
         mapping(uint256 => uint256) _getOrderEscrow;
+        // ETH USD price oracle
+        address _ethUsdOracle;
+        // Payment token USD price oracles
+        mapping(address => address) _paymentTokenOracle;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
@@ -185,21 +196,25 @@ contract OrderProcessor is
     /// @param _treasury Address to receive fees
     /// @param _tokenLockCheck Token lock check contract
     /// @dev Treasury cannot be zero address
-    function initialize(address _owner, address _treasury, ITokenLockCheck _tokenLockCheck)
+    function initialize(address _owner, address _treasury, ITokenLockCheck _tokenLockCheck, address _ethUsdOracle)
         public
         virtual
         initializer
     {
         __AccessControlDefaultAdminRules_init(0, _owner);
+        __EIP712_init("OrderProcessor", "1");
+        __Nonces_init();
         __Multicall_init();
 
         // Don't send fees to zero address
         if (_treasury == address(0)) revert ZeroAddress();
+        if (_ethUsdOracle == address(0)) revert ZeroAddress();
 
         // Initialize
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._treasury = _treasury;
         $._tokenLockCheck = _tokenLockCheck;
+        $._ethUsdOracle = _ethUsdOracle;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -285,6 +300,16 @@ contract OrderProcessor is
         return $._orders[id].cancellationInitiated;
     }
 
+    function ethUsdOracle() external view returns (address) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._ethUsdOracle;
+    }
+
+    function paymentTokenOracle(address paymentToken) external view returns (address) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._paymentTokenOracle[paymentToken];
+    }
+
     function getAccountFees(address account, address paymentToken) external view returns (FeeRates memory) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         FeeRatesStorage memory feeRates = $._accountFees[account][paymentToken];
@@ -330,6 +355,11 @@ contract OrderProcessor is
         (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, sell, paymentToken);
         // Calculate total fees
         return FeeLib.estimateTotalFees(flatFee, percentageFeeRate, paymentTokenOrderValue);
+    }
+
+    // slither-disable-next-line naming-convention
+    function DOMAIN_SEPARATOR() external view returns (bytes32) {
+        return _domainSeparatorV4();
     }
 
     /// ------------------ Administration ------------------ ///
@@ -442,6 +472,18 @@ contract OrderProcessor is
         emit MaxOrderDecimalsSet(token, decimals);
     }
 
+    function setEthUsdOracle(address _ethUsdOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        $._ethUsdOracle = _ethUsdOracle;
+        emit EthUsdOracleSet(_ethUsdOracle);
+    }
+
+    function setPaymentTokenOracle(address paymentToken, address oracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        $._paymentTokenOracle[paymentToken] = oracle;
+        emit PaymentTokenOracleSet(paymentToken, oracle);
+    }
+
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc IOrderProcessor
@@ -451,8 +493,25 @@ contract OrderProcessor is
         onlyRole(OPERATOR_ROLE)
         returns (uint256 id)
     {
+        // Start gas measurement
+        uint256 gasStart = gasleft();
+
+        // Check if payment token oracle is set
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        address _oracle = $._paymentTokenOracle[order.paymentToken];
+        if (_oracle == address(0)) revert UnsupportedToken(order.paymentToken);
+
+        // Recover requester and validate signature
         address requester = _validateOrderSignature(order, signature);
+
+        // Create order
         id = _initializeOrder(order, requester);
+
+        // Pull payment for order creation
+        uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
+
+        // Charge user for gas fees
+        _chargeSponsoredTransaction(requester, order.paymentToken, tokenPriceInWei, gasStart);
     }
 
     /// @dev Recover requester and validate signature
@@ -461,8 +520,12 @@ contract OrderProcessor is
         returns (address requester)
     {
         if (signature.deadline < block.timestamp) revert ExpiredSignature();
+
         // Recover order requester
-        requester = ECDSA.recover(hashOrderRequest(order, signature.deadline, signature.nonce), signature.signature);
+        bytes32 typedDataHash = _hashTypedDataV4(hashOrderRequest(order, signature.deadline, signature.nonce));
+        requester = ECDSA.recover(typedDataHash, signature.signature);
+
+        // Consume nonce
         _useCheckedNonce(requester, signature.nonce);
     }
 
@@ -548,7 +611,72 @@ contract OrderProcessor is
         }
     }
 
+    function getTokenPriceInWei(address paymentToken) public view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        address _oracle = $._paymentTokenOracle[paymentToken];
+        if (_oracle == address(0)) revert UnsupportedToken(paymentToken);
+
+        return _getTokenPriceInWei(_oracle);
+    }
+
+    /**
+     * @notice Get the current oracle price for a payment token
+     */
+    function _getTokenPriceInWei(address _paymentTokenOracle) internal view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        address _ethUsdOracle = $._ethUsdOracle;
+
+        // slither-disable-next-line unused-return
+        (, int256 paymentPrice,,,) = AggregatorV3Interface(_paymentTokenOracle).latestRoundData();
+        // slither-disable-next-line unused-return
+        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(_ethUsdOracle).latestRoundData();
+        // adjust values to align decimals
+        uint8 paymentPriceDecimals = AggregatorV3Interface(_paymentTokenOracle).decimals();
+        uint8 ethUSDPriceDecimals = AggregatorV3Interface(_ethUsdOracle).decimals();
+        if (paymentPriceDecimals > ethUSDPriceDecimals) {
+            ethUSDPrice = ethUSDPrice * int256(10 ** (paymentPriceDecimals - ethUSDPriceDecimals));
+        } else if (paymentPriceDecimals < ethUSDPriceDecimals) {
+            paymentPrice = paymentPrice * int256(10 ** (ethUSDPriceDecimals - paymentPriceDecimals));
+        }
+        // compute payment price in wei
+        uint256 paymentPriceInWei = mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
+        return uint256(paymentPriceInWei);
+    }
+
+    /**
+     * @dev Handles the payment of transaction fees in the form of tokens. Calculates the
+     *      gas used for the transaction and transfers the equivalent amount in tokens from
+     *      the user to the relayer.
+     *
+     * @param user The address of the user who is paying the transaction fees.
+     * @param paymentToken The address of the ERC20 token used for payment.
+     * @param paymentTokenPrice The price of the payment token in terms of wei.
+     * @param gasStart The amount of gas at the start of the transaction.
+     */
+    function _chargeSponsoredTransaction(
+        address user,
+        address paymentToken,
+        uint256 paymentTokenPrice,
+        uint256 gasStart
+    ) internal {
+        uint256 gasUsed = gasStart - gasleft();
+        uint256 gasCostInWei = gasUsed * tx.gasprice;
+
+        // Apply payment token price to calculate payment amount
+        // Assumes payment token price includes token decimals
+        uint256 paymentAmount = 0;
+        try IERC20Metadata(paymentToken).decimals() returns (uint8 tokenDecimals) {
+            paymentAmount = gasCostInWei * 10 ** tokenDecimals / paymentTokenPrice;
+        } catch {
+            paymentAmount = gasCostInWei / paymentTokenPrice;
+        }
+
+        // Transfer the payment for gas fees
+        // slither-disable-next-line arbitrary-send-erc20
+        IERC20(paymentToken).safeTransferFrom(user, msg.sender, paymentAmount);
+    }
     /// @inheritdoc IOrderProcessor
+
     function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 id) {
         id = _initializeOrder(order, msg.sender);
 
@@ -573,7 +701,8 @@ contract OrderProcessor is
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
                 order.price,
-                order.tif
+                order.tif,
+                order.escrowUnlocked
             )
         );
     }

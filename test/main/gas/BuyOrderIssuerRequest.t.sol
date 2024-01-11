@@ -60,7 +60,8 @@ contract BuyProcessorRequestTest is Test {
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
-                    address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (admin, treasury, tokenLockCheck))
+                    address(issuerImpl),
+                    abi.encodeCall(issuerImpl.initialize, (admin, treasury, tokenLockCheck, address(1)))
                 )
             )
         );

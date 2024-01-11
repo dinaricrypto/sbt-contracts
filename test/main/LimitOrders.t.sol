@@ -58,7 +58,8 @@ contract LimitOrderTest is Test {
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
-                    address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck))
+                    address(issuerImpl),
+                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck, address(1)))
                 )
             )
         );

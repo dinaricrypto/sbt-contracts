@@ -23,6 +23,7 @@ contract DeployAllSandboxScript is Script {
         address relayer;
         address ethusdoracle;
         address usdcoracle;
+        address usdtoracle;
     }
 
     struct Deployments {
@@ -57,7 +58,8 @@ contract DeployAllSandboxScript is Script {
             distributor: vm.envAddress("DISTRIBUTOR"),
             relayer: vm.envAddress("RELAYER"),
             ethusdoracle: vm.envAddress("ETHUSDORACLE"),
-            usdcoracle: vm.envAddress("USDCORACLE")
+            usdcoracle: vm.envAddress("USDCORACLE"),
+            usdtoracle: vm.envAddress("USDTORACLE")
         });
 
         Deployments memory deployments;
@@ -174,7 +176,10 @@ contract DeployAllSandboxScript is Script {
             address(
                 new ERC1967Proxy(
                     address(deployments.orderProcessorImplementation),
-                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deployments.tokenLockCheck))
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (cfg.deployer, cfg.treasury, deployments.tokenLockCheck, cfg.ethusdoracle)
+                    )
                 )
             )
         );
@@ -191,10 +196,13 @@ contract DeployAllSandboxScript is Script {
         });
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdc), defaultFees);
+        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdc), cfg.usdcoracle);
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdt), defaultFees);
+        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdt), cfg.usdtoracle);
 
         deployments.orderProcessor.setDefaultFees(address(deployments.usdce), defaultFees);
+        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdce), cfg.usdcoracle);
 
         // config asset token
         for (uint256 i = 0; i < deployments.dShares.length; i++) {

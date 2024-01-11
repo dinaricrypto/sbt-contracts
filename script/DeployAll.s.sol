@@ -18,7 +18,6 @@ contract DeployAllScript is Script {
         address usdc;
         address usdt;
         address relayer;
-        address oracle;
     }
 
     // Tether
@@ -41,8 +40,7 @@ contract DeployAllScript is Script {
             usdc: vm.envAddress("USDC"),
             usdt: vm.envAddress("USDT"),
             // usdt: address(0),
-            relayer: vm.envAddress("RELAYER"),
-            oracle: vm.envAddress("ORACLE")
+            relayer: vm.envAddress("RELAYER")
         });
         address usdcoracle = vm.envAddress("USDCORACLE");
         address usdtoracle = vm.envAddress("USDTORACLE");
@@ -70,7 +68,9 @@ contract DeployAllScript is Script {
             address(
                 new ERC1967Proxy(
                     address(orderProcessorImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, tokenLockCheck))
+                    abi.encodeCall(
+                        OrderProcessor.initialize, (cfg.deployer, cfg.treasury, tokenLockCheck, ethusdoracle)
+                    )
                 )
             )
         );
@@ -88,10 +88,13 @@ contract DeployAllScript is Script {
         });
 
         orderProcessor.setDefaultFees(cfg.usdc, defaultFees);
+        orderProcessor.setPaymentTokenOracle(cfg.usdc, usdcoracle);
 
         orderProcessor.setDefaultFees(cfg.usdt, defaultFees);
+        orderProcessor.setPaymentTokenOracle(cfg.usdt, usdtoracle);
 
         orderProcessor.setDefaultFees(usdce, defaultFees);
+        orderProcessor.setPaymentTokenOracle(usdce, usdcoracle);
 
         /// ------------------ dividend distributor ------------------
 
