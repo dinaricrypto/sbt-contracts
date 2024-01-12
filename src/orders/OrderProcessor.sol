@@ -53,8 +53,6 @@ contract OrderProcessor is
         uint24 percentageFeeRate;
         // Account that requested the order
         address requester;
-        // Whether a cancellation for this order has been initiated
-        bool cancellationInitiated;
         // Total amount of received token due to fills
         uint256 received;
         // Total fees paid to treasury
@@ -291,13 +289,6 @@ contract OrderProcessor is
     function getOrderEscrow(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._getOrderEscrow[id];
-    }
-
-    /// @notice Has order cancellation been requested?
-    /// @param id Order ID
-    function cancelRequested(uint256 id) external view returns (bool) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._orders[id].cancellationInitiated;
     }
 
     function ethUsdOracle() external view returns (address) {
@@ -566,8 +557,7 @@ contract OrderProcessor is
             flatFee: flatFee,
             percentageFeeRate: percentageFeeRate,
             received: 0,
-            feesPaid: 0,
-            cancellationInitiated: false
+            feesPaid: 0
         });
         $._orderInfo[id] = OrderInfo({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
         $._numOpenOrders++;
@@ -849,22 +839,6 @@ contract OrderProcessor is
         if (feesEarned > 0) {
             IERC20(order.paymentToken).safeTransfer($._treasury, feesEarned);
         }
-    }
-
-    /// @inheritdoc IOrderProcessor
-    function requestCancel(uint256 id) external {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        if ($._orders[id].cancellationInitiated) revert OrderCancellationInitiated();
-        // Order must exist
-        address requester = $._orders[id].requester;
-        if (requester == address(0)) revert OrderNotFound();
-        // Only requester can request cancellation
-        if (requester != msg.sender) revert NotRequester();
-
-        $._orders[id].cancellationInitiated = true;
-
-        // Send cancel request to bridge
-        emit CancelRequested(id, requester);
     }
 
     /// @inheritdoc IOrderProcessor

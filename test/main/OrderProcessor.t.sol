@@ -735,52 +735,6 @@ contract OrderProcessorTest is Test {
         issuer.fillOrder(id, getDummyOrder(sell), 100, 100);
     }
 
-    function testRequestCancel() public {
-        IOrderProcessor.Order memory dummyOrder = getDummyOrder(false);
-        uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
-
-        vm.prank(admin);
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.approve(address(issuer), quantityIn);
-
-        vm.prank(user);
-        uint256 id = issuer.requestOrder(dummyOrder);
-
-        vm.expectEmit(true, true, true, true);
-        emit CancelRequested(id, user);
-        vm.prank(user);
-        issuer.requestCancel(id);
-
-        vm.expectRevert(OrderProcessor.OrderCancellationInitiated.selector);
-        vm.prank(user);
-        issuer.requestCancel(id);
-        assertEq(issuer.cancelRequested(id), true);
-    }
-
-    function testRequestCancelNotRequesterReverts() public {
-        IOrderProcessor.Order memory dummyOrder = getDummyOrder(false);
-        uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
-        vm.prank(admin);
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.approve(address(issuer), quantityIn);
-
-        vm.prank(user);
-        uint256 id = issuer.requestOrder(dummyOrder);
-
-        vm.expectRevert(OrderProcessor.NotRequester.selector);
-        issuer.requestCancel(id);
-
-        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-    }
-
-    function testRequestCancelNotFoundReverts(uint256 id) public {
-        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
-        vm.prank(user);
-        issuer.requestCancel(id);
-    }
-
     function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount < orderAmount);

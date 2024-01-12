@@ -97,8 +97,6 @@ interface IOrderProcessor {
     );
     /// @dev Emitted when order is completely filled, terminal
     event OrderFulfilled(uint256 indexed id, address indexed requester);
-    /// @dev Emitted when order cancellation is requested
-    event CancelRequested(uint256 indexed id, address indexed requester);
     /// @dev Emitted when order is cancelled, terminal
     event OrderCancelled(uint256 indexed id, address indexed requester, string reason);
 
@@ -178,11 +176,6 @@ interface IOrderProcessor {
     /// @dev Only callable by operator
     function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
 
-    /// @notice Request to cancel an order
-    /// @param id Order id
-    /// @dev Only callable by initial order requester
-    /// @dev Emits CancelRequested event to be sent to fulfillment service (operator)
-    function requestCancel(uint256 id) external;
     /// @notice Cancel an order
     /// @param order id
     /// @param order Order request to cancel
