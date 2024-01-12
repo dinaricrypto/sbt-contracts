@@ -297,11 +297,14 @@ contract OrderProcessor is
         return $._paymentTokenOracle[paymentToken];
     }
 
-    function getAccountFees(address account, address paymentToken) external view returns (FeeRates memory) {
+    function getAccountFees(address requester, address paymentToken) public view returns (FeeRates memory) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        FeeRatesStorage memory feeRates = $._accountFees[account][paymentToken];
-        // If user,paymentToken does not have a custom fee schedule, use default
-        if (!feeRates.set) {
+        FeeRatesStorage storage feeRatesPointer = $._accountFees[requester][paymentToken];
+        // If user, paymentToken does not have a custom fee schedule, use default
+        FeeRatesStorage memory feeRates;
+        if (feeRatesPointer.set) {
+            feeRates = feeRatesPointer;
+        } else {
             feeRates = $._accountFees[address(0)][paymentToken];
         }
         return FeeRates({
@@ -318,15 +321,7 @@ contract OrderProcessor is
         view
         returns (uint256, uint24)
     {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        FeeRatesStorage storage feeRatesPointer = $._accountFees[requester][paymentToken];
-        // If user does not have a custom fee schedule, use default
-        FeeRatesStorage memory feeRates;
-        if (feeRatesPointer.set) {
-            feeRates = feeRatesPointer;
-        } else {
-            feeRates = $._accountFees[address(0)][paymentToken];
-        }
+        FeeRates memory feeRates = getAccountFees(requester, paymentToken);
         if (sell) {
             return (FeeLib.flatFeeForOrder(paymentToken, feeRates.perOrderFeeSell), feeRates.percentageFeeRateSell);
         } else {
