@@ -28,6 +28,7 @@ import {FeeLib} from "../common/FeeLib.sol";
 /// @notice Core contract managing orders for dShare tokens
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
 // TODO: reduce unnecessary storage reads
+// TODO: take network fee from proceeds for sells
 // FIXME: individual fees can be set when there is no default
 contract OrderProcessor is
     Initializable,
@@ -62,7 +63,7 @@ contract OrderProcessor is
     }
 
     // Order state not cleared after order is fulfilled or cancelled.
-    struct OrderInfo {
+    struct OrderPersistedState {
         // Amount of order token remaining to be used
         uint256 unfilledAmount;
         // Status of order
@@ -158,7 +159,7 @@ contract OrderProcessor is
         // Active order state
         mapping(uint256 => OrderState) _orders;
         // Persisted order state
-        mapping(uint256 => OrderInfo) _orderInfo;
+        mapping(uint256 => OrderPersistedState) _orderInfo;
         // Escrowed balance of asset token per requester
         mapping(address => mapping(address => uint256)) _escrowedBalanceOf;
         // Max order decimals for asset token, defaults to 0 decimals
@@ -220,43 +221,43 @@ contract OrderProcessor is
     /// ------------------ Getters ------------------ ///
 
     /// @notice Address to receive fees
-    function treasury() public view returns (address) {
+    function treasury() external view returns (address) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._treasury;
     }
 
     /// @notice Transfer restrictor checker
-    function tokenLockCheck() public view returns (ITokenLockCheck) {
+    function tokenLockCheck() external view returns (ITokenLockCheck) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._tokenLockCheck;
     }
 
     /// @notice Are orders paused?
-    function ordersPaused() public view returns (bool) {
+    function ordersPaused() external view returns (bool) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._ordersPaused;
     }
 
     /// @inheritdoc IOrderProcessor
-    function numOpenOrders() public view override returns (uint256) {
+    function numOpenOrders() external view override returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._numOpenOrders;
     }
 
     /// @inheritdoc IOrderProcessor
-    function nextOrderId() public view override returns (uint256) {
+    function nextOrderId() external view override returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._nextOrderId;
     }
 
     /// @inheritdoc IOrderProcessor
-    function escrowedBalanceOf(address token, address requester) public view override returns (uint256) {
+    function escrowedBalanceOf(address token, address requester) external view override returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._escrowedBalanceOf[token][requester];
     }
 
     /// @inheritdoc IOrderProcessor
-    function maxOrderDecimals(address token) public view override returns (int8) {
+    function maxOrderDecimals(address token) external view override returns (int8) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._maxOrderDecimals[token];
     }
@@ -268,13 +269,13 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function getUnfilledAmount(uint256 id) public view returns (uint256) {
+    function getUnfilledAmount(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._orderInfo[id].unfilledAmount;
     }
 
     /// @inheritdoc IOrderProcessor
-    function getTotalReceived(uint256 id) public view returns (uint256) {
+    function getTotalReceived(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._orders[id].received;
     }
@@ -318,9 +319,12 @@ contract OrderProcessor is
         returns (uint256, uint24)
     {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        FeeRatesStorage memory feeRates = $._accountFees[requester][paymentToken];
+        FeeRatesStorage storage feeRatesPointer = $._accountFees[requester][paymentToken];
         // If user does not have a custom fee schedule, use default
-        if (!feeRates.set) {
+        FeeRatesStorage memory feeRates;
+        if (feeRatesPointer.set) {
+            feeRates = feeRatesPointer;
+        } else {
             feeRates = $._accountFees[address(0)][paymentToken];
         }
         if (sell) {
@@ -555,7 +559,7 @@ contract OrderProcessor is
             feesPaid: 0,
             escrowTaken: 0
         });
-        $._orderInfo[id] = OrderInfo({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
+        $._orderInfo[id] = OrderPersistedState({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
         $._numOpenOrders++;
 
         emit OrderCreated(id, requester);
@@ -694,7 +698,7 @@ contract OrderProcessor is
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
         // Fill cannot exceed remaining order
-        OrderInfo memory orderInfo = $._orderInfo[id];
+        OrderPersistedState memory orderInfo = $._orderInfo[id];
         if (fillAmount > orderInfo.unfilledAmount) revert AmountTooLarge();
 
         // Calculate earned fees and handle any unique checks
