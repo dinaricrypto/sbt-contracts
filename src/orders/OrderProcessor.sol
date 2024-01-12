@@ -465,7 +465,7 @@ contract OrderProcessor is
 
     /// @inheritdoc IOrderProcessor
     function pullPaymentForSignedOrder(Order calldata order, Signature calldata signature)
-        public
+        external
         whenOrdersNotPaused
         onlyRole(OPERATOR_ROLE)
         returns (uint256 id)
@@ -485,7 +485,7 @@ contract OrderProcessor is
         id = _initializeOrder(order, requester);
 
         // Pull payment for order creation
-        uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
+        uint256 tokenPriceInWei = getTokenPriceInWei(_oracle);
 
         // Charge user for gas fees
         _chargeSponsoredTransaction(requester, order.paymentToken, tokenPriceInWei, gasStart);
@@ -583,18 +583,10 @@ contract OrderProcessor is
         }
     }
 
-    function getTokenPriceInWei(address paymentToken) public view returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        address _oracle = $._paymentTokenOracle[paymentToken];
-        if (_oracle == address(0)) revert UnsupportedToken(paymentToken);
-
-        return _getTokenPriceInWei(_oracle);
-    }
-
     /**
      * @notice Get the current oracle price for a payment token
      */
-    function _getTokenPriceInWei(address _paymentTokenOracle) internal view returns (uint256) {
+    function getTokenPriceInWei(address _paymentTokenOracle) public view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         address _ethUsdOracle = $._ethUsdOracle;
 
@@ -649,7 +641,7 @@ contract OrderProcessor is
     }
     /// @inheritdoc IOrderProcessor
 
-    function requestOrder(Order calldata order) public whenOrdersNotPaused returns (uint256 id) {
+    function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
         id = _initializeOrder(order, msg.sender);
 
         // Send order to bridge
