@@ -57,6 +57,8 @@ contract OrderProcessor is
         uint256 received;
         // Total fees paid to treasury
         uint256 feesPaid;
+        // Current amount of payment token taken out of escrow
+        uint256 escrowTaken;
     }
 
     // Order state not cleared after order is fulfilled or cancelled.
@@ -82,7 +84,6 @@ contract OrderProcessor is
         uint24 percentageFeeRateSell;
     }
 
-    error InvalidSignature();
     /// @dev Signature deadline expired
     error ExpiredSignature();
     /// @dev Zero address
@@ -99,14 +100,10 @@ contract OrderProcessor is
     error EscrowUnlockNotSupported();
     /// @dev Amount too large
     error AmountTooLarge();
-    /// @dev Order type mismatch
-    error OrderTypeMismatch();
     error UnsupportedToken(address token);
     /// @dev blacklist address
     error Blacklist();
     error NotRequester();
-    /// @dev Custom error when an order cancellation has already been initiated
-    error OrderCancellationInitiated();
     /// @dev Thrown when assetTokenQuantity's precision doesn't match the expected precision in orderDecimals.
     error InvalidPrecision();
     error LimitPriceNotSet();
@@ -169,8 +166,6 @@ contract OrderProcessor is
         // Fee schedule for requester, per paymentToken
         // Uses address(0) to store default fee schedule
         mapping(address => mapping(address => FeeRatesStorage)) _accountFees;
-        // Order escrow tracking
-        mapping(uint256 => uint256) _getOrderEscrow;
         // ETH USD price oracle
         address _ethUsdOracle;
         // Payment token USD price oracles
@@ -284,11 +279,11 @@ contract OrderProcessor is
         return $._orders[id].received;
     }
 
-    /// @notice Get the amount of payment token escrowed for an order
+    /// @notice Get current amount of payment token taken out of escrow
     /// @param id order id
-    function getOrderEscrow(uint256 id) external view returns (uint256) {
+    function getEscrowTaken(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._getOrderEscrow[id];
+        return $._orders[id].escrowTaken;
     }
 
     function ethUsdOracle() external view returns (address) {
@@ -557,15 +552,11 @@ contract OrderProcessor is
             flatFee: flatFee,
             percentageFeeRate: percentageFeeRate,
             received: 0,
-            feesPaid: 0
+            feesPaid: 0,
+            escrowTaken: 0
         });
         $._orderInfo[id] = OrderInfo({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
         $._numOpenOrders++;
-
-        // Initialize payment escrow tracking for buy order
-        if (order.escrowUnlocked) {
-            $._getOrderEscrow[id] = order.paymentTokenQuantity;
-        }
 
         emit OrderCreated(id, requester);
 
@@ -762,9 +753,8 @@ contract OrderProcessor is
 
             // Payment amount to take for fill reduced by amount previously taken from escrow
             if (order.escrowUnlocked) {
-                uint256 escrowTaken = orderInfo.unfilledAmount - $._getOrderEscrow[id];
-                if (fillAmount > escrowTaken) {
-                    paymentEarned = fillAmount - escrowTaken;
+                if (fillAmount > orderState.escrowTaken) {
+                    paymentEarned = fillAmount - orderState.escrowTaken;
                 }
             } else {
                 paymentEarned = fillAmount;
@@ -787,7 +777,6 @@ contract OrderProcessor is
             // Clear order state
             delete $._orders[id];
             $._numOpenOrders--;
-            delete $._getOrderEscrow[id];
             // Notify order fulfilled
             emit OrderFulfilled(id, orderState.requester);
         } else {
@@ -800,8 +789,12 @@ contract OrderProcessor is
                 );
                 assert(feesPaid <= estimatedTotalFees);
                 // Update order escrow tracking
-                if (order.escrowUnlocked && paymentEarned > 0) {
-                    $._getOrderEscrow[id] -= paymentEarned;
+                if (order.escrowUnlocked) {
+                    if (paymentEarned == 0) {
+                        $._orders[id].escrowTaken -= fillAmount;
+                    } else if (orderState.escrowTaken > 0) {
+                        $._orders[id].escrowTaken = 0;
+                    }
                 }
             }
             $._orders[id].received = orderState.received + receivedAmount;
@@ -852,8 +845,7 @@ contract OrderProcessor is
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
         // Prohibit cancel if escrowed payment has been taken and not returned or filled
-        uint256 unfilledAmount = $._orderInfo[id].unfilledAmount;
-        if (order.escrowUnlocked && unfilledAmount != $._getOrderEscrow[id]) revert UnreturnedEscrow();
+        if (orderState.escrowTaken > 0) revert UnreturnedEscrow();
 
         // ------------------ Effects ------------------ //
 
@@ -863,10 +855,9 @@ contract OrderProcessor is
         // Clear order state
         delete $._orders[id];
         $._numOpenOrders--;
-        // Clear the order escrow record
-        delete $._getOrderEscrow[id];
 
         uint256 refund;
+        uint256 unfilledAmount = $._orderInfo[id].unfilledAmount;
         if (order.sell) {
             refund = unfilledAmount;
         } else {
@@ -909,12 +900,11 @@ contract OrderProcessor is
         if (orderState.requester == address(0)) revert OrderNotFound();
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
-        // Can't take more than escrowed
-        uint256 escrow = $._getOrderEscrow[id];
-        if (amount > escrow) revert AmountTooLarge();
+        // Can't take more than available
+        if (amount > $._orderInfo[id].unfilledAmount - orderState.escrowTaken) revert AmountTooLarge();
 
         // Update escrow tracking
-        $._getOrderEscrow[id] = escrow - amount;
+        $._orders[id].escrowTaken += amount;
         $._escrowedBalanceOf[order.paymentToken][orderState.requester] -= amount;
 
         // Notify escrow taken
@@ -941,12 +931,10 @@ contract OrderProcessor is
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
         // Can only return unused amount
-        uint256 escrow = $._getOrderEscrow[id];
-        // Unused amount = remaining order - remaining escrow
-        if (escrow + amount > $._orderInfo[id].unfilledAmount) revert AmountTooLarge();
+        if (amount > orderState.escrowTaken) revert AmountTooLarge();
 
         // Update escrow tracking
-        $._getOrderEscrow[id] = escrow + amount;
+        $._orders[id].escrowTaken -= amount;
         $._escrowedBalanceOf[order.paymentToken][orderState.requester] += amount;
 
         // Notify escrow returned

@@ -130,7 +130,7 @@ contract EscrowUnlockedProcessorTest is Test {
             vm.prank(operator);
             issuer.takeEscrow(id, order, takeAmount);
             assertEq(paymentToken.balanceOf(operator), takeAmount);
-            assertEq(issuer.getOrderEscrow(id), orderAmount - takeAmount);
+            assertEq(issuer.getEscrowTaken(id), takeAmount);
         }
     }
 
@@ -170,7 +170,7 @@ contract EscrowUnlockedProcessorTest is Test {
             emit EscrowReturned(id, user, returnAmount);
             vm.prank(operator);
             issuer.returnEscrow(id, order, returnAmount);
-            assertEq(issuer.getOrderEscrow(id), returnAmount);
+            assertEq(issuer.getEscrowTaken(id), orderAmount - returnAmount);
             assertEq(paymentToken.balanceOf(address(issuer)), fees + returnAmount);
         }
     }
