@@ -151,7 +151,8 @@ contract OrderProcessorSignedTest is Test {
     function testRequestOrderThroughOperator(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
 
-        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
+        (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        uint256 fees = FeeLib.estimateTotalFees(_flatFee, _percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;

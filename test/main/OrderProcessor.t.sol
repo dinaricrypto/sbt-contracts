@@ -95,7 +95,8 @@ contract OrderProcessorTest is Test {
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
-        dummyOrderFees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), 100 ether);
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
 
         restrictor = TransferRestrictor(address(token.transferRestrictor()));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
@@ -286,7 +287,8 @@ contract OrderProcessorTest is Test {
     function testRequestBuyOrder(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
 
-        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = getDummyOrder(false);
@@ -612,7 +614,8 @@ contract OrderProcessorTest is Test {
 
     function testFulfillBuyOrder(uint256 orderAmount, uint256 receivedAmount) public {
         vm.assume(orderAmount > 0);
-        uint256 fees = issuer.estimateTotalFeesForOrder(user, false, address(paymentToken), orderAmount);
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         uint256 quantityIn = orderAmount + fees;
 

@@ -344,19 +344,6 @@ contract OrderProcessor is
         }
     }
 
-    /// @inheritdoc IOrderProcessor
-    function estimateTotalFeesForOrder(
-        address requester,
-        bool sell,
-        address paymentToken,
-        uint256 paymentTokenOrderValue
-    ) public view returns (uint256) {
-        // Get fee rates
-        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, sell, paymentToken);
-        // Calculate total fees
-        return FeeLib.estimateTotalFees(flatFee, percentageFeeRate, paymentTokenOrderValue);
-    }
-
     // slither-disable-next-line naming-convention
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();

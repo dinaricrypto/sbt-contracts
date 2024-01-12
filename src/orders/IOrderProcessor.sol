@@ -144,18 +144,6 @@ interface IOrderProcessor {
         view
         returns (uint256, uint24);
 
-    /// @notice Get total fees for an order
-    /// @param requester Requester of order
-    /// @param sell Sell order
-    /// @param paymentToken Payment token for order
-    /// @param paymentTokenOrderValue Order payment token quantity
-    function estimateTotalFeesForOrder(
-        address requester,
-        bool sell,
-        address paymentToken,
-        uint256 paymentTokenOrderValue
-    ) external view returns (uint256);
-
     /// ------------------ Actions ------------------ ///
 
     /// @notice Lock tokens and initialize signed order
