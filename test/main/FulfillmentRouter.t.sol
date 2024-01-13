@@ -77,13 +77,7 @@ contract FulfillmentRouterTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
-            percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
-            percentageFeeRateSell: 5_000
-        });
-        issuer.setFees(address(0), address(paymentToken), defaultFees);
+        issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), address(router));
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));

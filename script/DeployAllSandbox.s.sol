@@ -188,20 +188,19 @@ contract DeployAllSandboxScript is Script {
         deployments.orderProcessor.grantRole(deployments.orderProcessor.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: perOrderFee,
-            percentageFeeRateBuy: percentageFeeRate,
-            perOrderFeeSell: perOrderFee,
-            percentageFeeRateSell: percentageFeeRate
-        });
-
-        deployments.orderProcessor.setFees(address(0), address(deployments.usdc), defaultFees);
+        deployments.orderProcessor.setFees(
+            address(0), address(deployments.usdc), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+        );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdc), cfg.usdcoracle);
 
-        deployments.orderProcessor.setFees(address(0), address(deployments.usdt), defaultFees);
+        deployments.orderProcessor.setFees(
+            address(0), address(deployments.usdt), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+        );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdt), cfg.usdtoracle);
 
-        deployments.orderProcessor.setFees(address(0), address(deployments.usdce), defaultFees);
+        deployments.orderProcessor.setFees(
+            address(0), address(deployments.usdce), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+        );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdce), cfg.usdcoracle);
 
         // config asset token

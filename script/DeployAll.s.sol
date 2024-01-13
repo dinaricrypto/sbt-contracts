@@ -80,20 +80,13 @@ contract DeployAllScript is Script {
         orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator2);
 
         // config payment token
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: perOrderFee,
-            percentageFeeRateBuy: percentageFeeRate,
-            perOrderFeeSell: perOrderFee,
-            percentageFeeRateSell: percentageFeeRate
-        });
-
-        orderProcessor.setFees(address(0), cfg.usdc, defaultFees);
+        orderProcessor.setFees(address(0), cfg.usdc, perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate);
         orderProcessor.setPaymentTokenOracle(cfg.usdc, usdcoracle);
 
-        orderProcessor.setFees(address(0), cfg.usdt, defaultFees);
+        orderProcessor.setFees(address(0), cfg.usdt, perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate);
         orderProcessor.setPaymentTokenOracle(cfg.usdt, usdtoracle);
 
-        orderProcessor.setFees(address(0), usdce, defaultFees);
+        orderProcessor.setFees(address(0), usdce, perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate);
         orderProcessor.setPaymentTokenOracle(usdce, usdcoracle);
 
         /// ------------------ dividend distributor ------------------

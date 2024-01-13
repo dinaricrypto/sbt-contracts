@@ -23,15 +23,9 @@ contract AddPaymentTokens is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: perOrderFee,
-            percentageFeeRateBuy: percentageFeeRate,
-            perOrderFeeSell: perOrderFee,
-            percentageFeeRateSell: percentageFeeRate
-        });
         for (uint256 i = 0; i < paymentTokens.length; i++) {
             // add to order processors
-            issuer.setFees(address(0), paymentTokens[i], defaultFees);
+            issuer.setFees(address(0), paymentTokens[i], perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate);
         }
 
         vm.stopBroadcast();

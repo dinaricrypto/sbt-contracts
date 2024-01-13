@@ -57,13 +57,6 @@ contract OrderProcessor is
         uint256 escrowTaken;
     }
 
-    struct FeeRates {
-        uint64 perOrderFeeBuy;
-        uint24 percentageFeeRateBuy;
-        uint64 perOrderFeeSell;
-        uint24 percentageFeeRateSell;
-    }
-
     struct FeeRatesStorage {
         bool set;
         uint64 perOrderFeeBuy;
@@ -109,7 +102,15 @@ contract OrderProcessor is
     /// @dev Emitted when token lock check contract is set
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     /// @dev Emitted when fees are set
-    event FeesSet(address indexed account, address indexed paymentToken, FeeRates feeRates);
+    event FeesSet(
+        address indexed account,
+        address indexed paymentToken,
+        uint64 perOrderFeeBuy,
+        uint24 percentageFeeRateBuy,
+        uint64 perOrderFeeSell,
+        uint24 percentageFeeRateSell
+    );
+    event FeesReset(address indexed account, address indexed paymentToken);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
     event EthUsdOracleSet(address indexed ethUsdOracle);
@@ -290,7 +291,16 @@ contract OrderProcessor is
         return $._usedNonces[account][nonce];
     }
 
-    function getAccountFees(address requester, address paymentToken) public view returns (FeeRates memory) {
+    function getAccountFees(address requester, address paymentToken)
+        public
+        view
+        returns (
+            uint64 perOrderFeeBuy,
+            uint24 percentageFeeRateBuy,
+            uint64 perOrderFeeSell,
+            uint24 percentageFeeRateSell
+        )
+    {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         FeeRatesStorage storage feeRatesPointer = $._accountFees[requester][paymentToken];
         // If user, paymentToken does not have a custom fee schedule, use default
@@ -300,12 +310,12 @@ contract OrderProcessor is
         } else {
             feeRates = $._accountFees[address(0)][paymentToken];
         }
-        return FeeRates({
-            perOrderFeeBuy: feeRates.perOrderFeeBuy,
-            percentageFeeRateBuy: feeRates.percentageFeeRateBuy,
-            perOrderFeeSell: feeRates.perOrderFeeSell,
-            percentageFeeRateSell: feeRates.percentageFeeRateSell
-        });
+        return (
+            feeRates.perOrderFeeBuy,
+            feeRates.percentageFeeRateBuy,
+            feeRates.perOrderFeeSell,
+            feeRates.percentageFeeRateSell
+        );
     }
 
     /// @inheritdoc IOrderProcessor
@@ -314,11 +324,12 @@ contract OrderProcessor is
         view
         returns (uint256, uint24)
     {
-        FeeRates memory feeRates = getAccountFees(requester, paymentToken);
+        (uint64 perOrderFeeBuy, uint24 percentageFeeRateBuy, uint64 perOrderFeeSell, uint24 percentageFeeRateSell) =
+            getAccountFees(requester, paymentToken);
         if (sell) {
-            return (FeeLib.flatFeeForOrder(paymentToken, feeRates.perOrderFeeSell), feeRates.percentageFeeRateSell);
+            return (FeeLib.flatFeeForOrder(paymentToken, perOrderFeeSell), percentageFeeRateSell);
         } else {
-            return (FeeLib.flatFeeForOrder(paymentToken, feeRates.perOrderFeeBuy), feeRates.percentageFeeRateBuy);
+            return (FeeLib.flatFeeForOrder(paymentToken, perOrderFeeBuy), percentageFeeRateBuy);
         }
     }
 
@@ -367,27 +378,30 @@ contract OrderProcessor is
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
-    /// @notice Set unique fee rates for requester
-    /// @param requester Requester address
-    /// @param paymentToken Payment token
-    /// @param feeRates Fee rates
+    /// @notice Set unique fee rates for requester and payment token
     /// @dev Only callable by admin, set zero address to set default
-    function setFees(address requester, address paymentToken, FeeRates memory feeRates)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateBuy);
-        FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateSell);
+    function setFees(
+        address requester,
+        address paymentToken,
+        uint64 perOrderFeeBuy,
+        uint24 percentageFeeRateBuy,
+        uint64 perOrderFeeSell,
+        uint24 percentageFeeRateSell
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        FeeLib.checkPercentageFeeRate(percentageFeeRateBuy);
+        FeeLib.checkPercentageFeeRate(percentageFeeRateSell);
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._accountFees[requester][paymentToken] = FeeRatesStorage({
             set: true,
-            perOrderFeeBuy: feeRates.perOrderFeeBuy,
-            percentageFeeRateBuy: feeRates.percentageFeeRateBuy,
-            perOrderFeeSell: feeRates.perOrderFeeSell,
-            percentageFeeRateSell: feeRates.percentageFeeRateSell
+            perOrderFeeBuy: perOrderFeeBuy,
+            percentageFeeRateBuy: percentageFeeRateBuy,
+            perOrderFeeSell: perOrderFeeSell,
+            percentageFeeRateSell: percentageFeeRateSell
         });
-        emit FeesSet(requester, paymentToken, feeRates);
+        emit FeesSet(
+            requester, paymentToken, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
+        );
     }
 
     /// @notice Reset fee rates for requester to default
@@ -399,17 +413,7 @@ contract OrderProcessor is
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         delete $._accountFees[requester][paymentToken];
-        FeeRatesStorage memory defaultFeeRates = $._accountFees[address(0)][paymentToken];
-        emit FeesSet(
-            requester,
-            paymentToken,
-            FeeRates({
-                perOrderFeeBuy: defaultFeeRates.perOrderFeeBuy,
-                percentageFeeRateBuy: defaultFeeRates.percentageFeeRateBuy,
-                perOrderFeeSell: defaultFeeRates.perOrderFeeSell,
-                percentageFeeRateSell: defaultFeeRates.percentageFeeRateSell
-            })
-        );
+        emit FeesReset(requester, paymentToken);
     }
 
     /// @notice Set max order decimals for asset token
