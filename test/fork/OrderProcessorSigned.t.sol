@@ -2,7 +2,6 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../utils/SigUtils.sol";
@@ -164,16 +163,14 @@ contract OrderProcessorSignedTest is Test {
         uint256 paymentTokenPriceInWei = issuer.getTokenPriceInWei(address(paymentToken));
         assertGt(paymentTokenPriceInWei, 0);
 
-        uint256 nonce = issuer.nonces(user);
+        uint256 nonce = 42;
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.pullPaymentForSignedOrder.selector,
-            order,
-            prepareOrderRequestSignature(order, issuer.nonces(user), userPrivateKey)
+            issuer.pullPaymentForSignedOrder.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
         );
 
         uint256 orderId = issuer.nextOrderId();

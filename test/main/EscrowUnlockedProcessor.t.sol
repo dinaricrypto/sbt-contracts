@@ -116,11 +116,7 @@ contract EscrowUnlockedProcessorTest is Test {
         vm.prank(user);
         uint256 id = issuer.requestOrder(order);
 
-        if (takeAmount == 0) {
-            vm.expectRevert(OrderProcessor.ZeroValue.selector);
-            vm.prank(operator);
-            issuer.takeEscrow(id, order, takeAmount);
-        } else if (takeAmount > orderAmount) {
+        if (takeAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.takeEscrow(id, order, takeAmount);
@@ -157,11 +153,7 @@ contract EscrowUnlockedProcessorTest is Test {
         vm.prank(operator);
         paymentToken.approve(address(issuer), returnAmount);
 
-        if (returnAmount == 0) {
-            vm.expectRevert(OrderProcessor.ZeroValue.selector);
-            vm.prank(operator);
-            issuer.returnEscrow(id, order, returnAmount);
-        } else if (returnAmount > orderAmount) {
+        if (returnAmount > orderAmount) {
             vm.expectRevert(OrderProcessor.AmountTooLarge.selector);
             vm.prank(operator);
             issuer.returnEscrow(id, order, returnAmount);

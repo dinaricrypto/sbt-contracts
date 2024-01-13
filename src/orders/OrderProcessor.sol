@@ -11,7 +11,6 @@ import {
     IAccessControl
 } from "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
 import {EIP712Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/cryptography/EIP712Upgradeable.sol";
-import {NoncesUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/NoncesUpgradeable.sol";
 import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -27,7 +26,6 @@ import {FeeLib} from "../common/FeeLib.sol";
 
 /// @notice Core contract managing orders for dShare tokens
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
-// TODO: reduce unnecessary storage reads
 // TODO: take network fee from proceeds for sells
 // FIXME: individual fees can be set when there is no default
 contract OrderProcessor is
@@ -35,7 +33,6 @@ contract OrderProcessor is
     UUPSUpgradeable,
     AccessControlDefaultAdminRulesUpgradeable,
     EIP712Upgradeable,
-    NoncesUpgradeable,
     MulticallUpgradeable,
     SelfPermit,
     IOrderProcessor
@@ -54,20 +51,14 @@ contract OrderProcessor is
         uint24 percentageFeeRate;
         // Account that requested the order
         address requester;
+        // Amount of order token remaining to be used
+        uint256 unfilledAmount;
         // Total amount of received token due to fills
         uint256 received;
         // Total fees paid to treasury
         uint256 feesPaid;
         // Current amount of payment token taken out of escrow
         uint256 escrowTaken;
-    }
-
-    // Order state not cleared after order is fulfilled or cancelled.
-    struct OrderPersistedState {
-        // Amount of order token remaining to be used
-        uint256 unfilledAmount;
-        // Status of order
-        OrderStatus status;
     }
 
     struct FeeRates {
@@ -87,6 +78,7 @@ contract OrderProcessor is
 
     /// @dev Signature deadline expired
     error ExpiredSignature();
+    error InvalidAccountNonce(address account, uint256 nonce);
     /// @dev Zero address
     error ZeroAddress();
     /// @dev Orders are paused
@@ -104,7 +96,6 @@ contract OrderProcessor is
     error UnsupportedToken(address token);
     /// @dev blacklist address
     error Blacklist();
-    error NotRequester();
     /// @dev Thrown when assetTokenQuantity's precision doesn't match the expected precision in orderDecimals.
     error InvalidPrecision();
     error LimitPriceNotSet();
@@ -158,8 +149,8 @@ contract OrderProcessor is
         uint256 _nextOrderId;
         // Active order state
         mapping(uint256 => OrderState) _orders;
-        // Persisted order state
-        mapping(uint256 => OrderPersistedState) _orderInfo;
+        // Status of order
+        mapping(uint256 => OrderStatus) _status;
         // Escrowed balance of asset token per requester
         mapping(address => mapping(address => uint256)) _escrowedBalanceOf;
         // Max order decimals for asset token, defaults to 0 decimals
@@ -171,6 +162,8 @@ contract OrderProcessor is
         address _ethUsdOracle;
         // Payment token USD price oracles
         mapping(address => address) _paymentTokenOracle;
+        // User order consumed nonces
+        mapping(address => mapping(uint256 => bool)) _usedNonces;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
@@ -197,7 +190,6 @@ contract OrderProcessor is
     {
         __AccessControlDefaultAdminRules_init(0, _owner);
         __EIP712_init("OrderProcessor", "1");
-        __Nonces_init();
         __Multicall_init();
 
         // Don't send fees to zero address
@@ -265,13 +257,13 @@ contract OrderProcessor is
     /// @inheritdoc IOrderProcessor
     function getOrderStatus(uint256 id) external view returns (OrderStatus) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._orderInfo[id].status;
+        return $._status[id];
     }
 
     /// @inheritdoc IOrderProcessor
     function getUnfilledAmount(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._orderInfo[id].unfilledAmount;
+        return $._orders[id].unfilledAmount;
     }
 
     /// @inheritdoc IOrderProcessor
@@ -295,6 +287,11 @@ contract OrderProcessor is
     function paymentTokenOracle(address paymentToken) external view returns (address) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._paymentTokenOracle[paymentToken];
+    }
+
+    function nonceUsed(address account, uint256 nonce) external view returns (bool) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._usedNonces[account][nonce];
     }
 
     function getAccountFees(address requester, address paymentToken) public view returns (FeeRates memory) {
@@ -461,7 +458,15 @@ contract OrderProcessor is
         if (_oracle == address(0)) revert UnsupportedToken(order.paymentToken);
 
         // Recover requester and validate signature
-        address requester = _validateOrderSignature(order, signature);
+        if (signature.deadline < block.timestamp) revert ExpiredSignature();
+
+        // Recover order requester
+        bytes32 typedDataHash = _hashTypedDataV4(hashOrderRequest(order, signature.deadline, signature.nonce));
+        address requester = ECDSA.recover(typedDataHash, signature.signature);
+
+        // Consume nonce
+        if ($._usedNonces[requester][signature.nonce]) revert InvalidAccountNonce(requester, signature.nonce);
+        $._usedNonces[requester][signature.nonce] = true;
 
         // Create order
         id = _initializeOrder(order, requester);
@@ -471,21 +476,6 @@ contract OrderProcessor is
 
         // Charge user for gas fees
         _chargeSponsoredTransaction(requester, order.paymentToken, tokenPriceInWei, gasStart);
-    }
-
-    /// @dev Recover requester and validate signature
-    function _validateOrderSignature(Order calldata order, Signature calldata signature)
-        private
-        returns (address requester)
-    {
-        if (signature.deadline < block.timestamp) revert ExpiredSignature();
-
-        // Recover order requester
-        bytes32 typedDataHash = _hashTypedDataV4(hashOrderRequest(order, signature.deadline, signature.nonce));
-        requester = ECDSA.recover(typedDataHash, signature.signature);
-
-        // Consume nonce
-        _useCheckedNonce(requester, signature.nonce);
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
@@ -505,6 +495,10 @@ contract OrderProcessor is
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
+        // Check for whitelisted tokens
+        if (!hasRole(ASSETTOKEN_ROLE, order.assetToken)) revert UnsupportedToken(order.assetToken);
+        if (!$._accountFees[address(0)][order.paymentToken].set) revert UnsupportedToken(order.paymentToken);
+
         // Precision checked for assetTokenQuantity, market buys excluded
         if (order.sell || order.orderType == OrderType.LIMIT) {
             // Check for max order decimals (assetTokenQuantity)
@@ -513,16 +507,15 @@ contract OrderProcessor is
             if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
         }
 
-        // Check for whitelisted tokens
-        if (!hasRole(ASSETTOKEN_ROLE, order.assetToken)) revert UnsupportedToken(order.assetToken);
-        if (!$._accountFees[address(0)][order.paymentToken].set) revert UnsupportedToken(order.paymentToken);
-
         // black list checker
+        // TODO: try moving stored call here to reduce cost of external call
         ITokenLockCheck _tokenLockCheck = $._tokenLockCheck;
-        if (_tokenLockCheck.isTransferLocked(order.assetToken, order.recipient)) revert Blacklist();
-        if (_tokenLockCheck.isTransferLocked(order.assetToken, requester)) revert Blacklist();
-        if (_tokenLockCheck.isTransferLocked(order.paymentToken, order.recipient)) revert Blacklist();
-        if (_tokenLockCheck.isTransferLocked(order.paymentToken, requester)) revert Blacklist();
+        if (
+            _tokenLockCheck.isTransferLocked(order.assetToken, order.recipient)
+                || _tokenLockCheck.isTransferLocked(order.assetToken, requester)
+                || _tokenLockCheck.isTransferLocked(order.paymentToken, order.recipient)
+                || _tokenLockCheck.isTransferLocked(order.paymentToken, requester)
+        ) revert Blacklist();
 
         // ------------------ Effects ------------------ //
 
@@ -537,11 +530,12 @@ contract OrderProcessor is
             requester: requester,
             flatFee: flatFee,
             percentageFeeRate: percentageFeeRate,
+            unfilledAmount: orderAmount,
             received: 0,
             feesPaid: 0,
             escrowTaken: 0
         });
-        $._orderInfo[id] = OrderPersistedState({unfilledAmount: orderAmount, status: OrderStatus.ACTIVE});
+        $._status[id] = OrderStatus.ACTIVE;
         $._numOpenOrders++;
 
         emit OrderCreated(id, requester);
@@ -589,22 +583,13 @@ contract OrderProcessor is
         return uint256(paymentPriceInWei);
     }
 
-    /**
-     * @dev Handles the payment of transaction fees in the form of tokens. Calculates the
-     *      gas used for the transaction and transfers the equivalent amount in tokens from
-     *      the user to the relayer.
-     *
-     * @param user The address of the user who is paying the transaction fees.
-     * @param paymentToken The address of the ERC20 token used for payment.
-     * @param paymentTokenPrice The price of the payment token in terms of wei.
-     * @param gasStart The amount of gas at the start of the transaction.
-     */
+    /// @notice Take payment for gas fees
     function _chargeSponsoredTransaction(
         address user,
         address paymentToken,
         uint256 paymentTokenPrice,
         uint256 gasStart
-    ) internal {
+    ) private {
         uint256 gasUsed = gasStart - gasleft();
         uint256 gasCostInWei = gasUsed * tx.gasprice;
 
@@ -621,8 +606,8 @@ contract OrderProcessor is
         // slither-disable-next-line arbitrary-send-erc20
         IERC20(paymentToken).safeTransferFrom(user, msg.sender, paymentAmount);
     }
-    /// @inheritdoc IOrderProcessor
 
+    /// @inheritdoc IOrderProcessor
     function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
         id = _initializeOrder(order, msg.sender);
 
@@ -672,8 +657,7 @@ contract OrderProcessor is
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
         // Fill cannot exceed remaining order
-        OrderPersistedState memory orderInfo = $._orderInfo[id];
-        if (fillAmount > orderInfo.unfilledAmount) revert AmountTooLarge();
+        if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
         // Calculate earned fees and handle any unique checks
         uint256 paymentEarned = 0;
@@ -747,11 +731,10 @@ contract OrderProcessor is
         );
 
         // Update order state
-        uint256 newUnfilledAmount = orderInfo.unfilledAmount - fillAmount;
-        $._orderInfo[id].unfilledAmount = newUnfilledAmount;
+        uint256 newUnfilledAmount = orderState.unfilledAmount - fillAmount;
         // If order is completely filled then clear order state
         if (newUnfilledAmount == 0) {
-            $._orderInfo[id].status = OrderStatus.FULFILLED;
+            $._status[id] = OrderStatus.FULFILLED;
             // Clear order state
             delete $._orders[id];
             $._numOpenOrders--;
@@ -775,6 +758,7 @@ contract OrderProcessor is
                     }
                 }
             }
+            $._orders[id].unfilledAmount = newUnfilledAmount;
             $._orders[id].received = orderState.received + receivedAmount;
             $._orders[id].feesPaid = feesPaid;
         }
@@ -817,9 +801,10 @@ contract OrderProcessor is
         // ------------------ Checks ------------------ //
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        OrderState memory orderState = $._orders[id];
+        OrderState storage orderState = $._orders[id];
+        address requester = orderState.requester;
         // Order must exist
-        if (orderState.requester == address(0)) revert OrderNotFound();
+        if (requester == address(0)) revert OrderNotFound();
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
         // Prohibit cancel if escrowed payment has been taken and not returned or filled
@@ -827,39 +812,38 @@ contract OrderProcessor is
 
         // ------------------ Effects ------------------ //
 
-        // Order is cancelled
-        $._orderInfo[id].status = OrderStatus.CANCELLED;
-
-        // Clear order state
-        delete $._orders[id];
-        $._numOpenOrders--;
-
         uint256 refund;
-        uint256 unfilledAmount = $._orderInfo[id].unfilledAmount;
         if (order.sell) {
-            refund = unfilledAmount;
+            refund = orderState.unfilledAmount;
         } else {
             uint256 totalFees =
                 FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
             // If no fills, then full refund
-            refund = unfilledAmount + totalFees;
+            refund = orderState.unfilledAmount + totalFees;
             if (refund < order.paymentTokenQuantity + totalFees) {
                 // Refund remaining order and fees
                 refund -= orderState.feesPaid;
             }
         }
 
+        // Order is cancelled
+        $._status[id] = OrderStatus.CANCELLED;
+
+        // Clear order state
+        delete $._orders[id];
+        $._numOpenOrders--;
+
         // Update user escrowed balance
         address refundToken = (order.sell) ? order.assetToken : order.paymentToken;
-        $._escrowedBalanceOf[refundToken][orderState.requester] -= refund;
+        $._escrowedBalanceOf[refundToken][requester] -= refund;
 
         // Notify order cancelled
-        emit OrderCancelled(id, orderState.requester, reason);
+        emit OrderCancelled(id, requester, reason);
 
         // ------------------ Interactions ------------------ //
 
         // Return escrow
-        IERC20(refundToken).safeTransfer(orderState.requester, refund);
+        IERC20(refundToken).safeTransfer(requester, refund);
     }
 
     /// @notice Take escrowed payment for an order
@@ -868,25 +852,24 @@ contract OrderProcessor is
     /// @param amount Amount of escrowed payment token to take
     /// @dev Only callable by operator
     function takeEscrow(uint256 id, Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
-        // No nonsense
-        if (amount == 0) revert ZeroValue();
         if (!order.escrowUnlocked) revert EscrowLocked();
         // Verify order data
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        OrderState memory orderState = $._orders[id];
+        OrderState storage orderState = $._orders[id];
+        address requester = orderState.requester;
         // Order must exist
-        if (orderState.requester == address(0)) revert OrderNotFound();
+        if (requester == address(0)) revert OrderNotFound();
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
         // Can't take more than available
-        if (amount > $._orderInfo[id].unfilledAmount - orderState.escrowTaken) revert AmountTooLarge();
+        if (amount > orderState.unfilledAmount - orderState.escrowTaken) revert AmountTooLarge();
 
         // Update escrow tracking
-        $._orders[id].escrowTaken += amount;
-        $._escrowedBalanceOf[order.paymentToken][orderState.requester] -= amount;
+        orderState.escrowTaken += amount;
+        $._escrowedBalanceOf[order.paymentToken][requester] -= amount;
 
         // Notify escrow taken
-        emit EscrowTaken(id, orderState.requester, amount);
+        emit EscrowTaken(id, requester, amount);
 
         // Take escrowed payment
         IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
@@ -898,25 +881,24 @@ contract OrderProcessor is
     /// @param amount Amount of payment token to return to escrow
     /// @dev Only callable by operator
     function returnEscrow(uint256 id, Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
-        // No nonsense
-        if (amount == 0) revert ZeroValue();
         if (!order.escrowUnlocked) revert EscrowLocked();
         // Verify order data
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        OrderState memory orderState = $._orders[id];
+        OrderState storage orderState = $._orders[id];
+        address requester = orderState.requester;
         // Order must exist
-        if (orderState.requester == address(0)) revert OrderNotFound();
+        if (requester == address(0)) revert OrderNotFound();
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
         // Can only return unused amount
         if (amount > orderState.escrowTaken) revert AmountTooLarge();
 
         // Update escrow tracking
-        $._orders[id].escrowTaken -= amount;
-        $._escrowedBalanceOf[order.paymentToken][orderState.requester] += amount;
+        orderState.escrowTaken -= amount;
+        $._escrowedBalanceOf[order.paymentToken][requester] += amount;
 
         // Notify escrow returned
-        emit EscrowReturned(id, orderState.requester, amount);
+        emit EscrowReturned(id, requester, amount);
 
         // Return payment to escrow
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
