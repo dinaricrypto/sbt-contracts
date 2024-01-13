@@ -75,7 +75,7 @@ contract BuyProcessorRequestTest is Test {
             perOrderFeeSell: 1 ether,
             percentageFeeRateSell: 5_000
         });
-        issuer.setDefaultFees(address(paymentToken), defaultFees);
+        issuer.setFees(address(0), address(paymentToken), defaultFees);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 

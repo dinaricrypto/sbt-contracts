@@ -90,7 +90,7 @@ contract OrderProcessorTest is Test {
             perOrderFeeSell: 1 ether,
             percentageFeeRateSell: 5_000
         });
-        issuer.setDefaultFees(address(paymentToken), defaultFees);
+        issuer.setFees(address(0), address(paymentToken), defaultFees);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
@@ -179,42 +179,27 @@ contract OrderProcessorTest is Test {
     }
 
     function testSetDefaultFees(address testToken, uint64 perOrderFee, uint24 percentageFee, uint256 value) public {
+        vm.assume(percentageFee < 1_000_000);
+
         OrderProcessor.FeeRates memory rates = OrderProcessor.FeeRates({
             perOrderFeeBuy: perOrderFee,
             percentageFeeRateBuy: percentageFee,
             perOrderFeeSell: perOrderFee,
             percentageFeeRateSell: percentageFee
         });
-        if (percentageFee >= 1_000_000) {
-            vm.expectRevert(FeeLib.FeeTooLarge.selector);
-            vm.prank(admin);
-            issuer.setDefaultFees(testToken, rates);
-        } else {
-            vm.expectEmit(true, true, true, true);
-            emit FeesSet(address(0), testToken, rates);
-            vm.prank(admin);
-            issuer.setDefaultFees(testToken, rates);
-            OrderProcessor.FeeRates memory newRates = issuer.getAccountFees(address(0), testToken);
-            assertEq(newRates.perOrderFeeBuy, perOrderFee);
-            assertEq(newRates.percentageFeeRateBuy, percentageFee);
-            assertEq(newRates.perOrderFeeSell, perOrderFee);
-            assertEq(newRates.percentageFeeRateSell, percentageFee);
-            assertEq(
-                FeeLib.percentageFeeForValue(value, newRates.percentageFeeRateBuy),
-                mulDiv(value, percentageFee, 1_000_000)
-            );
-        }
-    }
 
-    function testSetFeesZeroUserReverts() public {
-        OrderProcessor.FeeRates memory oldRates = issuer.getAccountFees(user, address(token));
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        vm.expectEmit(true, true, true, true);
+        emit FeesSet(address(0), testToken, rates);
         vm.prank(admin);
-        issuer.setFees(address(0), address(token), oldRates);
-
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        vm.prank(admin);
-        issuer.resetFees(address(0), address(token));
+        issuer.setFees(address(0), testToken, rates);
+        OrderProcessor.FeeRates memory newRates = issuer.getAccountFees(address(0), testToken);
+        assertEq(newRates.perOrderFeeBuy, perOrderFee);
+        assertEq(newRates.percentageFeeRateBuy, percentageFee);
+        assertEq(newRates.perOrderFeeSell, perOrderFee);
+        assertEq(newRates.percentageFeeRateSell, percentageFee);
+        assertEq(
+            FeeLib.percentageFeeForValue(value, newRates.percentageFeeRateBuy), mulDiv(value, percentageFee, 1_000_000)
+        );
     }
 
     function testSetFees(address testToken, uint64 perOrderFee, uint24 percentageFee, uint256 value) public {

@@ -195,13 +195,13 @@ contract DeployAllSandboxScript is Script {
             percentageFeeRateSell: percentageFeeRate
         });
 
-        deployments.orderProcessor.setDefaultFees(address(deployments.usdc), defaultFees);
+        deployments.orderProcessor.setFees(address(0), address(deployments.usdc), defaultFees);
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdc), cfg.usdcoracle);
 
-        deployments.orderProcessor.setDefaultFees(address(deployments.usdt), defaultFees);
+        deployments.orderProcessor.setFees(address(0), address(deployments.usdt), defaultFees);
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdt), cfg.usdtoracle);
 
-        deployments.orderProcessor.setDefaultFees(address(deployments.usdce), defaultFees);
+        deployments.orderProcessor.setFees(address(0), address(deployments.usdce), defaultFees);
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdce), cfg.usdcoracle);
 
         // config asset token

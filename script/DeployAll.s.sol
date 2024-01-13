@@ -87,13 +87,13 @@ contract DeployAllScript is Script {
             percentageFeeRateSell: percentageFeeRate
         });
 
-        orderProcessor.setDefaultFees(cfg.usdc, defaultFees);
+        orderProcessor.setFees(address(0), cfg.usdc, defaultFees);
         orderProcessor.setPaymentTokenOracle(cfg.usdc, usdcoracle);
 
-        orderProcessor.setDefaultFees(cfg.usdt, defaultFees);
+        orderProcessor.setFees(address(0), cfg.usdt, defaultFees);
         orderProcessor.setPaymentTokenOracle(cfg.usdt, usdtoracle);
 
-        orderProcessor.setDefaultFees(usdce, defaultFees);
+        orderProcessor.setFees(address(0), usdce, defaultFees);
         orderProcessor.setPaymentTokenOracle(usdce, usdcoracle);
 
         /// ------------------ dividend distributor ------------------

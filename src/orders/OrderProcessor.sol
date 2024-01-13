@@ -374,25 +374,27 @@ contract OrderProcessor is
         emit TokenLockCheckSet(_tokenLockCheck);
     }
 
-    /// @notice Set default fee rates
-    /// @param paymentToken Payment token
-    /// @param feeRates Fee rates
-    /// @dev Only callable by admin
-    function setDefaultFees(address paymentToken, FeeRates memory feeRates) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        _setFees(address(0), paymentToken, feeRates);
-    }
-
     /// @notice Set unique fee rates for requester
     /// @param requester Requester address
     /// @param paymentToken Payment token
     /// @param feeRates Fee rates
-    /// @dev Only callable by admin
+    /// @dev Only callable by admin, set zero address to set default
     function setFees(address requester, address paymentToken, FeeRates memory feeRates)
         external
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        if (requester == address(0)) revert ZeroAddress();
-        _setFees(requester, paymentToken, feeRates);
+        FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateBuy);
+        FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateSell);
+
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        $._accountFees[requester][paymentToken] = FeeRatesStorage({
+            set: true,
+            perOrderFeeBuy: feeRates.perOrderFeeBuy,
+            percentageFeeRateBuy: feeRates.percentageFeeRateBuy,
+            perOrderFeeSell: feeRates.perOrderFeeSell,
+            percentageFeeRateSell: feeRates.percentageFeeRateSell
+        });
+        emit FeesSet(requester, paymentToken, feeRates);
     }
 
     /// @notice Reset fee rates for requester to default
@@ -415,21 +417,6 @@ contract OrderProcessor is
                 percentageFeeRateSell: defaultFeeRates.percentageFeeRateSell
             })
         );
-    }
-
-    function _setFees(address account, address paymentToken, FeeRates memory feeRates) private {
-        FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateBuy);
-        FeeLib.checkPercentageFeeRate(feeRates.percentageFeeRateSell);
-
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        $._accountFees[account][paymentToken] = FeeRatesStorage({
-            set: true,
-            perOrderFeeBuy: feeRates.perOrderFeeBuy,
-            percentageFeeRateBuy: feeRates.percentageFeeRateBuy,
-            perOrderFeeSell: feeRates.perOrderFeeSell,
-            percentageFeeRateSell: feeRates.percentageFeeRateSell
-        });
-        emit FeesSet(account, paymentToken, feeRates);
     }
 
     /// @notice Set max order decimals for asset token

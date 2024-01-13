@@ -31,7 +31,7 @@ contract AddPaymentTokens is Script {
         });
         for (uint256 i = 0; i < paymentTokens.length; i++) {
             // add to order processors
-            issuer.setDefaultFees(paymentTokens[i], defaultFees);
+            issuer.setFees(address(0), paymentTokens[i], defaultFees);
         }
 
         vm.stopBroadcast();
