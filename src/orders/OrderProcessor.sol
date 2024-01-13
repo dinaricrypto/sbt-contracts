@@ -5,11 +5,8 @@ import {
     UUPSUpgradeable,
     Initializable
 } from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {
-    AccessControlDefaultAdminRulesUpgradeable,
-    AccessControlUpgradeable,
-    IAccessControl
-} from "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {AccessControlDefaultAdminRulesUpgradeable} from
+    "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
 import {EIP712Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/cryptography/EIP712Upgradeable.sol";
 import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -19,8 +16,7 @@ import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
-import {ITransferRestrictor} from "../ITransferRestrictor.sol";
-import {DShare, IDShare} from "../DShare.sol";
+import {IDShare} from "../IDShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 
