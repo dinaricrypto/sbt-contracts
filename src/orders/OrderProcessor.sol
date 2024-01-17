@@ -781,7 +781,7 @@ contract OrderProcessor is
 
         // ------------------ Effects ------------------ //
 
-        uint256 feeRefund;
+        uint256 feeRefund = 0;
         if (!order.sell) {
             uint256 totalFees =
                 FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
