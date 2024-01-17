@@ -40,7 +40,7 @@ contract OrderProcessor is
     struct OrderState {
         // Hash of order data used to validate order details stored offchain
         bytes32 orderHash;
-        // Flat fee at time of order request
+        // Flat fee at time of order request including applied network fee
         uint256 flatFee;
         // Percentage fee rate at time of order request
         uint24 percentageFeeRate;
@@ -127,7 +127,7 @@ contract OrderProcessor is
     struct OrderProcessorStorage {
         // Address to receive fees
         address _treasury;
-        //
+        // Address of payment vault
         address _vault;
         // Transfer restrictor checker
         ITokenLockCheck _tokenLockCheck;
@@ -488,7 +488,7 @@ contract OrderProcessor is
     function _createOrder(Order calldata order, address requester) private returns (uint256 id) {
         // ------------------ Checks ------------------ //
 
-        // cheap checks first
+        // Cheap checks first
         if (order.recipient == address(0)) revert ZeroAddress();
         uint256 orderAmount = (order.sell) ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
@@ -510,8 +510,8 @@ contract OrderProcessor is
             if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
         }
 
-        // black list checker
-        // TODO: try moving stored call here to reduce cost of external call
+        // Black list checker
+        // TODO: Try moving stored calls here to reduce cost of external call
         ITokenLockCheck _tokenLockCheck = $._tokenLockCheck;
         if (
             _tokenLockCheck.isTransferLocked(order.assetToken, order.recipient)
