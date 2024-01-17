@@ -84,6 +84,7 @@ contract OrderProcessor is
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
     error OrderFillAboveLimitPrice();
+    error NotRequester();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -759,6 +760,19 @@ contract OrderProcessor is
         if (feesEarned > 0) {
             IERC20(order.paymentToken).safeTransfer($._treasury, feesEarned);
         }
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function requestCancel(uint256 id) external {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        // Order must exist
+        address requester = $._orders[id].requester;
+        if (requester == address(0)) revert OrderNotFound();
+        // Only requester can request cancellation
+        if (requester != msg.sender) revert NotRequester();
+
+        // Send cancel request to bridge
+        emit CancelRequested(id, requester);
     }
 
     /// @inheritdoc IOrderProcessor
