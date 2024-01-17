@@ -208,12 +208,24 @@ contract OrderProcessorTest is Test {
         assertEq(FeeLib.percentageFeeForValue(value, percentageFeeRateBuy), mulDiv(value, percentageFee, 1_000_000));
     }
 
+    function testSetFeesUnsupportedReverts(address account, address testToken) public {
+        vm.assume(account != address(0));
+
+        vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, testToken));
+        vm.prank(admin);
+        issuer.setFees(account, testToken, 1, 1, 1, 1);
+    }
+
     function testSetFees(address testToken, uint64 perOrderFee, uint24 percentageFee, uint256 value) public {
         if (percentageFee >= 1_000_000) {
             vm.expectRevert(FeeLib.FeeTooLarge.selector);
             vm.prank(admin);
             issuer.setFees(user, testToken, perOrderFee, percentageFee, perOrderFee, percentageFee);
         } else {
+            // set defaut fees first
+            vm.prank(admin);
+            issuer.setFees(address(0), testToken, perOrderFee, percentageFee, perOrderFee, percentageFee);
+
             FeeRates memory oldFees;
             {
                 (
@@ -242,7 +254,6 @@ contract OrderProcessorTest is Test {
             assertEq(percentageFeeRateSell, percentageFee);
             assertEq(FeeLib.percentageFeeForValue(value, percentageFeeRateBuy), mulDiv(value, percentageFee, 1_000_000));
 
-            // TODO: reinstate test without stack errors
             // reset fees to default
             vm.expectEmit(true, true, true, true);
             emit FeesReset(user, testToken);

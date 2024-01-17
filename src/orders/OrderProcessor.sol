@@ -23,7 +23,6 @@ import {FeeLib} from "../common/FeeLib.sol";
 /// @notice Core contract managing orders for dShare tokens
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
 // TODO: take network fee from proceeds for sells
-// FIXME: individual fees can be set when there is no default
 contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
@@ -393,8 +392,11 @@ contract OrderProcessor is
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         FeeLib.checkPercentageFeeRate(percentageFeeRateBuy);
         FeeLib.checkPercentageFeeRate(percentageFeeRateSell);
-
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        if (requester != address(0) && !$._accountFees[address(0)][paymentToken].set) {
+            revert UnsupportedToken(paymentToken);
+        }
+
         $._accountFees[requester][paymentToken] = FeeRatesStorage({
             set: true,
             perOrderFeeBuy: perOrderFeeBuy,
