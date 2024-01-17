@@ -3,6 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import {Vault} from "../src/orders/Vault.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
@@ -54,8 +55,10 @@ contract DeployAllScript is Script {
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
-        /// ------------------ order processors ------------------
+        /// ------------------ order processor ------------------
 
+        // vault
+        Vault vault = new Vault(cfg.deployer);
         // deploy blacklist prechecker
         TokenLockCheck tokenLockCheck = new TokenLockCheck(cfg.usdc, address(0));
         // add USDC.e
@@ -69,7 +72,8 @@ contract DeployAllScript is Script {
                 new ERC1967Proxy(
                     address(orderProcessorImpl),
                     abi.encodeCall(
-                        OrderProcessor.initialize, (cfg.deployer, cfg.treasury, tokenLockCheck, ethusdoracle)
+                        OrderProcessor.initialize,
+                        (cfg.deployer, cfg.treasury, address(vault), tokenLockCheck, ethusdoracle)
                     )
                 )
             )

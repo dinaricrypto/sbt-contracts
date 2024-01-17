@@ -22,6 +22,7 @@ interface IDShare {
     /// @dev Only callable by approved burner
     /// @dev Deployer can always burn after split
     function burn(uint256 value) external;
+    function burnFrom(address from, uint256 value) external;
 
     /**
      * @param account The address of the account

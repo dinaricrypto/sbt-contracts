@@ -57,8 +57,6 @@ interface IOrderProcessor {
         uint256 price;
         // Time in force
         TIF tif;
-        // Escrow unlocked
-        bool escrowUnlocked;
     }
 
     struct OrderRequest {
@@ -118,12 +116,6 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getTotalReceived(uint256 id) external view returns (uint256);
 
-    /// @notice This function fetches the total balance held in escrow for a given requester and token
-    /// @param token The address of the token for which the escrowed balance is fetched
-    /// @param requester The address of the requester for which the escrowed balance is fetched
-    /// @return Returns the total amount of the specific token held in escrow for the given requester
-    function escrowedBalanceOf(address token, address requester) external view returns (uint256);
-
     /// @notice This function retrieves the number of decimal places configured for a given token
     /// @param token The address of the token for which the number of decimal places is fetched
     /// @return Returns the number of decimal places set for the specified token
@@ -148,7 +140,7 @@ interface IOrderProcessor {
     /// @return id Order id
     /// @dev Only callable by operator
     // TODO: better name?
-    function pullPaymentForSignedOrder(Order calldata order, Signature calldata signature) external returns (uint256);
+    function createOrderWithSignature(Order calldata order, Signature calldata signature) external returns (uint256);
 
     /// @notice Initialize and fill signed order
     /// @param id order id
@@ -156,7 +148,7 @@ interface IOrderProcessor {
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    /// @dev Same as calling lockEscrowForSignedOrder and fillOrder
+    /// @dev Same as calling createOrderWithSignature and fillOrder
     // TODO: implement
     // function fillSignedOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
 
@@ -165,6 +157,8 @@ interface IOrderProcessor {
     /// @return id Order id
     /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
     function requestOrder(Order calldata order) external returns (uint256);
+
+    // function createOrder()
 
     /// @notice Fill an order
     /// @param id order id

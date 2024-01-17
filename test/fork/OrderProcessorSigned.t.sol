@@ -19,6 +19,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 
 contract OrderProcessorSignedTest is Test {
+    // TODO: add order fill with vault
     event OrderCreated(uint256 indexed id, address indexed recipient);
 
     event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
@@ -75,7 +76,9 @@ contract OrderProcessorSignedTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck, ethUsdPriceOracle))
+                    abi.encodeCall(
+                        OrderProcessor.initialize, (admin, treasury, operator, tokenLockCheck, ethUsdPriceOracle)
+                    )
                 )
             )
         );
@@ -106,8 +109,7 @@ contract OrderProcessorSignedTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC,
-            escrowUnlocked: false
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
@@ -157,19 +159,21 @@ contract OrderProcessorSignedTest is Test {
         uint256 paymentTokenPriceInWei = issuer.getTokenPriceInWei(address(paymentToken));
         assertGt(paymentTokenPriceInWei, 0);
 
+        uint256 permitNonce = 0;
         uint256 nonce = 42;
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
-        multicalldata[0] =
-            preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
+        multicalldata[0] = preparePermitCall(
+            paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, permitNonce
+        );
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.pullPaymentForSignedOrder.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
+            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
         );
 
         uint256 orderId = issuer.nextOrderId();
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
-        uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
+        uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
 
         // 1. Request order
         vm.expectEmit(true, true, true, true);
@@ -181,9 +185,9 @@ contract OrderProcessorSignedTest is Test {
         assertEq(issuer.getUnfilledAmount(orderId), order.paymentTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
 
-        assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
-        assertLt(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
-        assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn);
+        assertGt(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
+        uint256 gasFee = paymentToken.balanceOf(operator) - operatorBalanceBefore - orderAmount;
+        assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn - gasFee);
     }
 
     // set Permit for user

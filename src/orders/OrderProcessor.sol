@@ -53,8 +53,6 @@ contract OrderProcessor is
         uint256 received;
         // Total fees paid to treasury
         uint256 feesPaid;
-        // Current amount of payment token taken out of escrow
-        uint256 escrowTaken;
     }
 
     struct FeeRatesStorage {
@@ -78,8 +76,6 @@ contract OrderProcessor is
     error OrderNotFound();
     /// @dev Invalid order data
     error InvalidOrderData();
-    /// @dev Escrow unlock feature not supported for sells
-    error EscrowUnlockNotSupported();
     /// @dev Amount too large
     error AmountTooLarge();
     error UnsupportedToken(address token);
@@ -90,11 +86,7 @@ contract OrderProcessor is
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
     error OrderFillAboveLimitPrice();
-    error EscrowLocked();
-    error UnreturnedEscrow();
 
-    event EscrowTaken(uint256 indexed id, address indexed recipient, uint256 amount);
-    event EscrowReturned(uint256 indexed id, address indexed recipient, uint256 amount);
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
     /// @dev Emitted when orders are paused/unpaused
@@ -125,7 +117,7 @@ contract OrderProcessor is
     bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif,bool escrowUnlocked)"
+        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
     bytes32 private constant ORDER_REQUEST_TYPEHASH =
@@ -136,6 +128,8 @@ contract OrderProcessor is
     struct OrderProcessorStorage {
         // Address to receive fees
         address _treasury;
+        //
+        address _vault;
         // Transfer restrictor checker
         ITokenLockCheck _tokenLockCheck;
         // Are orders paused?
@@ -148,8 +142,6 @@ contract OrderProcessor is
         mapping(uint256 => OrderState) _orders;
         // Status of order
         mapping(uint256 => OrderStatus) _status;
-        // Escrowed balance of asset token per requester
-        mapping(address => mapping(address => uint256)) _escrowedBalanceOf;
         // Max order decimals for asset token, defaults to 0 decimals
         mapping(address => int8) _maxOrderDecimals;
         // Fee schedule for requester, per paymentToken
@@ -178,24 +170,30 @@ contract OrderProcessor is
     /// @notice Initialize contract
     /// @param _owner Owner of contract
     /// @param _treasury Address to receive fees
+    /// @param _vault Address of vault contract
     /// @param _tokenLockCheck Token lock check contract
+    /// @param _ethUsdOracle ETH USD price oracle
     /// @dev Treasury cannot be zero address
-    function initialize(address _owner, address _treasury, ITokenLockCheck _tokenLockCheck, address _ethUsdOracle)
-        public
-        virtual
-        initializer
-    {
+    function initialize(
+        address _owner,
+        address _treasury,
+        address _vault,
+        ITokenLockCheck _tokenLockCheck,
+        address _ethUsdOracle
+    ) public virtual initializer {
         __AccessControlDefaultAdminRules_init(0, _owner);
         __EIP712_init("OrderProcessor", "1");
         __Multicall_init();
 
         // Don't send fees to zero address
         if (_treasury == address(0)) revert ZeroAddress();
+        if (_vault == address(0)) revert ZeroAddress();
         if (_ethUsdOracle == address(0)) revert ZeroAddress();
 
         // Initialize
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._treasury = _treasury;
+        $._vault = _vault;
         $._tokenLockCheck = _tokenLockCheck;
         $._ethUsdOracle = _ethUsdOracle;
     }
@@ -213,6 +211,12 @@ contract OrderProcessor is
     function treasury() external view returns (address) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._treasury;
+    }
+
+    /// @notice Address of vault contract
+    function vault() external view returns (address) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._vault;
     }
 
     /// @notice Transfer restrictor checker
@@ -240,12 +244,6 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function escrowedBalanceOf(address token, address requester) external view override returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._escrowedBalanceOf[token][requester];
-    }
-
-    /// @inheritdoc IOrderProcessor
     function maxOrderDecimals(address token) external view override returns (int8) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._maxOrderDecimals[token];
@@ -267,13 +265,6 @@ contract OrderProcessor is
     function getTotalReceived(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._orders[id].received;
-    }
-
-    /// @notice Get current amount of payment token taken out of escrow
-    /// @param id order id
-    function getEscrowTaken(uint256 id) external view returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._orders[id].escrowTaken;
     }
 
     function ethUsdOracle() external view returns (address) {
@@ -360,6 +351,18 @@ contract OrderProcessor is
         emit TreasurySet(account);
     }
 
+    /// @notice Set vault address
+    /// @param account Address of vault contract
+    /// @dev Only callable by admin
+    /// Vault cannot be zero address
+    function setVault(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        // Don't send tokens to zero address
+        if (account == address(0)) revert ZeroAddress();
+
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        $._vault = account;
+    }
+
     /// @notice Pause/unpause orders
     /// @param pause Pause orders if true, unpause if false
     /// @dev Only callable by admin
@@ -443,7 +446,7 @@ contract OrderProcessor is
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc IOrderProcessor
-    function pullPaymentForSignedOrder(Order calldata order, Signature calldata signature)
+    function createOrderWithSignature(Order calldata order, Signature calldata signature)
         external
         whenOrdersNotPaused
         onlyRole(OPERATOR_ROLE)
@@ -469,10 +472,10 @@ contract OrderProcessor is
         $._usedNonces[requester][signature.nonce] = true;
 
         // Create order
-        id = _initializeOrder(order, requester);
+        id = _createOrder(order, requester);
 
         // Pull payment for order creation
-        uint256 tokenPriceInWei = getTokenPriceInWei(_oracle);
+        uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
 
         // Charge user for gas fees
         _chargeSponsoredTransaction(requester, order.paymentToken, tokenPriceInWei, gasStart);
@@ -480,7 +483,7 @@ contract OrderProcessor is
 
     /// @dev Validate order, initialize order state, and pull tokens
     // slither-disable-next-line cyclomatic-complexity
-    function _initializeOrder(Order calldata order, address requester) private returns (uint256 id) {
+    function _createOrder(Order calldata order, address requester) private returns (uint256 id) {
         // ------------------ Checks ------------------ //
 
         // cheap checks first
@@ -490,8 +493,6 @@ contract OrderProcessor is
         if (orderAmount == 0) revert ZeroValue();
         // Ensure that price is set for limit orders
         if (order.orderType == OrderType.LIMIT && order.price == 0) revert LimitPriceNotSet();
-        // Escrow unlock not supported for sells
-        if (order.escrowUnlocked && order.sell) revert EscrowUnlockNotSupported();
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
@@ -532,8 +533,7 @@ contract OrderProcessor is
             percentageFeeRate: percentageFeeRate,
             unfilledAmount: orderAmount,
             received: 0,
-            feesPaid: 0,
-            escrowTaken: 0
+            feesPaid: 0
         });
         $._status[id] = OrderStatus.ACTIVE;
         $._numOpenOrders++;
@@ -542,27 +542,29 @@ contract OrderProcessor is
 
         // ------------------ Interactions ------------------ //
 
+        // Move funds to vault for buys, burn assets for sells
         if (order.sell) {
-            // update escrowed balance
-            $._escrowedBalanceOf[order.assetToken][requester] += order.assetTokenQuantity;
-
-            // Transfer asset to contract
-            IERC20(order.assetToken).safeTransferFrom(requester, address(this), order.assetTokenQuantity);
+            // Burn asset
+            IDShare(order.assetToken).burnFrom(requester, order.assetTokenQuantity);
         } else {
             uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, order.paymentTokenQuantity);
-            uint256 quantityIn = order.paymentTokenQuantity + totalFees;
-            // update escrowed balance
-            $._escrowedBalanceOf[order.paymentToken][requester] += quantityIn;
 
-            // Escrow payment for purchase
-            IERC20(order.paymentToken).safeTransferFrom(requester, address(this), quantityIn);
+            // Sweep payment for purchase
+            IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, order.paymentTokenQuantity);
+            // Escrow fees
+            IERC20(order.paymentToken).safeTransferFrom(requester, address(this), totalFees);
         }
     }
 
     /**
      * @notice Get the current oracle price for a payment token
      */
-    function getTokenPriceInWei(address _paymentTokenOracle) public view returns (uint256) {
+    function getTokenPriceInWei(address paymentToken) external view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return _getTokenPriceInWei($._paymentTokenOracle[paymentToken]);
+    }
+
+    function _getTokenPriceInWei(address _paymentTokenOracle) internal view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         address _ethUsdOracle = $._ethUsdOracle;
 
@@ -609,7 +611,7 @@ contract OrderProcessor is
 
     /// @inheritdoc IOrderProcessor
     function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
-        id = _initializeOrder(order, msg.sender);
+        id = _createOrder(order, msg.sender);
 
         // Send order to bridge
         emit OrderRequested(id, msg.sender, order);
@@ -632,8 +634,7 @@ contract OrderProcessor is
                 order.assetTokenQuantity,
                 order.paymentTokenQuantity,
                 order.price,
-                order.tif,
-                order.escrowUnlocked
+                order.tif
             )
         );
     }
@@ -660,7 +661,6 @@ contract OrderProcessor is
         if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
         // Calculate earned fees and handle any unique checks
-        uint256 paymentEarned = 0;
         uint256 feesEarned = 0;
         if (order.sell) {
             // For limit sell orders, ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
@@ -695,8 +695,6 @@ contract OrderProcessor is
             if (subtotal > 0 && orderState.percentageFeeRate > 0) {
                 feesEarned += mulDiv18(subtotal, orderState.percentageFeeRate);
             }
-
-            paymentEarned = receivedAmount - feesEarned;
         } else {
             // For limit buy orders, ensure that the received amount is greater or equal to fill amount / limit price, order price has ether decimals
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv(fillAmount, 1 ether, order.price)) {
@@ -712,15 +710,6 @@ contract OrderProcessor is
                 FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
             uint256 totalPercentageFees = estimatedTotalFees - orderState.flatFee;
             feesEarned += mulDiv(totalPercentageFees, fillAmount, order.paymentTokenQuantity);
-
-            // Payment amount to take for fill reduced by amount previously taken from escrow
-            if (order.escrowUnlocked) {
-                if (fillAmount > orderState.escrowTaken) {
-                    paymentEarned = fillAmount - orderState.escrowTaken;
-                }
-            } else {
-                paymentEarned = fillAmount;
-            }
         }
 
         // ------------------ Effects ------------------ //
@@ -749,14 +738,6 @@ contract OrderProcessor is
                     orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity
                 );
                 assert(feesPaid <= estimatedTotalFees);
-                // Update order escrow tracking
-                if (order.escrowUnlocked) {
-                    if (paymentEarned == 0) {
-                        $._orders[id].escrowTaken -= fillAmount;
-                    } else if (orderState.escrowTaken > 0) {
-                        $._orders[id].escrowTaken = 0;
-                    }
-                }
             }
             $._orders[id].unfilledAmount = newUnfilledAmount;
             $._orders[id].received = orderState.received + receivedAmount;
@@ -765,27 +746,17 @@ contract OrderProcessor is
 
         // ------------------ Interactions ------------------ //
 
-        // Move tokens
+        // Move funds from operator for sells, mint assets for buys
         if (order.sell) {
-            // update escrowed balance
-            $._escrowedBalanceOf[order.assetToken][orderState.requester] -= fillAmount;
-            // Burn the filled quantity from the asset token
-            IDShare(order.assetToken).burn(fillAmount);
-
             // Transfer the received amount from the filler to this contract
             IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
 
             // If there are proceeds from the order, transfer them to the recipient
-            IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
-        } else {
-            // update escrowed balance
-            $._escrowedBalanceOf[order.paymentToken][orderState.requester] -= paymentEarned + feesEarned;
-
-            // Claim payment
+            uint256 paymentEarned = receivedAmount - feesEarned;
             if (paymentEarned > 0) {
-                IERC20(order.paymentToken).safeTransfer(msg.sender, paymentEarned);
+                IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
             }
-
+        } else {
             // Mint asset
             IDShare(order.assetToken).mint(order.recipient, receivedAmount);
         }
@@ -807,24 +778,21 @@ contract OrderProcessor is
         if (requester == address(0)) revert OrderNotFound();
         // Verify order data
         if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
-        // Prohibit cancel if escrowed payment has been taken and not returned or filled
-        if (orderState.escrowTaken > 0) revert UnreturnedEscrow();
 
         // ------------------ Effects ------------------ //
 
-        uint256 refund;
-        if (order.sell) {
-            refund = orderState.unfilledAmount;
-        } else {
+        uint256 feeRefund;
+        if (!order.sell) {
             uint256 totalFees =
                 FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
             // If no fills, then full refund
-            refund = orderState.unfilledAmount + totalFees;
-            if (refund < order.paymentTokenQuantity + totalFees) {
+            feeRefund = totalFees;
+            if (orderState.unfilledAmount < order.paymentTokenQuantity) {
                 // Refund remaining order and fees
-                refund -= orderState.feesPaid;
+                feeRefund -= orderState.feesPaid;
             }
         }
+        uint256 unfilledAmount = orderState.unfilledAmount;
 
         // Order is cancelled
         $._status[id] = OrderStatus.CANCELLED;
@@ -833,74 +801,19 @@ contract OrderProcessor is
         delete $._orders[id];
         $._numOpenOrders--;
 
-        // Update user escrowed balance
-        address refundToken = (order.sell) ? order.assetToken : order.paymentToken;
-        $._escrowedBalanceOf[refundToken][requester] -= refund;
-
         // Notify order cancelled
         emit OrderCancelled(id, requester, reason);
 
         // ------------------ Interactions ------------------ //
 
-        // Return escrow
-        IERC20(refundToken).safeTransfer(requester, refund);
-    }
-
-    /// @notice Take escrowed payment for an order
-    /// @param id order id
-    /// @param order Order
-    /// @param amount Amount of escrowed payment token to take
-    /// @dev Only callable by operator
-    function takeEscrow(uint256 id, Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
-        if (!order.escrowUnlocked) revert EscrowLocked();
-        // Verify order data
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        OrderState storage orderState = $._orders[id];
-        address requester = orderState.requester;
-        // Order must exist
-        if (requester == address(0)) revert OrderNotFound();
-        // Verify order data
-        if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
-        // Can't take more than available
-        if (amount > orderState.unfilledAmount - orderState.escrowTaken) revert AmountTooLarge();
-
-        // Update escrow tracking
-        orderState.escrowTaken += amount;
-        $._escrowedBalanceOf[order.paymentToken][requester] -= amount;
-
-        // Notify escrow taken
-        emit EscrowTaken(id, requester, amount);
-
-        // Take escrowed payment
-        IERC20(order.paymentToken).safeTransfer(msg.sender, amount);
-    }
-
-    /// @notice Return unused escrowed payment for an order
-    /// @param id order id
-    /// @param order Order
-    /// @param amount Amount of payment token to return to escrow
-    /// @dev Only callable by operator
-    function returnEscrow(uint256 id, Order calldata order, uint256 amount) external onlyRole(OPERATOR_ROLE) {
-        if (!order.escrowUnlocked) revert EscrowLocked();
-        // Verify order data
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        OrderState storage orderState = $._orders[id];
-        address requester = orderState.requester;
-        // Order must exist
-        if (requester == address(0)) revert OrderNotFound();
-        // Verify order data
-        if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
-        // Can only return unused amount
-        if (amount > orderState.escrowTaken) revert AmountTooLarge();
-
-        // Update escrow tracking
-        orderState.escrowTaken -= amount;
-        $._escrowedBalanceOf[order.paymentToken][requester] += amount;
-
-        // Notify escrow returned
-        emit EscrowReturned(id, requester, amount);
-
-        // Return payment to escrow
-        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), amount);
+        // Return escrowed fees and unfilled amount
+        if (order.sell) {
+            // Mint unfilled
+            IDShare(order.assetToken).mint(requester, unfilledAmount);
+        } else {
+            // Return unfilled
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, requester, unfilledAmount);
+            IERC20(order.paymentToken).safeTransfer(requester, feeRefund);
+        }
     }
 }

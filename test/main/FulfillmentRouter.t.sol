@@ -61,16 +61,18 @@ contract FulfillmentRouterTest is Test {
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
         tokenLockCheck.setAsDShare(address(token));
 
+        vault = new Vault(admin);
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck, address(1)))
+                    abi.encodeCall(
+                        OrderProcessor.initialize, (admin, treasury, address(vault), tokenLockCheck, address(1))
+                    )
                 )
             )
         );
-        vault = new Vault(admin);
         router = new FulfillmentRouter(admin);
 
         token.grantRole(token.MINTER_ROLE(), admin);
@@ -96,8 +98,7 @@ contract FulfillmentRouterTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC,
-            escrowUnlocked: false
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
@@ -111,33 +112,10 @@ contract FulfillmentRouterTest is Test {
         router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0);
     }
 
-    function testFillBuyOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
-        vm.assume(orderAmount > 0);
-        vm.assume(fillAmount > 0);
-        vm.assume(fillAmount <= orderAmount);
-        uint256 fees;
-        {
-            (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
-            fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
-            vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        }
-        uint256 quantityIn = orderAmount + fees;
-
-        IOrderProcessor.Order memory order = dummyOrder;
-        order.paymentTokenQuantity = orderAmount;
-
-        vm.prank(admin);
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.approve(address(issuer), quantityIn);
-
-        vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
-
-        vm.expectEmit(true, true, true, false);
-        emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
+    function testFillBuyOrderReverts() public {
+        vm.expectRevert(FulfillmentRouter.BuyFillsNotSupported.selector);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
+        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0);
     }
 
     function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {

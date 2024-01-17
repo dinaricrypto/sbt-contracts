@@ -90,7 +90,7 @@ contract OrderProcessorTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck, address(1)))
+                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenLockCheck, address(1)))
                 )
             )
         );
@@ -122,8 +122,7 @@ contract OrderProcessorTest is Test {
             assetTokenQuantity: sell ? 100 ether : 0,
             paymentTokenQuantity: sell ? 0 : 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC,
-            escrowUnlocked: false
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
@@ -133,13 +132,19 @@ contract OrderProcessorTest is Test {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, address(0), tokenLockCheck, address(1)))
+            abi.encodeCall(OrderProcessor.initialize, (admin, address(0), operator, tokenLockCheck, address(1)))
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck, address(0)))
+            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, address(0), tokenLockCheck, address(1)))
+        );
+
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(issuerImpl),
+            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenLockCheck, address(0)))
         );
     }
 
@@ -302,7 +307,7 @@ contract OrderProcessorTest is Test {
 
         // balances before
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
-        uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
+        uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(orderId, user, order);
         vm.prank(user);
@@ -311,10 +316,9 @@ contract OrderProcessorTest is Test {
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
-        // balances after
-        assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - (quantityIn));
-        assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + (quantityIn));
-        assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn);
+        assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
+        assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
+        assertEq(paymentToken.balanceOf(address(issuer)), fees);
     }
 
     function testRequestSellOrder(uint256 orderAmount) public {
@@ -330,7 +334,6 @@ contract OrderProcessorTest is Test {
 
         // balances before
         uint256 userBalanceBefore = token.balanceOf(user);
-        uint256 issuerBalanceBefore = token.balanceOf(address(issuer));
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(0, user, order);
         vm.prank(user);
@@ -338,11 +341,7 @@ contract OrderProcessorTest is Test {
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), orderAmount);
         assertEq(issuer.numOpenOrders(), 1);
-        assertEq(token.balanceOf(address(issuer)), orderAmount);
-        // balances after
         assertEq(token.balanceOf(user), userBalanceBefore - orderAmount);
-        assertEq(token.balanceOf(address(issuer)), issuerBalanceBefore + orderAmount);
-        assertEq(issuer.escrowedBalanceOf(order.assetToken, user), orderAmount);
     }
 
     function testRequestOrderZeroAddressReverts(bool sell) public {
@@ -464,7 +463,7 @@ contract OrderProcessorTest is Test {
 
         // balances before
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
-        uint256 issuerBalanceBefore = paymentToken.balanceOf(address(issuer));
+        uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
         vm.expectEmit(true, true, true, true);
         emit OrderRequested(0, user, dummyOrder);
         vm.prank(user);
@@ -474,9 +473,8 @@ contract OrderProcessorTest is Test {
         assertEq(uint8(issuer.getOrderStatus(0)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(0), dummyOrder.paymentTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
-        // balances after
-        assertEq(paymentToken.balanceOf(address(user)), userBalanceBefore - quantityIn);
-        assertEq(paymentToken.balanceOf(address(issuer)), issuerBalanceBefore + quantityIn);
+        assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
+        assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + dummyOrder.paymentTokenQuantity);
     }
 
     function testFillBuyOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
@@ -517,8 +515,6 @@ contract OrderProcessorTest is Test {
         } else {
             // balances before
             uint256 userAssetBefore = token.balanceOf(user);
-            uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
-            uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, false);
             // since we can't capture
             emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
@@ -527,8 +523,7 @@ contract OrderProcessorTest is Test {
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             // balances after
             assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-            assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - fillAmount - feesEarned);
-            assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + fillAmount);
+            assertEq(paymentToken.balanceOf(address(issuer)), fees - feesEarned);
             assertEq(paymentToken.balanceOf(treasury), feesEarned);
             if (fillAmount == orderAmount) {
                 assertEq(issuer.numOpenOrders(), 0);
@@ -538,7 +533,6 @@ contract OrderProcessorTest is Test {
             } else {
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
                 assertEq(issuer.getTotalReceived(id), receivedAmount);
-                assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), quantityIn - feesEarned - fillAmount);
             }
         }
     }
@@ -567,9 +561,6 @@ contract OrderProcessorTest is Test {
         vm.prank(user);
         uint256 id = issuer.requestOrder(order);
 
-        uint256 escrowAmount = issuer.escrowedBalanceOf(order.assetToken, user);
-        assertEq(escrowAmount, orderAmount);
-
         vm.prank(admin);
         paymentToken.mint(operator, receivedAmount);
         vm.prank(operator);
@@ -586,7 +577,6 @@ contract OrderProcessorTest is Test {
         } else {
             // balances before
             uint256 userPaymentBefore = paymentToken.balanceOf(user);
-            uint256 issuerAssetBefore = token.balanceOf(address(issuer));
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, false);
             // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
@@ -596,7 +586,6 @@ contract OrderProcessorTest is Test {
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             // balances after
             assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - feesEarned);
-            assertEq(token.balanceOf(address(issuer)), issuerAssetBefore - fillAmount);
             assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
             assertEq(paymentToken.balanceOf(treasury), feesEarned);
             if (fillAmount == orderAmount) {
@@ -630,8 +619,6 @@ contract OrderProcessorTest is Test {
 
         // balances before
         uint256 userAssetBefore = token.balanceOf(user);
-        uint256 issuerPaymentBefore = paymentToken.balanceOf(address(issuer));
-        uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
         uint256 treasuryPaymentBefore = paymentToken.balanceOf(treasury);
         vm.expectEmit(true, true, true, true);
         emit OrderFulfilled(id, order.recipient);
@@ -642,8 +629,6 @@ contract OrderProcessorTest is Test {
         assertEq(issuer.getTotalReceived(id), 0);
         // balances after
         assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-        assertEq(paymentToken.balanceOf(address(issuer)), issuerPaymentBefore - quantityIn);
-        assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore + orderAmount);
         assertEq(paymentToken.balanceOf(treasury), treasuryPaymentBefore + fees);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
     }
@@ -759,6 +744,10 @@ contract OrderProcessorTest is Test {
             issuer.fillOrder(id, order, fillAmount, 100);
         }
 
+        uint256 unfilledAmount = orderAmount - fillAmount;
+        vm.prank(operator);
+        paymentToken.approve(address(issuer), unfilledAmount);
+
         // balances before
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(id, order.recipient, reason);
@@ -768,7 +757,6 @@ contract OrderProcessorTest is Test {
         assertEq(paymentToken.balanceOf(treasury), feesEarned);
         assertEq(issuer.getTotalReceived(id), 0);
         // balances after
-        assertEq(issuer.escrowedBalanceOf(order.paymentToken, user), 0);
         if (fillAmount > 0) {
             assertEq(paymentToken.balanceOf(address(user)), quantityIn - fillAmount - feesEarned);
         } else {

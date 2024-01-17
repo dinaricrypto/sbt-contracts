@@ -61,7 +61,7 @@ contract BuyProcessorRequestTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(issuerImpl.initialize, (admin, treasury, tokenLockCheck, address(1)))
+                    abi.encodeCall(issuerImpl.initialize, (admin, treasury, operator, tokenLockCheck, address(1)))
                 )
             )
         );
@@ -99,8 +99,7 @@ contract BuyProcessorRequestTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC,
-            escrowUnlocked: false
+            tif: IOrderProcessor.TIF.GTC
         });
 
         calls = new bytes[](2);

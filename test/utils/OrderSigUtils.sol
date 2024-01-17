@@ -6,13 +6,6 @@ import "../../src/orders/OrderProcessor.sol";
 contract OrderSigUtils {
     OrderProcessor private immutable orderProcessor;
 
-    bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif,bool escrowUnlocked)"
-    );
-
-    bytes32 private constant ORDER_REQUEST_TYPEHASH =
-        keccak256("OrderRequest(bytes32 orderHash,uint256 deadline,uint256 nonce)");
-
     constructor(OrderProcessor _orderProcessor) {
         orderProcessor = _orderProcessor;
     }

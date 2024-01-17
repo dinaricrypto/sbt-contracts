@@ -3,6 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {MockToken} from "../test/utils/mocks/MockToken.sol";
+import {Vault} from "../src/orders/Vault.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {DShare} from "../src/DShare.sol";
 import {WrappedDShare} from "../src/WrappedDShare.sol";
@@ -30,6 +31,7 @@ contract DeployAllSandboxScript is Script {
         MockToken usdc;
         MockToken usdt;
         MockToken usdce;
+        Vault vault;
         TransferRestrictor transferRestrictor;
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
@@ -162,6 +164,8 @@ contract DeployAllSandboxScript is Script {
 
         /// ------------------ order processors ------------------
 
+        // vault
+        deployments.vault = new Vault(cfg.deployer);
         // deploy blacklist prechecker
         deployments.tokenLockCheck = new TokenLockCheck(address(0), address(0));
         // add USDC
@@ -178,7 +182,13 @@ contract DeployAllSandboxScript is Script {
                     address(deployments.orderProcessorImplementation),
                     abi.encodeCall(
                         OrderProcessor.initialize,
-                        (cfg.deployer, cfg.treasury, deployments.tokenLockCheck, cfg.ethusdoracle)
+                        (
+                            cfg.deployer,
+                            cfg.treasury,
+                            address(deployments.vault),
+                            deployments.tokenLockCheck,
+                            cfg.ethusdoracle
+                        )
                     )
                 )
             )
