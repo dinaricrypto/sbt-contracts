@@ -480,16 +480,18 @@ contract OrderProcessor is
         uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
 
         // Charge user for gas fees
-        uint256 gasUsed = gasStart - gasleft();
-        uint256 gasCostInWei = gasUsed * tx.gasprice;
-
-        // Apply payment token price to calculate payment amount
-        // Assumes payment token price includes token decimals
         uint256 networkFee = 0;
-        try IERC20Metadata(order.paymentToken).decimals() returns (uint8 tokenDecimals) {
-            networkFee = gasCostInWei * 10 ** tokenDecimals / tokenPriceInWei;
-        } catch {
-            networkFee = gasCostInWei / tokenPriceInWei;
+        {
+            uint256 gasUsed = gasStart - gasleft();
+            uint256 gasCostInWei = gasUsed * tx.gasprice;
+
+            // Apply payment token price to calculate payment amount
+            // Assumes payment token price includes token decimals
+            try IERC20Metadata(order.paymentToken).decimals() returns (uint8 tokenDecimals) {
+                networkFee = gasCostInWei * 10 ** tokenDecimals / tokenPriceInWei;
+            } catch {
+                networkFee = gasCostInWei / tokenPriceInWei;
+            }
         }
 
         // Record or transfer the payment for gas fees
