@@ -20,6 +20,7 @@ import {NumberUtils} from "../../src/common/NumberUtils.sol";
 
 contract OrderProcessorSignedTest is Test {
     // TODO: add order fill with vault
+    // TODO: test fill sells
     event OrderCreated(uint256 indexed id, address indexed recipient);
 
     event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
@@ -91,6 +92,7 @@ contract OrderProcessorSignedTest is Test {
         issuer.setPaymentTokenOracle(address(paymentToken), usdcPriceOracle);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
         vm.stopPrank();
 
         orderSigUtils = new OrderSigUtils(issuer);
@@ -98,7 +100,7 @@ contract OrderProcessorSignedTest is Test {
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
         (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
-        dummyOrderFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, 100 ether);
+        dummyOrderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
             recipient: user,
@@ -143,11 +145,11 @@ contract OrderProcessorSignedTest is Test {
         assertEq(issuer.paymentTokenOracle(_paymentToken), _oracle);
     }
 
-    function testRequestOrderThroughOperator(uint256 orderAmount) public {
+    function testRequestBuyOrderThroughOperator(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
 
         (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
-        uint256 fees = FeeLib.estimateTotalFees(_flatFee, _percentageFeeRate, orderAmount);
+        uint256 fees = _flatFee + FeeLib.applyPercentageFee(_percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = dummyOrder;
@@ -175,7 +177,6 @@ contract OrderProcessorSignedTest is Test {
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
 
-        // 1. Request order
         vm.expectEmit(true, true, true, true);
         emit OrderCreated(orderId, user);
         vm.prank(operator);
@@ -188,6 +189,38 @@ contract OrderProcessorSignedTest is Test {
         assertGt(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
         uint256 gasFee = paymentToken.balanceOf(operator) - operatorBalanceBefore - orderAmount;
         assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn - gasFee);
+    }
+
+    function testRequestSellOrderThroughOperator(uint256 orderAmount) public {
+        vm.assume(orderAmount > 0);
+
+        IOrderProcessor.Order memory order = dummyOrder;
+        order.sell = true;
+        order.assetTokenQuantity = orderAmount;
+        deal(address(token), user, orderAmount);
+
+        uint256 permitNonce = 0;
+        uint256 nonce = 42;
+
+        bytes[] memory multicalldata = new bytes[](2);
+        multicalldata[0] =
+            preparePermitCall(shareSigUtils, address(token), orderAmount, user, userPrivateKey, permitNonce);
+        multicalldata[1] = abi.encodeWithSelector(
+            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
+        );
+
+        uint256 orderId = issuer.nextOrderId();
+        uint256 userBalanceBefore = token.balanceOf(user);
+
+        vm.expectEmit(true, true, true, true);
+        emit OrderCreated(orderId, user);
+        vm.prank(operator);
+        issuer.multicall(multicalldata);
+
+        assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(orderId), order.assetTokenQuantity);
+        assertEq(issuer.numOpenOrders(), 1);
+        assertEq(token.balanceOf(user), userBalanceBefore - orderAmount);
     }
 
     // set Permit for user

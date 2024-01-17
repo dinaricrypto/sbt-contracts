@@ -139,18 +139,7 @@ interface IOrderProcessor {
     /// @param signature Signature for order
     /// @return id Order id
     /// @dev Only callable by operator
-    // TODO: better name?
     function createOrderWithSignature(Order calldata order, Signature calldata signature) external returns (uint256);
-
-    /// @notice Initialize and fill signed order
-    /// @param id order id
-    /// @param order Order request to fill
-    /// @param fillAmount Amount of order token to fill
-    /// @param receivedAmount Amount of received token
-    /// @dev Only callable by operator
-    /// @dev Same as calling createOrderWithSignature and fillOrder
-    // TODO: implement
-    // function fillSignedOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
 
     /// @notice Request an order
     /// @param order Order request to submit

@@ -22,7 +22,6 @@ import {FeeLib} from "../common/FeeLib.sol";
 
 /// @notice Core contract managing orders for dShare tokens
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
-// TODO: take network fee from proceeds for sells
 contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
@@ -480,7 +479,26 @@ contract OrderProcessor is
         uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
 
         // Charge user for gas fees
-        _chargeSponsoredTransaction(requester, order.paymentToken, tokenPriceInWei, gasStart);
+        uint256 gasUsed = gasStart - gasleft();
+        uint256 gasCostInWei = gasUsed * tx.gasprice;
+
+        // Apply payment token price to calculate payment amount
+        // Assumes payment token price includes token decimals
+        uint256 networkFee = 0;
+        try IERC20Metadata(order.paymentToken).decimals() returns (uint8 tokenDecimals) {
+            networkFee = gasCostInWei * 10 ** tokenDecimals / tokenPriceInWei;
+        } catch {
+            networkFee = gasCostInWei / tokenPriceInWei;
+        }
+
+        // Record or transfer the payment for gas fees
+        if (order.sell) {
+            // Add network fee to flat fee taken from proceeds
+            $._orders[id].flatFee += networkFee;
+        } else {
+            // Pull payment for gas fees
+            IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, networkFee);
+        }
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
@@ -549,12 +567,12 @@ contract OrderProcessor is
             // Burn asset
             IDShare(order.assetToken).burnFrom(requester, order.assetTokenQuantity);
         } else {
-            uint256 totalFees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, order.paymentTokenQuantity);
+            uint256 orderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, order.paymentTokenQuantity);
 
             // Sweep payment for purchase
             IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, order.paymentTokenQuantity);
             // Escrow fees
-            IERC20(order.paymentToken).safeTransferFrom(requester, address(this), totalFees);
+            IERC20(order.paymentToken).safeTransferFrom(requester, address(this), orderFees);
         }
     }
 
@@ -585,30 +603,6 @@ contract OrderProcessor is
         // compute payment price in wei
         uint256 paymentPriceInWei = mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
         return uint256(paymentPriceInWei);
-    }
-
-    /// @notice Take payment for gas fees
-    function _chargeSponsoredTransaction(
-        address user,
-        address paymentToken,
-        uint256 paymentTokenPrice,
-        uint256 gasStart
-    ) private {
-        uint256 gasUsed = gasStart - gasleft();
-        uint256 gasCostInWei = gasUsed * tx.gasprice;
-
-        // Apply payment token price to calculate payment amount
-        // Assumes payment token price includes token decimals
-        uint256 paymentAmount = 0;
-        try IERC20Metadata(paymentToken).decimals() returns (uint8 tokenDecimals) {
-            paymentAmount = gasCostInWei * 10 ** tokenDecimals / paymentTokenPrice;
-        } catch {
-            paymentAmount = gasCostInWei / paymentTokenPrice;
-        }
-
-        // Transfer the payment for gas fees
-        // slither-disable-next-line arbitrary-send-erc20
-        IERC20(paymentToken).safeTransferFrom(user, msg.sender, paymentAmount);
     }
 
     /// @inheritdoc IOrderProcessor
@@ -664,6 +658,7 @@ contract OrderProcessor is
 
         // Calculate earned fees and handle any unique checks
         uint256 feesEarned = 0;
+        uint256 estimatedTotalFees = 0;
         if (order.sell) {
             // For limit sell orders, ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv18(fillAmount, order.price)) {
@@ -708,8 +703,8 @@ contract OrderProcessor is
             if (orderState.feesPaid == 0) {
                 feesEarned = orderState.flatFee;
             }
-            uint256 estimatedTotalFees =
-                FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
+            estimatedTotalFees =
+                orderState.flatFee + FeeLib.applyPercentageFee(orderState.percentageFeeRate, order.paymentTokenQuantity);
             uint256 totalPercentageFees = estimatedTotalFees - orderState.flatFee;
             feesEarned += mulDiv(totalPercentageFees, fillAmount, order.paymentTokenQuantity);
         }
@@ -736,9 +731,6 @@ contract OrderProcessor is
             uint256 feesPaid = orderState.feesPaid + feesEarned;
             // Check values
             if (!order.sell) {
-                uint256 estimatedTotalFees = FeeLib.estimateTotalFees(
-                    orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity
-                );
                 assert(feesPaid <= estimatedTotalFees);
             }
             $._orders[id].unfilledAmount = newUnfilledAmount;
@@ -785,10 +777,9 @@ contract OrderProcessor is
 
         uint256 feeRefund = 0;
         if (!order.sell) {
-            uint256 totalFees =
-                FeeLib.estimateTotalFees(orderState.flatFee, orderState.percentageFeeRate, order.paymentTokenQuantity);
             // If no fills, then full refund
-            feeRefund = totalFees;
+            feeRefund =
+                orderState.flatFee + FeeLib.applyPercentageFee(orderState.percentageFeeRate, order.paymentTokenQuantity);
             if (orderState.unfilledAmount < order.paymentTokenQuantity) {
                 // Refund remaining order and fees
                 feeRefund -= orderState.feesPaid;

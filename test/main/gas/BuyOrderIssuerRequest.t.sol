@@ -130,7 +130,7 @@ contract BuyProcessorRequestTest is Test {
         vm.assume(permitDeadline > block.timestamp);
         vm.assume(orderAmount > 1_000_000);
 
-        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory neworder = order;

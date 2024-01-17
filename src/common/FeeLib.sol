@@ -31,14 +31,7 @@ library FeeLib {
         }
     }
 
-    function estimateTotalFees(uint256 flatFee, uint24 percentageFeeRate, uint256 orderValue)
-        internal
-        pure
-        returns (uint256 totalFees)
-    {
-        totalFees = flatFee;
-        if (percentageFeeRate != 0) {
-            totalFees += PrbMath.mulDiv(orderValue, percentageFeeRate, _ONEHUNDRED_PERCENT);
-        }
+    function applyPercentageFee(uint24 percentageFeeRate, uint256 orderValue) internal pure returns (uint256) {
+        return percentageFeeRate != 0 ? PrbMath.mulDiv(orderValue, percentageFeeRate, _ONEHUNDRED_PERCENT) : 0;
     }
 }

@@ -121,7 +121,7 @@ contract LimitOrderTest is Test {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount > 0 && fillAmount <= orderAmount);
         vm.assume(!NumberUtils.mulDivCheckOverflow(fillAmount, 1 ether, _price));
-        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
         vm.assume(receivedAmount < mulDiv(fillAmount, 1 ether, _price));
 
