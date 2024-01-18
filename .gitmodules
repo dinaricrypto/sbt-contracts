@@ -22,3 +22,6 @@
 [submodule "lib/prb-math"]
 	path = lib/prb-math
 	url = https://github.com/PaulRBerg/prb-math
+[submodule "lib/oft-upgradeable"]
+	path = lib/oft-upgradeable
+	url = https://github.com/dinaricrypto/oft-upgradeable
