@@ -18,23 +18,33 @@ contract SetFees is Script {
 
         OrderProcessor.FeeRates memory fees = OrderProcessor.FeeRates({
             perOrderFeeBuy: 1 ether,
-            percentageFeeRateBuy: 0,
+            percentageFeeRateBuy: 5_000,
             perOrderFeeSell: 1 ether,
-            percentageFeeRateSell: 0
+            percentageFeeRateSell: 5_000
         });
+
+        address userAccount = address(0);
 
         console.log("deployer: %s", deployer);
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
-        // set fees
-        orderProcessor.setDefaultFees(usdc, fees);
-        directBuyIssuer.setDefaultFees(usdc, fees);
-        orderProcessor.setDefaultFees(usdce, fees);
-        directBuyIssuer.setDefaultFees(usdce, fees);
-        orderProcessor.setDefaultFees(usdt, fees);
-        directBuyIssuer.setDefaultFees(usdt, fees);
+        // set default fees
+        // orderProcessor.setDefaultFees(usdc, fees);
+        // directBuyIssuer.setDefaultFees(usdc, fees);
+        // orderProcessor.setDefaultFees(usdce, fees);
+        // directBuyIssuer.setDefaultFees(usdce, fees);
+        // orderProcessor.setDefaultFees(usdt, fees);
+        // directBuyIssuer.setDefaultFees(usdt, fees);
+
+        // set user fees
+        orderProcessor.setFees(userAccount, usdc, fees);
+        directBuyIssuer.setFees(userAccount, usdc, fees);
+        orderProcessor.setFees(userAccount, usdce, fees);
+        directBuyIssuer.setFees(userAccount, usdce, fees);
+        orderProcessor.setFees(userAccount, usdt, fees);
+        directBuyIssuer.setFees(userAccount, usdt, fees);
 
         vm.stopBroadcast();
     }
