@@ -18,6 +18,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@dinari/sbt-contracts@workspace:."
   dependencies:
+    "@layerzerolabs/lz-evm-oapp-v2": ^2.0.11
+    "@layerzerolabs/lz-evm-protocol-v2": ^2.0.11
     "@typechain/ethers-v5": ^11.0.0
     "@types/node": ^16.11.0
     bip39: ^3.1.0
@@ -456,6 +458,32 @@ __metadata:
     "@jridgewell/resolve-uri": ^3.0.3
     "@jridgewell/sourcemap-codec": ^1.4.10
   checksum: d89597752fd88d3f3480845691a05a44bd21faac18e2185b6f436c3b0fd0c5a859fbbd9aaa92050c4052caf325ad3e10e2e1d1b64327517471b7d51babc0ddef
+  languageName: node
+  linkType: hard
+
+"@layerzerolabs/lz-evm-oapp-v2@npm:^2.0.11":
+  version: 2.0.12
+  resolution: "@layerzerolabs/lz-evm-oapp-v2@npm:2.0.12"
+  peerDependencies:
+    "@layerzerolabs/lz-evm-messagelib-v2": ^2.0.12
+    "@layerzerolabs/lz-evm-protocol-v2": ^2.0.12
+    "@layerzerolabs/lz-evm-v1-0.7": ^2.0.12
+    "@openzeppelin/contracts": ^4.8.1
+    "@openzeppelin/contracts-upgradeable": ^4.8.1
+    hardhat-deploy: ^0.11.44
+    solidity-bytes-utils: ^0.8.0
+  checksum: 154daf30e29d65d9b1b5b10c00c30a838a5f45bed244110e49f92183dfdbae8f6207671f8b3f014d51882a4e13a19619fec20935200bc9019cf6e271ddc0e398
+  languageName: node
+  linkType: hard
+
+"@layerzerolabs/lz-evm-protocol-v2@npm:^2.0.11":
+  version: 2.0.12
+  resolution: "@layerzerolabs/lz-evm-protocol-v2@npm:2.0.12"
+  peerDependencies:
+    "@openzeppelin/contracts": ^4.8.1
+    hardhat-deploy: ^0.11.44
+    solidity-bytes-utils: ^0.8.0
+  checksum: 62d6a17f0a4a90a86d794068ef6f1d8d961182339e96cd40f5d093a805f7eb97aa7ac5580fea325e15492e70891bd6836764fa85e33e172875edba2e6b2335ac
   languageName: node
   linkType: hard
 

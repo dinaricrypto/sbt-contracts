@@ -6,5 +6,9 @@ solc_version = '0.8.22'
 evm_version = 'paris'
 optimizer_runs = 200
 gas_price = 200_000_000
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/"
+]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

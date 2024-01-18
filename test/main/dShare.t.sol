@@ -12,6 +12,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {PRBMath_MulDiv18_Overflow, PRBMath_MulDiv_Overflow} from "prb-math/Common.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
+import {MockLayerZeroEndpoint} from "../utils/mocks/MockLayerZeroEndpoint.sol";
 
 contract DShareTest is Test {
     event NameSet(string name);
@@ -24,16 +25,18 @@ contract DShareTest is Test {
     address restrictor_role = address(1);
     address user = address(2);
     address admin = address(3);
+    address lzEndpoint;
 
     function setUp() public {
         vm.prank(admin);
         restrictor = new TransferRestrictor(address(this));
+        lzEndpoint = address(new MockLayerZeroEndpoint());
         DShare tokenImplementation = new DShare();
         token = DShare(
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(DShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (address(this), "Dinari Token", "dTKN", restrictor, lzEndpoint))
                 )
             )
         );

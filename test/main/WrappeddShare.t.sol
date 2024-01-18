@@ -20,6 +20,7 @@ contract WrappedDShareTest is Test {
     address user = address(1);
     address user2 = address(2);
     address admin = address(3);
+    address lzEndoint = address(4);
 
     function setUp() public {
         vm.startPrank(admin);
@@ -30,7 +31,7 @@ contract WrappedDShareTest is Test {
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(DShare.initialize, (admin, "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (admin, "Dinari Token", "dTKN", restrictor, lzEndoint))
                 )
             )
         );

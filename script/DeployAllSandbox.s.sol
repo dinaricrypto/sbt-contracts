@@ -25,6 +25,7 @@ contract DeployAllSandboxScript is Script {
         address relayer;
         address ethusdoracle;
         address usdcoracle;
+        address lzEndpoint;
     }
 
     struct Deployments {
@@ -62,7 +63,8 @@ contract DeployAllSandboxScript is Script {
             distributor: vm.envAddress("DISTRIBUTOR"),
             relayer: vm.envAddress("RELAYER"),
             ethusdoracle: vm.envAddress("ETHUSDORACLE"),
-            usdcoracle: vm.envAddress("USDCORACLE")
+            usdcoracle: vm.envAddress("USDCORACLE"),
+            lzEndpoint: vm.envAddress("LAYERZERO_ENDPOINT")
         });
 
         Deployments memory deployments;
@@ -139,7 +141,13 @@ contract DeployAllSandboxScript is Script {
                         address(deployments.dShareBeacon),
                         abi.encodeCall(
                             DShare.initialize,
-                            (cfg.deployer, dShareNames[i], dShareSymbols[i], deployments.transferRestrictor)
+                            (
+                                cfg.deployer,
+                                dShareNames[i],
+                                dShareSymbols[i],
+                                deployments.transferRestrictor,
+                                cfg.lzEndpoint
+                            )
                         )
                     )
                 )
