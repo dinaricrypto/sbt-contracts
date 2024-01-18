@@ -13,6 +13,7 @@ import {CREATE3} from "solady/src/utils/CREATE3.sol";
 contract DShareFactory is IDShareFactory {
     UpgradeableBeacon public beacon;
     TransferRestrictor public transferRestrictor;
+    address public lzEndpoint;
 
     error ZeroAddress();
     error DeploymentRevert();
@@ -20,10 +21,13 @@ contract DShareFactory is IDShareFactory {
     event NewTransferRestrictorSet(address indexed transferRestrictor);
     event NewBeaconSet(address indexed beacon);
 
-    constructor(TransferRestrictor _transferRestrictor, UpgradeableBeacon _beacon) {
-        if (address(_beacon) == address(0) || address(_transferRestrictor) == address(0)) revert ZeroAddress();
+    constructor(TransferRestrictor _transferRestrictor, UpgradeableBeacon _beacon, address _lzEndpoint) {
+        if (address(_beacon) == address(0) || address(_transferRestrictor) == address(0) || _lzEndpoint == address(0)) {
+            revert ZeroAddress();
+        }
         transferRestrictor = _transferRestrictor;
         beacon = _beacon;
+        lzEndpoint = _lzEndpoint;
     }
 
     /// @notice Sets a new transfer restrictor for the dShare
@@ -42,6 +46,11 @@ contract DShareFactory is IDShareFactory {
         emit NewBeaconSet(address(_beacon));
     }
 
+    function setLzEndpoint(address _lzEndpoint) external {
+        if (_lzEndpoint == address(0)) revert ZeroAddress();
+        lzEndpoint = _lzEndpoint;
+    }
+
     /// @notice Creates a new dShare
     /// @param owner of the proxy
     /// @param name Name of the dShare
@@ -56,7 +65,7 @@ contract DShareFactory is IDShareFactory {
             type(BeaconProxy).creationCode,
             abi.encode(
                 address(beacon),
-                abi.encodeWithSelector(DShare.initialize.selector, owner, name, symbol, transferRestrictor)
+                abi.encodeWithSelector(DShare.initialize.selector, owner, name, symbol, transferRestrictor, lzEndpoint)
             )
         );
 

@@ -8,24 +8,26 @@ import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestric
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
+import {MockLayerZeroEndpoint} from "../utils/mocks/MockLayerZeroEndpoint.sol";
 
 contract WrappedDShareTest is Test {
     event NameSet(string name);
     event SymbolSet(string symbol);
 
     TransferRestrictor public restrictor;
+    address lzEndoint;
     DShare public token;
     WrappedDShare public xToken;
 
     address user = address(1);
     address user2 = address(2);
     address admin = address(3);
-    address lzEndoint = address(4);
 
     function setUp() public {
         vm.startPrank(admin);
         restrictor = new TransferRestrictor(admin);
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), admin);
+        lzEndoint = address(new MockLayerZeroEndpoint());
         DShare tokenImplementation = new DShare();
         token = DShare(
             address(

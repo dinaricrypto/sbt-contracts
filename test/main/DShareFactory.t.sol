@@ -8,12 +8,14 @@ import {DShare} from "../../src/DShare.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {CREATE3} from "solady/src/utils/CREATE3.sol";
+import {MockLayerZeroEndpoint} from "../utils/mocks/MockLayerZeroEndpoint.sol";
 
 contract DShareFactoryTest is Test {
     DShareFactory factory;
     TransferRestrictor restrictor;
     DShare tokenImplementation;
     UpgradeableBeacon beacon;
+    address lzEndpoint;
 
     event DShareCreated(address indexed dShare);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
@@ -23,18 +25,19 @@ contract DShareFactoryTest is Test {
         restrictor = new TransferRestrictor(address(this));
         tokenImplementation = new DShare();
         beacon = new UpgradeableBeacon(address(tokenImplementation), address(this));
+        lzEndpoint = address(new MockLayerZeroEndpoint());
 
-        factory = new DShareFactory(restrictor, beacon);
+        factory = new DShareFactory(restrictor, beacon, lzEndpoint);
     }
 
     function testDeployNewFactory() public {
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        DShareFactory newFactory = new DShareFactory(TransferRestrictor(address(0)), beacon);
+        DShareFactory newFactory = new DShareFactory(TransferRestrictor(address(0)), beacon, lzEndpoint);
 
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        newFactory = new DShareFactory(restrictor, UpgradeableBeacon(address(0)));
+        newFactory = new DShareFactory(restrictor, UpgradeableBeacon(address(0)), lzEndpoint);
 
-        newFactory = new DShareFactory(restrictor, beacon);
+        newFactory = new DShareFactory(restrictor, beacon, lzEndpoint);
     }
 
     function testSetter() public {
@@ -53,15 +56,6 @@ contract DShareFactoryTest is Test {
     }
 
     function testDeployNewDShareViaFactory(string memory symbol) public {
-        bytes memory bytecode = type(BeaconProxy).creationCode;
-        bytecode = abi.encodePacked(
-            bytecode,
-            abi.encode(
-                address(beacon),
-                abi.encodeWithSelector(DShare.initialize.selector, address(this), "Dinari Token", symbol, restrictor)
-            )
-        );
-
         // Compute the salt the same way as in the createDShare function
         bytes32 salt = keccak256(abi.encode(symbol));
 
