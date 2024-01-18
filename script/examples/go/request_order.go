@@ -219,7 +219,7 @@ func main() {
 	fmt.Println("Order Amount:", orderAmount.String())
 	// Set buy or sell (false = buy, true = sell)
 	sellOrder := false
-	// Set order type (0 = limit, 1 = market)
+	// Set order type (0 = market, 1 = limit)
 	orderType := uint8(0)
 
 	// Check the order decimals does not exceed max decimals
