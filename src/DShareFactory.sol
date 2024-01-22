@@ -99,6 +99,7 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             )
         );
 
+        // slither-disable-next-line reentrancy-events
         emit DShareCreated(dShare, wrappedDShare, symbol, name);
     }
 }
