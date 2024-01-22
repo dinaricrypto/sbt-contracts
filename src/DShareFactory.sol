@@ -15,7 +15,7 @@ contract DShareFactory {
     error ZeroAddress();
 
     /// @notice Emitted when a new dShare is created
-    event DShareCreated(address indexed dShare);
+    event DShareCreated(address indexed dShare, string indexed symbol, string name);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
 
     constructor(UpgradeableBeacon _beacon, TransferRestrictor _transferRestrictor) {
@@ -44,6 +44,6 @@ contract DShareFactory {
             )
         );
 
-        emit DShareCreated(dShare);
+        emit DShareCreated(dShare, symbol, name);
     }
 }

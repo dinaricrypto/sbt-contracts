@@ -14,7 +14,7 @@ contract DShareFactoryTest is Test {
     DShare tokenImplementation;
     UpgradeableBeacon beacon;
 
-    event DShareCreated(address indexed dShare);
+    event DShareCreated(address indexed dShare, string indexed symbol, string name);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
 
     function setUp() public {
@@ -46,7 +46,7 @@ contract DShareFactoryTest is Test {
 
     function testDeployNewDShareViaFactory(string memory name, string memory symbol) public {
         vm.expectEmit(false, false, false, false);
-        emit DShareCreated(address(0));
+        emit DShareCreated(address(0), symbol, name);
         address newdshare = factory.createDShare(address(this), name, symbol);
         assertEq(DShare(newdshare).owner(), address(this));
         assertEq(DShare(newdshare).name(), name);
