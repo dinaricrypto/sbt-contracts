@@ -5,70 +5,91 @@ import "forge-std/Test.sol";
 import {DShareFactory} from "../../src/DShareFactory.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {DShare} from "../../src/DShare.sol";
+import {WrappedDShare} from "../../src/WrappedDShare.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
-import {CREATE3} from "solady/src/utils/CREATE3.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DShareFactoryTest is Test {
     DShareFactory factory;
     TransferRestrictor restrictor;
-    DShare tokenImplementation;
     UpgradeableBeacon beacon;
+    UpgradeableBeacon wrappedBeacon;
 
-    event DShareCreated(address indexed dShare);
+    event DShareCreated(address indexed dShare, address indexed wrappedDShare, string indexed symbol, string name);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
-    event NewBeaconSet(address indexed beacon);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
-        tokenImplementation = new DShare();
+        DShare tokenImplementation = new DShare();
         beacon = new UpgradeableBeacon(address(tokenImplementation), address(this));
+        WrappedDShare wrappedTokenImplementation = new WrappedDShare();
+        wrappedBeacon = new UpgradeableBeacon(address(wrappedTokenImplementation), address(this));
 
-        factory = new DShareFactory(restrictor, beacon);
+        DShareFactory factoryImpl = new DShareFactory();
+        factory = DShareFactory(
+            address(
+                new ERC1967Proxy(
+                    address(factoryImpl),
+                    abi.encodeCall(DShareFactory.initialize, (address(this), beacon, wrappedBeacon, restrictor))
+                )
+            )
+        );
     }
 
     function testDeployNewFactory() public {
-        vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        DShareFactory newFactory = new DShareFactory(TransferRestrictor(address(0)), beacon);
+        DShareFactory factoryImpl = new DShareFactory();
 
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        newFactory = new DShareFactory(restrictor, UpgradeableBeacon(address(0)));
+        new ERC1967Proxy(
+            address(factoryImpl),
+            abi.encodeCall(
+                DShareFactory.initialize, (address(this), beacon, wrappedBeacon, TransferRestrictor(address(0)))
+            )
+        );
 
-        newFactory = new DShareFactory(restrictor, beacon);
+        vm.expectRevert(DShareFactory.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(factoryImpl),
+            abi.encodeCall(DShareFactory.initialize, (address(this), beacon, UpgradeableBeacon(address(0)), restrictor))
+        );
+
+        vm.expectRevert(DShareFactory.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(factoryImpl),
+            abi.encodeCall(
+                DShareFactory.initialize, (address(this), UpgradeableBeacon(address(0)), wrappedBeacon, restrictor)
+            )
+        );
+
+        new ERC1967Proxy(
+            address(factoryImpl),
+            abi.encodeCall(DShareFactory.initialize, (address(this), beacon, wrappedBeacon, restrictor))
+        );
     }
 
-    function testSetter() public {
+    function testSetNewTransferRestrictor() public {
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
         factory.setNewTransferRestrictor(TransferRestrictor(address(0)));
-
-        vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        factory.setNewBeacon(UpgradeableBeacon(address(0)));
 
         vm.expectEmit(true, true, true, true);
         emit NewTransferRestrictorSet(address(restrictor));
         factory.setNewTransferRestrictor(restrictor);
-        vm.expectEmit(true, true, true, true);
-        emit NewBeaconSet(address(beacon));
-        factory.setNewBeacon(beacon);
     }
 
-    function testDeployNewDShareViaFactory(string memory symbol) public {
-        bytes memory bytecode = type(BeaconProxy).creationCode;
-        bytecode = abi.encodePacked(
-            bytecode,
-            abi.encode(
-                address(beacon),
-                abi.encodeWithSelector(DShare.initialize.selector, address(this), "Dinari Token", symbol, restrictor)
-            )
-        );
-
-        // Compute the salt the same way as in the createDShare function
-        bytes32 salt = keccak256(abi.encode(symbol));
-
-        address predictedAddress = CREATE3.getDeployed(salt, address(factory));
-
-        vm.expectEmit(true, true, true, true);
-        emit DShareCreated(predictedAddress);
-        factory.createDShare(address(this), "Dinari Token", symbol);
+    function testDeployNewDShareViaFactory(string memory name, string memory symbol) public {
+        string memory wrappedName = string.concat("Wrapped ", name);
+        string memory wrappedSymbol = string.concat(symbol, "w");
+        vm.expectEmit(false, false, false, false);
+        emit DShareCreated(address(0), address(0), symbol, name);
+        (address newdshare, address newwrappeddshare) =
+            factory.createDShare(address(this), name, symbol, wrappedName, wrappedSymbol);
+        assertEq(DShare(newdshare).owner(), address(this));
+        assertEq(DShare(newdshare).name(), name);
+        assertEq(DShare(newdshare).symbol(), symbol);
+        assertEq(address(DShare(newdshare).transferRestrictor()), address(restrictor));
+        assertEq(WrappedDShare(newwrappeddshare).owner(), address(this));
+        assertEq(WrappedDShare(newwrappeddshare).name(), wrappedName);
+        assertEq(WrappedDShare(newwrappeddshare).symbol(), wrappedSymbol);
+        assertEq(WrappedDShare(newwrappeddshare).asset(), newdshare);
     }
 }
