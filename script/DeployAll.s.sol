@@ -8,6 +8,7 @@ import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
+import {DShareFactory} from "../src/DShareFactory.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllScript is Script {
@@ -126,6 +127,15 @@ contract DeployAllScript is Script {
 
         orderProcessor.grantRole(orderProcessor.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
+
+        /// ------------------ factory ------------------
+
+        // DShareFactory factoryImpl = new DShareFactory();
+
+        // new ERC1967Proxy(
+        //             address(factoryImpl),
+        //             abi.encodeCall(DShareFactory.initialize, (cfg.deployer, , , ))
+        // );
 
         /// ------------------ dividend distributor ------------------
 

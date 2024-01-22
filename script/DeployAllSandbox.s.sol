@@ -11,6 +11,7 @@ import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
+import {DShareFactory} from "../src/DShareFactory.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
@@ -45,6 +46,7 @@ contract DeployAllSandboxScript is Script {
         BuyUnlockedProcessor directBuyIssuer;
         Forwarder forwarder;
         DividendDistribution dividendDistributor;
+        DShareFactory dShareFactory;
     }
 
     uint64 constant perOrderFee = 1 ether;
@@ -98,6 +100,25 @@ contract DeployAllSandboxScript is Script {
         // deploy wrapped dShares beacon
         deployments.wrappeddShareBeacon = new UpgradeableBeacon(deployments.wrappeddShareImplementation, cfg.deployer);
 
+        // deploy dShare factory
+        DShareFactory factoryImpl = new DShareFactory();
+        deployments.dShareFactory = DShareFactory(
+            address(
+                new ERC1967Proxy(
+                    address(factoryImpl),
+                    abi.encodeCall(
+                        DShareFactory.initialize,
+                        (
+                            cfg.deployer,
+                            deployments.dShareBeacon,
+                            deployments.wrappeddShareBeacon,
+                            deployments.transferRestrictor
+                        )
+                    )
+                )
+            )
+        );
+
         string[] memory dShareNames = new string[](13);
         dShareNames[0] = "Tesla, Inc.";
         dShareNames[1] = "NVIDIA Corporation";
@@ -132,35 +153,15 @@ contract DeployAllSandboxScript is Script {
         deployments.wrappeddShares = new WrappedDShare[](13);
 
         for (uint256 i = 0; i < deployments.dShares.length; i++) {
-            // deploy DShare
-            deployments.dShares[i] = DShare(
-                address(
-                    new BeaconProxy(
-                        address(deployments.dShareBeacon),
-                        abi.encodeCall(
-                            DShare.initialize,
-                            (cfg.deployer, dShareNames[i], dShareSymbols[i], deployments.transferRestrictor)
-                        )
-                    )
-                )
+            (address dShare, address wrappedDShare) = deployments.dShareFactory.createDShare(
+                cfg.deployer,
+                dShareNames[i],
+                dShareSymbols[i],
+                string.concat("Wrapped ", dShareNames[i]),
+                string.concat(dShareSymbols[i], "w")
             );
-            // deploy wrapped DShare
-            deployments.wrappeddShares[i] = WrappedDShare(
-                address(
-                    new BeaconProxy(
-                        address(deployments.wrappeddShareBeacon),
-                        abi.encodeCall(
-                            WrappedDShare.initialize,
-                            (
-                                cfg.deployer,
-                                deployments.dShares[i],
-                                string.concat("Wrapped ", dShareNames[i]),
-                                string.concat("w", dShareSymbols[i])
-                            )
-                        )
-                    )
-                )
-            );
+            deployments.dShares[i] = DShare(dShare);
+            deployments.wrappeddShares[i] = WrappedDShare(wrappedDShare);
         }
 
         /// ------------------ order processors ------------------
