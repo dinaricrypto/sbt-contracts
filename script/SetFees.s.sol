@@ -3,7 +3,6 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
-import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 
 contract SetFees is Script {
     function run() external {
@@ -11,17 +10,14 @@ contract SetFees is Script {
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDER_PROCESSOR"));
-        BuyUnlockedProcessor directBuyIssuer = BuyUnlockedProcessor(vm.envAddress("BUY_UNLOCKED_PROCESSOR"));
         address usdc = vm.envAddress("USDC");
         address usdce = vm.envAddress("USDCE");
         address usdt = vm.envAddress("USDT");
 
-        OrderProcessor.FeeRates memory fees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
-            percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
-            percentageFeeRateSell: 5_000
-        });
+        uint64 perOrderFeeBuy = 1 ether;
+        uint24 percentageFeeRateBuy = 5_000;
+        uint64 perOrderFeeSell = 1 ether;
+        uint24 percentageFeeRateSell = 5_000;
 
         address userAccount = address(0);
 
@@ -32,19 +28,19 @@ contract SetFees is Script {
 
         // set default fees
         // orderProcessor.setDefaultFees(usdc, fees);
-        // directBuyIssuer.setDefaultFees(usdc, fees);
         // orderProcessor.setDefaultFees(usdce, fees);
-        // directBuyIssuer.setDefaultFees(usdce, fees);
         // orderProcessor.setDefaultFees(usdt, fees);
-        // directBuyIssuer.setDefaultFees(usdt, fees);
 
         // set user fees
-        orderProcessor.setFees(userAccount, usdc, fees);
-        directBuyIssuer.setFees(userAccount, usdc, fees);
-        orderProcessor.setFees(userAccount, usdce, fees);
-        directBuyIssuer.setFees(userAccount, usdce, fees);
-        orderProcessor.setFees(userAccount, usdt, fees);
-        directBuyIssuer.setFees(userAccount, usdt, fees);
+        orderProcessor.setFees(
+            userAccount, usdc, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
+        );
+        orderProcessor.setFees(
+            userAccount, usdce, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
+        );
+        orderProcessor.setFees(
+            userAccount, usdt, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
+        );
 
         vm.stopBroadcast();
     }
