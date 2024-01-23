@@ -31,7 +31,10 @@ contract DShareFactoryTest is Test {
             address(
                 new ERC1967Proxy(
                     address(factoryImpl),
-                    abi.encodeCall(DShareFactory.initialize, (address(this), beacon, wrappedBeacon, restrictor))
+                    abi.encodeCall(
+                        DShareFactory.initialize,
+                        (address(this), address(beacon), address(wrappedBeacon), address(restrictor))
+                    )
                 )
             )
         );
@@ -44,37 +47,39 @@ contract DShareFactoryTest is Test {
         new ERC1967Proxy(
             address(factoryImpl),
             abi.encodeCall(
-                DShareFactory.initialize, (address(this), beacon, wrappedBeacon, TransferRestrictor(address(0)))
+                DShareFactory.initialize, (address(this), address(beacon), address(wrappedBeacon), address(0))
             )
         );
 
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
         new ERC1967Proxy(
             address(factoryImpl),
-            abi.encodeCall(DShareFactory.initialize, (address(this), beacon, UpgradeableBeacon(address(0)), restrictor))
+            abi.encodeCall(DShareFactory.initialize, (address(this), address(beacon), address(0), address(restrictor)))
         );
 
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
         new ERC1967Proxy(
             address(factoryImpl),
             abi.encodeCall(
-                DShareFactory.initialize, (address(this), UpgradeableBeacon(address(0)), wrappedBeacon, restrictor)
+                DShareFactory.initialize, (address(this), address(0), address(wrappedBeacon), address(restrictor))
             )
         );
 
         new ERC1967Proxy(
             address(factoryImpl),
-            abi.encodeCall(DShareFactory.initialize, (address(this), beacon, wrappedBeacon, restrictor))
+            abi.encodeCall(
+                DShareFactory.initialize, (address(this), address(beacon), address(wrappedBeacon), address(restrictor))
+            )
         );
     }
 
     function testSetNewTransferRestrictor() public {
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
-        factory.setNewTransferRestrictor(TransferRestrictor(address(0)));
+        factory.setNewTransferRestrictor(address(0));
 
         vm.expectEmit(true, true, true, true);
         emit NewTransferRestrictorSet(address(restrictor));
-        factory.setNewTransferRestrictor(restrictor);
+        factory.setNewTransferRestrictor(address(restrictor));
     }
 
     function testDeployNewDShareViaFactory(string memory name, string memory symbol) public {
