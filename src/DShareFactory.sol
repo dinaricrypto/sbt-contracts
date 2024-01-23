@@ -95,6 +95,7 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         address[] memory wrappedDShares = $._wrappedDShares.values();
         address[] memory dShares = new address[](wrappedDShares.length);
         for (uint256 i = 0; i < wrappedDShares.length; i++) {
+            // slither-disable-next-line calls-loop
             dShares[i] = WrappedDShare(wrappedDShares[i]).asset();
         }
         return (dShares, wrappedDShares);
@@ -128,6 +129,7 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             )
         );
 
+        // slither-disable-next-line unused-return
         $._wrappedDShares.add(wrappedDShare);
 
         // slither-disable-next-line reentrancy-events
@@ -138,11 +140,10 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// @param dShare Address of the dShare
     /// @param wrappedDShare Address of the wrapped dShare
     function announceExistingDShare(address dShare, address wrappedDShare) external onlyOwner {
-        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
-        if ($._wrappedDShares.contains(wrappedDShare)) revert PreviouslyAnnounced();
         if (WrappedDShare(wrappedDShare).asset() != dShare) revert Mismatch();
 
-        $._wrappedDShares.add(wrappedDShare);
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        if (!$._wrappedDShares.add(wrappedDShare)) revert PreviouslyAnnounced();
 
         emit DShareAdded(dShare, wrappedDShare, DShare(dShare).symbol(), DShare(dShare).name());
     }
