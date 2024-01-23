@@ -6,25 +6,34 @@ import {
     Initializable
 } from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
+import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {TransferRestrictor} from "./TransferRestrictor.sol";
 import {DShare} from "./DShare.sol";
 import {WrappedDShare} from "./WrappedDShare.sol";
-import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 
 ///@notice Factory to create new dShares
 ///@author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/DShareFactory.sol)
 contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
-    error ZeroAddress();
+    using EnumerableSet for EnumerableSet.AddressSet;
 
-    /// @notice Emitted when a new dShare is created
-    event DShareCreated(address indexed dShare, address indexed wrappedDShare, string indexed symbol, string name);
+    /// ------------------------------- Types -----------------------------------
+
+    error ZeroAddress();
+    error Mismatch();
+    error PreviouslyAnnounced();
+
+    event DShareAdded(address indexed dShare, address indexed wrappedDShare, string indexed symbol, string name);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
+
+    /// ------------------------------- Storage -----------------------------------
 
     struct DShareFactoryStorage {
         UpgradeableBeacon _dShareBeacon;
         UpgradeableBeacon _wrappedDShareBeacon;
         TransferRestrictor _transferRestrictor;
+        EnumerableSet.AddressSet _wrappedDShares;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.DShareFactory")) - 1)) & ~bytes32(uint256(0xff))
@@ -36,6 +45,8 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             $.slot := DShareFactoryStorageLocation
         }
     }
+
+    /// ------------------------------- Initialization -----------------------------------
 
     function initialize(
         address _owner,
@@ -62,6 +73,8 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
+    /// ------------------------------- Admin -----------------------------------
+
     /// @notice Sets a new transfer restrictor for the dShare
     /// @param _transferRestrictor New transfer restrictor
     function setNewTransferRestrictor(TransferRestrictor _transferRestrictor) external {
@@ -69,6 +82,22 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         $._transferRestrictor = _transferRestrictor;
         emit NewTransferRestrictorSet(address(_transferRestrictor));
+    }
+
+    /// ------------------------------- Factory -----------------------------------
+
+    /// @notice Gets list of all dShares and wrapped dShares
+    /// @return dShares List of all dShares
+    /// @return wrappedDShares List of all wrapped dShares
+    /// @dev This function can be expensive
+    function getDShares() external view returns (address[] memory, address[] memory) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        address[] memory wrappedDShares = $._wrappedDShares.values();
+        address[] memory dShares = new address[](wrappedDShares.length);
+        for (uint256 i = 0; i < wrappedDShares.length; i++) {
+            dShares[i] = WrappedDShare(wrappedDShares[i]).asset();
+        }
+        return (dShares, wrappedDShares);
     }
 
     /// @notice Creates a new dShare
@@ -84,7 +113,7 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         string memory symbol,
         string memory wrappedName,
         string memory wrappedSymbol
-    ) external returns (address dShare, address wrappedDShare) {
+    ) external onlyOwner returns (address dShare, address wrappedDShare) {
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         dShare = address(
             new BeaconProxy(
@@ -99,7 +128,22 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             )
         );
 
+        $._wrappedDShares.add(wrappedDShare);
+
         // slither-disable-next-line reentrancy-events
-        emit DShareCreated(dShare, wrappedDShare, symbol, name);
+        emit DShareAdded(dShare, wrappedDShare, symbol, name);
+    }
+
+    /// @notice Announces an existing dShare
+    /// @param dShare Address of the dShare
+    /// @param wrappedDShare Address of the wrapped dShare
+    function announceExistingDShare(address dShare, address wrappedDShare) external onlyOwner {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        if ($._wrappedDShares.contains(wrappedDShare)) revert PreviouslyAnnounced();
+        if (WrappedDShare(wrappedDShare).asset() != dShare) revert Mismatch();
+
+        $._wrappedDShares.add(wrappedDShare);
+
+        emit DShareAdded(dShare, wrappedDShare, DShare(dShare).symbol(), DShare(dShare).name());
     }
 }

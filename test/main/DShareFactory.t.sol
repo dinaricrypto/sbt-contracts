@@ -8,6 +8,7 @@ import {DShare} from "../../src/DShare.sol";
 import {WrappedDShare} from "../../src/WrappedDShare.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 
 contract DShareFactoryTest is Test {
     DShareFactory factory;
@@ -15,7 +16,7 @@ contract DShareFactoryTest is Test {
     UpgradeableBeacon beacon;
     UpgradeableBeacon wrappedBeacon;
 
-    event DShareCreated(address indexed dShare, address indexed wrappedDShare, string indexed symbol, string name);
+    event DShareAdded(address indexed dShare, address indexed wrappedDShare, string indexed symbol, string name);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
 
     function setUp() public {
@@ -80,7 +81,7 @@ contract DShareFactoryTest is Test {
         string memory wrappedName = string.concat("Wrapped ", name);
         string memory wrappedSymbol = string.concat(symbol, "w");
         vm.expectEmit(false, false, false, false);
-        emit DShareCreated(address(0), address(0), symbol, name);
+        emit DShareAdded(address(0), address(0), symbol, name);
         (address newdshare, address newwrappeddshare) =
             factory.createDShare(address(this), name, symbol, wrappedName, wrappedSymbol);
         assertEq(DShare(newdshare).owner(), address(this));
@@ -91,5 +92,41 @@ contract DShareFactoryTest is Test {
         assertEq(WrappedDShare(newwrappeddshare).name(), wrappedName);
         assertEq(WrappedDShare(newwrappeddshare).symbol(), wrappedSymbol);
         assertEq(WrappedDShare(newwrappeddshare).asset(), newdshare);
+        (address[] memory dshares, address[] memory wrappeddshares) = factory.getDShares();
+        assertEq(dshares.length, 1);
+        assertEq(wrappeddshares.length, 1);
+        assertEq(dshares[0], newdshare);
+        assertEq(wrappeddshares[0], newwrappeddshare);
+    }
+
+    function testAnnounceExistingDShare(string memory name, string memory symbol) public {
+        string memory wrappedName = string.concat("Wrapped ", name);
+        string memory wrappedSymbol = string.concat(symbol, "w");
+        address dshare = address(
+            new BeaconProxy(
+                address(beacon), abi.encodeCall(DShare.initialize, (address(this), name, symbol, restrictor))
+            )
+        );
+        address wrappedDShare = address(
+            new BeaconProxy(
+                address(wrappedBeacon),
+                abi.encodeCall(WrappedDShare.initialize, (address(this), DShare(dshare), wrappedName, wrappedSymbol))
+            )
+        );
+
+        vm.expectRevert(DShareFactory.Mismatch.selector);
+        factory.announceExistingDShare(address(0), wrappedDShare);
+
+        vm.expectEmit(true, true, true, true);
+        emit DShareAdded(dshare, wrappedDShare, symbol, name);
+        factory.announceExistingDShare(dshare, wrappedDShare);
+        (address[] memory dshares, address[] memory wrappeddshares) = factory.getDShares();
+        assertEq(dshares.length, 1);
+        assertEq(wrappeddshares.length, 1);
+        assertEq(dshares[0], dshare);
+        assertEq(wrappeddshares[0], wrappedDShare);
+
+        vm.expectRevert(DShareFactory.PreviouslyAnnounced.selector);
+        factory.announceExistingDShare(dshare, wrappedDShare);
     }
 }
