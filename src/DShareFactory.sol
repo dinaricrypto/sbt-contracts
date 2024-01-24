@@ -6,7 +6,6 @@ import {
     Initializable
 } from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {TransferRestrictor} from "./TransferRestrictor.sol";
@@ -30,9 +29,9 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     /// ------------------------------- Storage -----------------------------------
 
     struct DShareFactoryStorage {
-        UpgradeableBeacon _dShareBeacon;
-        UpgradeableBeacon _wrappedDShareBeacon;
-        TransferRestrictor _transferRestrictor;
+        address _dShareBeacon;
+        address _wrappedDShareBeacon;
+        address _transferRestrictor;
         EnumerableSet.AddressSet _wrappedDShares;
     }
 
@@ -50,14 +49,13 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     function initialize(
         address _owner,
-        UpgradeableBeacon _dShareBeacon,
-        UpgradeableBeacon _wrappedDShareBeacon,
-        TransferRestrictor _transferRestrictor
+        address _dShareBeacon,
+        address _wrappedDShareBeacon,
+        address _transferRestrictor
     ) external initializer {
-        if (
-            address(_dShareBeacon) == address(0) || address(_wrappedDShareBeacon) == address(0)
-                || address(_transferRestrictor) == address(0)
-        ) revert ZeroAddress();
+        if (_dShareBeacon == address(0) || _wrappedDShareBeacon == address(0) || _transferRestrictor == address(0)) {
+            revert ZeroAddress();
+        }
         __Ownable_init(_owner);
 
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
@@ -77,11 +75,11 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     /// @notice Sets a new transfer restrictor for the dShare
     /// @param _transferRestrictor New transfer restrictor
-    function setNewTransferRestrictor(TransferRestrictor _transferRestrictor) external {
-        if (address(_transferRestrictor) == address(0)) revert ZeroAddress();
+    function setNewTransferRestrictor(address _transferRestrictor) external {
+        if (_transferRestrictor == address(0)) revert ZeroAddress();
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         $._transferRestrictor = _transferRestrictor;
-        emit NewTransferRestrictorSet(address(_transferRestrictor));
+        emit NewTransferRestrictorSet(_transferRestrictor);
     }
 
     /// ------------------------------- Factory -----------------------------------
@@ -119,7 +117,7 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         dShare = address(
             new BeaconProxy(
                 address($._dShareBeacon),
-                abi.encodeCall(DShare.initialize, (owner, name, symbol, $._transferRestrictor))
+                abi.encodeCall(DShare.initialize, (owner, name, symbol, TransferRestrictor($._transferRestrictor)))
             )
         );
         wrappedDShare = address(
