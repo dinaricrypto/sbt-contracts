@@ -5,6 +5,7 @@ libs = ["node_modules", "lib"]
 solc_version = '0.8.22'
 evm_version = 'paris'
 via_ir = true
+optimizer_runs = 2_000
 gas_price = 200_000_000
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
