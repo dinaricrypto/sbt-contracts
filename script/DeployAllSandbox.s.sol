@@ -12,6 +12,7 @@ import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {DShareFactory} from "../src/DShareFactory.sol";
+import {MockChainlinkOracle} from "../test/utils/mocks/MockChainlinkOracle.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
@@ -62,8 +63,10 @@ contract DeployAllSandbox is Script {
             operator: vm.envAddress("OPERATOR"),
             distributor: vm.envAddress("DISTRIBUTOR"),
             relayer: vm.envAddress("RELAYER"),
-            ethusdoracle: vm.envAddress("ETHUSDORACLE"),
-            usdcoracle: vm.envAddress("USDCORACLE")
+            // ethusdoracle: vm.envAddress("ETHUSDORACLE"),
+            // usdcoracle: vm.envAddress("USDCORACLE")
+            ethusdoracle: address(new MockChainlinkOracle("ETH/USD", 2239_80000000)),
+            usdcoracle: address(new MockChainlinkOracle("USDC/USD", 1_00000000))
         });
 
         Deployments memory deployments;
