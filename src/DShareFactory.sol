@@ -1,77 +1,148 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.22;
 
+import {
+    UUPSUpgradeable,
+    Initializable
+} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
+import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
 import {TransferRestrictor} from "./TransferRestrictor.sol";
 import {DShare} from "./DShare.sol";
-import {IDShareFactory} from "./IDShareFactory.sol";
-import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
-import {CREATE3} from "solady/src/utils/CREATE3.sol";
+import {WrappedDShare} from "./WrappedDShare.sol";
 
 ///@notice Factory to create new dShares
 ///@author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/DShareFactory.sol)
-contract DShareFactory is IDShareFactory {
-    UpgradeableBeacon public beacon;
-    TransferRestrictor public transferRestrictor;
+contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+    using EnumerableSet for EnumerableSet.AddressSet;
+
+    /// ------------------------------- Types -----------------------------------
 
     error ZeroAddress();
-    error DeploymentRevert();
+    error Mismatch();
+    error PreviouslyAnnounced();
 
+    event DShareAdded(address indexed dShare, address indexed wrappedDShare, string indexed symbol, string name);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
-    event NewBeaconSet(address indexed beacon);
 
-    constructor(TransferRestrictor _transferRestrictor, UpgradeableBeacon _beacon) {
-        if (address(_beacon) == address(0) || address(_transferRestrictor) == address(0)) revert ZeroAddress();
-        transferRestrictor = _transferRestrictor;
-        beacon = _beacon;
+    /// ------------------------------- Storage -----------------------------------
+
+    struct DShareFactoryStorage {
+        address _dShareBeacon;
+        address _wrappedDShareBeacon;
+        address _transferRestrictor;
+        EnumerableSet.AddressSet _wrappedDShares;
     }
+
+    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.DShareFactory")) - 1)) & ~bytes32(uint256(0xff))
+    bytes32 private constant DShareFactoryStorageLocation =
+        0x624c7938caaf85453d1e344eb5510e0efc5d0cf6f1e8d4a400187ed89d63af00;
+
+    function _getDShareFactoryStorage() internal pure returns (DShareFactoryStorage storage $) {
+        assembly {
+            $.slot := DShareFactoryStorageLocation
+        }
+    }
+
+    /// ------------------------------- Initialization -----------------------------------
+
+    function initialize(
+        address _owner,
+        address _dShareBeacon,
+        address _wrappedDShareBeacon,
+        address _transferRestrictor
+    ) external initializer {
+        if (_dShareBeacon == address(0) || _wrappedDShareBeacon == address(0) || _transferRestrictor == address(0)) {
+            revert ZeroAddress();
+        }
+        __Ownable_init(_owner);
+
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        $._dShareBeacon = _dShareBeacon;
+        $._wrappedDShareBeacon = _wrappedDShareBeacon;
+        $._transferRestrictor = _transferRestrictor;
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    /// ------------------------------- Admin -----------------------------------
 
     /// @notice Sets a new transfer restrictor for the dShare
     /// @param _transferRestrictor New transfer restrictor
-    function setNewTransferRestrictor(TransferRestrictor _transferRestrictor) external {
-        if (address(_transferRestrictor) == address(0)) revert ZeroAddress();
-        transferRestrictor = _transferRestrictor;
-        emit NewTransferRestrictorSet(address(_transferRestrictor));
+    function setNewTransferRestrictor(address _transferRestrictor) external {
+        if (_transferRestrictor == address(0)) revert ZeroAddress();
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        $._transferRestrictor = _transferRestrictor;
+        emit NewTransferRestrictorSet(_transferRestrictor);
     }
 
-    /// @notice Sets a new beacon for the dShare
-    /// @param _beacon New beacon
-    function setNewBeacon(UpgradeableBeacon _beacon) external {
-        if (address(_beacon) == address(0)) revert ZeroAddress();
-        beacon = _beacon;
-        emit NewBeaconSet(address(_beacon));
+    /// ------------------------------- Factory -----------------------------------
+
+    /// @notice Gets list of all dShares and wrapped dShares
+    /// @return dShares List of all dShares
+    /// @return wrappedDShares List of all wrapped dShares
+    /// @dev This function can be expensive
+    function getDShares() external view returns (address[] memory, address[] memory) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        address[] memory wrappedDShares = $._wrappedDShares.values();
+        address[] memory dShares = new address[](wrappedDShares.length);
+        for (uint256 i = 0; i < wrappedDShares.length; i++) {
+            // slither-disable-next-line calls-loop
+            dShares[i] = WrappedDShare(wrappedDShares[i]).asset();
+        }
+        return (dShares, wrappedDShares);
     }
 
     /// @notice Creates a new dShare
     /// @param owner of the proxy
     /// @param name Name of the dShare
     /// @param symbol Symbol of the dShare
-    /// @return dshareAddress Address of the new dShare
-    function createDShare(address owner, string memory name, string memory symbol)
-        external
-        returns (address dshareAddress)
-    {
-        // slither-disable-next-line too-many-digits
-        bytes memory bytecode = abi.encodePacked(
-            type(BeaconProxy).creationCode,
-            abi.encode(
-                address(beacon),
-                abi.encodeWithSelector(DShare.initialize.selector, owner, name, symbol, transferRestrictor)
+    /// @param wrappedName Name of the wrapped dShare
+    /// @param wrappedSymbol Symbol of the wrapped dShare
+    /// @return dShare Address of the new dShare
+    function createDShare(
+        address owner,
+        string memory name,
+        string memory symbol,
+        string memory wrappedName,
+        string memory wrappedSymbol
+    ) external onlyOwner returns (address dShare, address wrappedDShare) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        dShare = address(
+            new BeaconProxy(
+                address($._dShareBeacon),
+                abi.encodeCall(DShare.initialize, (owner, name, symbol, TransferRestrictor($._transferRestrictor)))
+            )
+        );
+        wrappedDShare = address(
+            new BeaconProxy(
+                address($._wrappedDShareBeacon),
+                abi.encodeCall(WrappedDShare.initialize, (owner, DShare(dShare), wrappedName, wrappedSymbol))
             )
         );
 
-        // Compute the salt with symbol
-        bytes32 salt = keccak256(abi.encode(symbol));
+        // slither-disable-next-line unused-return
+        $._wrappedDShares.add(wrappedDShare);
 
-        // Predict the address of the contract
-        address predictedAddress = CREATE3.getDeployed(salt);
+        // slither-disable-next-line reentrancy-events
+        emit DShareAdded(dShare, wrappedDShare, symbol, name);
+    }
 
-        // Deploy the contract
-        dshareAddress = CREATE3.deploy(salt, bytecode, 0);
+    /// @notice Announces an existing dShare
+    /// @param dShare Address of the dShare
+    /// @param wrappedDShare Address of the wrapped dShare
+    function announceExistingDShare(address dShare, address wrappedDShare) external onlyOwner {
+        if (WrappedDShare(wrappedDShare).asset() != dShare) revert Mismatch();
 
-        // Check if the deployment was successful
-        if (dshareAddress != predictedAddress) revert DeploymentRevert();
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        if (!$._wrappedDShares.add(wrappedDShare)) revert PreviouslyAnnounced();
 
-        emit DShareCreated(dshareAddress);
+        emit DShareAdded(dShare, wrappedDShare, DShare(dShare).symbol(), DShare(dShare).name());
     }
 }

@@ -10,12 +10,13 @@ import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
+import {DShareFactory} from "../src/DShareFactory.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract DeployAllSandboxScript is Script {
+contract DeployAllSandbox is Script {
     struct DeployConfig {
         address deployer;
         address treasury;
@@ -35,10 +36,10 @@ contract DeployAllSandboxScript is Script {
         TransferRestrictor transferRestrictor;
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
-        DShare[] dShares;
         address wrappeddShareImplementation;
         UpgradeableBeacon wrappeddShareBeacon;
-        WrappedDShare[] wrappeddShares;
+        address dShareFactoryImplementation;
+        DShareFactory dShareFactory;
         TokenLockCheck tokenLockCheck;
         OrderProcessor orderProcessorImplementation;
         OrderProcessor orderProcessor;
@@ -74,9 +75,9 @@ contract DeployAllSandboxScript is Script {
         /// ------------------ payment tokens ------------------
 
         // deploy mock USDC with 6 decimals
-        deployments.usdc = new MockToken("USD Coin", "USDC");
+        deployments.usdc = new MockToken("USD Coin - Dinari", "USDC");
         // deploy mock USDT with 6 decimals
-        deployments.usdt = new MockToken("Tether USD", "USDT");
+        deployments.usdt = new MockToken("Tether USD - Dinari", "USDT");
         // deploy mock USDC.e with 6 decimals
         deployments.usdce = new MockToken("USD Coin - Dinari", "USDC.e");
 
@@ -97,70 +98,25 @@ contract DeployAllSandboxScript is Script {
         // deploy wrapped dShares beacon
         deployments.wrappeddShareBeacon = new UpgradeableBeacon(deployments.wrappeddShareImplementation, cfg.deployer);
 
-        string[] memory dShareNames = new string[](13);
-        dShareNames[0] = "Tesla, Inc.";
-        dShareNames[1] = "NVIDIA Corporation";
-        dShareNames[2] = "Microsoft Corporation";
-        dShareNames[3] = "Meta Platforms, Inc.";
-        dShareNames[4] = "Netflix, Inc.";
-        dShareNames[5] = "Apple Inc.";
-        dShareNames[6] = "Alphabet Inc. Class A";
-        dShareNames[7] = "Amazon.com, Inc.";
-        dShareNames[8] = "PayPal Holdings, Inc.";
-        dShareNames[9] = "Pfizer, Inc.";
-        dShareNames[10] = "The Walt Disney Company";
-        dShareNames[11] = "SPDR S&P 500 ETF Trust";
-        dShareNames[12] = "WisdomTree Floating Rate Treasury Fund";
+        // deploy dShare factory
+        deployments.dShareFactoryImplementation = address(new DShareFactory());
 
-        string[] memory dShareSymbols = new string[](13);
-        dShareSymbols[0] = "TSLA.d";
-        dShareSymbols[1] = "NVDA.d";
-        dShareSymbols[2] = "MSFT.d";
-        dShareSymbols[3] = "META.d";
-        dShareSymbols[4] = "NFLX.d";
-        dShareSymbols[5] = "AAPL.d";
-        dShareSymbols[6] = "GOOGL.d";
-        dShareSymbols[7] = "AMZN.d";
-        dShareSymbols[8] = "PYPL.d";
-        dShareSymbols[9] = "PFE.d";
-        dShareSymbols[10] = "DIS.d";
-        dShareSymbols[11] = "SPY.d";
-        dShareSymbols[12] = "USFR.d";
-
-        deployments.dShares = new DShare[](13);
-        deployments.wrappeddShares = new WrappedDShare[](13);
-
-        for (uint256 i = 0; i < deployments.dShares.length; i++) {
-            // deploy DShare
-            deployments.dShares[i] = DShare(
-                address(
-                    new BeaconProxy(
-                        address(deployments.dShareBeacon),
-                        abi.encodeCall(
-                            DShare.initialize,
-                            (cfg.deployer, dShareNames[i], dShareSymbols[i], deployments.transferRestrictor)
+        deployments.dShareFactory = DShareFactory(
+            address(
+                new ERC1967Proxy(
+                    deployments.dShareFactoryImplementation,
+                    abi.encodeCall(
+                        DShareFactory.initialize,
+                        (
+                            cfg.deployer,
+                            address(deployments.dShareBeacon),
+                            address(deployments.wrappeddShareBeacon),
+                            address(deployments.transferRestrictor)
                         )
                     )
                 )
-            );
-            // deploy wrapped DShare
-            deployments.wrappeddShares[i] = WrappedDShare(
-                address(
-                    new BeaconProxy(
-                        address(deployments.wrappeddShareBeacon),
-                        abi.encodeCall(
-                            WrappedDShare.initialize,
-                            (
-                                cfg.deployer,
-                                deployments.dShares[i],
-                                string.concat("Wrapped ", dShareNames[i]),
-                                string.concat("w", dShareSymbols[i])
-                            )
-                        )
-                    )
-                )
-            );
-        }
+            )
+        );
 
         /// ------------------ order processors ------------------
 
@@ -212,20 +168,6 @@ contract DeployAllSandboxScript is Script {
             address(0), address(deployments.usdce), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdce), cfg.usdcoracle);
-
-        // config asset token
-        for (uint256 i = 0; i < deployments.dShares.length; i++) {
-            deployments.tokenLockCheck.setCallSelector(
-                address(deployments.dShares[i]), deployments.dShares[i].isBlacklisted.selector
-            );
-
-            deployments.orderProcessor.grantRole(
-                deployments.orderProcessor.ASSETTOKEN_ROLE(), address(deployments.dShares[i])
-            );
-
-            deployments.dShares[i].grantRole(deployments.dShares[i].MINTER_ROLE(), address(deployments.orderProcessor));
-            deployments.dShares[i].grantRole(deployments.dShares[i].BURNER_ROLE(), address(deployments.orderProcessor));
-        }
 
         /// ------------------ dividend distributor ------------------
 
