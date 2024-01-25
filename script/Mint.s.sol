@@ -4,9 +4,9 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import "../src/IDShare.sol";
 
-contract MintScript is Script {
+contract Mint is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         address[1] memory testWallets = [
@@ -21,7 +21,7 @@ contract MintScript is Script {
 
         for (uint256 i = 0; i < mintAssets.length; i++) {
             for (uint256 j = 0; j < testWallets.length; j++) {
-                IDShare(mintAssets[i]).mint(testWallets[j], 10_000 ether);
+                IDShare(mintAssets[i]).mint(testWallets[j], 1 ether);
             }
         }
 
