@@ -25,8 +25,6 @@ contract DeployAllSandbox is Script {
         address operator;
         address distributor;
         address relayer;
-        address ethusdoracle;
-        address usdcoracle;
     }
 
     struct Deployments {
@@ -62,11 +60,7 @@ contract DeployAllSandbox is Script {
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
             distributor: vm.envAddress("DISTRIBUTOR"),
-            relayer: vm.envAddress("RELAYER"),
-            // ethusdoracle: vm.envAddress("ETHUSDORACLE"),
-            // usdcoracle: vm.envAddress("USDCORACLE")
-            ethusdoracle: address(new MockChainlinkOracle("ETH/USD", 2239_80000000)),
-            usdcoracle: address(new MockChainlinkOracle("USDC/USD", 1_00000000))
+            relayer: vm.envAddress("RELAYER")
         });
 
         Deployments memory deployments;
@@ -75,6 +69,9 @@ contract DeployAllSandbox is Script {
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
+
+        address ethusdoracle = address(new MockChainlinkOracle("ETH/USD", 2239_80000000));
+        address usdcoracle = address(new MockChainlinkOracle("USDC/USD", 1_00000000));
 
         /// ------------------ payment tokens ------------------
 
@@ -176,12 +173,12 @@ contract DeployAllSandbox is Script {
 
         /// ------------------ forwarder ------------------
 
-        deployments.forwarder = new Forwarder(cfg.ethusdoracle, SELL_GAS_COST);
+        deployments.forwarder = new Forwarder(ethusdoracle, SELL_GAS_COST);
         deployments.forwarder.setFeeBps(2000);
 
-        deployments.forwarder.setPaymentOracle(address(deployments.usdc), cfg.usdcoracle);
-        deployments.forwarder.setPaymentOracle(address(deployments.usdce), cfg.usdcoracle);
-        deployments.forwarder.setPaymentOracle(address(deployments.usdt), cfg.usdcoracle);
+        deployments.forwarder.setPaymentOracle(address(deployments.usdc), usdcoracle);
+        deployments.forwarder.setPaymentOracle(address(deployments.usdce), usdcoracle);
+        deployments.forwarder.setPaymentOracle(address(deployments.usdt), usdcoracle);
 
         deployments.forwarder.setSupportedModule(address(deployments.orderProcessor), true);
         deployments.forwarder.setSupportedModule(address(deployments.directBuyIssuer), true);
