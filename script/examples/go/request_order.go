@@ -39,6 +39,14 @@ type NonceData struct {
 	Nonce *big.Int
 }
 
+type MaxDecimals struct {
+	MaxDecimals int8
+}
+
+type Decimals struct {
+	Decimals uint8
+}
+
 type OrderStruct struct {
 	Recipient            common.Address
 	AssetToken           common.Address
@@ -100,7 +108,7 @@ func main() {
 	}
 
 	// Load environment variables from .env file
-	err := godotenv.Load("../../.env")
+	err := godotenv.Load("../../../.env")
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
@@ -214,42 +222,49 @@ func main() {
 
 	// ------------------ Configure Order ------------------
 
-	// Set order amount (10 USDC)
-	orderAmount := new(big.Int).Mul(big.NewInt(10), big.NewInt(1e6))
-	fmt.Println("Order Amount:", orderAmount.String())
 	// Set buy or sell (false = buy, true = sell)
-	sellOrder := false
+	sellOrder := true
 	// Set order type (0 = market, 1 = limit)
 	orderType := uint8(0)
+	// Set order amount (10 USDC buy or 10 dShare sell)
+	var orderAmount *big.Int
+	if sellOrder {
+		orderAmount = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e18))
+	} else {
+		orderAmount = new(big.Int).Mul(big.NewInt(10), big.NewInt(1e6))
+	}
+	fmt.Println("Order Amount:", orderAmount.String())
 
 	// Check the order decimals does not exceed max decimals
 	// Applicable to sell and limit orders only
 	if sellOrder || orderType == 1 {
 		// Call the 'maxOrderDecimals' method on the contract to get max order decimals
 		var maxDecimalsTxResult []interface{}
-		maxDecimals := new(big.Int)
+		maxDecimals := new(MaxDecimals)
 		maxDecimalsTxResult = append(maxDecimalsTxResult, maxDecimals)
-		err = processorContract.Call(&bind.CallOpts{}, &maxDecimalsTxResult, "maxOrderDecimals")
+		err = processorContract.Call(&bind.CallOpts{}, &maxDecimalsTxResult, "maxOrderDecimals", common.HexToAddress(AssetToken))
 		if err != nil {
-			log.Fatalf("Failed to call getOrderDecimals function: %v", err)
+			log.Fatalf("Failed to call maxOrderDecimals function: %v", err)
 		}
-		fmt.Println("Order Decimals:", maxDecimals)
+		fmt.Println("Order Decimals:", maxDecimals.MaxDecimals)
 
 		// Call 'decimals' method on the asset token contract to get token decimals
 		var assetTokenDecimalsTxResult []interface{}
-		assetTokenDecimals := new(big.Int)
+		assetTokenDecimals := new(Decimals)
 		assetTokenDecimalsTxResult = append(assetTokenDecimalsTxResult, assetTokenDecimals)
 		assetTokenContract := bind.NewBoundContract(common.HexToAddress(AssetToken), eip2612Abi, client, client, client)
 		err = assetTokenContract.Call(&bind.CallOpts{}, &assetTokenDecimalsTxResult, "decimals")
 		if err != nil {
 			log.Fatalf("Failed to call decimals function: %v", err)
 		}
-		fmt.Println("Asset Token Decimals:", assetTokenDecimals)
+		fmt.Println("Asset Token Decimals:", assetTokenDecimals.Decimals)
 
 		// Calculate the allowable decimals
-		allowableDecimals := new(big.Int).Sub(assetTokenDecimals, maxDecimals)
-		if new(big.Int).Mod(orderAmount, allowableDecimals) != big.NewInt(0) {
-			log.Fatalf("Order amount exceeds max alloeable decimals: %v", allowableDecimals)
+		allowableDecimals := int64(assetTokenDecimals.Decimals) - int64(maxDecimals.MaxDecimals)
+		allowablePrecision := new(big.Int).Exp(big.NewInt(10), big.NewInt(allowableDecimals), nil)
+		remainder := new(big.Int).Mod(orderAmount, allowablePrecision)
+		if remainder.Cmp(big.NewInt(0)) != 0 {
+			log.Fatalf("Order amount exceeds max allowable decimals: %v, remainder %v", allowableDecimals, remainder)
 		}
 	}
 
@@ -264,18 +279,29 @@ func main() {
 	}
 	fmt.Println("processor fees:", fees.TotalFee)
 
-	// Calculate the total amount to spend considering fee rates
+	// Calculate the total amount to spend considering fee rates (for buy orders)
 	totalSpendAmount := new(big.Int).Add(orderAmount, fees.TotalFee)
 	fmt.Println("Total Spend Amount:", totalSpendAmount.String())
 
 	// ------------------ Configure Permit ------------------
 
+	// Set up permit for outgoing token
+	var tokenAddr common.Address
+	var permitAmount *big.Int
+	if sellOrder {
+		tokenAddr = common.HexToAddress(AssetToken)
+		permitAmount = orderAmount
+	} else {
+		tokenAddr = paymentTokenAddr
+		permitAmount = totalSpendAmount
+	}
+
 	// Call the 'name' method on the payment token contract to get token name
-	paymentTokenContract := bind.NewBoundContract(paymentTokenAddr, eip2612Abi, client, client, client)
+	tokenContract := bind.NewBoundContract(tokenAddr, eip2612Abi, client, client, client)
 	var nameTxResult []interface{}
 	name := new(NameData)
 	nameTxResult = append(nameTxResult, name)
-	err = paymentTokenContract.Call(&bind.CallOpts{}, &nameTxResult, "name")
+	err = tokenContract.Call(&bind.CallOpts{}, &nameTxResult, "name")
 	if err != nil {
 		log.Fatalf("Failed to call name function: %v", err)
 	}
@@ -283,7 +309,7 @@ func main() {
 	var nonceTxResult []interface{}
 	nonce := new(NonceData)
 	nonceTxResult = append(nonceTxResult, nonce)
-	err = paymentTokenContract.Call(&bind.CallOpts{}, &nonceTxResult, "nonces", account.Address)
+	err = tokenContract.Call(&bind.CallOpts{}, &nonceTxResult, "nonces", account.Address)
 	if err != nil {
 		log.Fatalf("Failed to call nonces function: %v", err)
 	}
@@ -307,14 +333,14 @@ func main() {
 		Name:              name.Name,
 		Version:           "1", // Version may be different in the wild
 		ChainId:           math.NewHexOrDecimal256(chainID.Int64()),
-		VerifyingContract: PaymentTokenAddress,
+		VerifyingContract: tokenAddr.String(),
 	}
 
 	// Create the message struct for hashing
 	permitDataStruct := map[string]interface{}{
 		"owner":    account.Address.String(),
 		"spender":  processorAddress.String(),
-		"value":    totalSpendAmount,
+		"value":    permitAmount,
 		"nonce":    nonce.Nonce,
 		"deadline": deadlineBigInt,
 	}
@@ -371,9 +397,9 @@ func main() {
 
 	selfPermitData, err := processorAbi.Pack(
 		"selfPermit",
-		paymentTokenAddr,
+		tokenAddr,
 		account.Address,
-		totalSpendAmount,
+		permitAmount,
 		deadlineBigInt,
 		v,
 		rArray,
@@ -392,9 +418,9 @@ func main() {
 		PaymentToken:         paymentTokenAddr,
 		Sell:                 sellOrder,
 		OrderType:            orderType,
-		AssetTokenQuantity:   big.NewInt(0),
-		PaymentTokenQuantity: orderAmount,
-		Price:                big.NewInt(0),
+		AssetTokenQuantity:   orderAmount,   // ignored if buy order
+		PaymentTokenQuantity: orderAmount,   // ignored if sell order
+		Price:                big.NewInt(0), // limit order price
 		Tif:                  1,
 		SplitRecipient:       common.BigToAddress(big.NewInt(0)),
 		SplitAmount:          big.NewInt(0),
