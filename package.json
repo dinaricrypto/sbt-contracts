@@ -43,8 +43,6 @@
     "keys": "npx ts-node script/printkeys.ts"
   },
   "devDependencies": {
-    "pre-commit": "^1.2.2",
-    "prettier": "^3.0.0",
     "solidity-code-metrics": "^0.0.23"
   },
   "dependencies": {
