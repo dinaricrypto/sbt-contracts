@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.20;
 
 library NumberUtils {
     function addCheckOverflow(uint256 a, uint256 b) internal pure returns (bool) {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.20;
 
 import {DShare} from "../../../src/DShare.sol";
 import {TransferRestrictor} from "../../../src/TransferRestrictor.sol";

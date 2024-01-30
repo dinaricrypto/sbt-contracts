@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.20;
 
 // import "solady/src/tokens/ERC20.sol";
 import {MockERC20PermitVersion} from "./MockERC20PermitVersion.sol";
