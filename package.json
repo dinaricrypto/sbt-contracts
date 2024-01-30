@@ -44,8 +44,5 @@
   },
   "devDependencies": {
     "solidity-code-metrics": "^0.0.23"
-  },
-  "dependencies": {
-    "ethers": "5.7.2"
   }
 }
