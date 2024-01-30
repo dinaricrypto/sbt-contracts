@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 import "../test/utils/mocks/MockToken.sol";
 
-contract DeployMockPaymentTokens is Script {
+contract DeployMockTokens is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
 
@@ -12,10 +12,6 @@ contract DeployMockPaymentTokens is Script {
 
         // deploy mock USDC with 6 decimals
         new MockToken("USD Coin - Dinari", "USDC");
-        // deploy mock USDT with 6 decimals
-        new MockToken("Tether USD - Dinari", "USDT");
-        // deploy mock USDC.e with 6 decimals
-        new MockToken("USD Coin - Dinari", "USDC.e");
 
         vm.stopBroadcast();
     }
