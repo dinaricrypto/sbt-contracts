@@ -13,4 +13,4 @@ forge script script/DeployOracle.s.sol:DeployOracle --rpc-url $RPC_URL -vvv --br
 cp .env.plume-sepolia .env
 source .env
 
-forge script script/DeployOracle.s.sol:DeployOracle --rpc-url $RPC_URL -vvv --broadcast --verify
+forge script script/DeployOracle.s.sol:DeployOracle  --legacy --skip-simulation --rpc-url $RPC_URL -vvv --verifier blockscout --broadcast --verify
