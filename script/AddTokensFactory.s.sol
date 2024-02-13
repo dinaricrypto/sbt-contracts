@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.22;
+
+import "forge-std/Script.sol";
+import {DShareFactory} from "../src/DShareFactory.sol";
+
+contract AddTokensFactory is Script {
+    // When new issuers have been deployed, this script will add tokens to them.
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
+        DShareFactory factory = DShareFactory(vm.envAddress("FACTORY"));
+
+        // prod-arb
+        address[33] memory assetTokens = [
+            0xCe38e140fC3982a6bCEbc37b040913EF2Cd6C5a7,
+            0xd8F728AdB72a46Ae2c92234AE8870D04907786C5,
+            0x8240aFFe697CdE618AD05c3c8963f5Bfe152650b,
+            0x3619ca1e96c629f7D71C1b03dc0Ee56479356228,
+            0x67BaD479F77488f0f427584e267e66086a7Da43A,
+            0x769fF50fD49900a6c53b2aF049eACB83dAD52Bdf,
+            0x2B7c643b42409F352B936BF07e0538ba20979Bff,
+            0x2824eFE5CeDB3BC8730E412981997daC7C7640C2,
+            0xc52915Fe75dc8db9fb6306f43AAef1344E0837AB,
+            0x46b979440AC257151EE5a5bC9597B76386907FA1,
+            0xDD92f0723a7318e684A88532CAC2421E3cC9968e,
+            0x3c9f23dB4DDC5655f7be636358D319A3De1Ff0c4,
+            0xa6F344aBc6e2501b2B303fCbbA99CD89F136b5FB,
+            0x026FdF3024953cb2e8982bc11c67d336F37A5044,
+            0xB1284F6b3E487E3F773e9Ad40F337C3B3cdA5c69,
+            0x8E50D11a54CFF859b202b7Fe5225353bE0646410,
+            0x0c59F6b96d3CaC58240429c7659eC107f8b1efA7,
+            0xc1Ba16AFDcb3A41242944C9FaaCCD9fb6f2B428C,
+            0x0c29891dC5060618c779E2A45fbE4808Aa5aE6aD,
+            0x519062155B0591627C8A0C0958110A8C5639DcA6,
+            0x77308F8B63A99b24b262D930E0218ED2f49F8475,
+            0x3AD63B3C0eA6d7A093ff98fdE040baddc389EcDc,
+            0x14297BE295ab922458277BE046e89f73382bDF8e,
+            0x4DaFFfDDEa93DdF1e0e7B61E844331455053Ce5c,
+            0xF1f18F765F118c3598cC54dCaC1D0e12066263Fe,
+            0x118346C2bb9d24412ed58C53bF9BB6f61A20d7Ec,
+            0x5B6424769823e82A1829B0A8bcAf501bFFD90d25,
+            0x0B5ac0d7DCf6964609a12aF4f6c6f3C257070193,
+            0xF4BD09B048248876E39Fcf2e0CDF1aee1240a9D2,
+            0xd883bcF80b2b085FA40CC3e2416b4AB1CBCA649E,
+            0x36d37B6cbCA364Cf1D843efF8C2f6824491bcF81,
+            0x9C46e1B70d447B770Dbfc8D450543a431aF6DF3A,
+            0xeb0D1360A14c3b162f2974DAA5d218E0c1090146
+        ];
+
+        address[33] memory wrappedTokens = [
+            0xA6B1bC15a4289899309BA0439D4037084fa2d457,
+            0xCc3Dc0Ac609E6b78bb8CD7a3b27C2C7688272F8a,
+            0xee0d00A79aFeB121880f5Bf2273DEbbF7f60EA02,
+            0x8821AbD917364C39811E4d3e9Ca5a6D75769395a,
+            0xef8c9C08EE50bD31377a309b879FC9AFD1302c83,
+            0x7e8b163DAf001b50aeA7f0799FEA7ebe74428876,
+            0x32c8fB151C8202Ee59bCDD6D817707932E7C237E,
+            0xeb4DefF87a9711610a1EC4D15855245b11CeaC02,
+            0xe1624E776909DF49429D87429De9E01AdD1640A9,
+            0x407274ABb9241Da0A1889c1b8Ec65359dd9d316d,
+            0xFe0FeD39Ce30127701b828f74C65074bD2c31e9c,
+            0x5b4C01175e9809A7f352197E953F8D9A2aE2d12F,
+            0xc9faF488f9631668895117Ef9649C3f3f1869C86,
+            0xedebC5ba1B480AF3C938B1873BDdcACad35D3828,
+            0x2f3990A7A0B454bb149Df647c9Eeb8c8DaFE1E82,
+            0xF82F6801FA5Ab466C8820F08C9C7Adf893AC8d6F,
+            0x0f11c59A15ad1e033d7DDABA82cABE0CBCD314Ab,
+            0x4E63c472B5F490FDDb50D915FC5A0851f6421cfF,
+            0xF3D26Aa97ad896B764767cC6d9c1Be2637C34287,
+            0xbAc491F9cdD0c1A05c18492232827ca009B64945,
+            0xbdA5a1e73410730325CEA424F3DbD8A2eCc69514,
+            0x9Ea41FDFb479A0Eb2b43EF4cB2248E13436f5e07,
+            0x5bF7d0F8C178BB5b678Bf6bC20a2E499a85cFD4B,
+            0xF8C652054a60224E2d9c774Bfd118f6a27d5bCEf,
+            0x3c5bEbe8998137E390b0cb791B42bF538353451b,
+            0x6bb71b2bdd892c5EfB960a76EDeC03b1F04551F4,
+            0xb5d09652f40630b287bC067270C79E1402f28599,
+            0x98Cd8262B129f3bcdd50B633D193db134bEE28C5,
+            0xADf3Cd8759Bd8bA9106342d1494b4Fb4b3720923,
+            0x4C4C794adeC19665f2Ac4d3D7abA7e761d24920A,
+            0xD767EE961A00921D69721c0F9999546d5235e6f9,
+            0x42112C40C4d4f5be3b64B113A55D307a30716964,
+            0x57D7cB764bF041A7b1bcE7B01E097294b6a891b0
+        ];
+        assert(assetTokens.length == wrappedTokens.length);
+
+        vm.startBroadcast(deployerPrivateKey);
+
+        for (uint256 i = 0; i < assetTokens.length; i++) {
+            factory.announceExistingDShare(assetTokens[i], wrappedTokens[i]);
+        }
+
+        vm.stopBroadcast();
+    }
+}
