@@ -93,8 +93,10 @@ async function main() {
 
   // ------------------ Configure Order ------------------
 
-  // order amount (1000 USDC)
+  // buy order amount (1000 USDC)
   const orderAmount = BigInt(1000_000_000);
+  // sell order amount (10 dShares)
+  // const orderAmount = BigInt(10_000_000_000_000_000_000);
   // buy order (Change to true for Sell Order)
   const sellOrder = false;
   // market order
