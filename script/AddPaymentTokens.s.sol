@@ -23,7 +23,9 @@ contract AddPaymentTokens is Script {
             // add payment token
             orderProcessor.setPaymentTokenOracle(paymentTokens[i], paymentTokenOracles[i]);
             // set default fees
-            orderProcessor.setFees(address(0), paymentTokens[i], perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate);
+            orderProcessor.setFees(
+                address(0), paymentTokens[i], perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+            );
         }
 
         vm.stopBroadcast();
