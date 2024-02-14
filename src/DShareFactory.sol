@@ -71,6 +71,26 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
+    /// ------------------------------- Getters -----------------------------------
+
+    /// @notice Gets the dShare beacon
+    function getDShareBeacon() external view returns (address) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        return $._dShareBeacon;
+    }
+
+    /// @notice Gets the wrapped dShare beacon
+    function getWrappedDShareBeacon() external view returns (address) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        return $._wrappedDShareBeacon;
+    }
+
+    /// @notice Gets the transfer restrictor for the dShare
+    function getTransferRestrictor() external view returns (address) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        return $._transferRestrictor;
+    }
+
     /// ------------------------------- Admin -----------------------------------
 
     /// @notice Sets a new transfer restrictor for the dShare

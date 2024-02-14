@@ -71,6 +71,9 @@ contract DShareFactoryTest is Test {
                 DShareFactory.initialize, (address(this), address(beacon), address(wrappedBeacon), address(restrictor))
             )
         );
+        assertEq(factory.getDShareBeacon(), address(beacon));
+        assertEq(factory.getWrappedDShareBeacon(), address(wrappedBeacon));
+        assertEq(factory.getTransferRestrictor(), address(restrictor));
     }
 
     function testSetNewTransferRestrictor() public {
