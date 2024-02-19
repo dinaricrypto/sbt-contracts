@@ -13,11 +13,13 @@ contract DeployTokenManagerScript is Script {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         bytes32 salt = vm.envBytes32("SALT");
         string memory destinationChain = vm.envString("DESTINATION_CHAIN");
+        // operator of the Token Manager and the token address
         bytes memory params = vm.envBytes("PARAMS");
         uint256 gasValue = vm.envUint("GAS_VALUE");
 
         vm.startBroadcast(deployerPrivateKey);
 
+        require(msg.value >= gasValue, "Insufficient gas value");
         tokenManagerService.deployTokenManager{value: msg.value}(
             salt, destinationChain, tokenManagerType, params, gasValue
         );
