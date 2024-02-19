@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 
-import {IInterchainTokenService, ITokenManagerType} from "../src/IInterchainTokenService.sol";
+import {IInterchainTokenService, ITokenManagerType} from "../src/interchain/IInterchainTokenService.sol";
 
 contract DeployTokenManagerScript is Script {
     IInterchainTokenService tokenManagerService = IInterchainTokenService(0xB5FB4BE02232B1bBA4dC8f81dc24C26980dE9e3C);
