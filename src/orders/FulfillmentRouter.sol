@@ -14,6 +14,8 @@ import {IOrderProcessor} from "./IOrderProcessor.sol";
 contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
     using SafeERC20 for IERC20;
 
+    error BuyFillsNotSupported();
+
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     constructor(address initialOwner) AccessControlDefaultAdminRules(0, initialOwner) {}
@@ -26,17 +28,12 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
         uint256 fillAmount,
         uint256 receivedAmount
     ) external onlyRole(OPERATOR_ROLE) {
-        if (order.sell) {
-            // withdraw payment token from vault
-            IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), receivedAmount);
-            // fill order with payment token
-            IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
-            IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount);
-        } else {
-            // fill order and receive payment token
-            IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount);
-            // deposit payment token into vault
-            IERC20(order.paymentToken).safeTransfer(vault, fillAmount);
-        }
+        if (!order.sell) revert BuyFillsNotSupported();
+
+        // withdraw payment token from vault
+        IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), receivedAmount);
+        // fill order with payment token
+        IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
+        IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount);
     }
 }

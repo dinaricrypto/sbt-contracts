@@ -60,7 +60,8 @@ contract BuyProcessorRequestTest is Test {
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
-                    address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (admin, treasury, tokenLockCheck))
+                    address(issuerImpl),
+                    abi.encodeCall(issuerImpl.initialize, (admin, treasury, operator, tokenLockCheck, address(1)))
                 )
             )
         );
@@ -68,13 +69,7 @@ contract BuyProcessorRequestTest is Test {
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
-            percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
-            percentageFeeRateSell: 5_000
-        });
-        issuer.setDefaultFees(address(paymentToken), defaultFees);
+        issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
         issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
 
@@ -104,9 +99,7 @@ contract BuyProcessorRequestTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC,
-            splitAmount: 0,
-            splitRecipient: address(0)
+            tif: IOrderProcessor.TIF.GTC
         });
 
         calls = new bytes[](2);
@@ -137,7 +130,7 @@ contract BuyProcessorRequestTest is Test {
         vm.assume(permitDeadline > block.timestamp);
         vm.assume(orderAmount > 1_000_000);
 
-        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory neworder = order;

@@ -5,7 +5,6 @@ pragma solidity 0.8.22;
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/IOrderProcessor.sol)
 /// This interface provides a standard Order type and order lifecycle events
 /// Orders are requested on-chain, processed off-chain, then fulfillment is submitted for on-chain settlement
-/// Processor operators have a consistent interface for processing orders and submitting fulfillment
 interface IOrderProcessor {
     /// ------------------ Types ------------------ ///
 
@@ -29,6 +28,8 @@ interface IOrderProcessor {
 
     // Order status enum
     enum OrderStatus {
+        // Order has never existed
+        NONE,
         // Order is active
         ACTIVE,
         // Order is completely filled
@@ -37,7 +38,6 @@ interface IOrderProcessor {
         CANCELLED
     }
 
-    // Emitted order data for off-chain order fulfillment
     struct Order {
         // Recipient of order fills
         address recipient;
@@ -57,12 +57,28 @@ interface IOrderProcessor {
         uint256 price;
         // Time in force
         TIF tif;
-        // Account receiving split amount
-        address splitRecipient;
-        // Received amount filled to secondary address first
-        uint256 splitAmount;
     }
 
+    struct OrderRequest {
+        // EIP-712 typed data hash of order
+        bytes32 orderHash;
+        // Signature expiration timestamp
+        uint256 deadline;
+        // Order request nonce
+        uint256 nonce;
+    }
+
+    struct Signature {
+        // Signature expiration timestamp
+        uint256 deadline;
+        // Signature nonce
+        uint256 nonce;
+        // Signature bytes (r, s, v)
+        bytes signature;
+    }
+
+    /// @dev Emitted for each order
+    event OrderCreated(uint256 indexed id, address indexed requester);
     /// @dev Fully specifies order details and order ID
     event OrderRequested(uint256 indexed id, address indexed requester, Order order);
     /// @dev Emitted for each fill
@@ -102,12 +118,6 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getTotalReceived(uint256 id) external view returns (uint256);
 
-    /// @notice This function fetches the total balance held in escrow for a given requester and token
-    /// @param token The address of the token for which the escrowed balance is fetched
-    /// @param requester The address of the requester for which the escrowed balance is fetched
-    /// @return Returns the total amount of the specific token held in escrow for the given requester
-    function escrowedBalanceOf(address token, address requester) external view returns (uint256);
-
     /// @notice This function retrieves the number of decimal places configured for a given token
     /// @param token The address of the token for which the number of decimal places is fetched
     /// @return Returns the number of decimal places set for the specified token
@@ -124,24 +134,14 @@ interface IOrderProcessor {
         view
         returns (uint256, uint24);
 
-    /// @notice Get total fees for an order
-    /// @param requester Requester of order
-    /// @param sell Sell order
-    /// @param paymentToken Payment token for order
-    /// @param paymentTokenOrderValue Order payment token quantity
-    function estimateTotalFeesForOrder(
-        address requester,
-        bool sell,
-        address paymentToken,
-        uint256 paymentTokenOrderValue
-    ) external view returns (uint256);
-
-    /// @dev Returns `true` if `account` has been granted `role`.
-    function hasRole(bytes32 role, address account) external view returns (bool);
-
-    function FORWARDER_ROLE() external view returns (bytes32);
-
     /// ------------------ Actions ------------------ ///
+
+    /// @notice Lock tokens and initialize signed order
+    /// @param order Order request to initialize
+    /// @param signature Signature for order
+    /// @return id Order id
+    /// @dev Only callable by operator
+    function createOrderWithSignature(Order calldata order, Signature calldata signature) external returns (uint256);
 
     /// @notice Request an order
     /// @param order Order request to submit

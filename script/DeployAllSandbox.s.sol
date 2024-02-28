@@ -3,13 +3,12 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {MockToken} from "../test/utils/mocks/MockToken.sol";
+import {Vault} from "../src/orders/Vault.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {DShare} from "../src/DShare.sol";
 import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
-import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
-import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {DShareFactory} from "../src/DShareFactory.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -26,12 +25,14 @@ contract DeployAllSandbox is Script {
         address relayer;
         address ethusdoracle;
         address usdcoracle;
+        address usdtoracle;
     }
 
     struct Deployments {
         MockToken usdc;
         MockToken usdt;
         MockToken usdce;
+        Vault vault;
         TransferRestrictor transferRestrictor;
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
@@ -42,9 +43,6 @@ contract DeployAllSandbox is Script {
         TokenLockCheck tokenLockCheck;
         OrderProcessor orderProcessorImplementation;
         OrderProcessor orderProcessor;
-        BuyUnlockedProcessor directBuyIssuerImplementation;
-        BuyUnlockedProcessor directBuyIssuer;
-        Forwarder forwarder;
         DividendDistribution dividendDistributor;
     }
 
@@ -63,7 +61,8 @@ contract DeployAllSandbox is Script {
             distributor: vm.envAddress("DISTRIBUTOR"),
             relayer: vm.envAddress("RELAYER"),
             ethusdoracle: vm.envAddress("ETHUSDORACLE"),
-            usdcoracle: vm.envAddress("USDCORACLE")
+            usdcoracle: vm.envAddress("USDCORACLE"),
+            usdtoracle: vm.envAddress("USDTORACLE")
         });
 
         Deployments memory deployments;
@@ -121,6 +120,8 @@ contract DeployAllSandbox is Script {
 
         /// ------------------ order processors ------------------
 
+        // vault
+        deployments.vault = new Vault(cfg.deployer);
         // deploy blacklist prechecker
         deployments.tokenLockCheck = new TokenLockCheck(address(0), address(0));
         // add USDC
@@ -135,62 +136,38 @@ contract DeployAllSandbox is Script {
             address(
                 new ERC1967Proxy(
                     address(deployments.orderProcessorImplementation),
-                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deployments.tokenLockCheck))
-                )
-            )
-        );
-
-        deployments.directBuyIssuerImplementation = new BuyUnlockedProcessor();
-        deployments.directBuyIssuer = BuyUnlockedProcessor(
-            address(
-                new ERC1967Proxy(
-                    address(deployments.directBuyIssuerImplementation),
-                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deployments.tokenLockCheck))
+                    abi.encodeCall(
+                        OrderProcessor.initialize,
+                        (
+                            cfg.deployer,
+                            cfg.treasury,
+                            address(deployments.vault),
+                            deployments.tokenLockCheck,
+                            cfg.ethusdoracle
+                        )
+                    )
                 )
             )
         );
 
         // config operator
         deployments.orderProcessor.grantRole(deployments.orderProcessor.OPERATOR_ROLE(), cfg.operator);
-        deployments.directBuyIssuer.grantRole(deployments.directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: perOrderFee,
-            percentageFeeRateBuy: percentageFeeRate,
-            perOrderFeeSell: perOrderFee,
-            percentageFeeRateSell: percentageFeeRate
-        });
-
-        deployments.orderProcessor.setDefaultFees(address(deployments.usdc), defaultFees);
-        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdc), defaultFees);
-
-        deployments.orderProcessor.setDefaultFees(address(deployments.usdt), defaultFees);
-        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdt), defaultFees);
-
-        deployments.orderProcessor.setDefaultFees(address(deployments.usdce), defaultFees);
-        deployments.directBuyIssuer.setDefaultFees(address(deployments.usdce), defaultFees);
-
-        /// ------------------ forwarder ------------------
-
-        deployments.forwarder = new Forwarder(cfg.ethusdoracle, SELL_GAS_COST);
-        deployments.forwarder.setFeeBps(2000);
-
-        deployments.forwarder.setPaymentOracle(address(deployments.usdc), cfg.usdcoracle);
-        deployments.forwarder.setPaymentOracle(address(deployments.usdce), cfg.usdcoracle);
-        deployments.forwarder.setPaymentOracle(address(deployments.usdt), cfg.usdcoracle);
-
-        deployments.forwarder.setSupportedModule(address(deployments.orderProcessor), true);
-        deployments.forwarder.setSupportedModule(address(deployments.directBuyIssuer), true);
-
-        deployments.forwarder.setRelayer(cfg.relayer, true);
-
-        deployments.orderProcessor.grantRole(
-            deployments.orderProcessor.FORWARDER_ROLE(), address(deployments.forwarder)
+        deployments.orderProcessor.setFees(
+            address(0), address(deployments.usdc), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
-        deployments.directBuyIssuer.grantRole(
-            deployments.directBuyIssuer.FORWARDER_ROLE(), address(deployments.forwarder)
+        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdc), cfg.usdcoracle);
+
+        deployments.orderProcessor.setFees(
+            address(0), address(deployments.usdt), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
+        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdt), cfg.usdtoracle);
+
+        deployments.orderProcessor.setFees(
+            address(0), address(deployments.usdce), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+        );
+        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdce), cfg.usdcoracle);
 
         /// ------------------ dividend distributor ------------------
 

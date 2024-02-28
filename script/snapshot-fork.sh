@@ -2,4 +2,4 @@
 
 source .env
 
-forge snapshot -f $RPC_URL --match-path test/forwarder/**/\* > .gas-snapshot-fork
+forge snapshot -f $RPC_URL --match-path test/fork/**/\* > .gas-snapshot-fork
