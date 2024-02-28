@@ -716,7 +716,14 @@ contract OrderProcessor is
 
         // Notify order filled
         emit OrderFill(
-            id, orderState.requester, order.paymentToken, order.assetToken, fillAmount, receivedAmount, feesEarned
+            id,
+            order.paymentToken,
+            order.assetToken,
+            orderState.requester,
+            order.sell ? receivedAmount : fillAmount,
+            order.sell ? fillAmount : receivedAmount,
+            feesEarned,
+            order.sell
         );
 
         // Update order state

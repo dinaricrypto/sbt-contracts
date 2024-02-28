@@ -33,12 +33,13 @@ contract OrderProcessorTest is Test {
     event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
     event OrderFill(
         uint256 indexed id,
-        address indexed requester,
-        address paymentToken,
-        address assetToken,
-        uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256 feesPaid
+        address indexed paymentToken,
+        address indexed assetToken,
+        address requester,
+        uint256 paymentAmount,
+        uint256 assetAmount,
+        uint256 feesPaid,
+        bool sell
     );
     event OrderFulfilled(uint256 indexed id, address indexed recipient);
     event CancelRequested(uint256 indexed id, address indexed requester);
@@ -528,7 +529,9 @@ contract OrderProcessorTest is Test {
             uint256 userAssetBefore = token.balanceOf(user);
             vm.expectEmit(true, true, true, false);
             // since we can't capture
-            emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
+            emit OrderFill(
+                id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, false
+            );
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
@@ -591,7 +594,9 @@ contract OrderProcessorTest is Test {
             uint256 operatorPaymentBefore = paymentToken.balanceOf(operator);
             vm.expectEmit(true, true, true, false);
             // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
-            emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
+            emit OrderFill(
+                id, order.paymentToken, order.assetToken, order.recipient, receivedAmount, fillAmount, 0, true
+            );
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
@@ -690,7 +695,7 @@ contract OrderProcessorTest is Test {
             // first fill
             vm.expectEmit(true, true, true, false);
             emit OrderFill(
-                id, order.recipient, order.paymentToken, order.assetToken, firstFillAmount, firstReceivedAmount, 0
+                id, order.paymentToken, order.assetToken, order.recipient, firstReceivedAmount, firstFillAmount, 0, true
             );
             vm.prank(operator);
             issuer.fillOrder(id, order, firstFillAmount, firstReceivedAmount);
