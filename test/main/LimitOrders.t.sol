@@ -13,17 +13,6 @@ import {FeeLib} from "../../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LimitOrderTest is Test {
-    event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
-    event OrderFill(
-        uint256 indexed id,
-        address indexed requester,
-        address paymentToken,
-        address assetToken,
-        uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256 feesPaid
-    );
-
     MockDShareFactory tokenFactory;
     DShare token;
     TokenLockCheck tokenLockCheck;

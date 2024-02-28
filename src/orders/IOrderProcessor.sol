@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.22;
 
-/// @notice Interface for contracts processing orders for bridged assets
+/// @notice Interface for contracts processing orders for dShares
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/IOrderProcessor.sol)
 /// This interface provides a standard Order type and order lifecycle events
 /// Orders are requested on-chain, processed off-chain, then fulfillment is submitted for on-chain settlement
@@ -84,12 +84,13 @@ interface IOrderProcessor {
     /// @dev Emitted for each fill
     event OrderFill(
         uint256 indexed id,
-        address indexed requester,
-        address paymentToken,
-        address assetToken,
-        uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256 feesPaid
+        address indexed paymentToken,
+        address indexed assetToken,
+        address requester,
+        uint256 paymentAmount,
+        uint256 assetAmount,
+        uint256 feesPaid,
+        bool sell
     );
     /// @dev Emitted when order is completely filled, terminal
     event OrderFulfilled(uint256 indexed id, address indexed requester);

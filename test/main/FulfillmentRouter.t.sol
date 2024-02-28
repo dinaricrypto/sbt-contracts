@@ -18,12 +18,13 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 contract FulfillmentRouterTest is Test {
     event OrderFill(
         uint256 indexed id,
-        address indexed requester,
-        address paymentToken,
-        address assetToken,
-        uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256 feesPaid
+        address indexed paymentToken,
+        address indexed assetToken,
+        address requester,
+        uint256 paymentAmount,
+        uint256 assetAmount,
+        uint256 feesPaid,
+        bool sell
     );
     event OrderFulfilled(uint256 indexed id, address indexed recipient);
     event OrderCancelled(uint256 indexed id, address indexed recipient, string reason);
@@ -140,7 +141,7 @@ contract FulfillmentRouterTest is Test {
         paymentToken.mint(address(vault), receivedAmount);
 
         vm.expectEmit(true, true, true, false);
-        emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
+        emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, receivedAmount, fillAmount, 0, true);
         vm.prank(operator);
         router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
     }
