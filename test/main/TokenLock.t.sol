@@ -3,7 +3,7 @@ pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import {TokenLockCheck} from "../../src/TokenLockCheck.sol";
+import "../../src/TokenLockCheck.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 
 contract TokenLockTest is Test {
@@ -20,7 +20,9 @@ contract TokenLockTest is Test {
         vm.startPrank(admin);
         token = new MockToken("Money", "$");
         token2 = new MockToken("Money", "$");
-        tokenLockCheck = new TokenLockCheck(address(token), address(token2));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(token), IERC20Usdc.isBlacklisted.selector);
+        tokenLockCheck.setCallSelector(address(token2), IERC20Usdt.isBlackListed.selector);
         vm.stopPrank();
     }
 

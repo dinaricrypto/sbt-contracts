@@ -2,9 +2,10 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import {ForwarderLink} from "../../../src/forwarder/ForwarderLink.sol";
 import {Forwarder, IForwarder} from "../../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
+import "../../../src/TokenLockCheck.sol";
 import {OrderProcessor} from "../../../src/orders/OrderProcessor.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/IOrderProcessor.sol";
@@ -18,7 +19,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 
 // additional tests for gas profiling
 contract ForwarderRequestCancelTest is Test {
-    Forwarder public forwarder;
+    ForwarderLink public forwarder;
     OrderProcessor public issuer;
     MockToken public paymentToken;
     MockDShareFactory public tokenFactory;
@@ -68,7 +69,9 @@ contract ForwarderRequestCancelTest is Test {
         tokenFactory = new MockDShareFactory();
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdt.isBlackListed.selector);
         vm.stopPrank();
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
@@ -100,7 +103,7 @@ contract ForwarderRequestCancelTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(ethUSDOracle, SELL_GAS_COST);
+        forwarder = new ForwarderLink(ethUSDOracle, SELL_GAS_COST);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setRelayer(relayer, true);
         forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
@@ -140,10 +143,13 @@ contract ForwarderRequestCancelTest is Test {
 
         deal(address(paymentToken), user, (dummyOrder.paymentTokenQuantity + fees) * 1e6);
 
+        dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
+        bytes memory dataRequest = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         uint256 nonce = 0;
 
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), dataRequest, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -158,8 +164,8 @@ contract ForwarderRequestCancelTest is Test {
     function testRequestCancel() public {
         uint256 nonce = 1;
 
-        IForwarder.CancelForwardRequest memory metaTx =
-            prepareCancelForwardRequest(user, address(issuer), 0, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -192,54 +198,26 @@ contract ForwarderRequestCancelTest is Test {
         );
     }
 
-    function prepareOrderForwardRequest(
-        address _user,
-        address to,
-        IOrderProcessor.Order memory order,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.OrderForwardRequest memory metaTx) {
-        SigMetaUtils.OrderForwardRequest memory MetaTx = SigMetaUtils.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce
-        });
-
-        bytes32 digestMeta = sigMeta.getOrderHashToSign(MetaTx);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
-
-        metaTx = IForwarder.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce,
-            signature: abi.encodePacked(r2, s2, v2)
-        });
-    }
-
-    function prepareCancelForwardRequest(address _user, address to, uint256 orderId, uint256 nonce, uint256 _privateKey)
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
         internal
         view
-        returns (IForwarder.CancelForwardRequest memory metaTx)
+        returns (IForwarder.ForwardRequest memory metaTx)
     {
-        SigMetaUtils.CancelForwardRequest memory MetaTx = SigMetaUtils.CancelForwardRequest({
+        SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
         });
 
-        bytes32 digestMeta = sigMeta.getCancelHashToSign(MetaTx);
+        bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
 
-        metaTx = IForwarder.CancelForwardRequest({
+        metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
             signature: abi.encodePacked(r2, s2, v2)

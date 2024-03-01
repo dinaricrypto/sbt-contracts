@@ -4,38 +4,35 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
-import {Forwarder} from "../src/forwarder/Forwarder.sol";
+import {ForwarderPyth} from "../src/forwarder/ForwarderPyth.sol";
 
 contract AddPaymentTokens is Script {
-    uint64 constant perOrderFee = 1 ether;
-    uint24 constant percentageFeeRate = 5_000;
-
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDERPROCESSOR"));
         BuyUnlockedProcessor buyUnlockedProcessor = BuyUnlockedProcessor(vm.envAddress("BUYUNLOCKEDPROCESSOR"));
-        Forwarder forwarder = Forwarder(vm.envAddress("FORWARDER"));
+        ForwarderPyth forwarder = ForwarderPyth(vm.envAddress("FORWARDER"));
 
-        address[1] memory paymentTokens = [vm.envAddress("USDPLUS")];
+        address[1] memory paymentTokens = [vm.envAddress("USDB")];
 
-        address[1] memory paymentTokenOracles = [vm.envAddress("USDPLUSORACLE")];
-        assert(paymentTokens.length == paymentTokenOracles.length);
+        bytes32[1] memory paymentTokenOracleIds = [bytes32(uint256(1))];
+        assert(paymentTokens.length == paymentTokenOracleIds.length);
 
         vm.startBroadcast(deployerPrivateKey);
 
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: perOrderFee,
-            percentageFeeRateBuy: percentageFeeRate,
-            perOrderFeeSell: perOrderFee,
-            percentageFeeRateSell: percentageFeeRate
+            perOrderFeeBuy: 1 ether,
+            percentageFeeRateBuy: 0,
+            perOrderFeeSell: 1 ether,
+            percentageFeeRateSell: 5_000
         });
         for (uint256 i = 0; i < paymentTokens.length; i++) {
             // add to order processors
-            orderProcessor.setDefaultFees(paymentTokens[i], defaultFees);
-            buyUnlockedProcessor.setDefaultFees(paymentTokens[i], defaultFees);
+            // orderProcessor.setDefaultFees(paymentTokens[i], defaultFees);
+            // buyUnlockedProcessor.setDefaultFees(paymentTokens[i], defaultFees);
 
             // add to forwarder
-            forwarder.setPaymentOracle(paymentTokens[i], paymentTokenOracles[i]);
+            forwarder.setPaymentOracle(paymentTokens[i], bytes32(uint256(1)));
         }
 
         vm.stopBroadcast();

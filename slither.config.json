@@ -1,4 +1,4 @@
 {
   "filter_paths": "lib,node_modules,script,test",
-  "detectors_to_exclude": "naming-convention,solc-version,dead-code,assembly,block-timestamp,missing-zero-check,unimplemented-functions,similar-names"
+  "detectors_to_exclude": "naming-convention,solc-version,dead-code,assembly,block-timestamp,missing-zero-check,unimplemented-functions,similar-names,too-many-digits"
 }
