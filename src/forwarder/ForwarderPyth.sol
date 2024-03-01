@@ -49,7 +49,7 @@ contract ForwarderPyth is Forwarder {
      * @dev add oracle for eth in usd
      * @param id pyth oracle id
      */
-    function setEthUsdOracleId(bytes32 id) external onlyOwner {
+    function setEthUsdOracle(bytes32 id) external onlyOwner {
         ethUsdOracleId = id;
         emit EthUsdOracleSet(id);
     }
@@ -72,9 +72,9 @@ contract ForwarderPyth is Forwarder {
 
     function _getPaymentPriceInWei(address paymentToken) internal view override returns (uint256) {
         bytes32 _oracle = paymentOracleId[paymentToken];
-        PythStructs.Price memory paymentPriceInfo = pyth.getPrice(_oracle);
+        PythStructs.Price memory paymentPriceInfo = pyth.getPriceUnsafe(_oracle);
         int256 paymentPrice = paymentPriceInfo.price;
-        PythStructs.Price memory ethUSDPriceInfo = pyth.getPrice(ethUsdOracleId);
+        PythStructs.Price memory ethUSDPriceInfo = pyth.getPriceUnsafe(ethUsdOracleId);
         int256 ethUSDPrice = ethUSDPriceInfo.price;
         // adjust values to align decimals
         if (paymentPriceInfo.expo > ethUSDPriceInfo.expo) {
