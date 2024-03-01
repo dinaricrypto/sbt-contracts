@@ -10,7 +10,7 @@ import {Forwarder} from "../src/forwarder/Forwarder.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract DeployAllScript is Script {
+contract DeployAll is Script {
     struct DeployConfig {
         address deployer;
         // address owner;
