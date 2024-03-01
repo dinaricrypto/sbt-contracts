@@ -73,8 +73,7 @@ contract DeployAll is Script {
         address wrappeddShareImplementation = address(new WrappedDShare());
 
         // deploy wrapped dShares beacon
-        UpgradeableBeacon wrappeddShareBeacon =
-            new UpgradeableBeacon(wrappeddShareImplementation, cfg.deployer);
+        UpgradeableBeacon wrappeddShareBeacon = new UpgradeableBeacon(wrappeddShareImplementation, cfg.deployer);
 
         // deploy dShare factory
         address dShareFactoryImplementation = address(new DShareFactory());
@@ -83,12 +82,7 @@ contract DeployAll is Script {
             dShareFactoryImplementation,
             abi.encodeCall(
                 DShareFactory.initialize,
-                (
-                    cfg.deployer,
-                    address(dShareBeacon),
-                    address(wrappeddShareBeacon),
-                    address(transferRestrictor)
-                )
+                (cfg.deployer, address(dShareBeacon), address(wrappeddShareBeacon), address(transferRestrictor))
             )
         );
 
