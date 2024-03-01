@@ -140,10 +140,13 @@ contract ForwarderRequestCancelTest is Test {
 
         deal(address(paymentToken), user, (dummyOrder.paymentTokenQuantity + fees) * 1e6);
 
+        dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
+        bytes memory dataRequest = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         uint256 nonce = 0;
 
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), dataRequest, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -158,8 +161,8 @@ contract ForwarderRequestCancelTest is Test {
     function testRequestCancel() public {
         uint256 nonce = 1;
 
-        IForwarder.CancelForwardRequest memory metaTx =
-            prepareCancelForwardRequest(user, address(issuer), 0, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -192,54 +195,26 @@ contract ForwarderRequestCancelTest is Test {
         );
     }
 
-    function prepareOrderForwardRequest(
-        address _user,
-        address to,
-        IOrderProcessor.Order memory order,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.OrderForwardRequest memory metaTx) {
-        SigMetaUtils.OrderForwardRequest memory MetaTx = SigMetaUtils.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce
-        });
-
-        bytes32 digestMeta = sigMeta.getOrderHashToSign(MetaTx);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
-
-        metaTx = IForwarder.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce,
-            signature: abi.encodePacked(r2, s2, v2)
-        });
-    }
-
-    function prepareCancelForwardRequest(address _user, address to, uint256 orderId, uint256 nonce, uint256 _privateKey)
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
         internal
         view
-        returns (IForwarder.CancelForwardRequest memory metaTx)
+        returns (IForwarder.ForwardRequest memory metaTx)
     {
-        SigMetaUtils.CancelForwardRequest memory MetaTx = SigMetaUtils.CancelForwardRequest({
+        SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
         });
 
-        bytes32 digestMeta = sigMeta.getCancelHashToSign(MetaTx);
+        bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
 
-        metaTx = IForwarder.CancelForwardRequest({
+        metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
             signature: abi.encodePacked(r2, s2, v2)

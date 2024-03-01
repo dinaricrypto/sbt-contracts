@@ -136,14 +136,16 @@ contract dShareCompatTest is Test {
 
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         // Mint tokens
         deal(address(paymentToken), user, quantityIn * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -171,14 +173,16 @@ contract dShareCompatTest is Test {
         order.sell = true;
         order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         deal(address(token), user, order.assetTokenQuantity * 1e6);
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
@@ -204,13 +208,15 @@ contract dShareCompatTest is Test {
     function testRequestCancel() public {
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -221,8 +227,9 @@ contract dShareCompatTest is Test {
         forwarder.multicall(multicalldata);
 
         nonce += 1;
-        Forwarder.CancelForwardRequest memory metaTx1 =
-            prepareCancelForwardRequest(user, address(issuer), 0, nonce, userPrivateKey);
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
+        Forwarder.ForwardRequest memory metaTx1 =
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
 
@@ -255,54 +262,26 @@ contract dShareCompatTest is Test {
         );
     }
 
-    function prepareOrderForwardRequest(
-        address _user,
-        address to,
-        IOrderProcessor.Order memory order,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.OrderForwardRequest memory metaTx) {
-        SigMetaUtils.OrderForwardRequest memory MetaTx = SigMetaUtils.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce
-        });
-
-        bytes32 digestMeta = sigMeta.getOrderHashToSign(MetaTx);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
-
-        metaTx = IForwarder.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce,
-            signature: abi.encodePacked(r2, s2, v2)
-        });
-    }
-
-    function prepareCancelForwardRequest(address _user, address to, uint256 orderId, uint256 nonce, uint256 _privateKey)
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
         internal
         view
-        returns (IForwarder.CancelForwardRequest memory metaTx)
+        returns (IForwarder.ForwardRequest memory metaTx)
     {
-        SigMetaUtils.CancelForwardRequest memory MetaTx = SigMetaUtils.CancelForwardRequest({
+        SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
         });
 
-        bytes32 digestMeta = sigMeta.getCancelHashToSign(MetaTx);
+        bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
 
-        metaTx = IForwarder.CancelForwardRequest({
+        metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
             signature: abi.encodePacked(r2, s2, v2)

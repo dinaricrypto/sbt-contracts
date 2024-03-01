@@ -250,13 +250,16 @@ contract ForwarderTest is Test {
 
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         // 4. Mint tokens
         deal(address(paymentToken), user, quantityIn * 1e6);
 
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        //  Prepare ForwardRequest
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -293,14 +296,16 @@ contract ForwarderTest is Test {
 
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         // 4. Mint tokens
         deal(address(paymentToken), user, quantityIn * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -325,6 +330,8 @@ contract ForwarderTest is Test {
     }
 
     function testForwarderCancellationFeeSet(uint256 cancellationCost) public {
+        bytes memory dataRequest = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         vm.assume(cancellationCost < 10e6);
 
         vm.prank(owner);
@@ -334,8 +341,8 @@ contract ForwarderTest is Test {
 
         uint256 nonce = 0;
         // prepare request meta transaction
-        IForwarder.OrderForwardRequest memory metaTx1 =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx1 =
+            prepareForwardRequest(user, address(issuer), dataRequest, nonce, userPrivateKey);
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
@@ -359,8 +366,9 @@ contract ForwarderTest is Test {
         // update nonce
         nonce += 1;
 
-        Forwarder.CancelForwardRequest memory metaTx2 =
-            prepareCancelForwardRequest(user, address(issuer), 0, nonce, userPrivateKey);
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
+        Forwarder.ForwardRequest memory metaTx2 =
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx2);
 
@@ -392,20 +400,20 @@ contract ForwarderTest is Test {
         assertEq(paymentTokenToRescue.balanceOf(to), amount);
     }
 
-    // function testHash() public {
-    //     IForwarder.ForwardRequest memory metaTx1 =
-    //         IForwarder.ForwardRequest(user, address(issuer), "0x", uint64(block.timestamp + 20 days), 0, "0x");
+    function testHash() public {
+        IForwarder.ForwardRequest memory metaTx1 =
+            IForwarder.ForwardRequest(user, address(issuer), "0x", uint64(block.timestamp + 20 days), 0, "0x");
 
-    //     bytes32 hashRequest = keccak256(
-    //         abi.encode(
-    //             FORWARDREQUEST_TYPEHASH, user, address(issuer), keccak256("0x"), uint64(block.timestamp + 20 days), 0
-    //         )
-    //     );
+        bytes32 hashRequest = keccak256(
+            abi.encode(
+                FORWARDREQUEST_TYPEHASH, user, address(issuer), keccak256("0x"), uint64(block.timestamp + 20 days), 0
+            )
+        );
 
-    //     bytes32 _hash = forwarder.forwardRequestHash(metaTx1);
+        bytes32 _hash = forwarder.forwardRequestHash(metaTx1);
 
-    //     assertEq(hashRequest, _hash);
-    // }
+        assertEq(hashRequest, _hash);
+    }
 
     function testSellOrderRevertSplitRecipientSet(address _splitRecipient) public {
         vm.assume(_splitRecipient != address(0));
@@ -414,13 +422,15 @@ contract ForwarderTest is Test {
         order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
         order.splitRecipient = _splitRecipient;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         deal(address(token), user, order.assetTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
@@ -442,13 +452,15 @@ contract ForwarderTest is Test {
         order.sell = true;
         order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         deal(address(token), user, order.assetTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
@@ -500,14 +512,16 @@ contract ForwarderTest is Test {
 
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(directBuyIssuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         // 4. Mint tokens
         deal(address(paymentToken), user, quantityIn * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(directBuyIssuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(directBuyIssuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -544,14 +558,16 @@ contract ForwarderTest is Test {
 
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(directBuyIssuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         // 4. Mint tokens
         deal(address(paymentToken), user, quantityIn * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(directBuyIssuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(directBuyIssuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -591,6 +607,8 @@ contract ForwarderTest is Test {
         issuer.revokeRole(issuer.FORWARDER_ROLE(), address(forwarder));
         vm.stopPrank();
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         uint256 nonce = 0;
 
         // 4. Mint tokens
@@ -598,8 +616,8 @@ contract ForwarderTest is Test {
         deal(address(paymentToken), user, quantityIn);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -614,16 +632,30 @@ contract ForwarderTest is Test {
     }
 
     function testUnsupportedCall() public {
+        bytes memory data = abi.encodeWithSignature("requestUnsupported((address,address,address,uint256))", dummyOrder);
+
         deal(address(paymentToken), user, dummyOrder.paymentTokenQuantity * 1e6);
 
         uint256 nonce = 0;
 
-        dummyOrder.sell = true;
-
-        IForwarder.OrderForwardRequest memory metaTx1 =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         bytes[] memory multicalldata = new bytes[](2);
+        multicalldata[0] =
+            preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestBuyOrder.selector, metaTx);
+
+        vm.expectRevert(Forwarder.UnsupportedCall.selector);
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
+
+        dummyOrder.sell = true;
+
+        data = abi.encodeWithSignature("requestOrder((address,address,address,uint256))", dummyOrder);
+
+        IForwarder.ForwardRequest memory metaTx1 =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
@@ -634,9 +666,10 @@ contract ForwarderTest is Test {
         forwarder.multicall(multicalldata);
 
         dummyOrder.sell = false;
+        data = abi.encodeWithSignature("requestOrder((address,address,address,uint256))", dummyOrder);
 
-        IForwarder.OrderForwardRequest memory metaTx2 =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx2 =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
@@ -645,14 +678,28 @@ contract ForwarderTest is Test {
         vm.expectRevert(Forwarder.UnsupportedCall.selector);
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
+
+        // test request cancel unsupported call
+        IForwarder.ForwardRequest memory metaTx3 =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
+
+        multicalldata[0] =
+            preparePermitCall(paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, nonce);
+        multicalldata[1] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx3);
+
+        vm.expectRevert(Forwarder.UnsupportedCall.selector);
+        vm.prank(relayer);
+        forwarder.multicall(multicalldata);
     }
 
     function testRequestOrderRevertInvalidRelayer() public {
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         uint256 nonce = 0;
 
         //Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
@@ -664,11 +711,13 @@ contract ForwarderTest is Test {
     }
 
     function testRequestOrderRevertInvalidDeadline() public {
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         uint256 nonce = 0;
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         metaTx.deadline = 0;
         bytes[] memory multicalldata = new bytes[](2);
@@ -689,13 +738,15 @@ contract ForwarderTest is Test {
         vm.prank(admin);
         issuer.setOrdersPaused(true);
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         deal(address(paymentToken), user, (order.paymentTokenQuantity + dummyOrderFees) * 1e6);
 
         uint256 nonce = 0;
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
@@ -710,13 +761,15 @@ contract ForwarderTest is Test {
     function testRequestCancel() public {
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -728,8 +781,9 @@ contract ForwarderTest is Test {
         forwarder.multicall(multicalldata);
 
         nonce += 1;
-        Forwarder.CancelForwardRequest memory metaTx1 =
-            prepareCancelForwardRequest(user, address(issuer), 0, nonce, userPrivateKey);
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
+        Forwarder.ForwardRequest memory metaTx1 =
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
 
@@ -739,14 +793,16 @@ contract ForwarderTest is Test {
     }
 
     function testInvaldUserNonce() public {
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         uint256 nonce = 1;
 
         // Mint
         deal(address(paymentToken), user, dummyOrder.paymentTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
@@ -773,14 +829,16 @@ contract ForwarderTest is Test {
         issuer1.grantRole(issuer1.FORWARDER_ROLE(), address(forwarder));
         vm.stopPrank();
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         uint256 nonce = 0;
 
         // Mint
         deal(address(paymentToken), user, dummyOrder.paymentTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer1), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer1), data, nonce, userPrivateKey);
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
@@ -795,13 +853,15 @@ contract ForwarderTest is Test {
     function testRequestCancelNotRequesterReverts() public {
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         deal(address(paymentToken), user, dummyOrder.paymentTokenQuantity + dummyOrderFees * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -812,8 +872,9 @@ contract ForwarderTest is Test {
         vm.prank(relayer);
         forwarder.multicall(multicalldata);
 
-        Forwarder.CancelForwardRequest memory metaTx1 =
-            prepareCancelForwardRequest(relayer, address(issuer), 0, nonce, userPrivateKey);
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
+        Forwarder.ForwardRequest memory metaTx1 =
+            prepareForwardRequest(relayer, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
 
@@ -824,6 +885,8 @@ contract ForwarderTest is Test {
     }
 
     function testCancel() public {
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, dummyOrder);
+
         uint256 nonce = 0;
 
         uint256 quantityIn = dummyOrder.paymentTokenQuantity + dummyOrderFees;
@@ -831,8 +894,8 @@ contract ForwarderTest is Test {
         deal(address(paymentToken), user, userFunds);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), dummyOrder, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -913,54 +976,26 @@ contract ForwarderTest is Test {
         );
     }
 
-    function prepareOrderForwardRequest(
-        address _user,
-        address to,
-        IOrderProcessor.Order memory order,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.OrderForwardRequest memory metaTx) {
-        SigMetaUtils.OrderForwardRequest memory MetaTx = SigMetaUtils.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce
-        });
-
-        bytes32 digestMeta = sigMeta.getOrderHashToSign(MetaTx);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
-
-        metaTx = IForwarder.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce,
-            signature: abi.encodePacked(r2, s2, v2)
-        });
-    }
-
-    function prepareCancelForwardRequest(address _user, address to, uint256 orderId, uint256 nonce, uint256 _privateKey)
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
         internal
         view
-        returns (IForwarder.CancelForwardRequest memory metaTx)
+        returns (IForwarder.ForwardRequest memory metaTx)
     {
-        SigMetaUtils.CancelForwardRequest memory MetaTx = SigMetaUtils.CancelForwardRequest({
+        SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
         });
 
-        bytes32 digestMeta = sigMeta.getCancelHashToSign(MetaTx);
+        bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
 
-        metaTx = IForwarder.CancelForwardRequest({
+        metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
             signature: abi.encodePacked(r2, s2, v2)
