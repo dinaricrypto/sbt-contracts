@@ -2,6 +2,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import {ForwarderLink} from "../../src/forwarder/ForwarderLink.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -18,7 +19,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 
 // test that forwarder and processors do not assume dShares are dShares
 contract dShareCompatTest is Test {
-    Forwarder public forwarder;
+    ForwarderLink public forwarder;
     OrderProcessor public issuer;
     MockToken public paymentToken;
     ERC20 public token;
@@ -94,7 +95,7 @@ contract dShareCompatTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(ethUSDOracle, SELL_GAS_COST);
+        forwarder = new ForwarderLink(ethUSDOracle, SELL_GAS_COST);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setRelayer(relayer, true);
         forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);

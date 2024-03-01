@@ -9,7 +9,7 @@ import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {TokenLockCheck} from "../src/TokenLockCheck.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
-import {Forwarder} from "../src/forwarder/Forwarder.sol";
+import {ForwarderLink} from "../src/forwarder/ForwarderLink.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {DShareFactory} from "../src/DShareFactory.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
@@ -44,7 +44,7 @@ contract DeployAllSandbox is Script {
         OrderProcessor orderProcessor;
         BuyUnlockedProcessor directBuyIssuerImplementation;
         BuyUnlockedProcessor directBuyIssuer;
-        Forwarder forwarder;
+        ForwarderLink forwarder;
         DividendDistribution dividendDistributor;
     }
 
@@ -173,7 +173,7 @@ contract DeployAllSandbox is Script {
 
         /// ------------------ forwarder ------------------
 
-        deployments.forwarder = new Forwarder(cfg.ethusdoracle, SELL_GAS_COST);
+        deployments.forwarder = new ForwarderLink(cfg.ethusdoracle, SELL_GAS_COST);
         deployments.forwarder.setFeeBps(2000);
 
         deployments.forwarder.setPaymentOracle(address(deployments.usdc), cfg.usdcoracle);

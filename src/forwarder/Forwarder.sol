@@ -9,16 +9,14 @@ import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.s
 import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {ReentrancyGuard} from "openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol";
-import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IOrderProcessor} from "../../src/orders/IOrderProcessor.sol";
-import "prb-math/Common.sol" as PrbMath;
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IForwarder} from "./IForwarder.sol";
 
 /// @notice Contract for paying gas fees for users and forwarding meta transactions to OrderProcessor contracts.
-/// @author Dinari (https://github.com/dinaricrypto/issuer-contracts/blob/main/src/issuer/OrderProcessor.sol)
-contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, ReentrancyGuard, EIP712 {
+/// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/forwarder/Forwarder.sol)
+abstract contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20Permit;
     using SafeERC20 for IERC20;
     using Address for address;
@@ -76,10 +74,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     /// @inheritdoc IForwarder
     mapping(uint256 => address) public orderSigner;
 
-    address public ethUsdOracle;
-
-    mapping(address => address) public paymentOracle;
-
     /// ------------------------------- Modifiers -------------------------------
 
     modifier onlyRelayer() {
@@ -93,11 +87,10 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
     /// @notice Constructs the Forwarder contract.
     /// @dev Initializes the domain separator used for EIP-712 compliant signature verification.
-    constructor(address _ethUsdOracle, uint256 initialSellOrderGasCost) EIP712("Forwarder", "1") Ownable(msg.sender) {
+    constructor(uint256 initialSellOrderGasCost) EIP712("Forwarder", "1") Ownable(msg.sender) {
         feeBps = 0;
         cancellationGasCost = 0;
         sellOrderGasCost = initialSellOrderGasCost;
-        ethUsdOracle = _ethUsdOracle;
     }
 
     /// ------------------------------- Administration -------------------------------
@@ -140,25 +133,6 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     }
 
     /**
-     * @dev add oracle for eth in usd
-     * @param _ethUsdOracle chainlink oracle address
-     */
-    function setEthUsdOracle(address _ethUsdOracle) external onlyOwner {
-        ethUsdOracle = _ethUsdOracle;
-        emit EthUsdOracleSet(_ethUsdOracle);
-    }
-
-    /**
-     * @dev add oracle for a payment token
-     * @param paymentToken asset to add oracle
-     * @param oracle chainlink oracle address
-     */
-    function setPaymentOracle(address paymentToken, address oracle) external onlyOwner {
-        paymentOracle[paymentToken] = oracle;
-        emit PaymentOracleSet(paymentToken, oracle);
-    }
-
-    /**
      * @notice Rescue ERC20 tokens locked up in this contract.
      * @param tokenContract ERC20 token contract address
      * @param to        Recipient address
@@ -172,27 +146,8 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
      * @notice Get the current oracle price for a payment token
      */
     function getPaymentPriceInWei(address paymentToken) public view returns (uint256) {
-        if (paymentOracle[paymentToken] == address(0)) revert UnsupportedToken();
+        if (!isSupportedToken(paymentToken)) revert UnsupportedToken();
         return _getPaymentPriceInWei(paymentToken);
-    }
-
-    function _getPaymentPriceInWei(address paymentToken) internal view returns (uint256) {
-        address _oracle = paymentOracle[paymentToken];
-        // slither-disable-next-line unused-return
-        (, int256 paymentPrice,,,) = AggregatorV3Interface(_oracle).latestRoundData();
-        // slither-disable-next-line unused-return
-        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(ethUsdOracle).latestRoundData();
-        // adjust values to align decimals
-        uint8 paymentPriceDecimals = AggregatorV3Interface(_oracle).decimals();
-        uint8 ethUSDPriceDecimals = AggregatorV3Interface(ethUsdOracle).decimals();
-        if (paymentPriceDecimals > ethUSDPriceDecimals) {
-            ethUSDPrice = ethUSDPrice * int256(10 ** (paymentPriceDecimals - ethUSDPriceDecimals));
-        } else if (paymentPriceDecimals < ethUSDPriceDecimals) {
-            paymentPrice = paymentPrice * int256(10 ** (ethUSDPriceDecimals - paymentPriceDecimals));
-        }
-        // compute payment price in wei
-        uint256 paymentPriceInWei = PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
-        return uint256(paymentPriceInWei);
     }
 
     /// ------------------------------- Forwarding -------------------------------
@@ -316,7 +271,7 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
 
         if (bytes4(metaTx.data[:4]) == IOrderProcessor.requestOrder.selector) {
             (IOrderProcessor.Order memory order) = abi.decode(metaTx.data[4:], (IOrderProcessor.Order));
-            if (paymentOracle[order.paymentToken] == address(0)) revert UnsupportedToken();
+            if (!isSupportedToken(order.paymentToken)) revert UnsupportedToken();
         }
 
         bytes32 typedDataHash = _hashTypedDataV4(forwardRequestHash(metaTx));
@@ -385,4 +340,10 @@ contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermit, Reentr
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();
     }
+
+    /// ------------------------------- Oracle Usage -------------------------------
+
+    function isSupportedToken(address token) public view virtual returns (bool);
+
+    function _getPaymentPriceInWei(address paymentToken) internal view virtual returns (uint256);
 }

@@ -6,7 +6,7 @@ import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
-import {Forwarder} from "../src/forwarder/Forwarder.sol";
+import {ForwarderLink} from "../src/forwarder/ForwarderLink.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
@@ -112,7 +112,7 @@ contract DeployAll is Script {
 
         /// ------------------ forwarder ------------------
 
-        Forwarder forwarder = new Forwarder(ethusdoracle, SELL_GAS_COST);
+        ForwarderLink forwarder = new ForwarderLink(ethusdoracle, SELL_GAS_COST);
         forwarder.setFeeBps(2000);
 
         forwarder.setPaymentOracle(address(cfg.usdc), usdcoracle);

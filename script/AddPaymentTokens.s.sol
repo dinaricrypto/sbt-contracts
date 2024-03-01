@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Script.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
-import {Forwarder} from "../src/forwarder/Forwarder.sol";
+import {ForwarderLink} from "../src/forwarder/ForwarderLink.sol";
 
 contract AddPaymentTokens is Script {
     uint64 constant perOrderFee = 1 ether;
@@ -14,7 +14,7 @@ contract AddPaymentTokens is Script {
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDERPROCESSOR"));
         BuyUnlockedProcessor buyUnlockedProcessor = BuyUnlockedProcessor(vm.envAddress("BUYUNLOCKEDPROCESSOR"));
-        Forwarder forwarder = Forwarder(vm.envAddress("FORWARDER"));
+        ForwarderLink forwarder = ForwarderLink(vm.envAddress("FORWARDER"));
 
         address[1] memory paymentTokens = [vm.envAddress("USDPLUS")];
 

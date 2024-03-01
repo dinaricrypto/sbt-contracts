@@ -2,6 +2,7 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import {ForwarderLink} from "../../src/forwarder/ForwarderLink.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -21,7 +22,7 @@ import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IE
 import "prb-math/Common.sol" as PrbMath;
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract ForwarderTest is Test {
+contract ForwarderLinkTest is Test {
     event RelayerSet(address indexed relayer, bool isRelayer);
     event SupportedModuleSet(address indexed module, bool isSupported);
     event FeeUpdated(uint256 feeBps);
@@ -43,7 +44,7 @@ contract ForwarderTest is Test {
 
     error InsufficientBalance();
 
-    Forwarder public forwarder;
+    ForwarderLink public forwarder;
     OrderProcessor public issuerImpl;
     OrderProcessor public issuer;
     BuyUnlockedProcessor public directBuyIssuer;
@@ -135,7 +136,7 @@ contract ForwarderTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(ethUsdPriceOracle, SELL_GAS_COST);
+        forwarder = new ForwarderLink(ethUsdPriceOracle, SELL_GAS_COST);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setSupportedModule(address(directBuyIssuer), true);
         forwarder.setRelayer(relayer, true);
@@ -367,7 +368,7 @@ contract ForwarderTest is Test {
         nonce += 1;
 
         bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
-        Forwarder.ForwardRequest memory metaTx2 =
+        IForwarder.ForwardRequest memory metaTx2 =
             prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx2);
@@ -782,7 +783,7 @@ contract ForwarderTest is Test {
 
         nonce += 1;
         bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
-        Forwarder.ForwardRequest memory metaTx1 =
+        IForwarder.ForwardRequest memory metaTx1 =
             prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
@@ -873,7 +874,7 @@ contract ForwarderTest is Test {
         forwarder.multicall(multicalldata);
 
         bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
-        Forwarder.ForwardRequest memory metaTx1 =
+        IForwarder.ForwardRequest memory metaTx1 =
             prepareForwardRequest(relayer, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
