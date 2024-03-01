@@ -27,10 +27,28 @@ contract DeployAll is Script {
         address relayer;
         address distributor;
         address usdb;
+        address pyth;
+        bytes32 ethusdoracleid;
     }
 
-    // Tether
-    mapping(address => bool) public isBlocked;
+    struct Deployments {
+        TransferRestrictor transferRestrictor;
+        address dShareImplementation;
+        UpgradeableBeacon dShareBeacon;
+        address wrappeddShareImplementation;
+        UpgradeableBeacon wrappeddShareBeacon;
+        address dShareFactoryImplementation;
+        DShareFactory dShareFactory;
+        TokenLockCheck tokenLockCheck;
+        OrderProcessor orderProcessorImplementation;
+        OrderProcessor orderProcessor;
+        BuyUnlockedProcessor directBuyIssuerImplementation;
+        BuyUnlockedProcessor directBuyIssuer;
+        ForwarderPyth forwarder;
+        FulfillmentRouter fulfillmentRouter;
+        Vault vault;
+        DividendDistribution dividendDistributor;
+    }
 
     uint256 constant SELL_GAS_COST = 421_549;
 
@@ -44,115 +62,118 @@ contract DeployAll is Script {
             operator2: vm.envAddress("OPERATOR2"),
             relayer: vm.envAddress("RELAYER"),
             distributor: vm.envAddress("DISTRIBUTOR"),
-            // usdb: vm.envAddress("USDB")
-            usdb: address(0)
+            usdb: vm.envAddress("USDB"),
+            pyth: vm.envAddress("PYTH"),
+            ethusdoracleid: vm.envBytes32("ETHUSDORACLEID")
         });
-        address pyth = vm.envAddress("PYTH");
-        bytes32 ethusdoracleid = vm.envBytes32("ETHUSDORACLEID");
+
+        Deployments memory deps;
 
         console.log("deployer: %s", cfg.deployer);
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
-        // deploy mock USDC with 6 decimals
-        cfg.usdb = address(new MockToken("USB Coin - Dinari", "USDB"));
-
         /// ------------------ asset tokens ------------------
 
         // deploy transfer restrictor
-        // TransferRestrictor transferRestrictor = new TransferRestrictor(cfg.deployer);
+        deps.transferRestrictor = new TransferRestrictor(cfg.deployer);
 
-        // // deploy dShares logic implementation
-        // address dShareImplementation = address(new DShare());
+        // deploy dShares logic implementation
+        deps.dShareImplementation = address(new DShare());
 
-        // // deploy dShares beacon
-        // UpgradeableBeacon dShareBeacon = new UpgradeableBeacon(dShareImplementation, cfg.deployer);
+        // deploy dShares beacon
+        deps.dShareBeacon = new UpgradeableBeacon(deps.dShareImplementation, cfg.deployer);
 
-        // // deploy wrapped dShares logic implementation
-        // address wrappeddShareImplementation = address(new WrappedDShare());
+        // deploy wrapped dShares logic implementation
+        deps.wrappeddShareImplementation = address(new WrappedDShare());
 
-        // // deploy wrapped dShares beacon
-        // UpgradeableBeacon wrappeddShareBeacon = new UpgradeableBeacon(wrappeddShareImplementation, cfg.deployer);
+        // deploy wrapped dShares beacon
+        deps.wrappeddShareBeacon = new UpgradeableBeacon(deps.wrappeddShareImplementation, cfg.deployer);
 
-        // // deploy dShare factory
-        // address dShareFactoryImplementation = address(new DShareFactory());
+        // deploy dShare factory
+        deps.dShareFactoryImplementation = address(new DShareFactory());
 
-        // new ERC1967Proxy(
-        //     dShareFactoryImplementation,
-        //     abi.encodeCall(
-        //         DShareFactory.initialize,
-        //         (cfg.deployer, address(dShareBeacon), address(wrappeddShareBeacon), address(transferRestrictor))
-        //     )
-        // );
+        new ERC1967Proxy(
+            deps.dShareFactoryImplementation,
+            abi.encodeCall(
+                DShareFactory.initialize,
+                (
+                    cfg.deployer,
+                    address(deps.dShareBeacon),
+                    address(deps.wrappeddShareBeacon),
+                    address(deps.transferRestrictor)
+                )
+            )
+        );
 
-        // /// ------------------ order processors ------------------
+        /// ------------------ order processors ------------------
 
-        // // deploy blacklist prechecker
-        // TokenLockCheck tokenLockCheck = new TokenLockCheck();
+        // deploy blacklist prechecker
+        deps.tokenLockCheck = new TokenLockCheck();
 
-        // OrderProcessor orderProcessorImpl = new OrderProcessor();
-        // OrderProcessor orderProcessor = OrderProcessor(
-        //     address(
-        //         new ERC1967Proxy(
-        //             address(orderProcessorImpl),
-        //             abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, tokenLockCheck))
-        //         )
-        //     )
-        // );
+        deps.orderProcessorImplementation = new OrderProcessor();
+        deps.orderProcessor = OrderProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(deps.orderProcessorImplementation),
+                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deps.tokenLockCheck))
+                )
+            )
+        );
 
-        // BuyUnlockedProcessor directBuyIssuerImpl = new BuyUnlockedProcessor();
-        // BuyUnlockedProcessor directBuyIssuer = BuyUnlockedProcessor(
-        //     address(
-        //         new ERC1967Proxy(
-        //             address(directBuyIssuerImpl),
-        //             abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, tokenLockCheck))
-        //         )
-        //     )
-        // );
+        deps.directBuyIssuerImplementation = new BuyUnlockedProcessor();
+        deps.directBuyIssuer = BuyUnlockedProcessor(
+            address(
+                new ERC1967Proxy(
+                    address(deps.directBuyIssuerImplementation),
+                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deps.tokenLockCheck))
+                )
+            )
+        );
 
-        // // config payment token
-        // OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-        //     perOrderFeeBuy: 1 ether,
-        //     percentageFeeRateBuy: 0,
-        //     perOrderFeeSell: 1 ether,
-        //     percentageFeeRateSell: 5_000
-        // });
+        // config payment token
+        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
+            perOrderFeeBuy: 1 ether,
+            percentageFeeRateBuy: 0,
+            perOrderFeeSell: 1 ether,
+            percentageFeeRateSell: 5_000
+        });
 
-        // orderProcessor.setDefaultFees(cfg.usdb, defaultFees);
-        // directBuyIssuer.setDefaultFees(cfg.usdb, defaultFees);
+        deps.orderProcessor.setDefaultFees(cfg.usdb, defaultFees);
+        deps.directBuyIssuer.setDefaultFees(cfg.usdb, defaultFees);
 
-        // /// ------------------ forwarder ------------------
+        /// ------------------ forwarder ------------------
 
-        // ForwarderPyth forwarder = new ForwarderPyth(pyth, ethusdoracleid, SELL_GAS_COST);
+        deps.forwarder = new ForwarderPyth(cfg.pyth, cfg.ethusdoracleid, SELL_GAS_COST);
 
-        // forwarder.setPaymentOracle(cfg.usdb, bytes32(uint256(1)));
+        deps.forwarder.setPaymentOracle(cfg.usdb, bytes32(uint256(1)));
 
-        // forwarder.setSupportedModule(address(orderProcessor), true);
-        // forwarder.setSupportedModule(address(directBuyIssuer), true);
+        deps.forwarder.setSupportedModule(address(deps.orderProcessor), true);
+        deps.forwarder.setSupportedModule(address(deps.directBuyIssuer), true);
 
-        // forwarder.setRelayer(cfg.relayer, true);
+        deps.forwarder.setRelayer(cfg.relayer, true);
 
-        // orderProcessor.grantRole(orderProcessor.FORWARDER_ROLE(), address(forwarder));
-        // directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
+        deps.orderProcessor.grantRole(deps.orderProcessor.FORWARDER_ROLE(), address(deps.forwarder));
+        deps.directBuyIssuer.grantRole(deps.directBuyIssuer.FORWARDER_ROLE(), address(deps.forwarder));
 
-        // /// ------------------ vault ------------------
+        /// ------------------ vault ------------------
 
-        // FulfillmentRouter fulfillmentRouter = new FulfillmentRouter(cfg.deployer);
-        // orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), address(fulfillmentRouter));
-        // directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), address(fulfillmentRouter));
-        // fulfillmentRouter.grantRole(fulfillmentRouter.OPERATOR_ROLE(), cfg.operator);
-        // fulfillmentRouter.grantRole(fulfillmentRouter.OPERATOR_ROLE(), cfg.operator2);
+        deps.fulfillmentRouter = new FulfillmentRouter(cfg.deployer);
+        deps.orderProcessor.grantRole(deps.orderProcessor.OPERATOR_ROLE(), address(deps.fulfillmentRouter));
+        deps.directBuyIssuer.grantRole(deps.directBuyIssuer.OPERATOR_ROLE(), address(deps.fulfillmentRouter));
+        deps.fulfillmentRouter.grantRole(deps.fulfillmentRouter.OPERATOR_ROLE(), cfg.operator);
+        deps.fulfillmentRouter.grantRole(deps.fulfillmentRouter.OPERATOR_ROLE(), cfg.operator2);
 
-        // Vault vault = new Vault(cfg.deployer);
-        // vault.grantRole(vault.OPERATOR_ROLE(), address(fulfillmentRouter));
+        deps.vault = new Vault(cfg.deployer);
+        deps.vault.grantRole(deps.vault.OPERATOR_ROLE(), address(deps.fulfillmentRouter));
 
-        // /// ------------------ dividend distributor ------------------
+        /// ------------------ dividend distributor ------------------
 
-        // DividendDistribution dividendDistributor = new DividendDistribution(cfg.deployer);
+        deps.dividendDistributor = new DividendDistribution(cfg.deployer);
 
-        // // add dividend operator
-        // dividendDistributor.grantRole(dividendDistributor.DISTRIBUTOR_ROLE(), cfg.distributor);
+        // add dividend operator
+        deps.dividendDistributor.grantRole(deps.dividendDistributor.DISTRIBUTOR_ROLE(), cfg.distributor);
 
         vm.stopBroadcast();
     }
