@@ -3,12 +3,19 @@ pragma solidity 0.8.22;
 
 import "forge-std/Script.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import {DShare} from "../src/DShare.sol";
+import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck, IERC20Usdc} from "../src/TokenLockCheck.sol";
 import {ForwarderPyth} from "../src/forwarder/ForwarderPyth.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {DShareFactory} from "../src/DShareFactory.sol";
+import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
+import {Vault} from "../src/orders/Vault.sol";
+import {FulfillmentRouter} from "../src/orders/FulfillmentRouter.sol";
 import {MockToken} from "../test/utils/mocks/MockToken.sol";
 
 contract DeployAll is Script {
@@ -44,13 +51,46 @@ contract DeployAll is Script {
         bytes32 ethusdoracleid = vm.envBytes32("ETHUSDORACLEID");
 
         console.log("deployer: %s", cfg.deployer);
-        // console.log("owner: %s", cfg.owner);
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
         // deploy mock USDC with 6 decimals
         cfg.usdb = address(new MockToken("USB Coin - Dinari", "USDB"));
+
+        /// ------------------ asset tokens ------------------
+
+        // deploy transfer restrictor
+        TransferRestrictor transferRestrictor = new TransferRestrictor(cfg.deployer);
+
+        // deploy dShares logic implementation
+        address dShareImplementation = address(new DShare());
+
+        // deploy dShares beacon
+        UpgradeableBeacon dShareBeacon = new UpgradeableBeacon(dShareImplementation, cfg.deployer);
+
+        // deploy wrapped dShares logic implementation
+        address wrappeddShareImplementation = address(new WrappedDShare());
+
+        // deploy wrapped dShares beacon
+        UpgradeableBeacon wrappeddShareBeacon =
+            new UpgradeableBeacon(wrappeddShareImplementation, cfg.deployer);
+
+        // deploy dShare factory
+        address dShareFactoryImplementation = address(new DShareFactory());
+
+        new ERC1967Proxy(
+            dShareFactoryImplementation,
+            abi.encodeCall(
+                DShareFactory.initialize,
+                (
+                    cfg.deployer,
+                    address(dShareBeacon),
+                    address(wrappeddShareBeacon),
+                    address(transferRestrictor)
+                )
+            )
+        );
 
         /// ------------------ order processors ------------------
 
@@ -77,12 +117,6 @@ contract DeployAll is Script {
             )
         );
 
-        // config operator
-        orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator);
-        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator);
-        orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), cfg.operator2);
-        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), cfg.operator2);
-
         // config payment token
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
             perOrderFeeBuy: 1 ether,
@@ -107,6 +141,17 @@ contract DeployAll is Script {
 
         orderProcessor.grantRole(orderProcessor.FORWARDER_ROLE(), address(forwarder));
         directBuyIssuer.grantRole(directBuyIssuer.FORWARDER_ROLE(), address(forwarder));
+
+        /// ------------------ vault ------------------
+
+        FulfillmentRouter fulfillmentRouter = new FulfillmentRouter(cfg.deployer);
+        orderProcessor.grantRole(orderProcessor.OPERATOR_ROLE(), address(fulfillmentRouter));
+        directBuyIssuer.grantRole(directBuyIssuer.OPERATOR_ROLE(), address(fulfillmentRouter));
+        fulfillmentRouter.grantRole(fulfillmentRouter.OPERATOR_ROLE(), cfg.operator);
+        fulfillmentRouter.grantRole(fulfillmentRouter.OPERATOR_ROLE(), cfg.operator2);
+
+        Vault vault = new Vault(cfg.deployer);
+        vault.grantRole(vault.OPERATOR_ROLE(), address(fulfillmentRouter));
 
         /// ------------------ dividend distributor ------------------
 
