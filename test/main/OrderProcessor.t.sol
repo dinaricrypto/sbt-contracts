@@ -9,7 +9,7 @@ import "../utils/SigUtils.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
@@ -67,7 +67,8 @@ contract OrderProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
         tokenLockCheck.setAsDShare(address(token));
 
         OrderProcessor issuerImpl = new OrderProcessor();

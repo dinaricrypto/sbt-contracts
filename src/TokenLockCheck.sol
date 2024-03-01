@@ -21,10 +21,7 @@ contract TokenLockCheck is ITokenLockCheck, Ownable {
 
     mapping(address => bytes4) public callSelector;
 
-    constructor(address usdc, address usdt) Ownable(msg.sender) {
-        if (usdc != address(0)) setCallSelector(usdc, IERC20Usdc.isBlacklisted.selector);
-        if (usdt != address(0)) setCallSelector(usdt, IERC20Usdt.isBlackListed.selector);
-    }
+    constructor() Ownable(msg.sender) {}
 
     function setCallSelector(address token, bytes4 selector) public onlyOwner {
         // if token is a contract, it must implement the selector

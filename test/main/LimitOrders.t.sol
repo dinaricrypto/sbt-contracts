@@ -7,7 +7,7 @@ import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import "../utils/mocks/MockDShareFactory.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -52,7 +52,9 @@ contract LimitOrderTest is Test {
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdt.isBlackListed.selector);
 
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(

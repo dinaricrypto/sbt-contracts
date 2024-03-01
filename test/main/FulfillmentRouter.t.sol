@@ -7,7 +7,7 @@ import "../utils/mocks/MockDShareFactory.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {OrderProcessor, IOrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
@@ -58,7 +58,8 @@ contract FulfillmentRouterTest is Test {
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
         tokenLockCheck.setAsDShare(address(token));
 
         OrderProcessor issuerImpl = new OrderProcessor();

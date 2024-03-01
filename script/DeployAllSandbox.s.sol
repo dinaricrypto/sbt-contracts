@@ -122,7 +122,7 @@ contract DeployAllSandbox is Script {
         /// ------------------ order processors ------------------
 
         // deploy blacklist prechecker
-        deployments.tokenLockCheck = new TokenLockCheck(address(0), address(0));
+        deployments.tokenLockCheck = new TokenLockCheck();
         // add USDC
         deployments.tokenLockCheck.setCallSelector(address(deployments.usdc), deployments.usdc.isBlacklisted.selector);
         // add USDT.e

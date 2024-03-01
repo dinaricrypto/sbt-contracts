@@ -17,6 +17,8 @@ contract ForwarderPyth is Forwarder {
 
     /// ------------------------------- Storage -------------------------------
 
+    bytes32 private constant ONE = bytes32(uint256(1));
+
     IPyth public pyth;
 
     bytes32 public ethUsdOracleId;
@@ -72,15 +74,22 @@ contract ForwarderPyth is Forwarder {
 
     function _getPaymentPriceInWei(address paymentToken) internal view override returns (uint256) {
         bytes32 _oracle = paymentOracleId[paymentToken];
-        PythStructs.Price memory paymentPriceInfo = pyth.getPriceUnsafe(_oracle);
-        int256 paymentPrice = paymentPriceInfo.price;
+        int256 paymentPrice;
+        int32 paymentExpo;
+        if (_oracle == ONE) {
+            (paymentPrice, paymentExpo) = (100000000, -8);
+        } else {
+            PythStructs.Price memory paymentPriceInfo = pyth.getPriceUnsafe(_oracle);
+            paymentPrice = paymentPriceInfo.price;
+            paymentExpo = paymentPriceInfo.expo;
+        }
         PythStructs.Price memory ethUSDPriceInfo = pyth.getPriceUnsafe(ethUsdOracleId);
         int256 ethUSDPrice = ethUSDPriceInfo.price;
         // adjust values to align decimals
-        if (paymentPriceInfo.expo > ethUSDPriceInfo.expo) {
-            ethUSDPrice = ethUSDPrice * int256(10 ** uint32(paymentPriceInfo.expo - ethUSDPriceInfo.expo));
-        } else if (paymentPriceInfo.expo < ethUSDPriceInfo.expo) {
-            paymentPrice = paymentPrice * int256(10 ** uint32(ethUSDPriceInfo.expo - paymentPriceInfo.expo));
+        if (paymentExpo > ethUSDPriceInfo.expo) {
+            ethUSDPrice = ethUSDPrice * int256(10 ** uint32(paymentExpo - ethUSDPriceInfo.expo));
+        } else if (paymentExpo < ethUSDPriceInfo.expo) {
+            paymentPrice = paymentPrice * int256(10 ** uint32(ethUSDPriceInfo.expo - paymentExpo));
         }
         // compute payment price in wei
         return PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
