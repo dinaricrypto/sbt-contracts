@@ -39,8 +39,6 @@ abstract contract Forwarder is IForwarder, Ownable, Nonces, Multicall, SelfPermi
     event FeeUpdated(uint256 feeBps);
     event CancellationGasCostUpdated(uint256 gas);
     event SellOrderGasCostUpdated(uint256 gas);
-    event EthUsdOracleSet(address indexed oracle);
-    event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
     event UserOperationSponsored(
         address indexed user,
         address indexed paymentToken,

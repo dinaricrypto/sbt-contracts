@@ -8,6 +8,11 @@ import "prb-math/Common.sol" as PrbMath;
 /// @notice Forwarder using chainlink oracles
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/forwarder/ForwarderLink.sol)
 contract ForwarderLink is Forwarder {
+    /// ------------------------------- Types -------------------------------
+
+    event EthUsdOracleSet(address indexed oracle);
+    event PaymentOracleSet(address indexed paymentToken, address indexed oracle);
+
     /// ------------------------------- Storage -------------------------------
 
     address public ethUsdOracle;
@@ -64,7 +69,6 @@ contract ForwarderLink is Forwarder {
             paymentPrice = paymentPrice * int256(10 ** (ethUSDPriceDecimals - paymentPriceDecimals));
         }
         // compute payment price in wei
-        uint256 paymentPriceInWei = PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
-        return uint256(paymentPriceInWei);
+        return PrbMath.mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
     }
 }
