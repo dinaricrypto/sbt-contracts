@@ -8,6 +8,8 @@ library FeeLib {
     // 1_000_000 == 100%
     uint24 private constant _ONEHUNDRED_PERCENT = 1_000_000;
 
+    uint64 private constant _FLAT_FEE_DECIMALS = 8;
+
     /// @dev Fee is too large
     error FeeTooLarge();
     /// @dev Decimals are too large
@@ -25,9 +27,13 @@ library FeeLib {
     function flatFeeForOrder(address token, uint64 perOrderFee) internal view returns (uint256 flatFee) {
         uint8 decimals = IERC20Metadata(token).decimals();
         if (decimals > 18) revert DecimalsTooLarge();
-        flatFee = perOrderFee;
-        if (flatFee != 0 && decimals < 18) {
-            flatFee /= 10 ** (18 - decimals);
+        if (perOrderFee == 0) return 0;
+        if (decimals > _FLAT_FEE_DECIMALS) {
+            flatFee = perOrderFee * 10 ** (decimals - _FLAT_FEE_DECIMALS);
+        } else if (decimals < _FLAT_FEE_DECIMALS) {
+            flatFee = perOrderFee / 10 ** (_FLAT_FEE_DECIMALS - decimals);
+        } else {
+            flatFee = perOrderFee;
         }
     }
 
