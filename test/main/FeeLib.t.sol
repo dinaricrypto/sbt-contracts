@@ -14,7 +14,7 @@ contract FeeLibTest is Test {
 
     function testUSDCFlatFee() public {
         // 1 USDC flat fee
-        uint256 flatFee = wrapFlatFeeForOrder(address(usdc), 1 ether);
+        uint256 flatFee = wrapFlatFeeForOrder(address(usdc), 1e8);
         assertEq(flatFee, 1e6);
     }
 

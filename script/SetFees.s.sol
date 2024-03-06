@@ -17,9 +17,9 @@ contract SetFees is Script {
         address usdt = vm.envAddress("USDT");
 
         OrderProcessor.FeeRates memory fees = OrderProcessor.FeeRates({
-            // perOrderFeeBuy: 1 ether,
+            // perOrderFeeBuy: 1e8,
             // percentageFeeRateBuy: 5_000,
-            // perOrderFeeSell: 1 ether,
+            // perOrderFeeSell: 1e8,
             // percentageFeeRateSell: 5_000
             perOrderFeeBuy: 0,
             percentageFeeRateBuy: 0,
