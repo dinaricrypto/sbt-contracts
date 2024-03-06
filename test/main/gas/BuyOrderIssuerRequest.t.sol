@@ -71,9 +71,9 @@ contract BuyProcessorRequestTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
+            perOrderFeeBuy: 1e8,
             percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
+            perOrderFeeSell: 1e8,
             percentageFeeRateSell: 5_000
         });
         issuer.setDefaultFees(address(paymentToken), defaultFees);
