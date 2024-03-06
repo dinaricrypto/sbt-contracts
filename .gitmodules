@@ -25,3 +25,6 @@
 [submodule "lib/pyth-sdk-solidity"]
 	path = lib/pyth-sdk-solidity
 	url = https://github.com/pyth-network/pyth-sdk-solidity
+[submodule "lib/interchain-token-service"]
+	path = lib/interchain-token-service
+	url = https://github.com/axelarnetwork/interchain-token-service
