@@ -113,9 +113,9 @@ contract DeployAll is Script {
 
         // // config payment token
         // OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-        //     perOrderFeeBuy: 1 ether,
+        //     perOrderFeeBuy: 1e8,
         //     percentageFeeRateBuy: 0,
-        //     perOrderFeeSell: 1 ether,
+        //     perOrderFeeSell: 1e8,
         //     percentageFeeRateSell: 5_000
         // });
 

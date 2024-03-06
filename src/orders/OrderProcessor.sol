@@ -79,9 +79,13 @@ contract OrderProcessor is
     }
 
     struct FeeRates {
+        // 8 decimals
         uint64 perOrderFeeBuy;
+        // hundreths of a bip
         uint24 percentageFeeRateBuy;
+        // 8 decimals
         uint64 perOrderFeeSell;
+        // hundreths of a bip
         uint24 percentageFeeRateSell;
     }
 
