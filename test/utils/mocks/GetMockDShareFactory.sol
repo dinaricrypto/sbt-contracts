@@ -9,7 +9,7 @@ import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/U
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 library GetMockDShareFactory {
-    function getMockDShareFactory() internal returns (DShareFactory, DShare, WrappedDShare) {
+    function getMockDShareFactory(address owner) internal returns (DShareFactory, DShare, WrappedDShare) {
         DShare dShareImplementation = new DShare();
         WrappedDShare wrappedDShareImplementation = new WrappedDShare();
 
@@ -21,10 +21,10 @@ library GetMockDShareFactory {
                     abi.encodeCall(
                         DShareFactory.initialize,
                         (
-                            msg.sender,
-                            address(new UpgradeableBeacon(address(dShareImplementation), msg.sender)),
-                            address(new UpgradeableBeacon(address(wrappedDShareImplementation), msg.sender)),
-                            address(new TransferRestrictor(msg.sender))
+                            owner,
+                            address(new UpgradeableBeacon(address(dShareImplementation), owner)),
+                            address(new UpgradeableBeacon(address(wrappedDShareImplementation), owner)),
+                            address(new TransferRestrictor(owner))
                         )
                     )
                 )
@@ -34,8 +34,11 @@ library GetMockDShareFactory {
         return (dShareFactory, dShareImplementation, wrappedDShareImplementation);
     }
 
-    function deployDShare(DShareFactory factory, string memory name, string memory symbol) internal returns (DShare) {
-        (address dshare,) = factory.createDShare(msg.sender, name, symbol, "", "");
+    function deployDShare(DShareFactory factory, address owner, string memory name, string memory symbol)
+        internal
+        returns (DShare)
+    {
+        (address dshare,) = factory.createDShare(owner, name, symbol, "", "");
         return DShare(dshare);
     }
 }

@@ -50,8 +50,8 @@ contract BuyProcessorRequestTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory();
-        token = tokenFactory.deployDShare("Dinari Token", "dTKN");
+        (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
+        token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
