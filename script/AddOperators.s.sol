@@ -19,7 +19,7 @@ contract AddOperatorsScript is Script {
 
         // assumes all issuers have the same role
         for (uint256 i = 0; i < operators.length; i++) {
-            issuer.grantRole(issuer.OPERATOR_ROLE(), operators[i]);
+            issuer.setOperator(operators[i], true);
         }
 
         vm.stopBroadcast();

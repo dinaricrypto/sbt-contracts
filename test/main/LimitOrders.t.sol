@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
-import "../utils/mocks/MockDShareFactory.sol";
+import "../utils/mocks/GetMockDShareFactory.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
@@ -13,7 +13,9 @@ import {FeeLib} from "../../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LimitOrderTest is Test {
-    MockDShareFactory tokenFactory;
+    using GetMockDShareFactory for DShareFactory;
+
+    DShareFactory tokenFactory;
     DShare token;
     TokenLockCheck tokenLockCheck;
     OrderProcessor issuer;
@@ -37,8 +39,8 @@ contract LimitOrderTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockDShareFactory();
-        token = tokenFactory.deploy("Dinari Token", "dTKN");
+        (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory();
+        token = tokenFactory.deployDShare("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
@@ -48,7 +50,9 @@ contract LimitOrderTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenLockCheck, address(1)))
+                    abi.encodeCall(
+                        OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, tokenLockCheck, address(1))
+                    )
                 )
             )
         );
@@ -58,8 +62,7 @@ contract LimitOrderTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.setOperator(operator, true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         vm.stopPrank();

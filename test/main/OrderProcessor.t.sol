@@ -4,7 +4,7 @@ pragma solidity 0.8.22;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockDShareFactory.sol";
+import "../utils/mocks/GetMockDShareFactory.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
@@ -12,10 +12,12 @@ import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract OrderProcessorTest is Test {
+    using GetMockDShareFactory for DShareFactory;
+
     event TreasurySet(address indexed treasury);
     event FeesSet(
         address indexed account,
@@ -52,7 +54,7 @@ contract OrderProcessorTest is Test {
         uint24 percentageFeeRateSell;
     }
 
-    MockDShareFactory tokenFactory;
+    DShareFactory tokenFactory;
     DShare token;
     OrderProcessor issuer;
     MockToken paymentToken;
@@ -78,8 +80,8 @@ contract OrderProcessorTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockDShareFactory();
-        token = tokenFactory.deploy("Dinari Token", "dTKN");
+        (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory();
+        token = tokenFactory.deployDShare("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
@@ -91,7 +93,9 @@ contract OrderProcessorTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenLockCheck, address(1)))
+                    abi.encodeCall(
+                        OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, tokenLockCheck, address(1))
+                    )
                 )
             )
         );
@@ -101,8 +105,7 @@ contract OrderProcessorTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.setOperator(operator, true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
@@ -133,30 +136,41 @@ contract OrderProcessorTest is Test {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, address(0), operator, tokenLockCheck, address(1)))
+            abi.encodeCall(
+                OrderProcessor.initialize, (admin, address(0), operator, tokenFactory, tokenLockCheck, address(1))
+            )
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, address(0), tokenLockCheck, address(1)))
+            abi.encodeCall(
+                OrderProcessor.initialize, (admin, treasury, address(0), tokenFactory, tokenLockCheck, address(1))
+            )
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenLockCheck, address(0)))
+            abi.encodeCall(
+                OrderProcessor.initialize,
+                (admin, treasury, operator, DShareFactory(address(0)), tokenLockCheck, address(1))
+            )
+        );
+
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(issuerImpl),
+            abi.encodeCall(
+                OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, tokenLockCheck, address(0))
+            )
         );
     }
 
     function testUpgrade() public {
         OrderProcessor issuerImpl = new OrderProcessor();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         issuer.upgradeToAndCall(address(issuerImpl), "");
 
         vm.prank(admin);
@@ -407,7 +421,7 @@ contract OrderProcessorTest is Test {
     }
 
     function testRequestOrderUnsupportedAssetReverts(bool sell) public {
-        address tryAssetToken = address(tokenFactory.deploy("Dinari Token", "dTKN"));
+        address tryAssetToken = address(tokenFactory.deployDShare("Dinari Token", "dTKN"));
 
         IOrderProcessor.Order memory order = getDummyOrder(sell);
         order.assetToken = tryAssetToken;

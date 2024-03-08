@@ -142,6 +142,7 @@ contract DeployAllSandbox is Script {
                             cfg.deployer,
                             cfg.treasury,
                             address(deployments.vault),
+                            deployments.dShareFactory,
                             deployments.tokenLockCheck,
                             cfg.ethusdoracle
                         )
@@ -151,7 +152,7 @@ contract DeployAllSandbox is Script {
         );
 
         // config operator
-        deployments.orderProcessor.grantRole(deployments.orderProcessor.OPERATOR_ROLE(), cfg.operator);
+        deployments.orderProcessor.setOperator(cfg.operator, true);
 
         // config payment token
         deployments.orderProcessor.setFees(

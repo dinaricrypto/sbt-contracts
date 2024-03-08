@@ -5,8 +5,7 @@ import {
     UUPSUpgradeable,
     Initializable
 } from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
 import {EIP712Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/cryptography/EIP712Upgradeable.sol";
 import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -19,13 +18,14 @@ import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {IDShare} from "../IDShare.sol";
 import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {FeeLib} from "../common/FeeLib.sol";
+import {IDShareFactory} from "../IDShareFactory.sol";
 
 /// @notice Core contract managing orders for dShare tokens
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
 contract OrderProcessor is
     Initializable,
     UUPSUpgradeable,
-    AccessControlDefaultAdminRulesUpgradeable,
+    Ownable2StepUpgradeable,
     EIP712Upgradeable,
     MulticallUpgradeable,
     SelfPermit,
@@ -84,6 +84,7 @@ contract OrderProcessor is
     error LimitPriceNotSet();
     error OrderFillBelowLimitPrice();
     error OrderFillAboveLimitPrice();
+    error NotOperator();
     error NotRequester();
 
     /// @dev Emitted when `treasury` is set
@@ -109,12 +110,6 @@ contract OrderProcessor is
 
     /// ------------------ Constants ------------------ ///
 
-    /// @notice Operator role for filling and cancelling orders
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
-    /// @notice Asset token role for whitelisting asset tokens
-    /// @dev Tokens with decimals > 18 are not supported by current implementation
-    bytes32 public constant ASSETTOKEN_ROLE = keccak256("ASSETTOKEN_ROLE");
-
     bytes32 private constant ORDER_TYPEHASH = keccak256(
         "Order(address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
@@ -129,6 +124,8 @@ contract OrderProcessor is
         address _treasury;
         // Address of payment vault
         address _vault;
+        // DShareFactory contract
+        IDShareFactory _dShareFactory;
         // Transfer restrictor checker
         ITokenLockCheck _tokenLockCheck;
         // Are orders paused?
@@ -137,6 +134,8 @@ contract OrderProcessor is
         uint256 _numOpenOrders;
         // Next order id
         uint256 _nextOrderId;
+        // Operators for filling and cancelling orders
+        mapping(address => bool) _operators;
         // Active order state
         mapping(uint256 => OrderState) _orders;
         // Status of order
@@ -170,6 +169,7 @@ contract OrderProcessor is
     /// @param _owner Owner of contract
     /// @param _treasury Address to receive fees
     /// @param _vault Address of vault contract
+    /// @param _dShareFactory DShareFactory contract
     /// @param _tokenLockCheck Token lock check contract
     /// @param _ethUsdOracle ETH USD price oracle
     /// @dev Treasury cannot be zero address
@@ -177,22 +177,25 @@ contract OrderProcessor is
         address _owner,
         address _treasury,
         address _vault,
+        IDShareFactory _dShareFactory,
         ITokenLockCheck _tokenLockCheck,
         address _ethUsdOracle
     ) public virtual initializer {
-        __AccessControlDefaultAdminRules_init(0, _owner);
+        __Ownable_init(_owner);
         __EIP712_init("OrderProcessor", "1");
         __Multicall_init();
 
         // Don't send fees to zero address
         if (_treasury == address(0)) revert ZeroAddress();
         if (_vault == address(0)) revert ZeroAddress();
+        if (address(_dShareFactory) == address(0)) revert ZeroAddress();
         if (_ethUsdOracle == address(0)) revert ZeroAddress();
 
         // Initialize
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._treasury = _treasury;
         $._vault = _vault;
+        $._dShareFactory = _dShareFactory;
         $._tokenLockCheck = _tokenLockCheck;
         $._ethUsdOracle = _ethUsdOracle;
     }
@@ -202,7 +205,7 @@ contract OrderProcessor is
         _disableInitializers();
     }
 
-    function _authorizeUpgrade(address) internal override onlyRole(DEFAULT_ADMIN_ROLE) {}
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// ------------------ Getters ------------------ ///
 
@@ -228,6 +231,11 @@ contract OrderProcessor is
     function ordersPaused() external view returns (bool) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._ordersPaused;
+    }
+
+    function isOperator(address account) external view returns (bool) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._operators[account];
     }
 
     /// @inheritdoc IOrderProcessor
@@ -337,11 +345,17 @@ contract OrderProcessor is
         _;
     }
 
+    modifier onlyOperator() {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        if (!$._operators[msg.sender]) revert NotOperator();
+        _;
+    }
+
     /// @notice Set treasury address
     /// @param account Address to receive fees
     /// @dev Only callable by admin
     /// Treasury cannot be zero address
-    function setTreasury(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTreasury(address account) external onlyOwner {
         // Don't send fees to zero address
         if (account == address(0)) revert ZeroAddress();
 
@@ -354,7 +368,7 @@ contract OrderProcessor is
     /// @param account Address of vault contract
     /// @dev Only callable by admin
     /// Vault cannot be zero address
-    function setVault(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setVault(address account) external onlyOwner {
         // Don't send tokens to zero address
         if (account == address(0)) revert ZeroAddress();
 
@@ -365,7 +379,7 @@ contract OrderProcessor is
     /// @notice Pause/unpause orders
     /// @param pause Pause orders if true, unpause if false
     /// @dev Only callable by admin
-    function setOrdersPaused(bool pause) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setOrdersPaused(bool pause) external onlyOwner {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._ordersPaused = pause;
         emit OrdersPaused(pause);
@@ -374,10 +388,19 @@ contract OrderProcessor is
     /// @notice Set token lock check contract
     /// @param _tokenLockCheck Token lock check contract
     /// @dev Only callable by admin
-    function setTokenLockCheck(ITokenLockCheck _tokenLockCheck) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setTokenLockCheck(ITokenLockCheck _tokenLockCheck) external onlyOwner {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._tokenLockCheck = _tokenLockCheck;
         emit TokenLockCheckSet(_tokenLockCheck);
+    }
+
+    /// @notice Set operator
+    /// @param account Operator address
+    /// @param status Operator status
+    /// @dev Only callable by admin
+    function setOperator(address account, bool status) external onlyOwner {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        $._operators[account] = status;
     }
 
     /// @notice Set unique fee rates for requester and payment token
@@ -389,7 +412,7 @@ contract OrderProcessor is
         uint24 percentageFeeRateBuy,
         uint64 perOrderFeeSell,
         uint24 percentageFeeRateSell
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyOwner {
         FeeLib.checkPercentageFeeRate(percentageFeeRateBuy);
         FeeLib.checkPercentageFeeRate(percentageFeeRateSell);
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
@@ -413,7 +436,7 @@ contract OrderProcessor is
     /// @param requester Requester address
     /// @param paymentToken Payment token
     /// @dev Only callable by admin
-    function resetFees(address requester, address paymentToken) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function resetFees(address requester, address paymentToken) external onlyOwner {
         if (requester == address(0)) revert ZeroAddress();
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
@@ -425,7 +448,7 @@ contract OrderProcessor is
     /// @param token Asset token
     /// @param decimals Max order decimals
     /// @dev Only callable by admin
-    function setMaxOrderDecimals(address token, int8 decimals) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setMaxOrderDecimals(address token, int8 decimals) external onlyOwner {
         uint8 tokenDecimals = IERC20Metadata(token).decimals();
         if (decimals > int8(tokenDecimals)) revert InvalidPrecision();
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
@@ -433,13 +456,13 @@ contract OrderProcessor is
         emit MaxOrderDecimalsSet(token, decimals);
     }
 
-    function setEthUsdOracle(address _ethUsdOracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setEthUsdOracle(address _ethUsdOracle) external onlyOwner {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._ethUsdOracle = _ethUsdOracle;
         emit EthUsdOracleSet(_ethUsdOracle);
     }
 
-    function setPaymentTokenOracle(address paymentToken, address oracle) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setPaymentTokenOracle(address paymentToken, address oracle) external onlyOwner {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._paymentTokenOracle[paymentToken] = oracle;
         emit PaymentTokenOracleSet(paymentToken, oracle);
@@ -451,7 +474,7 @@ contract OrderProcessor is
     function createOrderWithSignature(Order calldata order, Signature calldata signature)
         external
         whenOrdersNotPaused
-        onlyRole(OPERATOR_ROLE)
+        onlyOperator
         returns (uint256 id)
     {
         // Start gas measurement
@@ -520,7 +543,7 @@ contract OrderProcessor is
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
         // Check for whitelisted tokens
-        if (!hasRole(ASSETTOKEN_ROLE, order.assetToken)) revert UnsupportedToken(order.assetToken);
+        if ($._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
         if (!$._accountFees[address(0)][order.paymentToken].set) revert UnsupportedToken(order.paymentToken);
 
         // Precision checked for assetTokenQuantity, market buys excluded
@@ -642,7 +665,7 @@ contract OrderProcessor is
     // slither-disable-next-line cyclomatic-complexity
     function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount)
         external
-        onlyRole(OPERATOR_ROLE)
+        onlyOperator
     {
         // ------------------ Checks ------------------ //
 
@@ -785,7 +808,7 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function cancelOrder(uint256 id, Order calldata order, string calldata reason) external onlyRole(OPERATOR_ROLE) {
+    function cancelOrder(uint256 id, Order calldata order, string calldata reason) external onlyOperator {
         // ------------------ Checks ------------------ //
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();

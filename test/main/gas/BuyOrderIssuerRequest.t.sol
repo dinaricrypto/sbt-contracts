@@ -5,7 +5,7 @@ import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../../utils/mocks/MockToken.sol";
-import "../../utils/mocks/MockDShareFactory.sol";
+import "../../utils/mocks/GetMockDShareFactory.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/OrderProcessor.sol";
 import "../../../src/orders/IOrderProcessor.sol";
@@ -17,8 +17,9 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
+    using GetMockDShareFactory for DShareFactory;
 
-    MockDShareFactory tokenFactory;
+    DShareFactory tokenFactory;
     DShare token;
     TokenLockCheck tokenLockCheck;
     OrderProcessor issuer;
@@ -49,8 +50,8 @@ contract BuyProcessorRequestTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockDShareFactory();
-        token = tokenFactory.deploy("Dinari Token", "dTKN");
+        (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory();
+        token = tokenFactory.deployDShare("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
@@ -61,7 +62,9 @@ contract BuyProcessorRequestTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(issuerImpl.initialize, (admin, treasury, operator, tokenLockCheck, address(1)))
+                    abi.encodeCall(
+                        issuerImpl.initialize, (admin, treasury, operator, tokenFactory, tokenLockCheck, address(1))
+                    )
                 )
             )
         );
@@ -70,8 +73,7 @@ contract BuyProcessorRequestTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.setOperator(operator, true);
 
         paymentToken.mint(user, type(uint256).max);
 
