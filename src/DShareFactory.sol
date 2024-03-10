@@ -68,6 +68,7 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
     function initializeV2() external reinitializer(2) {
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         for (uint256 i = 0; i < $._wrappedDShares.length(); i++) {
+            // slither-disable-next-line unused-return,calls-loop
             $._dShares.add(WrappedDShare($._wrappedDShares.at(i)).asset());
         }
         assert($._dShares.length() == $._wrappedDShares.length());
