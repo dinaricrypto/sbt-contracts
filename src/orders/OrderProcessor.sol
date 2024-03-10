@@ -543,7 +543,7 @@ contract OrderProcessor is
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
         // Check for whitelisted tokens
-        if ($._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
+        if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
         if (!$._accountFees[address(0)][order.paymentToken].set) revert UnsupportedToken(order.paymentToken);
 
         // Precision checked for assetTokenQuantity, market buys excluded

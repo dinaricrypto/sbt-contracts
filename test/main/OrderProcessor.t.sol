@@ -421,7 +421,7 @@ contract OrderProcessorTest is Test {
     }
 
     function testRequestOrderUnsupportedAssetReverts(bool sell) public {
-        address tryAssetToken = address(tokenFactory.deployDShare(admin, "Dinari Token", "dTKN"));
+        address tryAssetToken = address(new MockToken("Asset", "X"));
 
         IOrderProcessor.Order memory order = getDummyOrder(sell);
         order.assetToken = tryAssetToken;
