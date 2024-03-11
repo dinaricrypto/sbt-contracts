@@ -6,19 +6,21 @@ import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockDShareFactory.sol";
+import "../utils/mocks/GetMockDShareFactory.sol";
 import "../utils/OrderSigUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
-import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 
 contract OrderProcessorSignedTest is Test {
+    using GetMockDShareFactory for DShareFactory;
+
     // TODO: add order fill with vault
     // TODO: test fill sells
     event OrderCreated(uint256 indexed id, address indexed recipient);
@@ -31,7 +33,7 @@ contract OrderProcessorSignedTest is Test {
     OrderProcessor public issuerImpl;
     OrderProcessor public issuer;
     MockToken public paymentToken;
-    MockDShareFactory public tokenFactory;
+    DShareFactory public tokenFactory;
     DShare public token;
 
     OrderSigUtils public orderSigUtils;
@@ -66,8 +68,8 @@ contract OrderProcessorSignedTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockDShareFactory();
-        token = tokenFactory.deploy("Dinari Token", "dTKN");
+        (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
+        token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         vm.stopPrank();
@@ -78,7 +80,8 @@ contract OrderProcessorSignedTest is Test {
                 new ERC1967Proxy(
                     address(issuerImpl),
                     abi.encodeCall(
-                        OrderProcessor.initialize, (admin, treasury, operator, tokenLockCheck, ethUsdPriceOracle)
+                        OrderProcessor.initialize,
+                        (admin, treasury, operator, tokenFactory, tokenLockCheck, ethUsdPriceOracle)
                     )
                 )
             )
@@ -90,8 +93,7 @@ contract OrderProcessorSignedTest is Test {
 
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setPaymentTokenOracle(address(paymentToken), usdcPriceOracle);
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.setOperator(operator, true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
         vm.stopPrank();
 
@@ -116,11 +118,7 @@ contract OrderProcessorSignedTest is Test {
     }
 
     function testUpdateEthOracle(address _oracle) public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         issuer.setEthUsdOracle(_oracle);
 
         vm.expectEmit(true, true, true, true);
@@ -131,11 +129,7 @@ contract OrderProcessorSignedTest is Test {
     }
 
     function testUpdateOracle(address _paymentToken, address _oracle) public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         issuer.setPaymentTokenOracle(_paymentToken, _oracle);
 
         vm.expectEmit(true, true, true, true);
