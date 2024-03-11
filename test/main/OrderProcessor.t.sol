@@ -31,6 +31,7 @@ contract OrderProcessorTest is Test {
     event OrdersPaused(bool paused);
     event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
+    event OperatorSet(address indexed account, bool set);
 
     event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
     event OrderFill(
@@ -182,6 +183,9 @@ contract OrderProcessorTest is Test {
         vm.prank(admin);
         tokenLockCheck.setAsDShare(address(token));
 
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        issuer.setTreasury(account);
+
         vm.expectEmit(true, true, true, true);
         emit TreasurySet(account);
         vm.prank(admin);
@@ -209,6 +213,9 @@ contract OrderProcessorTest is Test {
 
     function testSetDefaultFees(address testToken, uint64 perOrderFee, uint24 percentageFee, uint256 value) public {
         vm.assume(percentageFee < 1_000_000);
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        issuer.setFees(address(0), testToken, perOrderFee, percentageFee, perOrderFee, percentageFee);
 
         vm.expectEmit(true, true, true, true);
         emit FeesSet(address(0), testToken, perOrderFee, percentageFee, perOrderFee, percentageFee);
@@ -288,6 +295,9 @@ contract OrderProcessorTest is Test {
     }
 
     function testSetTokenLockCheck(ITokenLockCheck _tokenLockCheck) public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        issuer.setTokenLockCheck(_tokenLockCheck);
+
         vm.expectEmit(true, true, true, true);
         emit TokenLockCheckSet(_tokenLockCheck);
         vm.prank(admin);
@@ -296,11 +306,25 @@ contract OrderProcessorTest is Test {
     }
 
     function testSetOrdersPaused(bool pause) public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        issuer.setOrdersPaused(pause);
+
         vm.expectEmit(true, true, true, true);
         emit OrdersPaused(pause);
         vm.prank(admin);
         issuer.setOrdersPaused(pause);
         assertEq(issuer.ordersPaused(), pause);
+    }
+
+    function testSetOperator(address account, bool set) public {
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        issuer.setOperator(account, set);
+
+        vm.expectEmit(true, true, true, true);
+        emit OperatorSet(account, set);
+        vm.prank(admin);
+        issuer.setOperator(account, set);
+        assertEq(issuer.isOperator(account), set);
     }
 
     function testRequestOrderZeroAmountReverts(bool sell) public {

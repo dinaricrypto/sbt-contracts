@@ -107,6 +107,7 @@ contract OrderProcessor is
     event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
     event EthUsdOracleSet(address indexed ethUsdOracle);
     event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
+    event OperatorSet(address indexed account, bool status);
 
     /// ------------------ Constants ------------------ ///
 
@@ -401,6 +402,7 @@ contract OrderProcessor is
     function setOperator(address account, bool status) external onlyOwner {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._operators[account] = status;
+        emit OperatorSet(account, status);
     }
 
     /// @notice Set unique fee rates for requester and payment token
