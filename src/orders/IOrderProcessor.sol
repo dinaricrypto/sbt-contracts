@@ -101,9 +101,6 @@ interface IOrderProcessor {
 
     /// ------------------ Getters ------------------ ///
 
-    /// @notice Total number of open orders
-    function numOpenOrders() external view returns (uint256);
-
     /// @notice Next order id to be used
     function nextOrderId() external view returns (uint256);
 

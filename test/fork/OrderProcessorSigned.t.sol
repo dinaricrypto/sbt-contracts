@@ -178,7 +178,6 @@ contract OrderProcessorSignedTest is Test {
 
         assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(orderId), order.paymentTokenQuantity);
-        assertEq(issuer.numOpenOrders(), 1);
 
         assertGt(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
         uint256 gasFee = paymentToken.balanceOf(operator) - operatorBalanceBefore - orderAmount;
@@ -213,7 +212,6 @@ contract OrderProcessorSignedTest is Test {
 
         assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(orderId), order.assetTokenQuantity);
-        assertEq(issuer.numOpenOrders(), 1);
         assertEq(token.balanceOf(user), userBalanceBefore - orderAmount);
     }
 
