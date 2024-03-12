@@ -7,7 +7,6 @@ import "../utils/mocks/GetMockDShareFactory.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {OrderProcessor, IOrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
@@ -34,7 +33,6 @@ contract FulfillmentRouterTest is Test {
     DShare token;
     OrderProcessor issuer;
     MockToken paymentToken;
-    TokenLockCheck tokenLockCheck;
     TransferRestrictor restrictor;
     Vault vault;
     FulfillmentRouter router;
@@ -61,9 +59,6 @@ contract FulfillmentRouterTest is Test {
         token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
-        tokenLockCheck.setAsDShare(address(token));
-
         vault = new Vault(admin);
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
@@ -71,8 +66,7 @@ contract FulfillmentRouterTest is Test {
                 new ERC1967Proxy(
                     address(issuerImpl),
                     abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (admin, treasury, address(vault), tokenFactory, tokenLockCheck, address(1))
+                        OrderProcessor.initialize, (admin, treasury, address(vault), tokenFactory, address(1))
                     )
                 )
             )
@@ -83,6 +77,7 @@ contract FulfillmentRouterTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
+        issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setOperator(address(router), true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
@@ -93,6 +88,7 @@ contract FulfillmentRouterTest is Test {
         vm.stopPrank();
 
         dummyOrder = IOrderProcessor.Order({
+            salt: 0,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),

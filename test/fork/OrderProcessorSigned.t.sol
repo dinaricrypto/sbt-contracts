@@ -2,7 +2,6 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../utils/mocks/MockToken.sol";
@@ -40,7 +39,6 @@ contract OrderProcessorSignedTest is Test {
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
-    TokenLockCheck tokenLockCheck;
 
     uint24 percentageFeeRate;
 
@@ -58,9 +56,6 @@ contract OrderProcessorSignedTest is Test {
 
     uint256 constant SELL_GAS_COST = 1000000;
 
-    bytes32 private constant ORDER_REQUEST_TYPEHASH =
-        keccak256("OrderRequest(bytes32 orderHash,uint256 deadline,uint256 nonce)");
-
     function setUp() public {
         userPrivateKey = 0x1;
         adminPrivateKey = 0x4;
@@ -71,7 +66,6 @@ contract OrderProcessorSignedTest is Test {
         (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
         token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         vm.stopPrank();
 
         issuerImpl = new OrderProcessor();
@@ -80,8 +74,7 @@ contract OrderProcessorSignedTest is Test {
                 new ERC1967Proxy(
                     address(issuerImpl),
                     abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (admin, treasury, operator, tokenFactory, tokenLockCheck, ethUsdPriceOracle)
+                        OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, ethUsdPriceOracle)
                     )
                 )
             )
@@ -91,6 +84,7 @@ contract OrderProcessorSignedTest is Test {
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
+        issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setPaymentTokenOracle(address(paymentToken), usdcPriceOracle);
         issuer.setOperator(operator, true);
@@ -105,6 +99,7 @@ contract OrderProcessorSignedTest is Test {
         dummyOrderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
+            salt: 0,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -156,7 +151,6 @@ contract OrderProcessorSignedTest is Test {
         assertGt(paymentTokenPriceInWei, 0);
 
         uint256 permitNonce = 0;
-        uint256 nonce = 42;
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -164,10 +158,10 @@ contract OrderProcessorSignedTest is Test {
             paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, permitNonce
         );
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
+            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
         );
 
-        uint256 orderId = issuer.nextOrderId();
+        uint256 orderId = issuer.hashOrder(order);
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
 
@@ -178,7 +172,6 @@ contract OrderProcessorSignedTest is Test {
 
         assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(orderId), order.paymentTokenQuantity);
-        assertEq(issuer.numOpenOrders(), 1);
 
         assertGt(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
         uint256 gasFee = paymentToken.balanceOf(operator) - operatorBalanceBefore - orderAmount;
@@ -194,16 +187,15 @@ contract OrderProcessorSignedTest is Test {
         deal(address(token), user, orderAmount);
 
         uint256 permitNonce = 0;
-        uint256 nonce = 42;
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(shareSigUtils, address(token), orderAmount, user, userPrivateKey, permitNonce);
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
+            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
         );
 
-        uint256 orderId = issuer.nextOrderId();
+        uint256 orderId = issuer.hashOrder(order);
         uint256 userBalanceBefore = token.balanceOf(user);
 
         vm.expectEmit(true, true, true, true);
@@ -213,7 +205,6 @@ contract OrderProcessorSignedTest is Test {
 
         assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(orderId), order.assetTokenQuantity);
-        assertEq(issuer.numOpenOrders(), 1);
         assertEq(token.balanceOf(user), userBalanceBefore - orderAmount);
     }
 
@@ -240,15 +231,15 @@ contract OrderProcessorSignedTest is Test {
         );
     }
 
-    function prepareOrderRequestSignature(IOrderProcessor.Order memory order, uint256 nonce, uint256 _privateKey)
+    function prepareOrderRequestSignature(IOrderProcessor.Order memory order, uint256 _privateKey)
         internal
         view
         returns (IOrderProcessor.Signature memory)
     {
         uint256 deadline = block.timestamp + 30 days;
-        bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline, nonce);
+        bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, orderRequestDigest);
 
-        return IOrderProcessor.Signature({deadline: deadline, nonce: nonce, signature: abi.encodePacked(r, s, v)});
+        return IOrderProcessor.Signature({deadline: deadline, signature: abi.encodePacked(r, s, v)});
     }
 }

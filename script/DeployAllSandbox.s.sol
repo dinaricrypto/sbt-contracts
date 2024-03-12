@@ -7,7 +7,6 @@ import {Vault} from "../src/orders/Vault.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {DShare} from "../src/DShare.sol";
 import {WrappedDShare} from "../src/WrappedDShare.sol";
-import {TokenLockCheck} from "../src/TokenLockCheck.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {DShareFactory} from "../src/DShareFactory.sol";
@@ -40,7 +39,6 @@ contract DeployAllSandbox is Script {
         UpgradeableBeacon wrappeddShareBeacon;
         address dShareFactoryImplementation;
         DShareFactory dShareFactory;
-        TokenLockCheck tokenLockCheck;
         OrderProcessor orderProcessorImplementation;
         OrderProcessor orderProcessor;
         DividendDistribution dividendDistributor;
@@ -122,14 +120,6 @@ contract DeployAllSandbox is Script {
 
         // vault
         deployments.vault = new Vault(cfg.deployer);
-        // deploy blacklist prechecker
-        deployments.tokenLockCheck = new TokenLockCheck(address(0), address(0));
-        // add USDC
-        deployments.tokenLockCheck.setCallSelector(address(deployments.usdc), deployments.usdc.isBlacklisted.selector);
-        // add USDT.e
-        deployments.tokenLockCheck.setCallSelector(address(deployments.usdt), deployments.usdt.isBlocked.selector);
-        // add USDC.e
-        deployments.tokenLockCheck.setCallSelector(address(deployments.usdce), deployments.usdce.isBlacklisted.selector);
 
         deployments.orderProcessorImplementation = new OrderProcessor();
         deployments.orderProcessor = OrderProcessor(
@@ -143,7 +133,6 @@ contract DeployAllSandbox is Script {
                             cfg.treasury,
                             address(deployments.vault),
                             deployments.dShareFactory,
-                            deployments.tokenLockCheck,
                             cfg.ethusdoracle
                         )
                     )
@@ -159,16 +148,25 @@ contract DeployAllSandbox is Script {
             address(0), address(deployments.usdc), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdc), cfg.usdcoracle);
+        deployments.orderProcessor.setBlacklistCallSelector(
+            address(deployments.usdc), deployments.usdc.isBlacklisted.selector
+        );
 
         deployments.orderProcessor.setFees(
             address(0), address(deployments.usdt), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdt), cfg.usdtoracle);
+        deployments.orderProcessor.setBlacklistCallSelector(
+            address(deployments.usdt), deployments.usdt.isBlacklisted.selector
+        );
 
         deployments.orderProcessor.setFees(
             address(0), address(deployments.usdce), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdce), cfg.usdcoracle);
+        deployments.orderProcessor.setBlacklistCallSelector(
+            address(deployments.usdce), deployments.usdce.isBlacklisted.selector
+        );
 
         /// ------------------ dividend distributor ------------------
 

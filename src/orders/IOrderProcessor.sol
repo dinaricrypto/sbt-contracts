@@ -39,6 +39,8 @@ interface IOrderProcessor {
     }
 
     struct Order {
+        // Salt added to order hash
+        uint256 salt;
         // Recipient of order fills
         address recipient;
         // Bridged asset token
@@ -60,19 +62,15 @@ interface IOrderProcessor {
     }
 
     struct OrderRequest {
-        // EIP-712 typed data hash of order
-        bytes32 orderHash;
+        // Unique ID and hash of order data used to validate order details stored offchain
+        uint256 id;
         // Signature expiration timestamp
         uint256 deadline;
-        // Order request nonce
-        uint256 nonce;
     }
 
     struct Signature {
         // Signature expiration timestamp
         uint256 deadline;
-        // Signature nonce
-        uint256 nonce;
         // Signature bytes (r, s, v)
         bytes signature;
     }
@@ -101,11 +99,10 @@ interface IOrderProcessor {
 
     /// ------------------ Getters ------------------ ///
 
-    /// @notice Total number of open orders
-    function numOpenOrders() external view returns (uint256);
-
-    /// @notice Next order id to be used
-    function nextOrderId() external view returns (uint256);
+    /// @notice Hash order data for validation and create unique order ID
+    /// @param order Order data
+    /// @dev EIP-712 typed data hash of order
+    function hashOrder(Order calldata order) external pure returns (uint256);
 
     /// @notice Status of a given order
     /// @param id Order ID
@@ -134,6 +131,12 @@ interface IOrderProcessor {
         external
         view
         returns (uint256, uint24);
+
+    /// @notice Check if an account is locked from transferring tokens
+    /// @param token Token to check
+    /// @param account Account to check
+    /// @dev Only used for payment tokens
+    function isTransferLocked(address token, address account) external view returns (bool);
 
     /// ------------------ Actions ------------------ ///
 
