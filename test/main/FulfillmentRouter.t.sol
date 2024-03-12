@@ -93,6 +93,7 @@ contract FulfillmentRouterTest is Test {
         vm.stopPrank();
 
         dummyOrder = IOrderProcessor.Order({
+            salt: 0,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
