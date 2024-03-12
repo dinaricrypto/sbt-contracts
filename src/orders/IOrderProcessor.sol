@@ -39,6 +39,8 @@ interface IOrderProcessor {
     }
 
     struct Order {
+        // Salt added to order hash
+        uint256 salt;
         // Recipient of order fills
         address recipient;
         // Bridged asset token
@@ -60,8 +62,8 @@ interface IOrderProcessor {
     }
 
     struct OrderRequest {
-        // EIP-712 typed data hash of order
-        bytes32 orderHash;
+        // Unique ID and hash of order data used to validate order details stored offchain
+        uint256 id;
         // Signature expiration timestamp
         uint256 deadline;
         // Order request nonce
@@ -104,8 +106,10 @@ interface IOrderProcessor {
     /// @notice Total number of open orders
     function numOpenOrders() external view returns (uint256);
 
-    /// @notice Next order id to be used
-    function nextOrderId() external view returns (uint256);
+    /// @notice Hash order data for validation and create unique order ID
+    /// @param order Order data
+    /// @dev EIP-712 typed data hash of order
+    function hashOrder(Order calldata order) external pure returns (uint256);
 
     /// @notice Status of a given order
     /// @param id Order ID

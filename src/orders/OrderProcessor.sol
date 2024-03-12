@@ -37,8 +37,6 @@ contract OrderProcessor is
 
     // Order state cleared after order is fulfilled or cancelled.
     struct OrderState {
-        // Hash of order data used to validate order details stored offchain
-        bytes32 orderHash;
         // Flat fee at time of order request including applied network fee
         uint256 flatFee;
         // Percentage fee rate at time of order request
@@ -112,11 +110,11 @@ contract OrderProcessor is
     /// ------------------ Constants ------------------ ///
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
+        "Order(uint256 salt,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
     bytes32 private constant ORDER_REQUEST_TYPEHASH =
-        keccak256("OrderRequest(bytes32 orderHash,uint256 deadline,uint256 nonce)");
+        keccak256("OrderRequest(uint256 id,uint256 deadline,uint256 nonce)");
 
     /// ------------------ State ------------------ ///
 
@@ -133,8 +131,6 @@ contract OrderProcessor is
         bool _ordersPaused;
         // Total number of active orders. Onchain enumeration not supported.
         uint256 _numOpenOrders;
-        // Next order id
-        uint256 _nextOrderId;
         // Operators for filling and cancelling orders
         mapping(address => bool) _operators;
         // Active order state
@@ -243,12 +239,6 @@ contract OrderProcessor is
     function numOpenOrders() external view override returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._numOpenOrders;
-    }
-
-    /// @inheritdoc IOrderProcessor
-    function nextOrderId() external view override returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._nextOrderId;
     }
 
     /// @inheritdoc IOrderProcessor
@@ -544,6 +534,10 @@ contract OrderProcessor is
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
+        // Order must not exist
+        id = hashOrder(order);
+        if ($._status[id] != OrderStatus.NONE) revert InvalidOrderData();
+
         // Check for whitelisted tokens
         if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
         if (!$._accountFees[address(0)][order.paymentToken].set) revert UnsupportedToken(order.paymentToken);
@@ -568,14 +562,10 @@ contract OrderProcessor is
 
         // ------------------ Effects ------------------ //
 
-        // Update next order id
-        id = $._nextOrderId++;
-
         // Calculate fees
         (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, order.sell, order.paymentToken);
         // Initialize order state
         $._orders[id] = OrderState({
-            orderHash: hashOrder(order),
             requester: requester,
             flatFee: flatFee,
             percentageFeeRate: percentageFeeRate,
@@ -645,20 +635,23 @@ contract OrderProcessor is
         return keccak256(abi.encode(ORDER_REQUEST_TYPEHASH, hashOrder(order), deadline, nonce));
     }
 
-    /// @notice Hash order data for validation
-    function hashOrder(Order calldata order) public pure returns (bytes32) {
-        return keccak256(
-            abi.encode(
-                ORDER_TYPEHASH,
-                order.recipient,
-                order.assetToken,
-                order.paymentToken,
-                order.sell,
-                order.orderType,
-                order.assetTokenQuantity,
-                order.paymentTokenQuantity,
-                order.price,
-                order.tif
+    /// @inheritdoc IOrderProcessor
+    function hashOrder(Order calldata order) public pure returns (uint256) {
+        return uint256(
+            keccak256(
+                abi.encode(
+                    ORDER_TYPEHASH,
+                    order.salt,
+                    order.recipient,
+                    order.assetToken,
+                    order.paymentToken,
+                    order.sell,
+                    order.orderType,
+                    order.assetTokenQuantity,
+                    order.paymentTokenQuantity,
+                    order.price,
+                    order.tif
+                )
             )
         );
     }
@@ -673,14 +666,14 @@ contract OrderProcessor is
 
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
+        // Verify order data
+        if (id != hashOrder(order)) revert InvalidOrderData();
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         OrderState memory orderState = $._orders[id];
 
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
-        // Verify order data
-        if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
@@ -813,13 +806,14 @@ contract OrderProcessor is
     function cancelOrder(uint256 id, Order calldata order, string calldata reason) external onlyOperator {
         // ------------------ Checks ------------------ //
 
+        // Verify order data
+        if (id != hashOrder(order)) revert InvalidOrderData();
+
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         OrderState storage orderState = $._orders[id];
         address requester = orderState.requester;
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
-        // Verify order data
-        if (orderState.orderHash != hashOrder(order)) revert InvalidOrderData();
 
         // ------------------ Effects ------------------ //
 

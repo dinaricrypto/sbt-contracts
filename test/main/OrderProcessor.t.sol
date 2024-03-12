@@ -119,6 +119,7 @@ contract OrderProcessorTest is Test {
 
     function getDummyOrder(bool sell) internal view returns (IOrderProcessor.Order memory) {
         return IOrderProcessor.Order({
+            salt: 0,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -232,6 +233,7 @@ contract OrderProcessorTest is Test {
 
     function testSetFeesUnsupportedReverts(address account, address testToken) public {
         vm.assume(account != address(0));
+        vm.assume(testToken != address(paymentToken));
 
         vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, testToken));
         vm.prank(admin);
@@ -353,7 +355,7 @@ contract OrderProcessorTest is Test {
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
 
-        uint256 orderId = issuer.nextOrderId();
+        uint256 orderId = issuer.hashOrder(order);
 
         // balances before
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -384,10 +386,12 @@ contract OrderProcessorTest is Test {
 
         // balances before
         uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 id = issuer.hashOrder(order);
         vm.expectEmit(true, true, true, true);
-        emit OrderRequested(0, user, order);
+        emit OrderRequested(id, user, order);
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        uint256 id2 = issuer.requestOrder(order);
+        assertEq(id, id2);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), orderAmount);
         assertEq(issuer.numOpenOrders(), 1);
@@ -511,17 +515,19 @@ contract OrderProcessorTest is Test {
         );
         calls[1] = abi.encodeWithSelector(OrderProcessor.requestOrder.selector, dummyOrder);
 
+        uint256 orderId = issuer.hashOrder(dummyOrder);
+
         // balances before
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
         vm.expectEmit(true, true, true, true);
-        emit OrderRequested(0, user, dummyOrder);
+        emit OrderRequested(orderId, user, dummyOrder);
         vm.prank(user);
         issuer.multicall(calls);
         assertEq(paymentToken.nonces(user), 1);
         assertEq(paymentToken.allowance(user, address(issuer)), 0);
-        assertEq(uint8(issuer.getOrderStatus(0)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-        assertEq(issuer.getUnfilledAmount(0), dummyOrder.paymentTokenQuantity);
+        assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(orderId), dummyOrder.paymentTokenQuantity);
         assertEq(issuer.numOpenOrders(), 1);
         assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
         assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + dummyOrder.paymentTokenQuantity);
@@ -766,7 +772,8 @@ contract OrderProcessorTest is Test {
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
     }
 
-    function testFillOrderNoOrderReverts(bool sell, uint256 id) public {
+    function testFillOrderNoOrderReverts(bool sell) public {
+        uint256 id = issuer.hashOrder(getDummyOrder(sell));
         vm.expectRevert(OrderProcessor.OrderNotFound.selector);
         vm.prank(operator);
         issuer.fillOrder(id, getDummyOrder(sell), 100, 100);
@@ -860,7 +867,8 @@ contract OrderProcessorTest is Test {
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 
-    function testCancelOrderNotFoundReverts(uint256 id) public {
+    function testCancelOrderNotFoundReverts() public {
+        uint256 id = issuer.hashOrder(getDummyOrder(false));
         vm.expectRevert(OrderProcessor.OrderNotFound.selector);
         vm.prank(operator);
         issuer.cancelOrder(id, getDummyOrder(false), "msg");

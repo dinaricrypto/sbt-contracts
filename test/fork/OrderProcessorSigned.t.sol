@@ -105,6 +105,7 @@ contract OrderProcessorSignedTest is Test {
         dummyOrderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
+            salt: 0,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -167,7 +168,7 @@ contract OrderProcessorSignedTest is Test {
             issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
         );
 
-        uint256 orderId = issuer.nextOrderId();
+        uint256 orderId = issuer.hashOrder(order);
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
 
@@ -203,7 +204,7 @@ contract OrderProcessorSignedTest is Test {
             issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
         );
 
-        uint256 orderId = issuer.nextOrderId();
+        uint256 orderId = issuer.hashOrder(order);
         uint256 userBalanceBefore = token.balanceOf(user);
 
         vm.expectEmit(true, true, true, true);
