@@ -128,8 +128,6 @@ contract OrderProcessor is
         ITokenLockCheck _tokenLockCheck;
         // Are orders paused?
         bool _ordersPaused;
-        // Total number of active orders. Onchain enumeration not supported.
-        uint256 _numOpenOrders;
         // Operators for filling and cancelling orders
         mapping(address => bool) _operators;
         // Active order state
@@ -230,12 +228,6 @@ contract OrderProcessor is
     function isOperator(address account) external view returns (bool) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._operators[account];
-    }
-
-    /// @inheritdoc IOrderProcessor
-    function numOpenOrders() external view override returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._numOpenOrders;
     }
 
     /// @inheritdoc IOrderProcessor
@@ -562,7 +554,6 @@ contract OrderProcessor is
             feesPaid: 0
         });
         $._status[id] = OrderStatus.ACTIVE;
-        $._numOpenOrders++;
 
         emit OrderCreated(id, requester);
 
@@ -739,7 +730,6 @@ contract OrderProcessor is
             $._status[id] = OrderStatus.FULFILLED;
             // Clear order state
             delete $._orders[id];
-            $._numOpenOrders--;
             // Notify order fulfilled
             emit OrderFulfilled(id, orderState.requester);
         } else {
@@ -822,7 +812,6 @@ contract OrderProcessor is
 
         // Clear order state
         delete $._orders[id];
-        $._numOpenOrders--;
 
         // Notify order cancelled
         emit OrderCancelled(id, requester, reason);

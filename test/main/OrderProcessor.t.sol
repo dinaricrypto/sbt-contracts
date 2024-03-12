@@ -367,7 +367,6 @@ contract OrderProcessorTest is Test {
         assertEq(id, orderId);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
-        assertEq(issuer.numOpenOrders(), 1);
         assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
         assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
         assertEq(paymentToken.balanceOf(address(issuer)), fees);
@@ -394,7 +393,6 @@ contract OrderProcessorTest is Test {
         assertEq(id, id2);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), orderAmount);
-        assertEq(issuer.numOpenOrders(), 1);
         assertEq(token.balanceOf(user), userBalanceBefore - orderAmount);
     }
 
@@ -528,7 +526,6 @@ contract OrderProcessorTest is Test {
         assertEq(paymentToken.allowance(user, address(issuer)), 0);
         assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(orderId), dummyOrder.paymentTokenQuantity);
-        assertEq(issuer.numOpenOrders(), 1);
         assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
         assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + dummyOrder.paymentTokenQuantity);
     }
@@ -584,7 +581,6 @@ contract OrderProcessorTest is Test {
             assertEq(paymentToken.balanceOf(address(issuer)), fees - feesEarned);
             assertEq(paymentToken.balanceOf(treasury), feesEarned);
             if (fillAmount == orderAmount) {
-                assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
                 // if order is fullfilled in on time
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
@@ -649,7 +645,6 @@ contract OrderProcessorTest is Test {
             assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
             assertEq(paymentToken.balanceOf(treasury), feesEarned);
             if (fillAmount == orderAmount) {
-                assertEq(issuer.numOpenOrders(), 0);
                 assertEq(issuer.getTotalReceived(id), 0);
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
             } else {
@@ -685,7 +680,6 @@ contract OrderProcessorTest is Test {
         vm.prank(operator);
         issuer.fillOrder(id, order, orderAmount, receivedAmount);
         assertEq(issuer.getUnfilledAmount(id), 0);
-        assertEq(issuer.numOpenOrders(), 0);
         assertEq(issuer.getTotalReceived(id), 0);
         // balances after
         assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
@@ -744,7 +738,6 @@ contract OrderProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(id, order, firstFillAmount, firstReceivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - firstFillAmount);
-            assertEq(issuer.numOpenOrders(), 1);
             assertEq(issuer.getTotalReceived(id), firstReceivedAmount);
 
             // second fill
@@ -760,7 +753,6 @@ contract OrderProcessorTest is Test {
         }
         // order closed
         assertEq(issuer.getUnfilledAmount(id), 0);
-        assertEq(issuer.numOpenOrders(), 0);
         assertEq(issuer.getTotalReceived(id), 0);
         // balances after
         // Fees may be k - 1 (k == number of fills) off due to rounding

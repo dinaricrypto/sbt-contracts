@@ -99,9 +99,6 @@ interface IOrderProcessor {
 
     /// ------------------ Getters ------------------ ///
 
-    /// @notice Total number of open orders
-    function numOpenOrders() external view returns (uint256);
-
     /// @notice Hash order data for validation and create unique order ID
     /// @param order Order data
     /// @dev EIP-712 typed data hash of order
