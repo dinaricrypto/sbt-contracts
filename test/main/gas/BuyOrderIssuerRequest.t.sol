@@ -9,7 +9,6 @@ import "../../utils/mocks/GetMockDShareFactory.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/OrderProcessor.sol";
 import "../../../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
@@ -21,7 +20,6 @@ contract BuyProcessorRequestTest is Test {
 
     DShareFactory tokenFactory;
     DShare token;
-    TokenLockCheck tokenLockCheck;
     OrderProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
@@ -55,16 +53,12 @@ contract BuyProcessorRequestTest is Test {
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(
-                        issuerImpl.initialize, (admin, treasury, operator, tokenFactory, tokenLockCheck, address(1))
-                    )
+                    abi.encodeCall(issuerImpl.initialize, (admin, treasury, operator, tokenFactory, address(1)))
                 )
             )
         );
@@ -72,6 +66,7 @@ contract BuyProcessorRequestTest is Test {
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
+        issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setOperator(operator, true);
 

@@ -11,12 +11,12 @@ import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {IDShare} from "../IDShare.sol";
-import {ITokenLockCheck} from "../ITokenLockCheck.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {IDShareFactory} from "../IDShareFactory.sol";
 
@@ -32,6 +32,7 @@ contract OrderProcessor is
     IOrderProcessor
 {
     using SafeERC20 for IERC20;
+    using Address for address;
 
     /// ------------------ Types ------------------ ///
 
@@ -87,10 +88,10 @@ contract OrderProcessor is
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
+    /// @dev Emitted when `vault` is set
+    event VaultSet(address indexed vault);
     /// @dev Emitted when orders are paused/unpaused
     event OrdersPaused(bool paused);
-    /// @dev Emitted when token lock check contract is set
-    event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     /// @dev Emitted when fees are set
     event FeesSet(
         address indexed account,
@@ -106,6 +107,7 @@ contract OrderProcessor is
     event EthUsdOracleSet(address indexed ethUsdOracle);
     event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
     event OperatorSet(address indexed account, bool status);
+    event BlacklistCallSelectorSet(address indexed token, bytes4 selector);
 
     /// ------------------ Constants ------------------ ///
 
@@ -124,8 +126,6 @@ contract OrderProcessor is
         address _vault;
         // DShareFactory contract
         IDShareFactory _dShareFactory;
-        // Transfer restrictor checker
-        ITokenLockCheck _tokenLockCheck;
         // Are orders paused?
         bool _ordersPaused;
         // Operators for filling and cancelling orders
@@ -143,6 +143,8 @@ contract OrderProcessor is
         address _ethUsdOracle;
         // Payment token USD price oracles
         mapping(address => address) _paymentTokenOracle;
+        // Token blacklist method selectors
+        mapping(address => bytes4) _blacklistCallSelector;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
@@ -162,7 +164,6 @@ contract OrderProcessor is
     /// @param _treasury Address to receive fees
     /// @param _vault Address of vault contract
     /// @param _dShareFactory DShareFactory contract
-    /// @param _tokenLockCheck Token lock check contract
     /// @param _ethUsdOracle ETH USD price oracle
     /// @dev Treasury cannot be zero address
     function initialize(
@@ -170,7 +171,6 @@ contract OrderProcessor is
         address _treasury,
         address _vault,
         IDShareFactory _dShareFactory,
-        ITokenLockCheck _tokenLockCheck,
         address _ethUsdOracle
     ) public virtual initializer {
         __Ownable_init(_owner);
@@ -188,7 +188,6 @@ contract OrderProcessor is
         $._treasury = _treasury;
         $._vault = _vault;
         $._dShareFactory = _dShareFactory;
-        $._tokenLockCheck = _tokenLockCheck;
         $._ethUsdOracle = _ethUsdOracle;
     }
 
@@ -211,12 +210,6 @@ contract OrderProcessor is
     function vault() external view returns (address) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._vault;
-    }
-
-    /// @notice Transfer restrictor checker
-    function tokenLockCheck() external view returns (ITokenLockCheck) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._tokenLockCheck;
     }
 
     /// @notice Are orders paused?
@@ -306,6 +299,20 @@ contract OrderProcessor is
         }
     }
 
+    function isTransferLocked(address token, address account) external view returns (bool) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        bytes4 selector = $._blacklistCallSelector[token];
+        // if no selector is set, default to locked == false
+        if (selector == 0) return false;
+
+        return _checkTransferLocked(token, account, selector);
+    }
+
+    function _checkTransferLocked(address token, address account, bytes4 selector) internal view returns (bool) {
+        // assumes bool result
+        return abi.decode(token.functionStaticCall(abi.encodeWithSelector(selector, account)), (bool));
+    }
+
     // slither-disable-next-line naming-convention
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();
@@ -349,6 +356,7 @@ contract OrderProcessor is
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._vault = account;
+        emit VaultSet(account);
     }
 
     /// @notice Pause/unpause orders
@@ -358,15 +366,6 @@ contract OrderProcessor is
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._ordersPaused = pause;
         emit OrdersPaused(pause);
-    }
-
-    /// @notice Set token lock check contract
-    /// @param _tokenLockCheck Token lock check contract
-    /// @dev Only callable by admin
-    function setTokenLockCheck(ITokenLockCheck _tokenLockCheck) external onlyOwner {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        $._tokenLockCheck = _tokenLockCheck;
-        emit TokenLockCheckSet(_tokenLockCheck);
     }
 
     /// @notice Set operator
@@ -442,6 +441,15 @@ contract OrderProcessor is
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._paymentTokenOracle[paymentToken] = oracle;
         emit PaymentTokenOracleSet(paymentToken, oracle);
+    }
+
+    function setBlacklistCallSelector(address token, bytes4 selector) public onlyOwner {
+        // if token is a contract, it must implement the selector
+        if (selector != 0) _checkTransferLocked(token, address(this), selector);
+
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        $._blacklistCallSelector[token] = selector;
+        emit BlacklistCallSelectorSet(token, selector);
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -530,14 +538,13 @@ contract OrderProcessor is
             if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
         }
 
-        // Black list checker
-        // TODO: Try moving stored calls here to reduce cost of external call
-        ITokenLockCheck _tokenLockCheck = $._tokenLockCheck;
+        // Black list checker, assumes asset tokens are dShares
+        bytes4 paymentTokenBlacklistSelector = $._blacklistCallSelector[order.paymentToken];
         if (
-            _tokenLockCheck.isTransferLocked(order.assetToken, order.recipient)
-                || _tokenLockCheck.isTransferLocked(order.assetToken, requester)
-                || _tokenLockCheck.isTransferLocked(order.paymentToken, order.recipient)
-                || _tokenLockCheck.isTransferLocked(order.paymentToken, requester)
+            IDShare(order.assetToken).isBlacklisted(order.recipient)
+                || IDShare(order.assetToken).isBlacklisted(requester)
+                || _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenBlacklistSelector)
+                || _checkTransferLocked(order.paymentToken, requester, paymentTokenBlacklistSelector)
         ) revert Blacklist();
 
         // ------------------ Effects ------------------ //

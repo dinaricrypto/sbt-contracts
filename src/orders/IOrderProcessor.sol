@@ -132,6 +132,12 @@ interface IOrderProcessor {
         view
         returns (uint256, uint24);
 
+    /// @notice Check if an account is locked from transferring tokens
+    /// @param token Token to check
+    /// @param account Account to check
+    /// @dev Only used for payment tokens
+    function isTransferLocked(address token, address account) external view returns (bool);
+
     /// ------------------ Actions ------------------ ///
 
     /// @notice Lock tokens and initialize signed order
