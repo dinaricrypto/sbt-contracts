@@ -9,11 +9,11 @@ import "../utils/SigUtils.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 
 contract OrderProcessorTest is Test {
     using GetMockDShareFactory for DShareFactory;
@@ -29,9 +29,9 @@ contract OrderProcessorTest is Test {
     );
     event FeesReset(address indexed account, address indexed paymentToken);
     event OrdersPaused(bool paused);
-    event TokenLockCheckSet(ITokenLockCheck indexed tokenLockCheck);
     event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
     event OperatorSet(address indexed account, bool set);
+    event BlacklistCallSelectorSet(address indexed token, bytes4 selector);
 
     event OrderRequested(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
     event OrderFill(
@@ -60,7 +60,6 @@ contract OrderProcessorTest is Test {
     OrderProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
-    TokenLockCheck tokenLockCheck;
     TransferRestrictor restrictor;
 
     uint256 userPrivateKey;
@@ -86,17 +85,12 @@ contract OrderProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
-        tokenLockCheck.setAsDShare(address(token));
-
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(
-                        OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, tokenLockCheck, address(1))
-                    )
+                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, address(1)))
                 )
             )
         );
@@ -105,6 +99,7 @@ contract OrderProcessorTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
+        issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setOperator(operator, true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
@@ -137,34 +132,27 @@ contract OrderProcessorTest is Test {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(
-                OrderProcessor.initialize, (admin, address(0), operator, tokenFactory, tokenLockCheck, address(1))
-            )
+            abi.encodeCall(OrderProcessor.initialize, (admin, address(0), operator, tokenFactory, address(1)))
+        );
+
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(issuerImpl),
+            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, address(0), tokenFactory, address(1)))
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
             abi.encodeCall(
-                OrderProcessor.initialize, (admin, treasury, address(0), tokenFactory, tokenLockCheck, address(1))
+                OrderProcessor.initialize, (admin, treasury, operator, DShareFactory(address(0)), address(1))
             )
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(
-                OrderProcessor.initialize,
-                (admin, treasury, operator, DShareFactory(address(0)), tokenLockCheck, address(1))
-            )
-        );
-
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        new ERC1967Proxy(
-            address(issuerImpl),
-            abi.encodeCall(
-                OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, tokenLockCheck, address(0))
-            )
+            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, address(0)))
         );
     }
 
@@ -180,8 +168,6 @@ contract OrderProcessorTest is Test {
 
     function testSetTreasury(address account) public {
         vm.assume(account != address(0));
-        vm.prank(admin);
-        tokenLockCheck.setAsDShare(address(token));
 
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         issuer.setTreasury(account);
@@ -294,17 +280,6 @@ contract OrderProcessorTest is Test {
         }
     }
 
-    function testSetTokenLockCheck(ITokenLockCheck _tokenLockCheck) public {
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
-        issuer.setTokenLockCheck(_tokenLockCheck);
-
-        vm.expectEmit(true, true, true, true);
-        emit TokenLockCheckSet(_tokenLockCheck);
-        vm.prank(admin);
-        issuer.setTokenLockCheck(_tokenLockCheck);
-        assertEq(address(issuer.tokenLockCheck()), address(_tokenLockCheck));
-    }
-
     function testSetOrdersPaused(bool pause) public {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         issuer.setOrdersPaused(pause);
@@ -325,6 +300,31 @@ contract OrderProcessorTest is Test {
         vm.prank(admin);
         issuer.setOperator(account, set);
         assertEq(issuer.isOperator(account), set);
+    }
+
+    function testIsTransferLocked() public {
+        MockToken token2 = new MockToken("Token2", "T2");
+        vm.prank(admin);
+        issuer.setBlacklistCallSelector(address(token2), token2.isBlacklisted.selector);
+
+        assertFalse(issuer.isTransferLocked(address(token2), user));
+        assertFalse(issuer.isTransferLocked(user, user));
+
+        token2.blacklist(user);
+        assertTrue(issuer.isTransferLocked(address(token2), user));
+    }
+
+    function testBlacklistCallSelector() public {
+        MockToken token2 = new MockToken("Token2", "T2");
+        vm.expectRevert(Address.FailedInnerCall.selector);
+        vm.startPrank(admin);
+        issuer.setBlacklistCallSelector(address(token2), 0x032f29a1); // lock selector doesn't exist for token contract
+
+        issuer.setBlacklistCallSelector(address(token2), token2.isBlacklisted.selector);
+        vm.stopPrank();
+
+        token2.blacklist(user);
+        assertTrue(issuer.isTransferLocked(address(token2), user));
     }
 
     function testRequestOrderZeroAmountReverts(bool sell) public {
@@ -415,7 +415,6 @@ contract OrderProcessorTest is Test {
         vm.prank(restrictor_role);
         restrictor.restrict(user);
 
-        assert(tokenLockCheck.isTransferLocked(address(token), user));
         vm.expectRevert(OrderProcessor.Blacklist.selector);
         vm.prank(user);
         issuer.requestOrder(getDummyOrder(sell));
@@ -424,7 +423,7 @@ contract OrderProcessorTest is Test {
     function testPaymentTokenBlackListReverts(bool sell) public {
         vm.prank(admin);
         paymentToken.blacklist(user);
-        assert(tokenLockCheck.isTransferLocked(address(paymentToken), user));
+        assert(issuer.isTransferLocked(address(paymentToken), user));
 
         vm.expectRevert(OrderProcessor.Blacklist.selector);
         vm.prank(user);

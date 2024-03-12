@@ -1,0 +1,47 @@
+No files changed, compilation skipped
+| Contract             | Size (kB) | Margin (kB) |
+|----------------------|-----------|-------------|
+| Address              | 0.058     | 24.518      |
+| BeaconProxy          | 0.449     | 24.127      |
+| DShare               | 12.963    | 11.613      |
+| DShareFactory        | 8.371     | 16.205      |
+| DividendDistribution | 5.88      | 18.696      |
+| ECDSA                | 0.058     | 24.518      |
+| ERC1967Proxy         | 0.144     | 24.432      |
+| ERC1967Utils         | 0.058     | 24.518      |
+| EnumerableSet        | 0.058     | 24.518      |
+| FeeLib               | 0.058     | 24.518      |
+| FixedPointMathLib    | 0.058     | 24.518      |
+| FulfillmentRouter    | 6.157     | 18.419      |
+| GetMockDShareFactory | 0.058     | 24.518      |
+| LibString            | 0.058     | 24.518      |
+| Math                 | 0.058     | 24.518      |
+| MessageHashUtils     | 0.058     | 24.518      |
+| MockERC20            | 3.071     | 21.505      |
+| MockToken            | 5.83      | 18.746      |
+| NumberUtils          | 0.058     | 24.518      |
+| OrderProcessor       | 21.002    | 3.574       |
+| OrderSigUtils        | 0.871     | 23.705      |
+| SafeCast             | 0.058     | 24.518      |
+| SafeERC20            | 0.058     | 24.518      |
+| SafeTransferLib      | 0.058     | 24.518      |
+| ShortStrings         | 0.058     | 24.518      |
+| SigUtils             | 0.557     | 24.019      |
+| SignedMath           | 0.058     | 24.518      |
+| StdStyle             | 0.058     | 24.518      |
+| StorageSlot          | 0.058     | 24.518      |
+| Strings              | 0.058     | 24.518      |
+| TransferRestrictor   | 4.538     | 20.038      |
+| UnityOracle          | 0.593     | 23.983      |
+| UpgradeableBeacon    | 0.813     | 23.763      |
+| Vault                | 4.8       | 19.776      |
+| WrappedDShare        | 8.434     | 16.142      |
+| console              | 0.058     | 24.518      |
+| console2             | 0.058     | 24.518      |
+| safeconsole          | 0.058     | 24.518      |
+| stdError             | 0.828     | 23.748      |
+| stdJson              | 0.058     | 24.518      |
+| stdMath              | 0.058     | 24.518      |
+| stdStorage           | 0.058     | 24.518      |
+| stdStorageSafe       | 0.058     | 24.518      |
+

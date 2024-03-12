@@ -2,7 +2,6 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../utils/mocks/MockToken.sol";
@@ -40,7 +39,6 @@ contract OrderProcessorSignedTest is Test {
     SigUtils public paymentSigUtils;
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
-    TokenLockCheck tokenLockCheck;
 
     uint24 percentageFeeRate;
 
@@ -71,7 +69,6 @@ contract OrderProcessorSignedTest is Test {
         (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
         token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
         vm.stopPrank();
 
         issuerImpl = new OrderProcessor();
@@ -80,8 +77,7 @@ contract OrderProcessorSignedTest is Test {
                 new ERC1967Proxy(
                     address(issuerImpl),
                     abi.encodeCall(
-                        OrderProcessor.initialize,
-                        (admin, treasury, operator, tokenFactory, tokenLockCheck, ethUsdPriceOracle)
+                        OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, ethUsdPriceOracle)
                     )
                 )
             )
@@ -91,6 +87,7 @@ contract OrderProcessorSignedTest is Test {
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
+        issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setPaymentTokenOracle(address(paymentToken), usdcPriceOracle);
         issuer.setOperator(operator, true);

@@ -7,7 +7,6 @@ import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import "../utils/mocks/GetMockDShareFactory.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -17,7 +16,6 @@ contract LimitOrderTest is Test {
 
     DShareFactory tokenFactory;
     DShare token;
-    TokenLockCheck tokenLockCheck;
     OrderProcessor issuer;
     MockToken paymentToken;
 
@@ -43,16 +41,12 @@ contract LimitOrderTest is Test {
         token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
-
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(
-                        OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, tokenLockCheck, address(1))
-                    )
+                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, address(1)))
                 )
             )
         );
@@ -61,6 +55,7 @@ contract LimitOrderTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
+        issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setOperator(operator, true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
