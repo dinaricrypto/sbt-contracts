@@ -66,15 +66,11 @@ interface IOrderProcessor {
         uint256 id;
         // Signature expiration timestamp
         uint256 deadline;
-        // Order request nonce
-        uint256 nonce;
     }
 
     struct Signature {
         // Signature expiration timestamp
         uint256 deadline;
-        // Signature nonce
-        uint256 nonce;
         // Signature bytes (r, s, v)
         bytes signature;
     }

@@ -58,9 +58,6 @@ contract OrderProcessorSignedTest is Test {
 
     uint256 constant SELL_GAS_COST = 1000000;
 
-    bytes32 private constant ORDER_REQUEST_TYPEHASH =
-        keccak256("OrderRequest(bytes32 orderHash,uint256 deadline,uint256 nonce)");
-
     function setUp() public {
         userPrivateKey = 0x1;
         adminPrivateKey = 0x4;
@@ -157,7 +154,6 @@ contract OrderProcessorSignedTest is Test {
         assertGt(paymentTokenPriceInWei, 0);
 
         uint256 permitNonce = 0;
-        uint256 nonce = 42;
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -165,7 +161,7 @@ contract OrderProcessorSignedTest is Test {
             paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, permitNonce
         );
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
+            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
         );
 
         uint256 orderId = issuer.hashOrder(order);
@@ -195,13 +191,12 @@ contract OrderProcessorSignedTest is Test {
         deal(address(token), user, orderAmount);
 
         uint256 permitNonce = 0;
-        uint256 nonce = 42;
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(shareSigUtils, address(token), orderAmount, user, userPrivateKey, permitNonce);
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, nonce, userPrivateKey)
+            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
         );
 
         uint256 orderId = issuer.hashOrder(order);
@@ -241,15 +236,15 @@ contract OrderProcessorSignedTest is Test {
         );
     }
 
-    function prepareOrderRequestSignature(IOrderProcessor.Order memory order, uint256 nonce, uint256 _privateKey)
+    function prepareOrderRequestSignature(IOrderProcessor.Order memory order, uint256 _privateKey)
         internal
         view
         returns (IOrderProcessor.Signature memory)
     {
         uint256 deadline = block.timestamp + 30 days;
-        bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline, nonce);
+        bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, orderRequestDigest);
 
-        return IOrderProcessor.Signature({deadline: deadline, nonce: nonce, signature: abi.encodePacked(r, s, v)});
+        return IOrderProcessor.Signature({deadline: deadline, signature: abi.encodePacked(r, s, v)});
     }
 }

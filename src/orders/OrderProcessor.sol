@@ -113,8 +113,7 @@ contract OrderProcessor is
         "Order(uint256 salt,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
-    bytes32 private constant ORDER_REQUEST_TYPEHASH =
-        keccak256("OrderRequest(uint256 id,uint256 deadline,uint256 nonce)");
+    bytes32 private constant ORDER_REQUEST_TYPEHASH = keccak256("OrderRequest(uint256 id,uint256 deadline)");
 
     /// ------------------ State ------------------ ///
 
@@ -146,8 +145,6 @@ contract OrderProcessor is
         address _ethUsdOracle;
         // Payment token USD price oracles
         mapping(address => address) _paymentTokenOracle;
-        // User order consumed nonces
-        mapping(address => mapping(uint256 => bool)) _usedNonces;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
@@ -273,11 +270,6 @@ contract OrderProcessor is
     function paymentTokenOracle(address paymentToken) external view returns (address) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._paymentTokenOracle[paymentToken];
-    }
-
-    function nonceUsed(address account, uint256 nonce) external view returns (bool) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._usedNonces[account][nonce];
     }
 
     function getAccountFees(address requester, address paymentToken)
@@ -481,12 +473,8 @@ contract OrderProcessor is
         if (signature.deadline < block.timestamp) revert ExpiredSignature();
 
         // Recover order requester
-        bytes32 typedDataHash = _hashTypedDataV4(hashOrderRequest(order, signature.deadline, signature.nonce));
+        bytes32 typedDataHash = _hashTypedDataV4(hashOrderRequest(order, signature.deadline));
         address requester = ECDSA.recover(typedDataHash, signature.signature);
-
-        // Consume nonce
-        if ($._usedNonces[requester][signature.nonce]) revert InvalidAccountNonce(requester, signature.nonce);
-        $._usedNonces[requester][signature.nonce] = true;
 
         // Create order
         id = _createOrder(order, requester);
@@ -631,8 +619,8 @@ contract OrderProcessor is
         emit OrderRequested(id, msg.sender, order);
     }
 
-    function hashOrderRequest(Order calldata order, uint256 deadline, uint256 nonce) public pure returns (bytes32) {
-        return keccak256(abi.encode(ORDER_REQUEST_TYPEHASH, hashOrder(order), deadline, nonce));
+    function hashOrderRequest(Order calldata order, uint256 deadline) public pure returns (bytes32) {
+        return keccak256(abi.encode(ORDER_REQUEST_TYPEHASH, hashOrder(order), deadline));
     }
 
     /// @inheritdoc IOrderProcessor
