@@ -20,7 +20,7 @@ No files changed, compilation skipped
 | MockERC20            | 3.071     | 21.505      |
 | MockToken            | 5.83      | 18.746      |
 | NumberUtils          | 0.058     | 24.518      |
-| OrderProcessor       | 21.002    | 3.574       |
+| OrderProcessor       | 21.107    | 3.469       |
 | OrderSigUtils        | 0.871     | 23.705      |
 | SafeCast             | 0.058     | 24.518      |
 | SafeERC20            | 0.058     | 24.518      |

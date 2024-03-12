@@ -317,7 +317,7 @@ contract OrderProcessor is
         }
     }
 
-    function isTransferLocked(address token, address account) public view returns (bool) {
+    function isTransferLocked(address token, address account) external view returns (bool) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         bytes4 selector = $._blacklistCallSelector[token];
         // if no selector is set, default to locked == false
@@ -557,10 +557,12 @@ contract OrderProcessor is
         }
 
         // Black list checker, assumes asset tokens are dShares
+        bytes4 paymentTokenBlacklistSelector = $._blacklistCallSelector[order.paymentToken];
         if (
             IDShare(order.assetToken).isBlacklisted(order.recipient)
                 || IDShare(order.assetToken).isBlacklisted(requester)
-                || isTransferLocked(order.paymentToken, order.recipient) || isTransferLocked(order.paymentToken, requester)
+                || _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenBlacklistSelector)
+                || _checkTransferLocked(order.paymentToken, requester, paymentTokenBlacklistSelector)
         ) revert Blacklist();
 
         // ------------------ Effects ------------------ //
