@@ -18,6 +18,7 @@
     "snapshot:fork": "./script/snapshot-fork.sh",
     "gas": "./script/gasreport.sh",
     "gas:fork": "./script/gas-fork.sh",
+    "sizes": "forge build --sizes > sizes.txt",
     "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
     "deployall:arb": "./script/deployall-arb-noverify.sh",
     "deployall:testnet": "./script/deployall-testnet.sh",
