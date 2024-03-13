@@ -1,16 +1,21 @@
 #!/bin/sh
 
-cp .env.eth-sepolia .env
+# cp .env.eth-sepolia .env
+# source .env
+
+# forge script script/AddPaymentTokens.s.sol:AddPaymentTokens --rpc-url $RPC_URL --broadcast -vvvv
+
+cp .env.blast-sepolia .env
 source .env
 
 forge script script/AddPaymentTokens.s.sol:AddPaymentTokens --rpc-url $RPC_URL --broadcast -vvvv
 
-cp .env.prod .env
-source .env
+# cp .env.prod .env
+# source .env
 
-forge script script/AddPaymentTokens.s.sol:AddPaymentTokens --rpc-url $RPC_URL --broadcast -vvvv
+# forge script script/AddPaymentTokens.s.sol:AddPaymentTokens --rpc-url $RPC_URL --broadcast -vvvv
 
-cp .env.prod-eth .env
-source .env
+# cp .env.prod-eth .env
+# source .env
 
-forge script script/AddPaymentTokens.s.sol:AddPaymentTokens --rpc-url $RPC_URL --broadcast -vvvv
+# forge script script/AddPaymentTokens.s.sol:AddPaymentTokens --rpc-url $RPC_URL --broadcast -vvvv

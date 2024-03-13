@@ -78,7 +78,7 @@ contract FulfillmentRouterTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
-        issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
+        issuer.setFees(address(0), address(paymentToken), 1e8, 5_000, 1e8, 5_000);
         issuer.setOperator(address(router), true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 

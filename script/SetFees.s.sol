@@ -11,7 +11,6 @@ contract SetFees is Script {
         address deployer = vm.addr(deployerPrivateKey);
         OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDER_PROCESSOR"));
         address usdc = vm.envAddress("USDC");
-        address usdce = vm.envAddress("USDCE");
         address usdt = vm.envAddress("USDT");
 
         uint64 perOrderFeeBuy = 1 ether;
@@ -19,7 +18,7 @@ contract SetFees is Script {
         uint64 perOrderFeeSell = 1 ether;
         uint24 percentageFeeRateSell = 5_000;
 
-        address userAccount = address(0);
+        address userAccount = 0xAdFeB630a6aaFf7161E200088B02Cf41112f8B98;
 
         console.log("deployer: %s", deployer);
 
@@ -28,15 +27,11 @@ contract SetFees is Script {
 
         // set default fees
         // orderProcessor.setDefaultFees(usdc, fees);
-        // orderProcessor.setDefaultFees(usdce, fees);
         // orderProcessor.setDefaultFees(usdt, fees);
 
         // set user fees
         orderProcessor.setFees(
             userAccount, usdc, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
-        );
-        orderProcessor.setFees(
-            userAccount, usdce, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
         );
         orderProcessor.setFees(
             userAccount, usdt, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell

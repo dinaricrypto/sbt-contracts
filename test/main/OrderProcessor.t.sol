@@ -100,7 +100,7 @@ contract OrderProcessorTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
-        issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
+        issuer.setFees(address(0), address(paymentToken), 1e8, 5_000, 1e8, 5_000);
         issuer.setOperator(operator, true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
@@ -193,7 +193,7 @@ contract OrderProcessorTest is Test {
             this.wrapFlatFeeForOrder(address(newToken), perOrderFee);
         } else {
             assertEq(
-                wrapFlatFeeForOrder(address(newToken), perOrderFee), decimalAdjust(newToken.decimals(), perOrderFee)
+                wrapFlatFeeForOrder(address(newToken), perOrderFee), decimalAdjust(8, newToken.decimals(), perOrderFee)
             );
         }
     }
@@ -871,12 +871,12 @@ contract OrderProcessorTest is Test {
         return FeeLib.flatFeeForOrder(newToken, perOrderFee);
     }
 
-    function decimalAdjust(uint8 decimals, uint256 fee) internal pure returns (uint256) {
+    function decimalAdjust(uint8 startDecimals, uint8 decimals, uint256 fee) internal pure returns (uint256) {
         uint256 adjFee = fee;
-        if (decimals < 18) {
-            adjFee /= 10 ** (18 - decimals);
-        } else if (decimals > 18) {
-            adjFee *= 10 ** (decimals - 18);
+        if (decimals < startDecimals) {
+            adjFee /= 10 ** (startDecimals - decimals);
+        } else if (decimals > startDecimals) {
+            adjFee *= 10 ** (decimals - startDecimals);
         }
         return adjFee;
     }
