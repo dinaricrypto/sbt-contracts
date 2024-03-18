@@ -103,8 +103,7 @@ contract OrderProcessor is
         uint24 percentageFeeRateSell
     );
     event FeesReset(address indexed account, address indexed paymentToken);
-    /// @dev Emitted when OrderDecimal is set
-    event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
+    event OrderDecimalReductionSet(address indexed assetToken, uint8 decimalReduction);
     event EthUsdOracleSet(address indexed ethUsdOracle);
     event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
     event OperatorSet(address indexed account, bool status);
@@ -135,9 +134,8 @@ contract OrderProcessor is
         mapping(uint256 => OrderState) _orders;
         // Status of order
         mapping(uint256 => OrderStatus) _status;
-        // Max order decimals for asset token, defaults to 0 decimals
-        mapping(address => int8) _maxOrderDecimals;
-        mapping(address => int8) _decimals;
+        // Reduciton of order decimals for asset token, defaults to 0
+        mapping(address => uint8) _orderDecimalReduction;
         // Fee schedule for requester, per paymentToken
         // Uses address(0) to store default fee schedule
         mapping(address => mapping(address => FeeRatesStorage)) _accountFees;
@@ -228,9 +226,9 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function maxOrderDecimals(address token) external view override returns (int8) {
+    function orderDecimalReduction(address token) external view override returns (uint8) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._maxOrderDecimals[token];
+        return $._orderDecimalReduction[token];
     }
 
     /// @inheritdoc IOrderProcessor
@@ -428,16 +426,14 @@ contract OrderProcessor is
         emit FeesReset(requester, paymentToken);
     }
 
-    /// @notice Set max order decimals for asset token
+    /// @notice Set the order decimal reduction for asset token
     /// @param token Asset token
-    /// @param decimals Max order decimals
+    /// @param decimalReduction Reduces the max precision of the asset token quantity
     /// @dev Only callable by admin
-    function setMaxOrderDecimals(address token, int8 decimals) external onlyOwner {
-        uint8 tokenDecimals = IERC20Metadata(token).decimals();
-        if (decimals > int8(tokenDecimals)) revert InvalidPrecision();
+    function setOrderDecimalReduction(address token, uint8 decimalReduction) external onlyOwner {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        $._maxOrderDecimals[token] = decimals;
-        emit MaxOrderDecimalsSet(token, decimals);
+        $._orderDecimalReduction[token] = decimalReduction;
+        emit OrderDecimalReductionSet(token, decimalReduction);
     }
 
     function setEthUsdOracle(address _ethUsdOracle) external onlyOwner {
@@ -542,10 +538,10 @@ contract OrderProcessor is
 
         // Precision checked for assetTokenQuantity, market buys excluded
         if (order.sell || order.orderType == OrderType.LIMIT) {
-            // Check for max order decimals (assetTokenQuantity)
-            uint8 assetTokenDecimals = IERC20Metadata(order.assetToken).decimals();
-            uint256 assetPrecision = 10 ** uint8(int8(assetTokenDecimals) - $._maxOrderDecimals[order.assetToken]);
-            if (order.assetTokenQuantity % assetPrecision != 0) revert InvalidPrecision();
+            uint8 decimalReduction = $._orderDecimalReduction[order.assetToken];
+            if (decimalReduction > 0 && (order.assetTokenQuantity % 10 ** (decimalReduction - 1)) != 0) {
+                revert InvalidPrecision();
+            }
         }
 
         // Black list checker, assumes asset tokens are dShares

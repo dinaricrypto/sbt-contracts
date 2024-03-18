@@ -88,7 +88,6 @@ contract OrderProcessorSignedTest is Test {
         issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setPaymentTokenOracle(address(paymentToken), usdcPriceOracle);
         issuer.setOperator(operator, true);
-        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
         vm.stopPrank();
 
         orderSigUtils = new OrderSigUtils(issuer);

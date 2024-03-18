@@ -116,10 +116,9 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getTotalReceived(uint256 id) external view returns (uint256);
 
-    /// @notice This function retrieves the number of decimal places configured for a given token
-    /// @param token The address of the token for which the number of decimal places is fetched
-    /// @return Returns the number of decimal places set for the specified token
-    function maxOrderDecimals(address token) external view returns (int8);
+    /// @notice Reduces the precision allowed for the asset token quantity of an order
+    /// @param token The address of the token
+    function orderDecimalReduction(address token) external view returns (uint8);
 
     /// @notice Get fee rates for an order
     /// @param requester Requester of order

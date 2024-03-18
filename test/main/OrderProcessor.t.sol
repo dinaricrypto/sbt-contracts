@@ -29,7 +29,7 @@ contract OrderProcessorTest is Test {
     );
     event FeesReset(address indexed account, address indexed paymentToken);
     event OrdersPaused(bool paused);
-    event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
+    event OrderDecimalReductionSet(address indexed assetToken, uint8 decimalReduction);
     event OperatorSet(address indexed account, bool set);
     event BlacklistCallSelectorSet(address indexed token, bytes4 selector);
 
@@ -102,7 +102,6 @@ contract OrderProcessorTest is Test {
         issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
         issuer.setFees(address(0), address(paymentToken), 1e8, 5_000, 1e8, 5_000);
         issuer.setOperator(operator, true);
-        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
         dummyOrderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, 100 ether);
@@ -461,10 +460,10 @@ contract OrderProcessorTest is Test {
         OrderProcessor.Order memory order = getDummyOrder(true);
 
         vm.expectEmit(true, true, true, true);
-        emit MaxOrderDecimalsSet(order.assetToken, 0);
+        emit OrderDecimalReductionSet(order.assetToken, 0);
         vm.prank(admin);
-        issuer.setMaxOrderDecimals(order.assetToken, 0);
-        assertEq(issuer.maxOrderDecimals(order.assetToken), 0);
+        issuer.setOrderDecimalReduction(order.assetToken, 0);
+        assertEq(issuer.orderDecimalReduction(order.assetToken), 0);
         order.assetTokenQuantity = orderAmount;
 
         vm.prank(admin);
