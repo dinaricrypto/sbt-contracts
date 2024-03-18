@@ -458,12 +458,13 @@ contract OrderProcessorTest is Test {
     function testRequestSellOrderInvalidPrecision() public {
         uint256 orderAmount = 100000255;
         OrderProcessor.Order memory order = getDummyOrder(true);
+        uint8 tokenDecimals = token.decimals();
 
         vm.expectEmit(true, true, true, true);
-        emit OrderDecimalReductionSet(order.assetToken, 0);
+        emit OrderDecimalReductionSet(order.assetToken, tokenDecimals);
         vm.prank(admin);
-        issuer.setOrderDecimalReduction(order.assetToken, 0);
-        assertEq(issuer.orderDecimalReduction(order.assetToken), 0);
+        issuer.setOrderDecimalReduction(order.assetToken, tokenDecimals);
+        assertEq(issuer.orderDecimalReduction(order.assetToken), tokenDecimals);
         order.assetTokenQuantity = orderAmount;
 
         vm.prank(admin);
@@ -476,7 +477,7 @@ contract OrderProcessorTest is Test {
         issuer.requestOrder(order);
 
         // update OrderAmount
-        order.assetTokenQuantity = 10 ** token.decimals();
+        order.assetTokenQuantity = 10 ** tokenDecimals;
 
         vm.prank(admin);
         token.mint(user, order.assetTokenQuantity);
@@ -574,9 +575,9 @@ contract OrderProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
-            assertEq(
-                issuer.latestPrice(order.assetToken, order.paymentToken), mulDiv(receivedAmount, 1 ether, fillAmount)
-            );
+            IOrderProcessor.FillAmounts memory fillAmounts = issuer.latestFill(order.assetToken, order.paymentToken);
+            assertEq(fillAmounts.assetAmount, receivedAmount);
+            assertEq(fillAmounts.paymentAmount, fillAmount);
             // balances after
             assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
             assertEq(paymentToken.balanceOf(address(issuer)), fees - feesEarned);

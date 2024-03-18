@@ -75,6 +75,12 @@ interface IOrderProcessor {
         bytes signature;
     }
 
+    struct FillAmounts {
+        uint64 blocktime;
+        uint192 assetAmount;
+        uint256 paymentAmount;
+    }
+
     /// @dev Emitted for each order
     event OrderCreated(uint256 indexed id, address indexed requester);
     /// @dev Fully specifies order details and order ID
@@ -137,10 +143,10 @@ interface IOrderProcessor {
     /// @dev Only used for payment tokens
     function isTransferLocked(address token, address account) external view returns (bool);
 
-    /// @notice Get the price of latest fill for an asset token
+    /// @notice Get the latest fill amounts for a token pair
     /// @param assetToken Asset token
     /// @param paymentToken Payment token
-    function latestPrice(address assetToken, address paymentToken) external view returns (uint256);
+    function latestFill(address assetToken, address paymentToken) external view returns (FillAmounts memory);
 
     /// ------------------ Actions ------------------ ///
 

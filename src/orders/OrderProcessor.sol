@@ -145,8 +145,8 @@ contract OrderProcessor is
         mapping(address => address) _paymentTokenOracle;
         // Token blacklist method selectors
         mapping(address => bytes4) _blacklistCallSelector;
-        // Latest pairwise price
-        mapping(bytes32 => uint256) _latestPrice;
+        // Latest pairwise fill amounts
+        mapping(bytes32 => FillAmounts) _latestFill;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
@@ -315,9 +315,9 @@ contract OrderProcessor is
         return abi.decode(token.functionStaticCall(abi.encodeWithSelector(selector, account)), (bool));
     }
 
-    function latestPrice(address assetToken, address paymentToken) external view returns (uint256) {
+    function latestFill(address assetToken, address paymentToken) external view returns (FillAmounts memory) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._latestPrice[OracleLib.pairIndex(assetToken, paymentToken)];
+        return $._latestFill[OracleLib.pairIndex(assetToken, paymentToken)];
     }
 
     // slither-disable-next-line naming-convention
@@ -725,14 +725,14 @@ contract OrderProcessor is
         // ------------------ Effects ------------------ //
 
         // Update price oracle
-        // TODO: add blocktime to oracle data
         uint256 assetAmount = order.sell ? fillAmount : receivedAmount;
         uint256 paymentAmount = order.sell ? receivedAmount : fillAmount;
-        if (paymentAmount > 0) {
-            bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
-            // TODO: use decimals for correct precision
-            $._latestPrice[pairIndex] = mulDiv(paymentAmount, 1 ether, assetAmount);
-        }
+        bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
+        $._latestFill[pairIndex] = FillAmounts({
+            blocktime: uint64(block.timestamp),
+            assetAmount: uint192(assetAmount),
+            paymentAmount: paymentAmount
+        });
 
         // Notify order filled
         emit OrderFill(
