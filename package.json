@@ -60,6 +60,7 @@
     "pretty"
   ],
   "dependencies": {
+    "@axelar-network/axelar-gmp-sdk-solidity": "^5.6.4",
     "ethers": "5.7.2"
   }
 }

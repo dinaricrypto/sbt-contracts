@@ -77,6 +77,9 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
+      
+      - name: Install Yarn Dependencies
+        run: yarn install
 
       - name: Run Forge build
         run: |
@@ -103,6 +106,9 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
+      
+      - name: Install Yarn Dependencies
+        run: yarn install
 
       - name: Run Forge coverage
         run: forge coverage -f $RPC_ARBITRUM  --report lcov

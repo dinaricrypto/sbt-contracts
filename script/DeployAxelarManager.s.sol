@@ -2,8 +2,8 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import {InterchainTokenService} from "@axelar-network/interchain-token-service/contracts/InterchainTokenService.sol";
-import {ITokenManagerType} from "@axelar-network/interchain-token-service/contracts/interfaces/ITokenManagerType.sol";
+import {InterchainTokenService} from "interchain-token-service/InterchainTokenService.sol";
+import {ITokenManagerType} from "interchain-token-service/interfaces/ITokenManagerType.sol";
 
 contract DeployAxelarManager is Script {
     InterchainTokenService private constant INTERCHAIN_TOKEN_SERVICE =
