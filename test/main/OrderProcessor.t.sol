@@ -39,8 +39,8 @@ contract OrderProcessorTest is Test {
         address indexed paymentToken,
         address indexed assetToken,
         address requester,
-        uint256 paymentAmount,
         uint256 assetAmount,
+        uint256 paymentAmount,
         uint256 feesPaid,
         bool sell
     );
@@ -570,11 +570,14 @@ contract OrderProcessorTest is Test {
             vm.expectEmit(true, true, true, false);
             // since we can't capture
             emit OrderFill(
-                id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, false
+                id, order.paymentToken, order.assetToken, order.recipient, receivedAmount, fillAmount, 0, false
             );
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
+            assertEq(
+                issuer.latestPrice(order.assetToken, order.paymentToken), mulDiv(receivedAmount, 1 ether, fillAmount)
+            );
             // balances after
             assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
             assertEq(paymentToken.balanceOf(address(issuer)), fees - feesEarned);
@@ -634,7 +637,7 @@ contract OrderProcessorTest is Test {
             vm.expectEmit(true, true, true, false);
             // since we can't capture the function var without rewritting the _fillOrderAccounting inside the test
             emit OrderFill(
-                id, order.paymentToken, order.assetToken, order.recipient, receivedAmount, fillAmount, 0, true
+                id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, true
             );
             vm.prank(operator);
             issuer.fillOrder(id, order, fillAmount, receivedAmount);
@@ -732,7 +735,7 @@ contract OrderProcessorTest is Test {
             // first fill
             vm.expectEmit(true, true, true, false);
             emit OrderFill(
-                id, order.paymentToken, order.assetToken, order.recipient, firstReceivedAmount, firstFillAmount, 0, true
+                id, order.paymentToken, order.assetToken, order.recipient, firstFillAmount, firstReceivedAmount, 0, true
             );
             vm.prank(operator);
             issuer.fillOrder(id, order, firstFillAmount, firstReceivedAmount);

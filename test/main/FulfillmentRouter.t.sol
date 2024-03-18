@@ -22,8 +22,8 @@ contract FulfillmentRouterTest is Test {
         address indexed paymentToken,
         address indexed assetToken,
         address requester,
-        uint256 paymentAmount,
         uint256 assetAmount,
+        uint256 paymentAmount,
         uint256 feesPaid,
         bool sell
     );
@@ -139,7 +139,7 @@ contract FulfillmentRouterTest is Test {
         paymentToken.mint(address(vault), receivedAmount);
 
         vm.expectEmit(true, true, true, false);
-        emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, receivedAmount, fillAmount, 0, true);
+        emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, true);
         vm.prank(operator);
         router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
     }

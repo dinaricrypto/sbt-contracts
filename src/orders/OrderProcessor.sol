@@ -18,6 +18,7 @@ import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {IDShare} from "../IDShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
+import {OracleLib} from "../common/OracleLib.sol";
 import {IDShareFactory} from "../IDShareFactory.sol";
 
 /// @notice Core contract managing orders for dShare tokens
@@ -136,6 +137,7 @@ contract OrderProcessor is
         mapping(uint256 => OrderStatus) _status;
         // Max order decimals for asset token, defaults to 0 decimals
         mapping(address => int8) _maxOrderDecimals;
+        mapping(address => int8) _decimals;
         // Fee schedule for requester, per paymentToken
         // Uses address(0) to store default fee schedule
         mapping(address => mapping(address => FeeRatesStorage)) _accountFees;
@@ -145,6 +147,8 @@ contract OrderProcessor is
         mapping(address => address) _paymentTokenOracle;
         // Token blacklist method selectors
         mapping(address => bytes4) _blacklistCallSelector;
+        // Latest pairwise price
+        mapping(bytes32 => uint256) _latestPrice;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
@@ -313,6 +317,11 @@ contract OrderProcessor is
         return abi.decode(token.functionStaticCall(abi.encodeWithSelector(selector, account)), (bool));
     }
 
+    function latestPrice(address assetToken, address paymentToken) external view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._latestPrice[OracleLib.pairIndex(assetToken, paymentToken)];
+    }
+
     // slither-disable-next-line naming-convention
     function DOMAIN_SEPARATOR() external view returns (bytes32) {
         return _domainSeparatorV4();
@@ -461,6 +470,7 @@ contract OrderProcessor is
         onlyOperator
         returns (uint256 id)
     {
+        // TODO: do we really need the user to sign the order if they have signed the permit?
         // Start gas measurement
         uint256 gasStart = gasleft();
 
@@ -718,14 +728,24 @@ contract OrderProcessor is
 
         // ------------------ Effects ------------------ //
 
+        // Update price oracle
+        // TODO: add blocktime to oracle data
+        uint256 assetAmount = order.sell ? fillAmount : receivedAmount;
+        uint256 paymentAmount = order.sell ? receivedAmount : fillAmount;
+        if (paymentAmount > 0) {
+            bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
+            // TODO: use decimals for correct precision
+            $._latestPrice[pairIndex] = mulDiv(paymentAmount, 1 ether, assetAmount);
+        }
+
         // Notify order filled
         emit OrderFill(
             id,
             order.paymentToken,
             order.assetToken,
             orderState.requester,
-            order.sell ? receivedAmount : fillAmount,
-            order.sell ? fillAmount : receivedAmount,
+            assetAmount,
+            paymentAmount,
             feesEarned,
             order.sell
         );

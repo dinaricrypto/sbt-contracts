@@ -85,8 +85,8 @@ interface IOrderProcessor {
         address indexed paymentToken,
         address indexed assetToken,
         address requester,
-        uint256 paymentAmount,
         uint256 assetAmount,
+        uint256 paymentAmount,
         uint256 feesPaid,
         bool sell
     );
@@ -137,6 +137,11 @@ interface IOrderProcessor {
     /// @param account Account to check
     /// @dev Only used for payment tokens
     function isTransferLocked(address token, address account) external view returns (bool);
+
+    /// @notice Get the price of latest fill for an asset token
+    /// @param assetToken Asset token
+    /// @param paymentToken Payment token
+    function latestPrice(address assetToken, address paymentToken) external view returns (uint256);
 
     /// ------------------ Actions ------------------ ///
 
