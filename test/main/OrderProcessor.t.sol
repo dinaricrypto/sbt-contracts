@@ -9,7 +9,7 @@ import "../utils/SigUtils.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
@@ -67,7 +67,8 @@ contract OrderProcessorTest is Test {
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(0));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
         tokenLockCheck.setAsDShare(address(token));
 
         OrderProcessor issuerImpl = new OrderProcessor();
@@ -84,9 +85,9 @@ contract OrderProcessorTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
+            perOrderFeeBuy: 1e8,
             percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
+            perOrderFeeSell: 1e8,
             percentageFeeRateSell: 5_000
         });
         issuer.setDefaultFees(address(paymentToken), defaultFees);
@@ -197,7 +198,8 @@ contract OrderProcessorTest is Test {
                 this.wrapFlatFeeForOrder(address(newToken), perOrderFee);
             } else {
                 assertEq(
-                    wrapFlatFeeForOrder(address(newToken), perOrderFee), decimalAdjust(newToken.decimals(), perOrderFee)
+                    wrapFlatFeeForOrder(address(newToken), perOrderFee),
+                    decimalAdjust(8, newToken.decimals(), perOrderFee)
                 );
             }
         }
@@ -777,12 +779,12 @@ contract OrderProcessorTest is Test {
         return FeeLib.flatFeeForOrder(newToken, perOrderFee);
     }
 
-    function decimalAdjust(uint8 decimals, uint256 fee) internal pure returns (uint256) {
+    function decimalAdjust(uint8 startDecimals, uint8 decimals, uint256 fee) internal pure returns (uint256) {
         uint256 adjFee = fee;
-        if (decimals < 18) {
-            adjFee /= 10 ** (18 - decimals);
-        } else if (decimals > 18) {
-            adjFee *= 10 ** (decimals - 18);
+        if (decimals < startDecimals) {
+            adjFee /= 10 ** (startDecimals - decimals);
+        } else if (decimals > startDecimals) {
+            adjFee *= 10 ** (decimals - startDecimals);
         }
         return adjFee;
     }

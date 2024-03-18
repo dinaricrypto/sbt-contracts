@@ -7,7 +7,7 @@ import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import "../utils/mocks/MockDShareFactory.sol";
 import "../../src/orders/OrderProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
@@ -52,7 +52,9 @@ contract LimitOrderTest is Test {
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdt.isBlackListed.selector);
 
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
@@ -68,9 +70,9 @@ contract LimitOrderTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
+            perOrderFeeBuy: 1e8,
             percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
+            perOrderFeeSell: 1e8,
             percentageFeeRateSell: 5_000
         });
         issuer.setDefaultFees(address(paymentToken), defaultFees);

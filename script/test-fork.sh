@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cp .env.prod .env
+cp .env.prod-arb .env
 source .env
 
 forge test -f $RPC_URL --match-path test/forwarder/**/\* -vvv

@@ -6,7 +6,7 @@ import {MockToken} from "../utils/mocks/MockToken.sol";
 import "../utils/mocks/MockDShareFactory.sol";
 import "../../src/orders/BuyUnlockedProcessor.sol";
 import "../../src/orders/IOrderProcessor.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {FeeLib} from "../../src/common/FeeLib.sol";
@@ -60,7 +60,9 @@ contract BuyUnlockedProcessorTest is Test {
         token = tokenFactory.deploy("Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdt.isBlackListed.selector);
 
         BuyUnlockedProcessor issuerImpl = new BuyUnlockedProcessor();
         issuer = BuyUnlockedProcessor(
@@ -75,9 +77,9 @@ contract BuyUnlockedProcessorTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
+            perOrderFeeBuy: 1e8,
             percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
+            perOrderFeeSell: 1e8,
             percentageFeeRateSell: 5_000
         });
         issuer.setDefaultFees(address(paymentToken), defaultFees);

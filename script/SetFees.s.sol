@@ -10,20 +10,24 @@ contract SetFees is Script {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDER_PROCESSOR"));
-        BuyUnlockedProcessor directBuyIssuer = BuyUnlockedProcessor(vm.envAddress("BUY_UNLOCKED_PROCESSOR"));
+        OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDERPROCESSOR"));
+        BuyUnlockedProcessor directBuyIssuer = BuyUnlockedProcessor(vm.envAddress("BUYUNLOCKEDPROCESSOR"));
         address usdc = vm.envAddress("USDC");
-        address usdce = vm.envAddress("USDCE");
+        // address usdce = vm.envAddress("USDCE");
         address usdt = vm.envAddress("USDT");
 
         OrderProcessor.FeeRates memory fees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
-            percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
-            percentageFeeRateSell: 5_000
+            // perOrderFeeBuy: 1e8,
+            // percentageFeeRateBuy: 5_000,
+            // perOrderFeeSell: 1e8,
+            // percentageFeeRateSell: 5_000
+            perOrderFeeBuy: 0,
+            percentageFeeRateBuy: 0,
+            perOrderFeeSell: 0,
+            percentageFeeRateSell: 0
         });
 
-        address userAccount = address(0);
+        address userAccount = 0xAdFeB630a6aaFf7161E200088B02Cf41112f8B98;
 
         console.log("deployer: %s", deployer);
 
@@ -41,8 +45,8 @@ contract SetFees is Script {
         // set user fees
         orderProcessor.setFees(userAccount, usdc, fees);
         directBuyIssuer.setFees(userAccount, usdc, fees);
-        orderProcessor.setFees(userAccount, usdce, fees);
-        directBuyIssuer.setFees(userAccount, usdce, fees);
+        // orderProcessor.setFees(userAccount, usdce, fees);
+        // directBuyIssuer.setFees(userAccount, usdce, fees);
         orderProcessor.setFees(userAccount, usdt, fees);
         directBuyIssuer.setFees(userAccount, usdt, fees);
 

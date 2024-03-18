@@ -1,16 +1,16 @@
 #!/bin/sh
 
-cp .env.stage .env
-source .env
+# cp .env.stage .env
+# source .env
 
-forge script script/SetFees.s.sol:SetFees --rpc-url $RPC_URL --broadcast -vvv
+# forge script script/SetFees.s.sol:SetFees --rpc-url $RPC_URL --broadcast -vvv
 
-cp .env.sandbox .env
-source .env
+# cp .env.sandbox .env
+# source .env
 
-forge script script/SetFees.s.sol:SetFees --rpc-url $RPC_URL --broadcast -vvv
+# forge script script/SetFees.s.sol:SetFees --rpc-url $RPC_URL --broadcast -vvv
 
-cp .env.prod .env
+cp .env.prod-eth .env
 source .env
 
 forge script script/SetFees.s.sol:SetFees --rpc-url $RPC_URL --broadcast -vvv

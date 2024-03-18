@@ -2,9 +2,10 @@
 pragma solidity 0.8.22;
 
 import "forge-std/Test.sol";
+import {ForwarderLink} from "../../src/forwarder/ForwarderLink.sol";
 import {Forwarder, IForwarder} from "../../src/forwarder/Forwarder.sol";
 import {Nonces} from "openzeppelin-contracts/contracts/utils/Nonces.sol";
-import {TokenLockCheck, ITokenLockCheck} from "../../src/TokenLockCheck.sol";
+import {TokenLockCheck, ITokenLockCheck, IERC20Usdc, IERC20Usdt} from "../../src/TokenLockCheck.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import "../utils/SigUtils.sol";
 import "../../src/orders/IOrderProcessor.sol";
@@ -18,7 +19,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 
 // test that forwarder and processors do not assume dShares are dShares
 contract dShareCompatTest is Test {
-    Forwarder public forwarder;
+    ForwarderLink public forwarder;
     OrderProcessor public issuer;
     MockToken public paymentToken;
     ERC20 public token;
@@ -65,7 +66,9 @@ contract dShareCompatTest is Test {
         vm.prank(admin);
         token = new MockERC20("Money", "$", 6);
         paymentToken = new MockToken("Money", "$");
-        tokenLockCheck = new TokenLockCheck(address(paymentToken), address(paymentToken));
+        tokenLockCheck = new TokenLockCheck();
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
+        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdt.isBlackListed.selector);
         vm.stopPrank();
 
         // wei per USD (1 ether wei / ETH price in USD) * USD per USDC base unit (USDC price in USD / 10 ** USDC decimals)
@@ -83,9 +86,9 @@ contract dShareCompatTest is Test {
 
         vm.startPrank(admin);
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1 ether,
+            perOrderFeeBuy: 1e8,
             percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1 ether,
+            perOrderFeeSell: 1e8,
             percentageFeeRateSell: 5_000
         });
         issuer.setDefaultFees(address(paymentToken), defaultFees);
@@ -94,7 +97,7 @@ contract dShareCompatTest is Test {
         vm.stopPrank();
 
         vm.startPrank(owner); // we set an owner to deploy forwarder
-        forwarder = new Forwarder(ethUSDOracle, SELL_GAS_COST);
+        forwarder = new ForwarderLink(ethUSDOracle, SELL_GAS_COST);
         forwarder.setSupportedModule(address(issuer), true);
         forwarder.setRelayer(relayer, true);
         forwarder.setPaymentOracle(address(paymentToken), usdcPriceOracle);
@@ -136,14 +139,16 @@ contract dShareCompatTest is Test {
 
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         // Mint tokens
         deal(address(paymentToken), user, quantityIn * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -171,14 +176,16 @@ contract dShareCompatTest is Test {
         order.sell = true;
         order.assetTokenQuantity = dummyOrder.paymentTokenQuantity;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         deal(address(token), user, order.assetTokenQuantity * 1e6);
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](3);
@@ -204,13 +211,15 @@ contract dShareCompatTest is Test {
     function testRequestCancel() public {
         IOrderProcessor.Order memory order = dummyOrder;
 
+        bytes memory data = abi.encodeWithSelector(issuer.requestOrder.selector, order);
+
         uint256 nonce = 0;
 
         deal(address(paymentToken), user, order.paymentTokenQuantity * 1e6);
 
         //  Prepare ForwardRequest
-        IForwarder.OrderForwardRequest memory metaTx =
-            prepareOrderForwardRequest(user, address(issuer), order, nonce, userPrivateKey);
+        IForwarder.ForwardRequest memory metaTx =
+            prepareForwardRequest(user, address(issuer), data, nonce, userPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -221,8 +230,9 @@ contract dShareCompatTest is Test {
         forwarder.multicall(multicalldata);
 
         nonce += 1;
-        Forwarder.CancelForwardRequest memory metaTx1 =
-            prepareCancelForwardRequest(user, address(issuer), 0, nonce, userPrivateKey);
+        bytes memory dataCancel = abi.encodeWithSelector(issuer.requestCancel.selector, 0);
+        Forwarder.ForwardRequest memory metaTx1 =
+            prepareForwardRequest(user, address(issuer), dataCancel, nonce, userPrivateKey);
         multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(forwarder.forwardRequestCancel.selector, metaTx1);
 
@@ -255,54 +265,26 @@ contract dShareCompatTest is Test {
         );
     }
 
-    function prepareOrderForwardRequest(
-        address _user,
-        address to,
-        IOrderProcessor.Order memory order,
-        uint256 nonce,
-        uint256 _privateKey
-    ) internal view returns (IForwarder.OrderForwardRequest memory metaTx) {
-        SigMetaUtils.OrderForwardRequest memory MetaTx = SigMetaUtils.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce
-        });
-
-        bytes32 digestMeta = sigMeta.getOrderHashToSign(MetaTx);
-        (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
-
-        metaTx = IForwarder.OrderForwardRequest({
-            user: _user,
-            to: to,
-            order: order,
-            deadline: uint64(block.timestamp + 30 days),
-            nonce: nonce,
-            signature: abi.encodePacked(r2, s2, v2)
-        });
-    }
-
-    function prepareCancelForwardRequest(address _user, address to, uint256 orderId, uint256 nonce, uint256 _privateKey)
+    function prepareForwardRequest(address _user, address to, bytes memory data, uint256 nonce, uint256 _privateKey)
         internal
         view
-        returns (IForwarder.CancelForwardRequest memory metaTx)
+        returns (IForwarder.ForwardRequest memory metaTx)
     {
-        SigMetaUtils.CancelForwardRequest memory MetaTx = SigMetaUtils.CancelForwardRequest({
+        SigMetaUtils.ForwardRequest memory MetaTx = SigMetaUtils.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce
         });
 
-        bytes32 digestMeta = sigMeta.getCancelHashToSign(MetaTx);
+        bytes32 digestMeta = sigMeta.getHashToSign(MetaTx);
         (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(_privateKey, digestMeta);
 
-        metaTx = IForwarder.CancelForwardRequest({
+        metaTx = IForwarder.ForwardRequest({
             user: _user,
             to: to,
-            orderId: orderId,
+            data: data,
             deadline: uint64(block.timestamp + 30 days),
             nonce: nonce,
             signature: abi.encodePacked(r2, s2, v2)
