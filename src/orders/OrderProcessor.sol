@@ -440,8 +440,8 @@ contract OrderProcessor is
         if (signature.deadline < block.timestamp) revert ExpiredSignature();
 
         // Recover order requester
-        bytes32 typedDataHash = _hashTypedDataV4(hashOrderRequest(order, signature.deadline));
-        address requester = ECDSA.recover(typedDataHash, signature.signature);
+        address requester =
+            ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, signature.deadline)), signature.signature);
 
         // Create order
         id = _createOrder(order, requester);
@@ -450,8 +450,7 @@ contract OrderProcessor is
         if (!order.sell) {
             uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
 
-            uint256 gasUsed = gasStart - gasleft();
-            uint256 gasCostInWei = gasUsed * tx.gasprice;
+            uint256 gasCostInWei = (gasStart - gasleft()) * tx.gasprice;
 
             // Apply payment token price to calculate payment amount
             // Assumes payment token price includes token decimals
