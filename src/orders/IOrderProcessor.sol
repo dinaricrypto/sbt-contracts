@@ -77,6 +77,7 @@ interface IOrderProcessor {
 
     struct PricePoint {
         uint64 blocktime;
+        // Price specified with 18 decimals
         uint256 price;
     }
 
@@ -135,6 +136,7 @@ interface IOrderProcessor {
     /// @notice Get the latest fill price for a token pair
     /// @param assetToken Asset token
     /// @param paymentToken Payment token
+    /// @dev price specified with 18 decimals
     function latestFillPrice(address assetToken, address paymentToken) external view returns (PricePoint memory);
 
     /// ------------------ Actions ------------------ ///
