@@ -75,10 +75,8 @@ interface IOrderProcessor {
         bytes signature;
     }
 
-    /// @dev Emitted for each order
-    event OrderCreated(uint256 indexed id, address indexed requester);
-    /// @dev Fully specifies order details and order ID
-    event OrderRequested(uint256 indexed id, address indexed requester, Order order);
+    /// @dev Emitted order details and order ID for each order
+    event OrderCreated(uint256 indexed id, address indexed requester, Order order);
     /// @dev Emitted for each fill
     event OrderFill(
         uint256 indexed id,
@@ -87,7 +85,7 @@ interface IOrderProcessor {
         address requester,
         uint256 paymentAmount,
         uint256 assetAmount,
-        uint256 feesPaid,
+        uint256 fees,
         bool sell
     );
     /// @dev Emitted when order is completely filled, terminal
@@ -112,25 +110,17 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getUnfilledAmount(uint256 id) external view returns (uint256);
 
-    /// @notice Get total received for order
-    /// @param id Order ID
-    function getTotalReceived(uint256 id) external view returns (uint256);
-
     /// @notice This function retrieves the number of decimal places configured for a given token
     /// @param token The address of the token for which the number of decimal places is fetched
     /// @return Returns the number of decimal places set for the specified token
     function maxOrderDecimals(address token) external view returns (int8);
 
     /// @notice Get fee rates for an order
-    /// @param requester Requester of order
     /// @param sell Sell order
     /// @param paymentToken Payment token for order
     /// @return flatFee Flat fee for order
     /// @return percentageFeeRate Percentage fee rate for order
-    function getFeeRatesForOrder(address requester, bool sell, address paymentToken)
-        external
-        view
-        returns (uint256, uint24);
+    function getStandardFeeRates(bool sell, address paymentToken) external view returns (uint256, uint24);
 
     /// @notice Check if an account is locked from transferring tokens
     /// @param token Token to check
@@ -150,7 +140,7 @@ interface IOrderProcessor {
     /// @notice Request an order
     /// @param order Order request to submit
     /// @return id Order id
-    /// @dev Emits OrderRequested event to be sent to fulfillment service (operator)
+    /// @dev Emits OrderCreated event to be sent to fulfillment service (operator)
     function requestOrder(Order calldata order) external returns (uint256);
 
     /// @notice Fill an order
@@ -159,7 +149,8 @@ interface IOrderProcessor {
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount) external;
+    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
+        external;
 
     /// @notice Request to cancel an order
     /// @param id Order id

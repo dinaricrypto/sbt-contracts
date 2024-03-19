@@ -145,7 +145,7 @@ contract DeployAllSandbox is Script {
 
         // config payment token
         deployments.orderProcessor.setFees(
-            address(0), address(deployments.usdc), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+            address(deployments.usdc), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdc), cfg.usdcoracle);
         deployments.orderProcessor.setBlacklistCallSelector(
@@ -153,7 +153,7 @@ contract DeployAllSandbox is Script {
         );
 
         deployments.orderProcessor.setFees(
-            address(0), address(deployments.usdt), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+            address(deployments.usdt), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdt), cfg.usdtoracle);
         deployments.orderProcessor.setBlacklistCallSelector(
@@ -161,7 +161,7 @@ contract DeployAllSandbox is Script {
         );
 
         deployments.orderProcessor.setFees(
-            address(0), address(deployments.usdce), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+            address(deployments.usdce), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
         );
         deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdce), cfg.usdcoracle);
         deployments.orderProcessor.setBlacklistCallSelector(

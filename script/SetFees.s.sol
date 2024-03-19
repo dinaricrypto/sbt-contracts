@@ -18,24 +18,14 @@ contract SetFees is Script {
         uint64 perOrderFeeSell = 1 ether;
         uint24 percentageFeeRateSell = 5_000;
 
-        address userAccount = 0xAdFeB630a6aaFf7161E200088B02Cf41112f8B98;
-
         console.log("deployer: %s", deployer);
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
         // set default fees
-        // orderProcessor.setDefaultFees(usdc, fees);
-        // orderProcessor.setDefaultFees(usdt, fees);
-
-        // set user fees
-        orderProcessor.setFees(
-            userAccount, usdc, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
-        );
-        orderProcessor.setFees(
-            userAccount, usdt, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
-        );
+        orderProcessor.setFees(usdc, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell);
+        orderProcessor.setFees(usdt, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell);
 
         vm.stopBroadcast();
     }
