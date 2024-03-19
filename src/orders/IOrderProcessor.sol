@@ -55,7 +55,7 @@ interface IOrderProcessor {
         uint256 assetTokenQuantity;
         // Amount of payment token to be used for fills
         uint256 paymentTokenQuantity;
-        // Price for limit orders
+        // Price for limit orders in ether decimals
         uint256 price;
         // Time in force
         TIF tif;
@@ -75,10 +75,9 @@ interface IOrderProcessor {
         bytes signature;
     }
 
-    struct FillAmounts {
+    struct PricePoint {
         uint64 blocktime;
-        uint192 assetAmount;
-        uint256 paymentAmount;
+        uint256 price;
     }
 
     /// @dev Emitted order details and order ID for each order
@@ -120,12 +119,12 @@ interface IOrderProcessor {
     /// @param token The address of the token
     function orderDecimalReduction(address token) external view returns (uint8);
 
-    /// @notice Get fee rates for an order
+    /// @notice Get worst case fees for an order
     /// @param sell Sell order
     /// @param paymentToken Payment token for order
     /// @return flatFee Flat fee for order
     /// @return percentageFeeRate Percentage fee rate for order
-    function getStandardFeeRates(bool sell, address paymentToken) external view returns (uint256, uint24);
+    function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24);
 
     /// @notice Check if an account is locked from transferring tokens
     /// @param token Token to check
@@ -133,10 +132,10 @@ interface IOrderProcessor {
     /// @dev Only used for payment tokens
     function isTransferLocked(address token, address account) external view returns (bool);
 
-    /// @notice Get the latest fill amounts for a token pair
+    /// @notice Get the latest fill price for a token pair
     /// @param assetToken Asset token
     /// @param paymentToken Payment token
-    function latestFill(address assetToken, address paymentToken) external view returns (FillAmounts memory);
+    function latestFillPrice(address assetToken, address paymentToken) external view returns (PricePoint memory);
 
     /// ------------------ Actions ------------------ ///
 

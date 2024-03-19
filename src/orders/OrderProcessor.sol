@@ -22,6 +22,7 @@ import {OracleLib} from "../common/OracleLib.sol";
 import {IDShareFactory} from "../IDShareFactory.sol";
 
 /// @notice Core contract managing orders for dShare tokens
+/// @dev Assumes dShare asset tokens have 18 decimals and payment tokens have .decimals()
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
 contract OrderProcessor is
     Initializable,
@@ -48,8 +49,13 @@ contract OrderProcessor is
         uint256 feesDue;
     }
 
-    struct FeeRatesStorage {
-        bool set;
+    struct PaymentTokenConfig {
+        uint8 decimals;
+        // Payment token USD price oracles
+        address oracle;
+        // Token blacklist method selectors
+        bytes4 blacklistCallSelector;
+        // Standard fee schedule per paymentToken
         uint64 perOrderFeeBuy;
         uint24 percentageFeeRateBuy;
         uint64 perOrderFeeSell;
@@ -58,7 +64,6 @@ contract OrderProcessor is
 
     /// @dev Signature deadline expired
     error ExpiredSignature();
-    error InvalidAccountNonce(address account, uint256 nonce);
     /// @dev Zero address
     error ZeroAddress();
     /// @dev Orders are paused
@@ -88,20 +93,19 @@ contract OrderProcessor is
     event VaultSet(address indexed vault);
     /// @dev Emitted when orders are paused/unpaused
     event OrdersPaused(bool paused);
-    /// @dev Emitted when fees are set
-    event FeesSet(
+    event PaymentTokenSet(
         address indexed paymentToken,
+        address oracle,
+        bytes4 blacklistCallSelector,
         uint64 perOrderFeeBuy,
         uint24 percentageFeeRateBuy,
         uint64 perOrderFeeSell,
         uint24 percentageFeeRateSell
     );
-    event FeesRemoved(address indexed paymentToken);
+    event PaymentTokenRemoved(address indexed paymentToken);
     event OrderDecimalReductionSet(address indexed assetToken, uint8 decimalReduction);
     event EthUsdOracleSet(address indexed ethUsdOracle);
-    event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
     event OperatorSet(address indexed account, bool status);
-    event BlacklistCallSelectorSet(address indexed token, bytes4 selector);
 
     /// ------------------ Constants ------------------ ///
 
@@ -130,16 +134,12 @@ contract OrderProcessor is
         mapping(uint256 => OrderStatus) _status;
         // Reduciton of order decimals for asset token, defaults to 0
         mapping(address => uint8) _orderDecimalReduction;
-        // Standard fee schedule per paymentToken
-        mapping(address => FeeRatesStorage) _standardFees;
+        // Payment token configuration data
+        mapping(address => PaymentTokenConfig) _paymentTokens;
         // ETH USD price oracle
         address _ethUsdOracle;
-        // Payment token USD price oracles
-        mapping(address => address) _paymentTokenOracle;
-        // Token blacklist method selectors
-        mapping(address => bytes4) _blacklistCallSelector;
-        // Latest pairwise fill amounts
-        mapping(bytes32 => FillAmounts) _latestFill;
+        // Latest pairwise price
+        mapping(bytes32 => PricePoint) _latestFillPrice;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
@@ -241,46 +241,48 @@ contract OrderProcessor is
         return $._ethUsdOracle;
     }
 
-    function paymentTokenOracle(address paymentToken) external view returns (address) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._paymentTokenOracle[paymentToken];
-    }
-
-    function getStandardFees(address paymentToken)
+    function getStandardFeeRates(address paymentToken)
         public
         view
         returns (
             uint64 perOrderFeeBuy,
             uint24 percentageFeeRateBuy,
             uint64 perOrderFeeSell,
-            uint24 percentageFeeRateSell
+            uint24 percentageFeeRateSell,
+            uint8 decimals
         )
     {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        FeeRatesStorage memory feeRates = $._standardFees[paymentToken];
-        if (!feeRates.set) revert UnsupportedToken(paymentToken);
+        PaymentTokenConfig memory tokenConfig = $._paymentTokens[paymentToken];
+        if (tokenConfig.oracle == address(0)) revert UnsupportedToken(paymentToken);
         return (
-            feeRates.perOrderFeeBuy,
-            feeRates.percentageFeeRateBuy,
-            feeRates.perOrderFeeSell,
-            feeRates.percentageFeeRateSell
+            tokenConfig.perOrderFeeBuy,
+            tokenConfig.percentageFeeRateBuy,
+            tokenConfig.perOrderFeeSell,
+            tokenConfig.percentageFeeRateSell,
+            tokenConfig.decimals
         );
     }
 
     /// @inheritdoc IOrderProcessor
-    function getStandardFeeRates(bool sell, address paymentToken) public view returns (uint256, uint24) {
-        (uint64 perOrderFeeBuy, uint24 percentageFeeRateBuy, uint64 perOrderFeeSell, uint24 percentageFeeRateSell) =
-            getStandardFees(paymentToken);
+    function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24) {
+        (
+            uint64 perOrderFeeBuy,
+            uint24 percentageFeeRateBuy,
+            uint64 perOrderFeeSell,
+            uint24 percentageFeeRateSell,
+            uint8 decimals
+        ) = getStandardFeeRates(paymentToken);
         if (sell) {
-            return (FeeLib.flatFeeForOrder(paymentToken, perOrderFeeSell), percentageFeeRateSell);
+            return (FeeLib.flatFeeForOrder(decimals, perOrderFeeSell), percentageFeeRateSell);
         } else {
-            return (FeeLib.flatFeeForOrder(paymentToken, perOrderFeeBuy), percentageFeeRateBuy);
+            return (FeeLib.flatFeeForOrder(decimals, perOrderFeeBuy), percentageFeeRateBuy);
         }
     }
 
     function isTransferLocked(address token, address account) external view returns (bool) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        bytes4 selector = $._blacklistCallSelector[token];
+        bytes4 selector = $._paymentTokens[token].blacklistCallSelector;
         // if no selector is set, default to locked == false
         if (selector == 0) return false;
 
@@ -292,9 +294,9 @@ contract OrderProcessor is
         return abi.decode(token.functionStaticCall(abi.encodeWithSelector(selector, account)), (bool));
     }
 
-    function latestFill(address assetToken, address paymentToken) external view returns (FillAmounts memory) {
+    function latestFillPrice(address assetToken, address paymentToken) external view returns (PricePoint memory) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._latestFill[OracleLib.pairIndex(assetToken, paymentToken)];
+        return $._latestFillPrice[OracleLib.pairIndex(assetToken, paymentToken)];
     }
 
     // slither-disable-next-line naming-convention
@@ -362,35 +364,58 @@ contract OrderProcessor is
         emit OperatorSet(account, status);
     }
 
-    /// @notice Set unique fee rates for requester and payment token
-    /// @dev Only callable by admin, set zero address to set default
-    function setFees(
+    /// @notice Set payment token configuration information
+    /// @param paymentToken Payment token address
+    /// @param oracle Payment token price oracle
+    /// @param blacklistCallSelector Method selector for blacklist check
+    /// @param perOrderFeeBuy Flat fee for buy orders
+    /// @param percentageFeeRateBuy Percentage fee rate for buy orders
+    /// @param perOrderFeeSell Flat fee for sell orders
+    /// @param percentageFeeRateSell Percentage fee rate for sell orders
+    /// @dev Only callable by admin
+    function setPaymentToken(
         address paymentToken,
+        address oracle,
+        bytes4 blacklistCallSelector,
         uint64 perOrderFeeBuy,
         uint24 percentageFeeRateBuy,
         uint64 perOrderFeeSell,
         uint24 percentageFeeRateSell
     ) external onlyOwner {
+        if (oracle == address(0)) revert ZeroAddress();
         FeeLib.checkPercentageFeeRate(percentageFeeRateBuy);
         FeeLib.checkPercentageFeeRate(percentageFeeRateSell);
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        // Token contract must implement the selector, if specified
+        if (blacklistCallSelector != 0) _checkTransferLocked(paymentToken, address(this), blacklistCallSelector);
 
-        $._standardFees[paymentToken] = FeeRatesStorage({
-            set: true,
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        $._paymentTokens[paymentToken] = PaymentTokenConfig({
+            decimals: IERC20Metadata(paymentToken).decimals(),
+            oracle: oracle,
+            blacklistCallSelector: blacklistCallSelector,
             perOrderFeeBuy: perOrderFeeBuy,
             percentageFeeRateBuy: percentageFeeRateBuy,
             perOrderFeeSell: perOrderFeeSell,
             percentageFeeRateSell: percentageFeeRateSell
         });
-        emit FeesSet(paymentToken, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell);
+        emit PaymentTokenSet(
+            paymentToken,
+            oracle,
+            blacklistCallSelector,
+            perOrderFeeBuy,
+            percentageFeeRateBuy,
+            perOrderFeeSell,
+            percentageFeeRateSell
+        );
     }
 
-    /// @notice Remove fees for payment token
+    /// @notice Remove payment token configuration
+    /// @param paymentToken Payment token address
     /// @dev Only callable by admin
-    function removeFees(address paymentToken) external onlyOwner {
+    function removePaymentToken(address paymentToken) external onlyOwner {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        delete $._standardFees[paymentToken];
-        emit FeesRemoved(paymentToken);
+        delete $._paymentTokens[paymentToken];
+        emit PaymentTokenRemoved(paymentToken);
     }
 
     /// @notice Set the order decimal reduction for asset token
@@ -409,21 +434,6 @@ contract OrderProcessor is
         emit EthUsdOracleSet(_ethUsdOracle);
     }
 
-    function setPaymentTokenOracle(address paymentToken, address oracle) external onlyOwner {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        $._paymentTokenOracle[paymentToken] = oracle;
-        emit PaymentTokenOracleSet(paymentToken, oracle);
-    }
-
-    function setBlacklistCallSelector(address token, bytes4 selector) public onlyOwner {
-        // if token is a contract, it must implement the selector
-        if (selector != 0) _checkTransferLocked(token, address(this), selector);
-
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        $._blacklistCallSelector[token] = selector;
-        emit BlacklistCallSelectorSet(token, selector);
-    }
-
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc IOrderProcessor
@@ -433,48 +443,40 @@ contract OrderProcessor is
         onlyOperator
         returns (uint256 id)
     {
-        // TODO: do we really need the user to sign the order if they have signed the permit?
         // Start gas measurement
         uint256 gasStart = gasleft();
 
-        // Check if payment token oracle is set
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        address _oracle = $._paymentTokenOracle[order.paymentToken];
-        if (_oracle == address(0)) revert UnsupportedToken(order.paymentToken);
-
         // Recover requester and validate signature
         if (signature.deadline < block.timestamp) revert ExpiredSignature();
-
-        // Recover order requester
         address requester =
             ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, signature.deadline)), signature.signature);
 
         // Create order
-        id = _createOrder(order, requester);
+        PaymentTokenConfig memory paymentTokenConfig;
+        (id, paymentTokenConfig) = _createOrder(order, requester);
 
         // Charge user for gas fees now for buy orders
         if (!order.sell) {
-            uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
+            uint256 tokenPriceInWei = _getTokenPriceInWei(paymentTokenConfig.oracle);
 
             uint256 gasCostInWei = (gasStart - gasleft()) * tx.gasprice;
 
             // Apply payment token price to calculate payment amount
             // Assumes payment token price includes token decimals
-            uint256 networkFee = 0;
-            try IERC20Metadata(order.paymentToken).decimals() returns (uint8 tokenDecimals) {
-                networkFee = gasCostInWei * 10 ** tokenDecimals / tokenPriceInWei;
-            } catch {
-                networkFee = gasCostInWei / tokenPriceInWei;
-            }
+            uint256 networkFee = gasCostInWei * 10 ** paymentTokenConfig.decimals / tokenPriceInWei;
 
             // Pull payment for gas fees
+            OrderProcessorStorage storage $ = _getOrderProcessorStorage();
             IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, networkFee);
         }
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
     // slither-disable-next-line cyclomatic-complexity
-    function _createOrder(Order calldata order, address requester) private returns (uint256 id) {
+    function _createOrder(Order calldata order, address requester)
+        private
+        returns (uint256 id, PaymentTokenConfig memory paymentTokenConfig)
+    {
         // ------------------ Checks ------------------ //
 
         // Cheap checks first
@@ -493,14 +495,13 @@ contract OrderProcessor is
 
         // Check for whitelisted tokens
         if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
+        paymentTokenConfig = $._paymentTokens[order.paymentToken];
+        if (paymentTokenConfig.oracle == address(0)) revert UnsupportedToken(order.paymentToken);
         // Calculate fee escrow due now for buy orders
         uint256 feesDue = 0;
         if (!order.sell) {
-            (uint256 flatFee, uint24 percentageFeeRate) = getStandardFeeRates(order.sell, order.paymentToken);
-            feesDue = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, order.paymentTokenQuantity);
-        } else if (!$._standardFees[order.paymentToken].set) {
-            // Run whitelist check for sell orders
-            revert UnsupportedToken(order.paymentToken);
+            feesDue = FeeLib.flatFeeForOrder(paymentTokenConfig.decimals, paymentTokenConfig.perOrderFeeBuy)
+                + FeeLib.applyPercentageFee(paymentTokenConfig.percentageFeeRateBuy, order.paymentTokenQuantity);
         }
 
         // Precision checked for assetTokenQuantity, market buys excluded
@@ -512,12 +513,11 @@ contract OrderProcessor is
         }
 
         // Black list checker, assumes asset tokens are dShares
-        bytes4 paymentTokenBlacklistSelector = $._blacklistCallSelector[order.paymentToken];
         if (
             IDShare(order.assetToken).isBlacklisted(order.recipient)
                 || IDShare(order.assetToken).isBlacklisted(requester)
-                || _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenBlacklistSelector)
-                || _checkTransferLocked(order.paymentToken, requester, paymentTokenBlacklistSelector)
+                || _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenConfig.blacklistCallSelector)
+                || _checkTransferLocked(order.paymentToken, requester, paymentTokenConfig.blacklistCallSelector)
         ) revert Blacklist();
 
         // ------------------ Effects ------------------ //
@@ -547,7 +547,7 @@ contract OrderProcessor is
      */
     function getTokenPriceInWei(address paymentToken) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return _getTokenPriceInWei($._paymentTokenOracle[paymentToken]);
+        return _getTokenPriceInWei($._paymentTokens[paymentToken].oracle);
     }
 
     function _getTokenPriceInWei(address _paymentTokenOracle) internal view returns (uint256) {
@@ -573,7 +573,7 @@ contract OrderProcessor is
 
     /// @inheritdoc IOrderProcessor
     function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
-        id = _createOrder(order, msg.sender);
+        (id,) = _createOrder(order, msg.sender);
     }
 
     function hashOrderRequest(Order calldata order, uint256 deadline) public pure returns (bytes32) {
@@ -622,6 +622,8 @@ contract OrderProcessor is
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
+        uint256 assetAmount;
+        uint256 paymentAmount;
         if (order.sell) {
             // Fees cannot exceed proceeds
             if (fees > receivedAmount) revert AmountTooLarge();
@@ -629,6 +631,8 @@ contract OrderProcessor is
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv18(fillAmount, order.price)) {
                 revert OrderFillAboveLimitPrice();
             }
+            assetAmount = fillAmount;
+            paymentAmount = receivedAmount;
         } else {
             // Fees cannot exceed remaining deposit
             if (fees > orderState.feesDue) revert AmountTooLarge();
@@ -636,18 +640,19 @@ contract OrderProcessor is
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv(fillAmount, 1 ether, order.price)) {
                 revert OrderFillBelowLimitPrice();
             }
+            assetAmount = receivedAmount;
+            paymentAmount = fillAmount;
         }
 
         // ------------------ Effects ------------------ //
 
         // Update price oracle
-        uint256 assetAmount = order.sell ? fillAmount : receivedAmount;
-        uint256 paymentAmount = order.sell ? receivedAmount : fillAmount;
         bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
-        $._latestFill[pairIndex] = FillAmounts({
+        $._latestFillPrice[pairIndex] = PricePoint({
             blocktime: uint64(block.timestamp),
-            assetAmount: uint192(assetAmount),
-            paymentAmount: paymentAmount
+            price: order.orderType == OrderType.LIMIT
+                ? order.price
+                : OracleLib.calculatePrice(assetAmount, paymentAmount, $._paymentTokens[order.paymentToken].decimals)
         });
 
         // Notify order filled

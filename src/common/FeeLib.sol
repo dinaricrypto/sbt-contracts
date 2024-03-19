@@ -24,14 +24,13 @@ library FeeLib {
         return percentageFeeRate != 0 ? PrbMath.mulDiv(value, percentageFeeRate, _ONEHUNDRED_PERCENT) : 0;
     }
 
-    function flatFeeForOrder(address token, uint64 perOrderFee) internal view returns (uint256 flatFee) {
-        uint8 decimals = IERC20Metadata(token).decimals();
-        if (decimals > 18) revert DecimalsTooLarge();
+    function flatFeeForOrder(uint8 paymentTokenDecimals, uint64 perOrderFee) internal pure returns (uint256 flatFee) {
+        if (paymentTokenDecimals > 18) revert DecimalsTooLarge();
         if (perOrderFee == 0) return 0;
-        if (decimals > _FLAT_FEE_DECIMALS) {
-            flatFee = perOrderFee * 10 ** (decimals - _FLAT_FEE_DECIMALS);
-        } else if (decimals < _FLAT_FEE_DECIMALS) {
-            flatFee = perOrderFee / 10 ** (_FLAT_FEE_DECIMALS - decimals);
+        if (paymentTokenDecimals > _FLAT_FEE_DECIMALS) {
+            flatFee = perOrderFee * 10 ** (paymentTokenDecimals - _FLAT_FEE_DECIMALS);
+        } else if (paymentTokenDecimals < _FLAT_FEE_DECIMALS) {
+            flatFee = perOrderFee / 10 ** (_FLAT_FEE_DECIMALS - paymentTokenDecimals);
         } else {
             flatFee = perOrderFee;
         }

@@ -11,16 +11,14 @@ contract AddPaymentTokens is Script {
 
         address[1] memory paymentTokens = [vm.envAddress("USDB")];
 
-        bytes32[1] memory paymentTokenOracleIds = [bytes32(uint256(1))];
-        assert(paymentTokens.length == paymentTokenOracleIds.length);
+        address[1] memory paymentTokenOracles = [address(0)];
+        assert(paymentTokens.length == paymentTokenOracles.length);
 
         vm.startBroadcast(deployerPrivateKey);
 
         for (uint256 i = 0; i < paymentTokens.length; i++) {
             // add payment token
-            // orderProcessor.setPaymentTokenOracle(paymentTokens[i], paymentTokenOracleIds[i]);
-            // set default fees
-            orderProcessor.setFees(paymentTokens[i], 1e8, 0, 1e8, 5_000);
+            orderProcessor.setPaymentToken(paymentTokens[i], paymentTokenOracles[i], bytes4(0), 1e8, 0, 1e8, 5_000);
         }
 
         vm.stopBroadcast();
