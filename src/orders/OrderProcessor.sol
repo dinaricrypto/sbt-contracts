@@ -34,11 +34,6 @@ contract OrderProcessor is
     using SafeERC20 for IERC20;
     using Address for address;
 
-    // buy order fee process
-    // - standard fee deposit is transferred to processor
-    // - fill takes payment and specifies amount of fee to be transferred to treasury
-    // - when order is fulfilled, processor transfers fee deposit remainder to user
-
     /// ------------------ Types ------------------ ///
 
     // Order state cleared after order is fulfilled or cancelled.
@@ -473,6 +468,7 @@ contract OrderProcessor is
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
+    // slither-disable-next-line cyclomatic-complexity
     function _createOrder(Order calldata order, address requester) private returns (uint256 id) {
         // ------------------ Checks ------------------ //
 
@@ -601,6 +597,7 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
+    // slither-disable-next-line cyclomatic-complexity
     function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
         external
         onlyOperator
