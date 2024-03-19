@@ -67,7 +67,7 @@ contract BuyProcessorRequestTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
         issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
-        issuer.setFees(address(0), address(paymentToken), 1e8, 5_000, 1e8, 5_000);
+        issuer.setFees(address(paymentToken), 1e8, 5_000, 1e8, 5_000);
         issuer.setOperator(operator, true);
 
         paymentToken.mint(user, type(uint256).max);
@@ -86,7 +86,7 @@ contract BuyProcessorRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getStandardFeeRates(false, address(paymentToken));
         order = IOrderProcessor.Order({
             salt: 0,
             recipient: user,

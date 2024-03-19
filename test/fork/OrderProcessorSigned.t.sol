@@ -22,7 +22,7 @@ contract OrderProcessorSignedTest is Test {
 
     // TODO: add order fill with vault
     // TODO: test fill sells
-    event OrderCreated(uint256 indexed id, address indexed recipient);
+    event OrderCreated(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
 
     event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
     event EthUsdOracleSet(address indexed oracle);
@@ -85,7 +85,7 @@ contract OrderProcessorSignedTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
-        issuer.setFees(address(0), address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
+        issuer.setFees(address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
         issuer.setPaymentTokenOracle(address(paymentToken), usdcPriceOracle);
         issuer.setOperator(operator, true);
         vm.stopPrank();
@@ -94,7 +94,7 @@ contract OrderProcessorSignedTest is Test {
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getStandardFeeRates(false, address(paymentToken));
         dummyOrderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
@@ -136,7 +136,7 @@ contract OrderProcessorSignedTest is Test {
     function testRequestBuyOrderThroughOperator(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
 
-        (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getStandardFeeRates(false, address(paymentToken));
         uint256 fees = _flatFee + FeeLib.applyPercentageFee(_percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
@@ -165,7 +165,7 @@ contract OrderProcessorSignedTest is Test {
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
 
         vm.expectEmit(true, true, true, true);
-        emit OrderCreated(orderId, user);
+        emit OrderCreated(orderId, user, order);
         vm.prank(operator);
         issuer.multicall(multicalldata);
 
@@ -198,7 +198,7 @@ contract OrderProcessorSignedTest is Test {
         uint256 userBalanceBefore = token.balanceOf(user);
 
         vm.expectEmit(true, true, true, true);
-        emit OrderCreated(orderId, user);
+        emit OrderCreated(orderId, user, order);
         vm.prank(operator);
         issuer.multicall(multicalldata);
 
