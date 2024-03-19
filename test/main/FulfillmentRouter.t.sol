@@ -78,7 +78,7 @@ contract FulfillmentRouterTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
-        issuer.setFees(address(0), address(paymentToken), 1e8, 5_000, 1e8, 5_000);
+        issuer.setFees(address(paymentToken), 1e8, 5_000, 1e8, 5_000);
         issuer.setOperator(address(router), true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
@@ -108,19 +108,20 @@ contract FulfillmentRouterTest is Test {
             )
         );
         vm.prank(admin);
-        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0);
+        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0, 0);
     }
 
     function testFillBuyOrderReverts() public {
         vm.expectRevert(FulfillmentRouter.BuyFillsNotSupported.selector);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0);
+        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0, 0);
     }
 
-    function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
+    function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 fees) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount > 0);
         vm.assume(fillAmount <= orderAmount);
+        vm.assume(fees <= receivedAmount);
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.sell = true;
@@ -141,6 +142,6 @@ contract FulfillmentRouterTest is Test {
         vm.expectEmit(true, true, true, false);
         emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, receivedAmount, fillAmount, 0, true);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
+        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount, fees);
     }
 }

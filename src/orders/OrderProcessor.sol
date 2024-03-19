@@ -34,22 +34,22 @@ contract OrderProcessor is
     using SafeERC20 for IERC20;
     using Address for address;
 
+    // buy order fee process
+    // - standard fee deposit is transferred to processor
+    // - fill takes payment and specifies amount of fee to be transferred to treasury
+    // - when order is fulfilled, processor transfers fee deposit remainder to user
+
     /// ------------------ Types ------------------ ///
 
     // Order state cleared after order is fulfilled or cancelled.
     struct OrderState {
-        // Flat fee at time of order request including applied network fee
-        uint256 flatFee;
-        // Percentage fee rate at time of order request
-        uint24 percentageFeeRate;
         // Account that requested the order
         address requester;
         // Amount of order token remaining to be used
         uint256 unfilledAmount;
-        // Total amount of received token due to fills
-        uint256 received;
-        // Total fees paid to treasury
-        uint256 feesPaid;
+        // Buy orders: Fees escrowed
+        // Sell orders: Network fees earned
+        uint256 feesDue;
     }
 
     struct FeeRatesStorage {
@@ -94,14 +94,13 @@ contract OrderProcessor is
     event OrdersPaused(bool paused);
     /// @dev Emitted when fees are set
     event FeesSet(
-        address indexed account,
         address indexed paymentToken,
         uint64 perOrderFeeBuy,
         uint24 percentageFeeRateBuy,
         uint64 perOrderFeeSell,
         uint24 percentageFeeRateSell
     );
-    event FeesReset(address indexed account, address indexed paymentToken);
+    event FeesRemoved(address indexed paymentToken);
     /// @dev Emitted when OrderDecimal is set
     event MaxOrderDecimalsSet(address indexed assetToken, int8 decimals);
     event EthUsdOracleSet(address indexed ethUsdOracle);
@@ -136,9 +135,8 @@ contract OrderProcessor is
         mapping(uint256 => OrderStatus) _status;
         // Max order decimals for asset token, defaults to 0 decimals
         mapping(address => int8) _maxOrderDecimals;
-        // Fee schedule for requester, per paymentToken
-        // Uses address(0) to store default fee schedule
-        mapping(address => mapping(address => FeeRatesStorage)) _accountFees;
+        // Standard fee schedule per paymentToken
+        mapping(address => FeeRatesStorage) _standardFees;
         // ETH USD price oracle
         address _ethUsdOracle;
         // Payment token USD price oracles
@@ -241,12 +239,6 @@ contract OrderProcessor is
         return $._orders[id].unfilledAmount;
     }
 
-    /// @inheritdoc IOrderProcessor
-    function getTotalReceived(uint256 id) external view returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._orders[id].received;
-    }
-
     function ethUsdOracle() external view returns (address) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._ethUsdOracle;
@@ -257,7 +249,7 @@ contract OrderProcessor is
         return $._paymentTokenOracle[paymentToken];
     }
 
-    function getAccountFees(address requester, address paymentToken)
+    function getStandardFees(address paymentToken)
         public
         view
         returns (
@@ -268,14 +260,8 @@ contract OrderProcessor is
         )
     {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        FeeRatesStorage storage feeRatesPointer = $._accountFees[requester][paymentToken];
-        // If user, paymentToken does not have a custom fee schedule, use default
-        FeeRatesStorage memory feeRates;
-        if (feeRatesPointer.set) {
-            feeRates = feeRatesPointer;
-        } else {
-            feeRates = $._accountFees[address(0)][paymentToken];
-        }
+        FeeRatesStorage memory feeRates = $._standardFees[paymentToken];
+        if (!feeRates.set) revert UnsupportedToken(paymentToken);
         return (
             feeRates.perOrderFeeBuy,
             feeRates.percentageFeeRateBuy,
@@ -285,13 +271,9 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function getFeeRatesForOrder(address requester, bool sell, address paymentToken)
-        public
-        view
-        returns (uint256, uint24)
-    {
+    function getStandardFeeRates(bool sell, address paymentToken) public view returns (uint256, uint24) {
         (uint64 perOrderFeeBuy, uint24 percentageFeeRateBuy, uint64 perOrderFeeSell, uint24 percentageFeeRateSell) =
-            getAccountFees(requester, paymentToken);
+            getStandardFees(paymentToken);
         if (sell) {
             return (FeeLib.flatFeeForOrder(paymentToken, perOrderFeeSell), percentageFeeRateSell);
         } else {
@@ -381,7 +363,6 @@ contract OrderProcessor is
     /// @notice Set unique fee rates for requester and payment token
     /// @dev Only callable by admin, set zero address to set default
     function setFees(
-        address requester,
         address paymentToken,
         uint64 perOrderFeeBuy,
         uint24 percentageFeeRateBuy,
@@ -391,32 +372,23 @@ contract OrderProcessor is
         FeeLib.checkPercentageFeeRate(percentageFeeRateBuy);
         FeeLib.checkPercentageFeeRate(percentageFeeRateSell);
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        if (requester != address(0) && !$._accountFees[address(0)][paymentToken].set) {
-            revert UnsupportedToken(paymentToken);
-        }
 
-        $._accountFees[requester][paymentToken] = FeeRatesStorage({
+        $._standardFees[paymentToken] = FeeRatesStorage({
             set: true,
             perOrderFeeBuy: perOrderFeeBuy,
             percentageFeeRateBuy: percentageFeeRateBuy,
             perOrderFeeSell: perOrderFeeSell,
             percentageFeeRateSell: percentageFeeRateSell
         });
-        emit FeesSet(
-            requester, paymentToken, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell
-        );
+        emit FeesSet(paymentToken, perOrderFeeBuy, percentageFeeRateBuy, perOrderFeeSell, percentageFeeRateSell);
     }
 
-    /// @notice Reset fee rates for requester to default
-    /// @param requester Requester address
-    /// @param paymentToken Payment token
+    /// @notice Remove fees for payment token
     /// @dev Only callable by admin
-    function resetFees(address requester, address paymentToken) external onlyOwner {
-        if (requester == address(0)) revert ZeroAddress();
-
+    function removeFees(address paymentToken) external onlyOwner {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        delete $._accountFees[requester][paymentToken];
-        emit FeesReset(requester, paymentToken);
+        delete $._standardFees[paymentToken];
+        emit FeesRemoved(paymentToken);
     }
 
     /// @notice Set max order decimals for asset token
@@ -479,36 +451,28 @@ contract OrderProcessor is
         // Create order
         id = _createOrder(order, requester);
 
-        // Pull payment for order creation
-        uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
+        // Charge user for gas fees now for buy orders
+        if (!order.sell) {
+            uint256 tokenPriceInWei = _getTokenPriceInWei(_oracle);
 
-        // Charge user for gas fees
-        uint256 networkFee = 0;
-        {
             uint256 gasUsed = gasStart - gasleft();
             uint256 gasCostInWei = gasUsed * tx.gasprice;
 
             // Apply payment token price to calculate payment amount
             // Assumes payment token price includes token decimals
+            uint256 networkFee = 0;
             try IERC20Metadata(order.paymentToken).decimals() returns (uint8 tokenDecimals) {
                 networkFee = gasCostInWei * 10 ** tokenDecimals / tokenPriceInWei;
             } catch {
                 networkFee = gasCostInWei / tokenPriceInWei;
             }
-        }
 
-        // Record or transfer the payment for gas fees
-        if (order.sell) {
-            // Add network fee to flat fee taken from proceeds
-            $._orders[id].flatFee += networkFee;
-        } else {
             // Pull payment for gas fees
             IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, networkFee);
         }
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
-    // slither-disable-next-line cyclomatic-complexity
     function _createOrder(Order calldata order, address requester) private returns (uint256 id) {
         // ------------------ Checks ------------------ //
 
@@ -528,7 +492,15 @@ contract OrderProcessor is
 
         // Check for whitelisted tokens
         if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
-        if (!$._accountFees[address(0)][order.paymentToken].set) revert UnsupportedToken(order.paymentToken);
+        // Calculate fee escrow due now for buy orders
+        uint256 feesDue = 0;
+        if (!order.sell) {
+            (uint256 flatFee, uint24 percentageFeeRate) = getStandardFeeRates(order.sell, order.paymentToken);
+            feesDue = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, order.paymentTokenQuantity);
+        } else if (!$._standardFees[order.paymentToken].set) {
+            // Run whitelist check for sell orders
+            revert UnsupportedToken(order.paymentToken);
+        }
 
         // Precision checked for assetTokenQuantity, market buys excluded
         if (order.sell || order.orderType == OrderType.LIMIT) {
@@ -549,20 +521,11 @@ contract OrderProcessor is
 
         // ------------------ Effects ------------------ //
 
-        // Calculate fees
-        (uint256 flatFee, uint24 percentageFeeRate) = getFeeRatesForOrder(requester, order.sell, order.paymentToken);
         // Initialize order state
-        $._orders[id] = OrderState({
-            requester: requester,
-            flatFee: flatFee,
-            percentageFeeRate: percentageFeeRate,
-            unfilledAmount: orderAmount,
-            received: 0,
-            feesPaid: 0
-        });
+        $._orders[id] = OrderState({requester: requester, unfilledAmount: orderAmount, feesDue: feesDue});
         $._status[id] = OrderStatus.ACTIVE;
 
-        emit OrderCreated(id, requester);
+        emit OrderCreated(id, requester, order);
 
         // ------------------ Interactions ------------------ //
 
@@ -571,12 +534,10 @@ contract OrderProcessor is
             // Burn asset
             IDShare(order.assetToken).burnFrom(requester, order.assetTokenQuantity);
         } else {
-            uint256 orderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, order.paymentTokenQuantity);
-
             // Sweep payment for purchase
             IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, order.paymentTokenQuantity);
             // Escrow fees
-            IERC20(order.paymentToken).safeTransferFrom(requester, address(this), orderFees);
+            IERC20(order.paymentToken).safeTransferFrom(requester, address(this), feesDue);
         }
     }
 
@@ -612,9 +573,6 @@ contract OrderProcessor is
     /// @inheritdoc IOrderProcessor
     function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
         id = _createOrder(order, msg.sender);
-
-        // Send order to bridge
-        emit OrderRequested(id, msg.sender, order);
     }
 
     function hashOrderRequest(Order calldata order, uint256 deadline) public pure returns (bytes32) {
@@ -643,8 +601,7 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    // slither-disable-next-line cyclomatic-complexity
-    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount)
+    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
         external
         onlyOperator
     {
@@ -663,57 +620,20 @@ contract OrderProcessor is
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
-        // Calculate earned fees and handle any unique checks
-        uint256 feesEarned = 0;
-        uint256 estimatedTotalFees = 0;
         if (order.sell) {
+            // Fees cannot exceed proceeds
+            if (fees > receivedAmount) revert AmountTooLarge();
             // For limit sell orders, ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv18(fillAmount, order.price)) {
                 revert OrderFillAboveLimitPrice();
             }
-
-            // Fees - earn up to the flat fee, then earn percentage fee on the remainder
-            // TODO: make sure that all fees are taken at total fill to prevent dust accumulating here
-            // Determine the subtotal used to calculate the percentage fee
-            uint256 subtotal = 0;
-            // If the flat fee hasn't been fully covered yet, ...
-            if (orderState.feesPaid < orderState.flatFee) {
-                // How much of the flat fee is left to cover?
-                uint256 flatFeeRemaining = orderState.flatFee - orderState.feesPaid;
-                // If the amount subject to fees is greater than the remaining flat fee, ...
-                if (receivedAmount > flatFeeRemaining) {
-                    // Earn the remaining flat fee
-                    feesEarned = flatFeeRemaining;
-                    // Calculate the subtotal by subtracting the remaining flat fee from the amount subject to fees
-                    subtotal = receivedAmount - flatFeeRemaining;
-                } else {
-                    // Otherwise, earn the amount subject to fees
-                    feesEarned = receivedAmount;
-                }
-            } else {
-                // If the flat fee has been fully covered, the subtotal is the entire fill amount
-                subtotal = receivedAmount;
-            }
-
-            // Calculate the percentage fee on the subtotal
-            if (subtotal > 0 && orderState.percentageFeeRate > 0) {
-                feesEarned += mulDiv18(subtotal, orderState.percentageFeeRate);
-            }
         } else {
+            // Fees cannot exceed remaining deposit
+            if (fees > orderState.feesDue) revert AmountTooLarge();
             // For limit buy orders, ensure that the received amount is greater or equal to fill amount / limit price, order price has ether decimals
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv(fillAmount, 1 ether, order.price)) {
                 revert OrderFillBelowLimitPrice();
             }
-
-            // Fees - earn the flat fee if first fill, then earn percentage fee on the fill
-            feesEarned = 0;
-            if (orderState.feesPaid == 0) {
-                feesEarned = orderState.flatFee;
-            }
-            estimatedTotalFees =
-                orderState.flatFee + FeeLib.applyPercentageFee(orderState.percentageFeeRate, order.paymentTokenQuantity);
-            uint256 totalPercentageFees = estimatedTotalFees - orderState.flatFee;
-            feesEarned += mulDiv(totalPercentageFees, fillAmount, order.paymentTokenQuantity);
         }
 
         // ------------------ Effects ------------------ //
@@ -726,7 +646,7 @@ contract OrderProcessor is
             orderState.requester,
             order.sell ? receivedAmount : fillAmount,
             order.sell ? fillAmount : receivedAmount,
-            feesEarned,
+            fees,
             order.sell
         );
 
@@ -741,14 +661,10 @@ contract OrderProcessor is
             emit OrderFulfilled(id, orderState.requester);
         } else {
             // Otherwise update order state
-            uint256 feesPaid = orderState.feesPaid + feesEarned;
-            // Check values
-            if (!order.sell) {
-                assert(feesPaid <= estimatedTotalFees);
-            }
             $._orders[id].unfilledAmount = newUnfilledAmount;
-            $._orders[id].received = orderState.received + receivedAmount;
-            $._orders[id].feesPaid = feesPaid;
+            if (!order.sell) {
+                $._orders[id].feesDue = orderState.feesDue - fees;
+            }
         }
 
         // ------------------ Interactions ------------------ //
@@ -759,7 +675,7 @@ contract OrderProcessor is
             IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
 
             // If there are proceeds from the order, transfer them to the recipient
-            uint256 paymentEarned = receivedAmount - feesEarned;
+            uint256 paymentEarned = receivedAmount - fees;
             if (paymentEarned > 0) {
                 IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
             }
@@ -769,8 +685,8 @@ contract OrderProcessor is
         }
 
         // If there are protocol fees from the order, transfer them to the treasury
-        if (feesEarned > 0) {
-            IERC20(order.paymentToken).safeTransfer($._treasury, feesEarned);
+        if (fees > 0) {
+            IERC20(order.paymentToken).safeTransfer($._treasury, fees);
         }
     }
 
@@ -802,16 +718,8 @@ contract OrderProcessor is
 
         // ------------------ Effects ------------------ //
 
-        uint256 feeRefund = 0;
-        if (!order.sell) {
-            // If no fills, then full refund
-            feeRefund =
-                orderState.flatFee + FeeLib.applyPercentageFee(orderState.percentageFeeRate, order.paymentTokenQuantity);
-            if (orderState.unfilledAmount < order.paymentTokenQuantity) {
-                // Refund remaining order and fees
-                feeRefund -= orderState.feesPaid;
-            }
-        }
+        // If buy order, then refund fee deposit
+        uint256 feeRefund = order.sell ? 0 : orderState.feesDue;
         uint256 unfilledAmount = orderState.unfilledAmount;
 
         // Order is cancelled
@@ -832,7 +740,9 @@ contract OrderProcessor is
         } else {
             // Return unfilled
             IERC20(order.paymentToken).safeTransferFrom(msg.sender, requester, unfilledAmount);
-            IERC20(order.paymentToken).safeTransfer(requester, feeRefund);
+            if (feeRefund > 0) {
+                IERC20(order.paymentToken).safeTransfer(requester, feeRefund);
+            }
         }
     }
 }

@@ -56,13 +56,13 @@ contract LimitOrderTest is Test {
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
         issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
-        issuer.setFees(address(0), address(paymentToken), 1e8, 5_000, 1e8, 5_000);
+        issuer.setFees(address(paymentToken), 1e8, 5_000, 1e8, 5_000);
         issuer.setOperator(operator, true);
         issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         vm.stopPrank();
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getStandardFeeRates(false, address(paymentToken));
     }
 
     function createLimitOrder(bool sell, uint256 orderAmount, uint256 price)
@@ -125,18 +125,20 @@ contract LimitOrderTest is Test {
 
         vm.expectRevert(OrderProcessor.OrderFillBelowLimitPrice.selector);
         vm.prank(operator);
-        issuer.fillOrder(id, order, fillAmount, receivedAmount);
+        issuer.fillOrder(id, order, fillAmount, receivedAmount, fees);
     }
 
     function testFillLimitSellOrderPriceReverts(
         uint256 orderAmount,
         uint256 fillAmount,
         uint256 receivedAmount,
+        uint256 fees,
         uint256 _price
     ) public {
         vm.assume(_price > 0);
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount > 0 && fillAmount <= orderAmount);
+        vm.assume(fees <= receivedAmount);
         vm.assume(!NumberUtils.mulDivCheckOverflow(fillAmount, _price, 1 ether));
         vm.assume(receivedAmount < mulDiv18(fillAmount, _price));
 
@@ -152,6 +154,6 @@ contract LimitOrderTest is Test {
 
         vm.expectRevert(OrderProcessor.OrderFillAboveLimitPrice.selector);
         vm.prank(operator);
-        issuer.fillOrder(id, order, fillAmount, receivedAmount);
+        issuer.fillOrder(id, order, fillAmount, receivedAmount, fees);
     }
 }

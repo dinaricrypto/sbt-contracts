@@ -26,7 +26,8 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
         uint256 orderId,
         IOrderProcessor.Order calldata order,
         uint256 fillAmount,
-        uint256 receivedAmount
+        uint256 receivedAmount,
+        uint256 fees
     ) external onlyRole(OPERATOR_ROLE) {
         if (!order.sell) revert BuyFillsNotSupported();
 
@@ -34,6 +35,6 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
         IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), receivedAmount);
         // fill order with payment token
         IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
-        IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount);
+        IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount, fees);
     }
 }
