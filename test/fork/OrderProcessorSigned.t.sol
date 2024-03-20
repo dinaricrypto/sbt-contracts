@@ -84,18 +84,17 @@ contract OrderProcessorSignedTest is Test {
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
-        issuer.setFees(address(paymentToken), 1 ether, 5_000, 1 ether, 5_000);
-        issuer.setPaymentTokenOracle(address(paymentToken), usdcPriceOracle);
+        issuer.setPaymentToken(
+            address(paymentToken), usdcPriceOracle, paymentToken.isBlacklisted.selector, 1e8, 5_000, 1e8, 5_000
+        );
         issuer.setOperator(operator, true);
-        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
         vm.stopPrank();
 
         orderSigUtils = new OrderSigUtils(issuer);
         paymentSigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
         shareSigUtils = new SigUtils(token.DOMAIN_SEPARATOR());
 
-        (flatFee, percentageFeeRate) = issuer.getStandardFeeRates(false, address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
         dummyOrderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
@@ -123,21 +122,10 @@ contract OrderProcessorSignedTest is Test {
         assertEq(issuer.ethUsdOracle(), _oracle);
     }
 
-    function testUpdateOracle(address _paymentToken, address _oracle) public {
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
-        issuer.setPaymentTokenOracle(_paymentToken, _oracle);
-
-        vm.expectEmit(true, true, true, true);
-        emit PaymentTokenOracleSet(_paymentToken, _oracle);
-        vm.prank(admin);
-        issuer.setPaymentTokenOracle(_paymentToken, _oracle);
-        assertEq(issuer.paymentTokenOracle(_paymentToken), _oracle);
-    }
-
     function testRequestBuyOrderThroughOperator(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
 
-        (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getStandardFeeRates(false, address(paymentToken));
+        (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
         uint256 fees = _flatFee + FeeLib.applyPercentageFee(_percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 

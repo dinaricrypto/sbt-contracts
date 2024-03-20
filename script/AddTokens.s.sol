@@ -53,7 +53,7 @@ contract AddTokensScript is Script {
 
         for (uint256 i = 0; i < assetTokens.length; i++) {
             // TODO: add to deployall scripts
-            issuer.setMaxOrderDecimals(assetTokens[i], 6);
+            issuer.setOrderDecimalReduction(assetTokens[i], DShare(assetTokens[i]).decimals() - 6);
             // issuer.grantRole(issuer.ASSETTOKEN_ROLE(), assetTokens[i]);
 
             // DShare assetToken = DShare(assetTokens[i]);
