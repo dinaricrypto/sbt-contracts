@@ -239,38 +239,44 @@ contract OrderProcessor is
         return $._ethUsdOracle;
     }
 
-    function getStandardFeeRates(address paymentToken)
+    function getPaymentTokenConfig(address paymentToken)
         public
         view
         returns (
+            uint8 decimals,
+            address oracle,
+            bytes4 blacklistCallSelector,
             uint64 perOrderFeeBuy,
             uint24 percentageFeeRateBuy,
             uint64 perOrderFeeSell,
-            uint24 percentageFeeRateSell,
-            uint8 decimals
+            uint24 percentageFeeRateSell
         )
     {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         PaymentTokenConfig memory tokenConfig = $._paymentTokens[paymentToken];
-        if (tokenConfig.oracle == address(0)) revert UnsupportedToken(paymentToken);
         return (
+            tokenConfig.decimals,
+            tokenConfig.oracle,
+            tokenConfig.blacklistCallSelector,
             tokenConfig.perOrderFeeBuy,
             tokenConfig.percentageFeeRateBuy,
             tokenConfig.perOrderFeeSell,
-            tokenConfig.percentageFeeRateSell,
-            tokenConfig.decimals
+            tokenConfig.percentageFeeRateSell
         );
     }
 
     /// @inheritdoc IOrderProcessor
     function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24) {
         (
+            uint8 decimals,
+            address oracle,
+            ,
             uint64 perOrderFeeBuy,
             uint24 percentageFeeRateBuy,
             uint64 perOrderFeeSell,
-            uint24 percentageFeeRateSell,
-            uint8 decimals
-        ) = getStandardFeeRates(paymentToken);
+            uint24 percentageFeeRateSell
+        ) = getPaymentTokenConfig(paymentToken);
+        if (oracle == address(0)) revert UnsupportedToken(paymentToken);
         if (sell) {
             return (FeeLib.flatFeeForOrder(decimals, perOrderFeeSell), percentageFeeRateSell);
         } else {

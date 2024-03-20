@@ -260,17 +260,21 @@ contract OrderProcessorTest is Test {
             percentageFeeRate
         );
         (
+            uint8 decimals,
+            address setOracle,
+            bytes4 blacklistCallSelector,
             uint64 perOrderFeeBuy,
             uint24 percentageFeeRateBuy,
             uint64 perOrderFeeSell,
-            uint24 percentageFeeRateSell,
-            uint8 decimals
-        ) = issuer.getStandardFeeRates(address(testToken));
+            uint24 percentageFeeRateSell
+        ) = issuer.getPaymentTokenConfig(address(testToken));
+        assertEq(decimals, testToken.decimals());
+        assertEq(setOracle, oracle);
+        assertEq(blacklistCallSelector, testToken.isBlacklisted.selector);
         assertEq(perOrderFeeBuy, perOrderFee);
         assertEq(percentageFeeRateBuy, percentageFeeRate);
         assertEq(perOrderFeeSell, perOrderFee);
         assertEq(percentageFeeRateSell, percentageFeeRate);
-        assertEq(decimals, testToken.decimals());
 
         testToken.blacklist(user);
         assertTrue(issuer.isTransferLocked(address(testToken), user));
@@ -286,7 +290,7 @@ contract OrderProcessorTest is Test {
         issuer.removePaymentToken(testToken);
 
         vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, testToken));
-        issuer.getStandardFeeRates(testToken);
+        issuer.getStandardFees(false, testToken);
     }
 
     function testSetOrdersPaused(bool pause) public {

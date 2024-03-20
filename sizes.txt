@@ -21,7 +21,7 @@ No files changed, compilation skipped
 | MockToken            | 5.726     | 18.85       |
 | NumberUtils          | 0.057     | 24.519      |
 | OracleLib            | 0.057     | 24.519      |
-| OrderProcessor       | 18.901    | 5.675       |
+| OrderProcessor       | 19.222    | 5.354       |
 | OrderSigUtils        | 0.843     | 23.733      |
 | SafeCast             | 0.057     | 24.519      |
 | SafeERC20            | 0.057     | 24.519      |
