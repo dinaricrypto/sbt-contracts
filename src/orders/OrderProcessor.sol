@@ -616,6 +616,7 @@ contract OrderProcessor is
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
+        uint256 remainingFeesEscrowed = 0;
         if (order.sell) {
             // Fees cannot exceed proceeds
             if (fees > receivedAmount) revert AmountTooLarge();
@@ -630,6 +631,7 @@ contract OrderProcessor is
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv(fillAmount, 1 ether, order.price)) {
                 revert OrderFillBelowLimitPrice();
             }
+            remainingFeesEscrowed = orderState.feesDue - fees;
         }
 
         // ------------------ Effects ------------------ //
@@ -655,11 +657,16 @@ contract OrderProcessor is
             delete $._orders[id];
             // Notify order fulfilled
             emit OrderFulfilled(id, orderState.requester);
+            // Refund remaining fees
+            if (remainingFeesEscrowed > 0) {
+                // Interaction
+                IERC20(order.paymentToken).safeTransfer(orderState.requester, remainingFeesEscrowed);
+            }
         } else {
             // Otherwise update order state
             $._orders[id].unfilledAmount = newUnfilledAmount;
             if (!order.sell) {
-                $._orders[id].feesDue = orderState.feesDue - fees;
+                $._orders[id].feesDue = remainingFeesEscrowed;
             }
         }
 
