@@ -155,13 +155,11 @@ interface IOrderProcessor {
     function requestOrder(Order calldata order) external returns (uint256);
 
     /// @notice Fill an order
-    /// @param id order id
     /// @param order Order request to fill
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
-        external;
+    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees) external;
 
     /// @notice Request to cancel an order
     /// @param id Order id
@@ -170,9 +168,8 @@ interface IOrderProcessor {
     function requestCancel(uint256 id) external;
 
     /// @notice Cancel an order
-    /// @param order id
     /// @param order Order request to cancel
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(uint256 id, Order calldata order, string calldata reason) external;
+    function cancelOrder(Order calldata order, string calldata reason) external;
 }

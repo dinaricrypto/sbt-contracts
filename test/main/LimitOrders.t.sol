@@ -121,11 +121,11 @@ contract LimitOrderTest is Test {
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        issuer.requestOrder(order);
 
         vm.expectRevert(OrderProcessor.OrderFillBelowLimitPrice.selector);
         vm.prank(operator);
-        issuer.fillOrder(id, order, fillAmount, receivedAmount, fees);
+        issuer.fillOrder(order, fillAmount, receivedAmount, fees);
     }
 
     function testFillLimitSellOrderPriceReverts(
@@ -150,11 +150,11 @@ contract LimitOrderTest is Test {
         token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        issuer.requestOrder(order);
 
         vm.expectRevert(OrderProcessor.OrderFillAboveLimitPrice.selector);
         vm.prank(operator);
-        issuer.fillOrder(id, order, fillAmount, receivedAmount, fees);
+        issuer.fillOrder(order, fillAmount, receivedAmount, fees);
     }
 
     function testFillLimitBuyOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 _price)
@@ -176,10 +176,10 @@ contract LimitOrderTest is Test {
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        issuer.requestOrder(order);
 
         vm.prank(operator);
-        issuer.fillOrder(id, order, fillAmount, receivedAmount, fees);
+        issuer.fillOrder(order, fillAmount, receivedAmount, fees);
         IOrderProcessor.PricePoint memory fillPrice = issuer.latestFillPrice(order.assetToken, order.paymentToken);
         assertEq(fillPrice.price, _price);
     }

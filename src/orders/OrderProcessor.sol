@@ -44,9 +44,8 @@ contract OrderProcessor is
         address requester;
         // Amount of order token remaining to be used
         uint256 unfilledAmount;
-        // Buy orders: Fees escrowed
-        // Sell orders: Network fees earned
-        uint256 feesDue;
+        // Buy order fees escrowed
+        uint256 feesEscrowed;
     }
 
     struct PaymentTokenConfig {
@@ -72,8 +71,7 @@ contract OrderProcessor is
     error ZeroValue();
     /// @dev Order does not exist
     error OrderNotFound();
-    /// @dev Invalid order data
-    error InvalidOrderData();
+    error ExistingOrder();
     /// @dev Amount too large
     error AmountTooLarge();
     error UnsupportedToken(address token);
@@ -491,16 +489,16 @@ contract OrderProcessor is
 
         // Order must not exist
         id = hashOrder(order);
-        if ($._status[id] != OrderStatus.NONE) revert InvalidOrderData();
+        if ($._status[id] != OrderStatus.NONE) revert ExistingOrder();
 
         // Check for whitelisted tokens
         if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
         paymentTokenConfig = $._paymentTokens[order.paymentToken];
         if (paymentTokenConfig.oracle == address(0)) revert UnsupportedToken(order.paymentToken);
         // Calculate fee escrow due now for buy orders
-        uint256 feesDue = 0;
+        uint256 feesEscrowed = 0;
         if (!order.sell) {
-            feesDue = FeeLib.flatFeeForOrder(paymentTokenConfig.decimals, paymentTokenConfig.perOrderFeeBuy)
+            feesEscrowed = FeeLib.flatFeeForOrder(paymentTokenConfig.decimals, paymentTokenConfig.perOrderFeeBuy)
                 + FeeLib.applyPercentageFee(paymentTokenConfig.percentageFeeRateBuy, order.paymentTokenQuantity);
         }
 
@@ -523,7 +521,7 @@ contract OrderProcessor is
         // ------------------ Effects ------------------ //
 
         // Initialize order state
-        $._orders[id] = OrderState({requester: requester, unfilledAmount: orderAmount, feesDue: feesDue});
+        $._orders[id] = OrderState({requester: requester, unfilledAmount: orderAmount, feesEscrowed: feesEscrowed});
         $._status[id] = OrderStatus.ACTIVE;
 
         emit OrderCreated(id, requester, order);
@@ -538,7 +536,7 @@ contract OrderProcessor is
             // Sweep payment for purchase
             IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, order.paymentTokenQuantity);
             // Escrow fees
-            IERC20(order.paymentToken).safeTransferFrom(requester, address(this), feesDue);
+            IERC20(order.paymentToken).safeTransferFrom(requester, address(this), feesEscrowed);
         }
     }
 
@@ -603,7 +601,7 @@ contract OrderProcessor is
 
     /// @inheritdoc IOrderProcessor
     // slither-disable-next-line cyclomatic-complexity
-    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
+    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
         external
         onlyOperator
     {
@@ -611,8 +609,8 @@ contract OrderProcessor is
 
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
-        // Verify order data
-        if (id != hashOrder(order)) revert InvalidOrderData();
+        // Order ID
+        uint256 id = hashOrder(order);
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         OrderState memory orderState = $._orders[id];
@@ -635,7 +633,7 @@ contract OrderProcessor is
             paymentAmount = receivedAmount;
         } else {
             // Fees cannot exceed remaining deposit
-            if (fees > orderState.feesDue) revert AmountTooLarge();
+            if (fees > orderState.feesEscrowed) revert AmountTooLarge();
             // For limit buy orders, ensure that the received amount is greater or equal to fill amount / limit price, order price has ether decimals
             if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv(fillAmount, 1 ether, order.price)) {
                 revert OrderFillBelowLimitPrice();
@@ -647,13 +645,7 @@ contract OrderProcessor is
         // ------------------ Effects ------------------ //
 
         // Update price oracle
-        bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
-        $._latestFillPrice[pairIndex] = PricePoint({
-            blocktime: uint64(block.timestamp),
-            price: order.orderType == OrderType.LIMIT
-                ? order.price
-                : OracleLib.calculatePrice(assetAmount, paymentAmount, $._paymentTokens[order.paymentToken].decimals)
-        });
+        _updatePriceOracle(order, assetAmount, paymentAmount);
 
         // Notify order filled
         emit OrderFill(
@@ -673,7 +665,7 @@ contract OrderProcessor is
             // Otherwise update order state
             $._orders[id].unfilledAmount = newUnfilledAmount;
             if (!order.sell) {
-                $._orders[id].feesDue = orderState.feesDue - fees;
+                $._orders[id].feesEscrowed = orderState.feesEscrowed - fees;
             }
         }
 
@@ -700,6 +692,17 @@ contract OrderProcessor is
         }
     }
 
+    function _updatePriceOracle(Order calldata order, uint256 assetAmount, uint256 paymentAmount) internal {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
+        $._latestFillPrice[pairIndex] = PricePoint({
+            blocktime: uint64(block.timestamp),
+            price: order.orderType == OrderType.LIMIT
+                ? order.price
+                : OracleLib.calculatePrice(assetAmount, paymentAmount, $._paymentTokens[order.paymentToken].decimals)
+        });
+    }
+
     /// @inheritdoc IOrderProcessor
     function requestCancel(uint256 id) external {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
@@ -714,11 +717,11 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function cancelOrder(uint256 id, Order calldata order, string calldata reason) external onlyOperator {
+    function cancelOrder(Order calldata order, string calldata reason) external onlyOperator {
         // ------------------ Checks ------------------ //
 
-        // Verify order data
-        if (id != hashOrder(order)) revert InvalidOrderData();
+        // Order ID
+        uint256 id = hashOrder(order);
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         OrderState storage orderState = $._orders[id];
@@ -729,7 +732,7 @@ contract OrderProcessor is
         // ------------------ Effects ------------------ //
 
         // If buy order, then refund fee deposit
-        uint256 feeRefund = order.sell ? 0 : orderState.feesDue;
+        uint256 feeRefund = order.sell ? 0 : orderState.feesEscrowed;
         uint256 unfilledAmount = orderState.unfilledAmount;
 
         // Order is cancelled

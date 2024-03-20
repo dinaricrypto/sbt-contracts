@@ -108,13 +108,13 @@ contract FulfillmentRouterTest is Test {
             )
         );
         vm.prank(admin);
-        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0, 0);
+        router.fillOrder(address(issuer), address(vault), dummyOrder, 0, 0, 0);
     }
 
     function testFillBuyOrderReverts() public {
         vm.expectRevert(FulfillmentRouter.BuyFillsNotSupported.selector);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0, 0);
+        router.fillOrder(address(issuer), address(vault), dummyOrder, 0, 0, 0);
     }
 
     function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 fees) public {
@@ -142,6 +142,6 @@ contract FulfillmentRouterTest is Test {
         vm.expectEmit(true, true, true, false);
         emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, true);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount, fees);
+        router.fillOrder(address(issuer), address(vault), order, fillAmount, receivedAmount, fees);
     }
 }
