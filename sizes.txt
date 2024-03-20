@@ -12,7 +12,7 @@ No files changed, compilation skipped
 | EnumerableSet        | 0.057     | 24.519      |
 | FeeLib               | 0.057     | 24.519      |
 | FixedPointMathLib    | 0.057     | 24.519      |
-| FulfillmentRouter    | 6.168     | 18.408      |
+| FulfillmentRouter    | 6.114     | 18.462      |
 | GetMockDShareFactory | 0.057     | 24.519      |
 | LibString            | 0.057     | 24.519      |
 | Math                 | 0.057     | 24.519      |
@@ -21,7 +21,7 @@ No files changed, compilation skipped
 | MockToken            | 5.726     | 18.85       |
 | NumberUtils          | 0.057     | 24.519      |
 | OracleLib            | 0.057     | 24.519      |
-| OrderProcessor       | 19.402    | 5.174       |
+| OrderProcessor       | 18.901    | 5.675       |
 | OrderSigUtils        | 0.843     | 23.733      |
 | SafeCast             | 0.057     | 24.519      |
 | SafeERC20            | 0.057     | 24.519      |
