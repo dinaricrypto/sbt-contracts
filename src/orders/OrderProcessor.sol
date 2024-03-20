@@ -645,7 +645,13 @@ contract OrderProcessor is
         // ------------------ Effects ------------------ //
 
         // Update price oracle
-        _updatePriceOracle(order, assetAmount, paymentAmount);
+        bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
+        $._latestFillPrice[pairIndex] = PricePoint({
+            blocktime: uint64(block.timestamp),
+            price: order.orderType == OrderType.LIMIT
+                ? order.price
+                : OracleLib.calculatePrice(assetAmount, paymentAmount, $._paymentTokens[order.paymentToken].decimals)
+        });
 
         // Notify order filled
         emit OrderFill(
@@ -690,17 +696,6 @@ contract OrderProcessor is
         if (fees > 0) {
             IERC20(order.paymentToken).safeTransfer($._treasury, fees);
         }
-    }
-
-    function _updatePriceOracle(Order calldata order, uint256 assetAmount, uint256 paymentAmount) internal {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
-        $._latestFillPrice[pairIndex] = PricePoint({
-            blocktime: uint64(block.timestamp),
-            price: order.orderType == OrderType.LIMIT
-                ? order.price
-                : OracleLib.calculatePrice(assetAmount, paymentAmount, $._paymentTokens[order.paymentToken].decimals)
-        });
     }
 
     /// @inheritdoc IOrderProcessor
