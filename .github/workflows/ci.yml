@@ -105,7 +105,7 @@ jobs:
           version: nightly
 
       - name: Run Forge coverage
-        run: forge coverage -f $RPC_ARBITRUM  --report lcov
+        run: forge coverage -f $RPC_ARBITRUM --report lcov --ir-minimum
         env: 
           RPC_ARBITRUM: ${{ secrets.RPC_ARBITRUM }}
 
