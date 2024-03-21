@@ -116,6 +116,10 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getUnfilledAmount(uint256 id) external view returns (uint256);
 
+    /// @notice Get fees in payment token escrowed for a buy order
+    /// @param id Order ID
+    function getFeesEscrowed(uint256 id) external view returns (uint256);
+
     /// @notice Reduces the precision allowed for the asset token quantity of an order
     /// @param token The address of the token
     function orderDecimalReduction(address token) external view returns (uint8);
