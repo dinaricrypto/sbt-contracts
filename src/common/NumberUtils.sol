@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.24;
+pragma solidity 0.8.25;
 
 library NumberUtils {
     function addCheckOverflow(uint256 a, uint256 b) internal pure returns (bool) {

@@ -569,13 +569,14 @@ contract OrderProcessorTest is Test {
             );
             // balances after
             assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
-            assertEq(paymentToken.balanceOf(address(issuer)), feesMax - fees);
             assertEq(paymentToken.balanceOf(treasury), fees);
             if (fillAmount == orderAmount) {
                 // if order is fullfilled in on time
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
+                assertEq(paymentToken.balanceOf(user), feesMax - fees);
             } else {
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+                assertEq(paymentToken.balanceOf(address(issuer)), feesMax - fees);
             }
         }
     }
