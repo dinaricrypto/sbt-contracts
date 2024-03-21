@@ -144,28 +144,34 @@ contract DeployAllSandbox is Script {
         deployments.orderProcessor.setOperator(cfg.operator, true);
 
         // config payment token
-        deployments.orderProcessor.setFees(
-            address(deployments.usdc), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
-        );
-        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdc), cfg.usdcoracle);
-        deployments.orderProcessor.setBlacklistCallSelector(
-            address(deployments.usdc), deployments.usdc.isBlacklisted.selector
-        );
-
-        deployments.orderProcessor.setFees(
-            address(deployments.usdt), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
-        );
-        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdt), cfg.usdtoracle);
-        deployments.orderProcessor.setBlacklistCallSelector(
-            address(deployments.usdt), deployments.usdt.isBlacklisted.selector
+        deployments.orderProcessor.setPaymentToken(
+            address(deployments.usdc),
+            cfg.usdcoracle,
+            deployments.usdc.isBlacklisted.selector,
+            perOrderFee,
+            percentageFeeRate,
+            perOrderFee,
+            percentageFeeRate
         );
 
-        deployments.orderProcessor.setFees(
-            address(deployments.usdce), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
+        deployments.orderProcessor.setPaymentToken(
+            address(deployments.usdt),
+            cfg.usdtoracle,
+            deployments.usdt.isBlacklisted.selector,
+            perOrderFee,
+            percentageFeeRate,
+            perOrderFee,
+            percentageFeeRate
         );
-        deployments.orderProcessor.setPaymentTokenOracle(address(deployments.usdce), cfg.usdcoracle);
-        deployments.orderProcessor.setBlacklistCallSelector(
-            address(deployments.usdce), deployments.usdce.isBlacklisted.selector
+
+        deployments.orderProcessor.setPaymentToken(
+            address(deployments.usdce),
+            cfg.usdcoracle,
+            deployments.usdce.isBlacklisted.selector,
+            perOrderFee,
+            percentageFeeRate,
+            perOrderFee,
+            percentageFeeRate
         );
 
         /// ------------------ dividend distributor ------------------

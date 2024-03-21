@@ -22,8 +22,8 @@ contract FulfillmentRouterTest is Test {
         address indexed paymentToken,
         address indexed assetToken,
         address requester,
-        uint256 paymentAmount,
         uint256 assetAmount,
+        uint256 paymentAmount,
         uint256 feesPaid,
         bool sell
     );
@@ -77,10 +77,10 @@ contract FulfillmentRouterTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        issuer.setBlacklistCallSelector(address(paymentToken), paymentToken.isBlacklisted.selector);
-        issuer.setFees(address(paymentToken), 1e8, 5_000, 1e8, 5_000);
+        issuer.setPaymentToken(
+            address(paymentToken), address(1), paymentToken.isBlacklisted.selector, 1e8, 5_000, 1e8, 5_000
+        );
         issuer.setOperator(address(router), true);
-        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
 
         vault.grantRole(vault.OPERATOR_ROLE(), address(router));
         router.grantRole(router.OPERATOR_ROLE(), operator);
@@ -108,13 +108,13 @@ contract FulfillmentRouterTest is Test {
             )
         );
         vm.prank(admin);
-        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0, 0);
+        router.fillOrder(address(issuer), address(vault), dummyOrder, 0, 0, 0);
     }
 
     function testFillBuyOrderReverts() public {
         vm.expectRevert(FulfillmentRouter.BuyFillsNotSupported.selector);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0, 0);
+        router.fillOrder(address(issuer), address(vault), dummyOrder, 0, 0, 0);
     }
 
     function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 fees) public {
@@ -140,8 +140,8 @@ contract FulfillmentRouterTest is Test {
         paymentToken.mint(address(vault), receivedAmount);
 
         vm.expectEmit(true, true, true, false);
-        emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, receivedAmount, fillAmount, 0, true);
+        emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, true);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount, fees);
+        router.fillOrder(address(issuer), address(vault), order, fillAmount, receivedAmount, fees);
     }
 }
