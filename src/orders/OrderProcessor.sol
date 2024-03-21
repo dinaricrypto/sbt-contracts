@@ -126,16 +126,16 @@ contract OrderProcessor is
         bool _ordersPaused;
         // Operators for filling and cancelling orders
         mapping(address => bool) _operators;
-        // Active order state
-        mapping(uint256 => OrderState) _orders;
         // Status of order
         mapping(uint256 => OrderStatus) _status;
+        // Active order state
+        mapping(uint256 => OrderState) _orders;
         // Reduciton of order decimals for asset token, defaults to 0
         mapping(address => uint8) _orderDecimalReduction;
-        // Payment token configuration data
-        mapping(address => PaymentTokenConfig) _paymentTokens;
         // ETH USD price oracle
         address _ethUsdOracle;
+        // Payment token configuration data
+        mapping(address => PaymentTokenConfig) _paymentTokens;
         // Latest pairwise price
         mapping(bytes32 => PricePoint) _latestFillPrice;
     }
@@ -205,6 +205,12 @@ contract OrderProcessor is
         return $._vault;
     }
 
+    /// @notice DShareFactory contract
+    function dShareFactory() external view returns (IDShareFactory) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._dShareFactory;
+    }
+
     /// @notice Are orders paused?
     function ordersPaused() external view returns (bool) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
@@ -217,12 +223,6 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function orderDecimalReduction(address token) external view override returns (uint8) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._orderDecimalReduction[token];
-    }
-
-    /// @inheritdoc IOrderProcessor
     function getOrderStatus(uint256 id) external view returns (OrderStatus) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._status[id];
@@ -232,6 +232,18 @@ contract OrderProcessor is
     function getUnfilledAmount(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._orders[id].unfilledAmount;
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function getFeesEscrowed(uint256 id) external view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._orders[id].feesEscrowed;
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function orderDecimalReduction(address token) external view override returns (uint8) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._orderDecimalReduction[token];
     }
 
     function ethUsdOracle() external view returns (address) {
@@ -501,12 +513,6 @@ contract OrderProcessor is
         if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
         paymentTokenConfig = $._paymentTokens[order.paymentToken];
         if (paymentTokenConfig.oracle == address(0)) revert UnsupportedToken(order.paymentToken);
-        // Calculate fee escrow due now for buy orders
-        uint256 feesEscrowed = 0;
-        if (!order.sell) {
-            feesEscrowed = FeeLib.flatFeeForOrder(paymentTokenConfig.decimals, paymentTokenConfig.perOrderFeeBuy)
-                + FeeLib.applyPercentageFee(paymentTokenConfig.percentageFeeRateBuy, order.paymentTokenQuantity);
-        }
 
         // Precision checked for assetTokenQuantity, market buys excluded
         if (order.sell || order.orderType == OrderType.LIMIT) {
@@ -523,6 +529,13 @@ contract OrderProcessor is
                 || _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenConfig.blacklistCallSelector)
                 || _checkTransferLocked(order.paymentToken, requester, paymentTokenConfig.blacklistCallSelector)
         ) revert Blacklist();
+
+        // Calculate fee escrow due now for buy orders
+        uint256 feesEscrowed = 0;
+        if (!order.sell) {
+            feesEscrowed = FeeLib.flatFeeForOrder(paymentTokenConfig.decimals, paymentTokenConfig.perOrderFeeBuy)
+                + FeeLib.applyPercentageFee(paymentTokenConfig.percentageFeeRateBuy, order.paymentTokenQuantity);
+        }
 
         // ------------------ Effects ------------------ //
 

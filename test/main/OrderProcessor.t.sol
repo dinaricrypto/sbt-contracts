@@ -353,6 +353,7 @@ contract OrderProcessorTest is Test {
         assertEq(id, orderId);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
+        assertEq(issuer.getFeesEscrowed(id), fees);
         assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
         assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
         assertEq(paymentToken.balanceOf(address(issuer)), fees);
