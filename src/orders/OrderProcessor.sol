@@ -628,6 +628,7 @@ contract OrderProcessor is
 
         uint256 assetAmount;
         uint256 paymentAmount;
+        uint256 remainingFeesEscrowed = 0;
         if (order.sell) {
             // Fees cannot exceed proceeds
             if (fees > receivedAmount) revert AmountTooLarge();
@@ -646,6 +647,7 @@ contract OrderProcessor is
             }
             assetAmount = receivedAmount;
             paymentAmount = fillAmount;
+            remainingFeesEscrowed = orderState.feesEscrowed - fees;
         }
 
         // ------------------ Effects ------------------ //
@@ -673,11 +675,16 @@ contract OrderProcessor is
             delete $._orders[id];
             // Notify order fulfilled
             emit OrderFulfilled(id, orderState.requester);
+            // Refund remaining fees
+            if (remainingFeesEscrowed > 0) {
+                // Interaction
+                IERC20(order.paymentToken).safeTransfer(orderState.requester, remainingFeesEscrowed);
+            }
         } else {
             // Otherwise update order state
             $._orders[id].unfilledAmount = newUnfilledAmount;
             if (!order.sell) {
-                $._orders[id].feesEscrowed = orderState.feesEscrowed - fees;
+                $._orders[id].feesEscrowed = remainingFeesEscrowed;
             }
         }
 
