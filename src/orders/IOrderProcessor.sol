@@ -55,7 +55,7 @@ interface IOrderProcessor {
         uint256 assetTokenQuantity;
         // Amount of payment token to be used for fills
         uint256 paymentTokenQuantity;
-        // Price for limit orders
+        // Price for limit orders in ether decimals
         uint256 price;
         // Time in force
         TIF tif;
@@ -75,6 +75,12 @@ interface IOrderProcessor {
         bytes signature;
     }
 
+    struct PricePoint {
+        uint64 blocktime;
+        // Price specified with 18 decimals
+        uint256 price;
+    }
+
     /// @dev Emitted order details and order ID for each order
     event OrderCreated(uint256 indexed id, address indexed requester, Order order);
     /// @dev Emitted for each fill
@@ -83,8 +89,8 @@ interface IOrderProcessor {
         address indexed paymentToken,
         address indexed assetToken,
         address requester,
-        uint256 paymentAmount,
         uint256 assetAmount,
+        uint256 paymentAmount,
         uint256 fees,
         bool sell
     );
@@ -110,23 +116,28 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getUnfilledAmount(uint256 id) external view returns (uint256);
 
-    /// @notice This function retrieves the number of decimal places configured for a given token
-    /// @param token The address of the token for which the number of decimal places is fetched
-    /// @return Returns the number of decimal places set for the specified token
-    function maxOrderDecimals(address token) external view returns (int8);
+    /// @notice Reduces the precision allowed for the asset token quantity of an order
+    /// @param token The address of the token
+    function orderDecimalReduction(address token) external view returns (uint8);
 
-    /// @notice Get fee rates for an order
+    /// @notice Get worst case fees for an order
     /// @param sell Sell order
     /// @param paymentToken Payment token for order
     /// @return flatFee Flat fee for order
     /// @return percentageFeeRate Percentage fee rate for order
-    function getStandardFeeRates(bool sell, address paymentToken) external view returns (uint256, uint24);
+    function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24);
 
     /// @notice Check if an account is locked from transferring tokens
     /// @param token Token to check
     /// @param account Account to check
     /// @dev Only used for payment tokens
     function isTransferLocked(address token, address account) external view returns (bool);
+
+    /// @notice Get the latest fill price for a token pair
+    /// @param assetToken Asset token
+    /// @param paymentToken Payment token
+    /// @dev price specified with 18 decimals
+    function latestFillPrice(address assetToken, address paymentToken) external view returns (PricePoint memory);
 
     /// ------------------ Actions ------------------ ///
 
@@ -144,13 +155,11 @@ interface IOrderProcessor {
     function requestOrder(Order calldata order) external returns (uint256);
 
     /// @notice Fill an order
-    /// @param id order id
     /// @param order Order request to fill
     /// @param fillAmount Amount of order token to fill
     /// @param receivedAmount Amount of received token
     /// @dev Only callable by operator
-    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
-        external;
+    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees) external;
 
     /// @notice Request to cancel an order
     /// @param id Order id
@@ -159,9 +168,8 @@ interface IOrderProcessor {
     function requestCancel(uint256 id) external;
 
     /// @notice Cancel an order
-    /// @param order id
     /// @param order Order request to cancel
     /// @param reason Reason for cancellation
     /// @dev Only callable by operator
-    function cancelOrder(uint256 id, Order calldata order, string calldata reason) external;
+    function cancelOrder(Order calldata order, string calldata reason) external;
 }
