@@ -19,6 +19,7 @@ contract OrderProcessorTest is Test {
     using GetMockDShareFactory for DShareFactory;
 
     event TreasurySet(address indexed treasury);
+    event VaultSet(address indexed vault);
     event PaymentTokenSet(
         address indexed paymentToken,
         address oracle,
@@ -127,6 +128,14 @@ contract OrderProcessorTest is Test {
         });
     }
 
+    function testInitialization() public {
+        assertEq(issuer.owner(), admin);
+        assertEq(issuer.treasury(), treasury);
+        assertEq(issuer.vault(), operator);
+        assertEq(address(issuer.dShareFactory()), address(tokenFactory));
+        assertEq(issuer.ethUsdOracle(), address(1));
+    }
+
     function testInitializationReverts() public {
         OrderProcessor issuerImpl = new OrderProcessor();
 
@@ -184,6 +193,25 @@ contract OrderProcessorTest is Test {
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         vm.prank(admin);
         issuer.setTreasury(address(0));
+    }
+
+    function testSetVault(address account) public {
+        vm.assume(account != address(0));
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        issuer.setVault(account);
+
+        vm.expectEmit(true, true, true, true);
+        emit VaultSet(account);
+        vm.prank(admin);
+        issuer.setVault(account);
+        assertEq(issuer.vault(), account);
+    }
+
+    function testSetVaultZeroReverts() public {
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        vm.prank(admin);
+        issuer.setVault(address(0));
     }
 
     function testFlatFeeForOrder(uint8 tokenDecimals, uint64 perOrderFee) public {
