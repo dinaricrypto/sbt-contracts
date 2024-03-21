@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {MockToken} from "../../utils/mocks/MockToken.sol";
-import "../../utils/mocks/MockDShareFactory.sol";
+import "../../utils/mocks/GetMockDShareFactory.sol";
 import "../../utils/SigUtils.sol";
 import "../../../src/orders/OrderProcessor.sol";
 import "../../../src/orders/IOrderProcessor.sol";
-import "../../../src/TokenLockCheck.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {NumberUtils} from "../../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../../src/common/FeeLib.sol";
@@ -17,10 +16,10 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 
 contract BuyProcessorRequestTest is Test {
     // More calls to permit and multicall for gas profiling
+    using GetMockDShareFactory for DShareFactory;
 
-    MockDShareFactory tokenFactory;
+    DShareFactory tokenFactory;
     DShare token;
-    TokenLockCheck tokenLockCheck;
     OrderProcessor issuer;
     MockToken paymentToken;
     SigUtils sigUtils;
@@ -49,20 +48,17 @@ contract BuyProcessorRequestTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        tokenFactory = new MockDShareFactory();
-        token = tokenFactory.deploy("Dinari Token", "dTKN");
+        (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
+        token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
         sigUtils = new SigUtils(paymentToken.DOMAIN_SEPARATOR());
-
-        tokenLockCheck = new TokenLockCheck();
-        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
-        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdt.isBlackListed.selector);
 
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
-                    address(issuerImpl), abi.encodeCall(issuerImpl.initialize, (admin, treasury, tokenLockCheck))
+                    address(issuerImpl),
+                    abi.encodeCall(issuerImpl.initialize, (admin, treasury, operator, tokenFactory, address(1)))
                 )
             )
         );
@@ -70,15 +66,10 @@ contract BuyProcessorRequestTest is Test {
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
 
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1e8,
-            percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1e8,
-            percentageFeeRateSell: 5_000
-        });
-        issuer.setDefaultFees(address(paymentToken), defaultFees);
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        issuer.grantRole(issuer.OPERATOR_ROLE(), operator);
+        issuer.setPaymentToken(
+            address(paymentToken), address(1), paymentToken.isBlacklisted.selector, 1e8, 5_000, 1e8, 5_000
+        );
+        issuer.setOperator(operator, true);
 
         paymentToken.mint(user, type(uint256).max);
 
@@ -96,8 +87,9 @@ contract BuyProcessorRequestTest is Test {
 
         (v, r, s) = vm.sign(userPrivateKey, digest);
 
-        (flatFee, percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
+        (flatFee, percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
         order = IOrderProcessor.Order({
+            salt: 0,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -106,9 +98,7 @@ contract BuyProcessorRequestTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 1 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC,
-            splitAmount: 0,
-            splitRecipient: address(0)
+            tif: IOrderProcessor.TIF.GTC
         });
 
         calls = new bytes[](2);
@@ -139,7 +129,7 @@ contract BuyProcessorRequestTest is Test {
         vm.assume(permitDeadline > block.timestamp);
         vm.assume(orderAmount > 1_000_000);
 
-        uint256 fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
+        uint256 fees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory neworder = order;

@@ -9,6 +9,7 @@ import {WrappedDShare} from "../../src/WrappedDShare.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract DShareFactoryTest is Test {
     DShareFactory factory;
@@ -18,6 +19,8 @@ contract DShareFactoryTest is Test {
 
     event DShareAdded(address indexed dShare, address indexed wrappedDShare, string indexed symbol, string name);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
+
+    address user = address(0x1);
 
     function setUp() public {
         restrictor = new TransferRestrictor(address(this));
@@ -65,15 +68,29 @@ contract DShareFactoryTest is Test {
             )
         );
 
-        new ERC1967Proxy(
-            address(factoryImpl),
-            abi.encodeCall(
-                DShareFactory.initialize, (address(this), address(beacon), address(wrappedBeacon), address(restrictor))
+        DShareFactory newfactory = DShareFactory(
+            address(
+                new ERC1967Proxy(
+                    address(factoryImpl),
+                    abi.encodeCall(
+                        DShareFactory.initialize,
+                        (address(this), address(beacon), address(wrappedBeacon), address(restrictor))
+                    )
+                )
             )
         );
-        assertEq(factory.getDShareBeacon(), address(beacon));
-        assertEq(factory.getWrappedDShareBeacon(), address(wrappedBeacon));
-        assertEq(factory.getTransferRestrictor(), address(restrictor));
+        assertEq(newfactory.getDShareBeacon(), address(beacon));
+        assertEq(newfactory.getWrappedDShareBeacon(), address(wrappedBeacon));
+        assertEq(newfactory.getTransferRestrictor(), address(restrictor));
+
+        // create existing listing
+        newfactory.createDShare(address(this), "Token", "T", "Wrapped Token", "wT");
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        newfactory.initializeV2();
+
+        newfactory.initializeV2();
     }
 
     function testSetNewTransferRestrictor() public {
@@ -88,6 +105,11 @@ contract DShareFactoryTest is Test {
     function testDeployNewDShareViaFactory(string memory name, string memory symbol) public {
         string memory wrappedName = string.concat("Wrapped ", name);
         string memory wrappedSymbol = string.concat(symbol, "w");
+
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        factory.createDShare(address(this), name, symbol, wrappedName, wrappedSymbol);
+
         vm.expectEmit(false, false, false, false);
         emit DShareAdded(address(0), address(0), symbol, name);
         (address newdshare, address newwrappeddshare) =
@@ -100,6 +122,8 @@ contract DShareFactoryTest is Test {
         assertEq(WrappedDShare(newwrappeddshare).name(), wrappedName);
         assertEq(WrappedDShare(newwrappeddshare).symbol(), wrappedSymbol);
         assertEq(WrappedDShare(newwrappeddshare).asset(), newdshare);
+        assertTrue(factory.isTokenDShare(newdshare));
+        assertTrue(factory.isTokenWrappedDShare(newwrappeddshare));
         (address[] memory dshares, address[] memory wrappeddshares) = factory.getDShares();
         assertEq(dshares.length, 1);
         assertEq(wrappeddshares.length, 1);
@@ -125,9 +149,15 @@ contract DShareFactoryTest is Test {
         vm.expectRevert(DShareFactory.Mismatch.selector);
         factory.announceExistingDShare(address(0), wrappedDShare);
 
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.prank(user);
+        factory.announceExistingDShare(dshare, wrappedDShare);
+
         vm.expectEmit(true, true, true, true);
         emit DShareAdded(dshare, wrappedDShare, symbol, name);
         factory.announceExistingDShare(dshare, wrappedDShare);
+        assertTrue(factory.isTokenDShare(dshare));
+        assertTrue(factory.isTokenWrappedDShare(wrappedDShare));
         (address[] memory dshares, address[] memory wrappeddshares) = factory.getDShares();
         assertEq(dshares.length, 1);
         assertEq(wrappeddshares.length, 1);
