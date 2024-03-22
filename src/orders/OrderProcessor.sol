@@ -40,6 +40,8 @@ contract OrderProcessor is
 
     // Order state cleared after order is fulfilled or cancelled.
     struct OrderState {
+        // Order hash for data validation
+        bytes32 hash;
         // Account that requested the order
         address requester;
         // Amount of order token remaining to be used
@@ -69,6 +71,7 @@ contract OrderProcessor is
     error Paused();
     /// @dev Zero value
     error ZeroValue();
+    error InvalidOrderData();
     /// @dev Order does not exist
     error OrderNotFound();
     error ExistingOrder();
@@ -108,10 +111,11 @@ contract OrderProcessor is
     /// ------------------ Constants ------------------ ///
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(uint256 salt,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
+        "Order(address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
-    bytes32 private constant ORDER_REQUEST_TYPEHASH = keccak256("OrderRequest(uint256 id,uint256 deadline)");
+    bytes32 private constant ORDER_REQUEST_TYPEHASH =
+        keccak256("OrderRequest(bytes32 hash,uint256 deadline,uint64 timestamp)");
 
     /// ------------------ State ------------------ ///
 
@@ -124,6 +128,8 @@ contract OrderProcessor is
         IDShareFactory _dShareFactory;
         // Are orders paused?
         bool _ordersPaused;
+        // Nonce for requestOrder uniqueness
+        uint256 _nextOrderSalt;
         // Operators for filling and cancelling orders
         mapping(address => bool) _operators;
         // Status of order
@@ -192,6 +198,34 @@ contract OrderProcessor is
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// ------------------ Getters ------------------ ///
+
+    function hashOrderRequest(Order calldata order, uint256 deadline, uint64 timestamp) public pure returns (bytes32) {
+        return keccak256(abi.encode(ORDER_REQUEST_TYPEHASH, hashOrder(order), deadline, timestamp));
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function hashOrder(Order calldata order) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                ORDER_TYPEHASH,
+                order.recipient,
+                order.assetToken,
+                order.paymentToken,
+                order.sell,
+                order.orderType,
+                order.assetTokenQuantity,
+                order.paymentTokenQuantity,
+                order.price,
+                order.tif
+            )
+        );
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function previewOrderId(Order calldata order, address requester) external view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return uint256(keccak256(abi.encodePacked(hashOrder(order), requester, bytes32($._nextOrderSalt))));
+    }
 
     /// @notice Address to receive fees
     function treasury() external view returns (address) {
@@ -464,12 +498,12 @@ contract OrderProcessor is
 
         // Recover requester and validate signature
         if (signature.deadline < block.timestamp) revert ExpiredSignature();
-        address requester =
-            ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, signature.deadline)), signature.signature);
+        bytes32 orderRequestHash = hashOrderRequest(order, signature.deadline, signature.timestamp);
+        address requester = ECDSA.recover(_hashTypedDataV4(orderRequestHash), signature.signature);
 
         // Create order
         PaymentTokenConfig memory paymentTokenConfig;
-        (id, paymentTokenConfig) = _createOrder(order, requester);
+        (id, paymentTokenConfig) = _createOrder(order, requester, orderRequestHash);
 
         // Charge user for gas fees now for buy orders
         if (!order.sell) {
@@ -489,7 +523,7 @@ contract OrderProcessor is
 
     /// @dev Validate order, initialize order state, and pull tokens
     // slither-disable-next-line cyclomatic-complexity
-    function _createOrder(Order calldata order, address requester)
+    function _createOrder(Order calldata order, address requester, bytes32 salt)
         private
         returns (uint256 id, PaymentTokenConfig memory paymentTokenConfig)
     {
@@ -506,7 +540,8 @@ contract OrderProcessor is
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
         // Order must not exist
-        id = hashOrder(order);
+        bytes32 hash = hashOrder(order);
+        id = uint256(keccak256(abi.encodePacked(hash, requester, salt)));
         if ($._status[id] != OrderStatus.NONE) revert ExistingOrder();
 
         // Check for whitelisted tokens
@@ -540,7 +575,8 @@ contract OrderProcessor is
         // ------------------ Effects ------------------ //
 
         // Initialize order state
-        $._orders[id] = OrderState({requester: requester, unfilledAmount: orderAmount, feesEscrowed: feesEscrowed});
+        $._orders[id] =
+            OrderState({hash: hash, requester: requester, unfilledAmount: orderAmount, feesEscrowed: feesEscrowed});
         $._status[id] = OrderStatus.ACTIVE;
 
         emit OrderCreated(id, requester, order);
@@ -590,37 +626,13 @@ contract OrderProcessor is
 
     /// @inheritdoc IOrderProcessor
     function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
-        (id,) = _createOrder(order, msg.sender);
-    }
-
-    function hashOrderRequest(Order calldata order, uint256 deadline) public pure returns (bytes32) {
-        return keccak256(abi.encode(ORDER_REQUEST_TYPEHASH, hashOrder(order), deadline));
-    }
-
-    /// @inheritdoc IOrderProcessor
-    function hashOrder(Order calldata order) public pure returns (uint256) {
-        return uint256(
-            keccak256(
-                abi.encode(
-                    ORDER_TYPEHASH,
-                    order.salt,
-                    order.recipient,
-                    order.assetToken,
-                    order.paymentToken,
-                    order.sell,
-                    order.orderType,
-                    order.assetTokenQuantity,
-                    order.paymentTokenQuantity,
-                    order.price,
-                    order.tif
-                )
-            )
-        );
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        (id,) = _createOrder(order, msg.sender, bytes32($._nextOrderSalt++));
     }
 
     /// @inheritdoc IOrderProcessor
     // slither-disable-next-line cyclomatic-complexity
-    function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
+    function fillOrder(uint256 id, Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
         external
         onlyOperator
     {
@@ -628,14 +640,14 @@ contract OrderProcessor is
 
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
-        // Order ID
-        uint256 id = hashOrder(order);
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         OrderState memory orderState = $._orders[id];
 
         // Order must exist
         if (orderState.requester == address(0)) revert OrderNotFound();
+        // Validate order data
+        if (orderState.hash != hashOrder(order)) revert InvalidOrderData();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
@@ -738,17 +750,16 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function cancelOrder(Order calldata order, string calldata reason) external onlyOperator {
+    function cancelOrder(uint256 id, Order calldata order, string calldata reason) external onlyOperator {
         // ------------------ Checks ------------------ //
-
-        // Order ID
-        uint256 id = hashOrder(order);
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         OrderState storage orderState = $._orders[id];
         address requester = orderState.requester;
         // Order must exist
         if (requester == address(0)) revert OrderNotFound();
+        // Validate order data
+        if (orderState.hash != hashOrder(order)) revert InvalidOrderData();
 
         // ------------------ Effects ------------------ //
 

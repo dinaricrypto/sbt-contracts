@@ -98,7 +98,6 @@ contract OrderProcessorSignedTest is Test {
         dummyOrderFees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, 100 ether);
 
         dummyOrder = IOrderProcessor.Order({
-            salt: 0,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -149,7 +148,7 @@ contract OrderProcessorSignedTest is Test {
             issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
         );
 
-        uint256 orderId = issuer.hashOrder(order);
+        uint256 orderId = issuer.previewOrderId(order, user);
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
 
@@ -183,7 +182,7 @@ contract OrderProcessorSignedTest is Test {
             issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
         );
 
-        uint256 orderId = issuer.hashOrder(order);
+        uint256 orderId = issuer.previewOrderId(order, user);
         uint256 userBalanceBefore = token.balanceOf(user);
 
         vm.expectEmit(true, true, true, true);
@@ -225,9 +224,13 @@ contract OrderProcessorSignedTest is Test {
         returns (IOrderProcessor.Signature memory)
     {
         uint256 deadline = block.timestamp + 30 days;
-        bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline);
+        bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline, uint64(block.timestamp));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, orderRequestDigest);
 
-        return IOrderProcessor.Signature({deadline: deadline, signature: abi.encodePacked(r, s, v)});
+        return IOrderProcessor.Signature({
+            deadline: deadline,
+            timestamp: uint64(block.timestamp),
+            signature: abi.encodePacked(r, s, v)
+        });
     }
 }

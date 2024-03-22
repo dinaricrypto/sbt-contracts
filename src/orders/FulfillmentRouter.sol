@@ -23,6 +23,7 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
     function fillOrder(
         address orderProcessor,
         address vault,
+        uint256 id,
         IOrderProcessor.Order calldata order,
         uint256 fillAmount,
         uint256 receivedAmount,
@@ -34,6 +35,6 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
         IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), receivedAmount);
         // fill order with payment token
         IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
-        IOrderProcessor(orderProcessor).fillOrder(order, fillAmount, receivedAmount, fees);
+        IOrderProcessor(orderProcessor).fillOrder(id, order, fillAmount, receivedAmount, fees);
     }
 }
