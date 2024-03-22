@@ -108,7 +108,7 @@ contract OrderProcessor is
     /// ------------------ Constants ------------------ ///
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(uint256 salt,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
+        "Order(uint64 requestTimestamp,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
     bytes32 private constant ORDER_REQUEST_TYPEHASH = keccak256("OrderRequest(uint256 id,uint256 deadline)");
@@ -505,7 +505,7 @@ contract OrderProcessor is
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
-        // Order must not exist
+        // Order must not have existed
         id = hashOrder(order);
         if ($._status[id] != OrderStatus.NONE) revert ExistingOrder();
 
@@ -603,7 +603,7 @@ contract OrderProcessor is
             keccak256(
                 abi.encode(
                     ORDER_TYPEHASH,
-                    order.salt,
+                    order.requestTimestamp,
                     order.recipient,
                     order.assetToken,
                     order.paymentToken,
