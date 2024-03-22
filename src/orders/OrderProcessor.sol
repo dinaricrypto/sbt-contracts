@@ -128,14 +128,16 @@ contract OrderProcessor is
         IDShareFactory _dShareFactory;
         // Are orders paused?
         bool _ordersPaused;
-        // Nonce for requestOrder uniqueness
-        uint256 _nextOrderSalt;
+        // Next order ID
+        uint256 _nextOrderId;
         // Operators for filling and cancelling orders
         mapping(address => bool) _operators;
         // Status of order
         mapping(uint256 => OrderStatus) _status;
         // Active order state
         mapping(uint256 => OrderState) _orders;
+        // Consumed signatures
+        mapping(bytes32 => bool) _consumedSignatures;
         // Reduciton of order decimals for asset token, defaults to 0
         mapping(address => uint8) _orderDecimalReduction;
         // ETH USD price oracle
@@ -199,10 +201,6 @@ contract OrderProcessor is
 
     /// ------------------ Getters ------------------ ///
 
-    function hashOrderRequest(Order calldata order, uint256 deadline, uint64 timestamp) public pure returns (bytes32) {
-        return keccak256(abi.encode(ORDER_REQUEST_TYPEHASH, hashOrder(order), deadline, timestamp));
-    }
-
     /// @inheritdoc IOrderProcessor
     function hashOrder(Order calldata order) public pure returns (bytes32) {
         return keccak256(
@@ -221,10 +219,8 @@ contract OrderProcessor is
         );
     }
 
-    /// @inheritdoc IOrderProcessor
-    function previewOrderId(Order calldata order, address requester) external view returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return uint256(keccak256(abi.encodePacked(hashOrder(order), requester, bytes32($._nextOrderSalt))));
+    function hashOrderRequest(Order calldata order, uint256 deadline, uint64 timestamp) public pure returns (bytes32) {
+        return keccak256(abi.encode(ORDER_REQUEST_TYPEHASH, hashOrder(order), deadline, timestamp));
     }
 
     /// @notice Address to receive fees
@@ -249,6 +245,12 @@ contract OrderProcessor is
     function ordersPaused() external view returns (bool) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._ordersPaused;
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function nextOrderId() external view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._nextOrderId;
     }
 
     function isOperator(address account) external view returns (bool) {
@@ -496,14 +498,23 @@ contract OrderProcessor is
         // Start gas measurement
         uint256 gasStart = gasleft();
 
-        // Recover requester and validate signature
+        // Check if signature is expired
         if (signature.deadline < block.timestamp) revert ExpiredSignature();
+
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+
+        // Check if signature has been consumed
         bytes32 orderRequestHash = hashOrderRequest(order, signature.deadline, signature.timestamp);
+        if ($._consumedSignatures[orderRequestHash]) revert ExistingOrder();
+        // Recover signer
         address requester = ECDSA.recover(_hashTypedDataV4(orderRequestHash), signature.signature);
+
+        // Mark signature as consumed
+        $._consumedSignatures[orderRequestHash] = true;
 
         // Create order
         PaymentTokenConfig memory paymentTokenConfig;
-        (id, paymentTokenConfig) = _createOrder(order, requester, orderRequestHash);
+        (id, paymentTokenConfig) = _createOrder(requester, order);
 
         // Charge user for gas fees now for buy orders
         if (!order.sell) {
@@ -516,14 +527,13 @@ contract OrderProcessor is
             uint256 networkFee = gasCostInWei * 10 ** paymentTokenConfig.decimals / tokenPriceInWei;
 
             // Pull payment for gas fees
-            OrderProcessorStorage storage $ = _getOrderProcessorStorage();
             IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, networkFee);
         }
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
     // slither-disable-next-line cyclomatic-complexity
-    function _createOrder(Order calldata order, address requester, bytes32 salt)
+    function _createOrder(address requester, Order calldata order)
         private
         returns (uint256 id, PaymentTokenConfig memory paymentTokenConfig)
     {
@@ -538,11 +548,6 @@ contract OrderProcessor is
         if (order.orderType == OrderType.LIMIT && order.price == 0) revert LimitPriceNotSet();
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-
-        // Order must not exist
-        bytes32 hash = hashOrder(order);
-        id = uint256(keccak256(abi.encodePacked(hash, requester, salt)));
-        if ($._status[id] != OrderStatus.NONE) revert ExistingOrder();
 
         // Check for whitelisted tokens
         if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
@@ -574,9 +579,16 @@ contract OrderProcessor is
 
         // ------------------ Effects ------------------ //
 
+        // Get and increment order ID
+        id = $._nextOrderId++;
+
         // Initialize order state
-        $._orders[id] =
-            OrderState({hash: hash, requester: requester, unfilledAmount: orderAmount, feesEscrowed: feesEscrowed});
+        $._orders[id] = OrderState({
+            hash: hashOrder(order),
+            requester: requester,
+            unfilledAmount: orderAmount,
+            feesEscrowed: feesEscrowed
+        });
         $._status[id] = OrderStatus.ACTIVE;
 
         emit OrderCreated(id, requester, order);
@@ -626,8 +638,7 @@ contract OrderProcessor is
 
     /// @inheritdoc IOrderProcessor
     function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        (id,) = _createOrder(order, msg.sender, bytes32($._nextOrderSalt++));
+        (id,) = _createOrder(msg.sender, order);
     }
 
     /// @inheritdoc IOrderProcessor

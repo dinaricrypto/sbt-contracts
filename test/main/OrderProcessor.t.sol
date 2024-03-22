@@ -368,7 +368,7 @@ contract OrderProcessorTest is Test {
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
 
-        uint256 orderId = issuer.previewOrderId(order, user);
+        uint256 orderId = issuer.nextOrderId();
 
         // balances before
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -399,7 +399,7 @@ contract OrderProcessorTest is Test {
 
         // balances before
         uint256 userBalanceBefore = token.balanceOf(user);
-        uint256 id = issuer.previewOrderId(order, user);
+        uint256 id = issuer.nextOrderId();
         vm.expectEmit(true, true, true, true);
         emit OrderCreated(id, user, order);
         vm.prank(user);
@@ -527,7 +527,7 @@ contract OrderProcessorTest is Test {
         );
         calls[1] = abi.encodeWithSelector(OrderProcessor.requestOrder.selector, dummyOrder);
 
-        uint256 orderId = issuer.previewOrderId(dummyOrder, user);
+        uint256 orderId = issuer.nextOrderId();
 
         // balances before
         uint256 userBalanceBefore = paymentToken.balanceOf(user);

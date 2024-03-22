@@ -148,7 +148,7 @@ contract OrderProcessorSignedTest is Test {
             issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
         );
 
-        uint256 orderId = issuer.previewOrderId(order, user);
+        uint256 orderId = issuer.nextOrderId();
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
 
@@ -182,7 +182,7 @@ contract OrderProcessorSignedTest is Test {
             issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
         );
 
-        uint256 orderId = issuer.previewOrderId(order, user);
+        uint256 orderId = issuer.nextOrderId();
         uint256 userBalanceBefore = token.balanceOf(user);
 
         vm.expectEmit(true, true, true, true);
