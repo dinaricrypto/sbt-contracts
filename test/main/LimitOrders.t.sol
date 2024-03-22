@@ -71,7 +71,7 @@ contract LimitOrderTest is Test {
         returns (IOrderProcessor.Order memory order)
     {
         order = IOrderProcessor.Order({
-            salt: 0,
+            requestTimestamp: uint64(block.timestamp),
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),

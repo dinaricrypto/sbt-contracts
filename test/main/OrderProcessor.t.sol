@@ -115,7 +115,7 @@ contract OrderProcessorTest is Test {
 
     function getDummyOrder(bool sell) internal view returns (IOrderProcessor.Order memory) {
         return IOrderProcessor.Order({
-            salt: 0,
+            requestTimestamp: uint64(block.timestamp),
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
