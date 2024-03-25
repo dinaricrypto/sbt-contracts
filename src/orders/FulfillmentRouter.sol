@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.22;
+pragma solidity 0.8.25;
 
 import {AccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
@@ -14,6 +14,8 @@ import {IOrderProcessor} from "./IOrderProcessor.sol";
 contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
     using SafeERC20 for IERC20;
 
+    error BuyFillsNotSupported();
+
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
     constructor(address initialOwner) AccessControlDefaultAdminRules(0, initialOwner) {}
@@ -21,22 +23,17 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
     function fillOrder(
         address orderProcessor,
         address vault,
-        uint256 orderId,
         IOrderProcessor.Order calldata order,
         uint256 fillAmount,
-        uint256 receivedAmount
+        uint256 receivedAmount,
+        uint256 fees
     ) external onlyRole(OPERATOR_ROLE) {
-        if (order.sell) {
-            // withdraw payment token from vault
-            IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), receivedAmount);
-            // fill order with payment token
-            IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
-            IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount);
-        } else {
-            // fill order and receive payment token
-            IOrderProcessor(orderProcessor).fillOrder(orderId, order, fillAmount, receivedAmount);
-            // deposit payment token into vault
-            IERC20(order.paymentToken).safeTransfer(vault, fillAmount);
-        }
+        if (!order.sell) revert BuyFillsNotSupported();
+
+        // withdraw payment token from vault
+        IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), receivedAmount);
+        // fill order with payment token
+        IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
+        IOrderProcessor(orderProcessor).fillOrder(order, fillAmount, receivedAmount, fees);
     }
 }

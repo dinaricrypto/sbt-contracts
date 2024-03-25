@@ -34,11 +34,6 @@ jobs:
           forge fmt --check
   
   analyze:
-    strategy:
-      matrix:
-        python-version: [3.8]
-        slither-version: [0.10.0]
-
     name: Slither
     runs-on: ubuntu-latest
     steps:
@@ -51,13 +46,13 @@ jobs:
         with:
           version: nightly
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.8
 
       - name: Install Slither
-        run: python3 -m pip install slither-analyzer==${{ matrix.slither-version }}
+        run: python3 -m pip install slither-analyzer==0.10.1
 
       - name: Static analysis
         run: slither .
@@ -127,7 +122,7 @@ jobs:
           version: nightly
 
       - name: Run Forge coverage
-        run: forge coverage -f $RPC_ARBITRUM  --report lcov
+        run: forge coverage -f $RPC_ARBITRUM --report lcov --ir-minimum
         env: 
           RPC_ARBITRUM: ${{ secrets.RPC_ARBITRUM }}
 

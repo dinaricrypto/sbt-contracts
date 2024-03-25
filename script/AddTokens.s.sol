@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
-import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {DShare} from "../src/DShare.sol";
 
 contract AddTokensScript is Script {
@@ -11,7 +10,6 @@ contract AddTokensScript is Script {
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         OrderProcessor issuer = OrderProcessor(vm.envAddress("ISSUER"));
-        BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("UNLOCKED_ISSUER"));
 
         address[19] memory assetTokens = [
             0xCe38e140fC3982a6bCEbc37b040913EF2Cd6C5a7,
@@ -55,15 +53,12 @@ contract AddTokensScript is Script {
 
         for (uint256 i = 0; i < assetTokens.length; i++) {
             // TODO: add to deployall scripts
-            issuer.setMaxOrderDecimals(assetTokens[i], 6);
+            issuer.setOrderDecimalReduction(assetTokens[i], DShare(assetTokens[i]).decimals() - 6);
             // issuer.grantRole(issuer.ASSETTOKEN_ROLE(), assetTokens[i]);
-            directIssuer.setMaxOrderDecimals(assetTokens[i], 6);
-            // directIssuer.grantRole(directIssuer.ASSETTOKEN_ROLE(), assetTokens[i]);
 
             // DShare assetToken = DShare(assetTokens[i]);
             // assetToken.grantRole(assetToken.MINTER_ROLE(), address(issuer));
             // assetToken.grantRole(assetToken.BURNER_ROLE(), address(issuer));
-            // assetToken.grantRole(assetToken.MINTER_ROLE(), address(directIssuer));
         }
 
         vm.stopBroadcast();

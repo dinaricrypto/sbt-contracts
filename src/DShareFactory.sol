@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.22;
+pragma solidity 0.8.25;
 
 import {
     UUPSUpgradeable,
@@ -8,13 +8,14 @@ import {
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {EnumerableSet} from "openzeppelin-contracts/contracts/utils/structs/EnumerableSet.sol";
+import {IDShareFactory} from "./IDShareFactory.sol";
 import {TransferRestrictor} from "./TransferRestrictor.sol";
 import {DShare} from "./DShare.sol";
 import {WrappedDShare} from "./WrappedDShare.sol";
 
 ///@notice Factory to create new dShares
 ///@author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/DShareFactory.sol)
-contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /// ------------------------------- Types -----------------------------------
@@ -23,7 +24,6 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     error Mismatch();
     error PreviouslyAnnounced();
 
-    event DShareAdded(address indexed dShare, address indexed wrappedDShare, string indexed symbol, string name);
     event NewTransferRestrictorSet(address indexed transferRestrictor);
 
     /// ------------------------------- Storage -----------------------------------
@@ -33,6 +33,7 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         address _wrappedDShareBeacon;
         address _transferRestrictor;
         EnumerableSet.AddressSet _wrappedDShares;
+        EnumerableSet.AddressSet _dShares;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.DShareFactory")) - 1)) & ~bytes32(uint256(0xff))
@@ -62,6 +63,16 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         $._dShareBeacon = _dShareBeacon;
         $._wrappedDShareBeacon = _wrappedDShareBeacon;
         $._transferRestrictor = _transferRestrictor;
+    }
+
+    /// @dev In-place initialization of dShares storage for existing factory
+    function initializeV2() external onlyOwner reinitializer(2) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        for (uint256 i = 0; i < $._wrappedDShares.length(); i++) {
+            // slither-disable-next-line unused-return,calls-loop
+            $._dShares.add(WrappedDShare($._wrappedDShares.at(i)).asset());
+        }
+        assert($._dShares.length() == $._wrappedDShares.length());
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -103,6 +114,16 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     }
 
     /// ------------------------------- Factory -----------------------------------
+
+    function isTokenDShare(address token) external view returns (bool) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        return $._dShares.contains(token);
+    }
+
+    function isTokenWrappedDShare(address token) external view returns (bool) {
+        DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        return $._wrappedDShares.contains(token);
+    }
 
     /// @notice Gets list of all dShares and wrapped dShares
     /// @return dShares List of all dShares
@@ -148,7 +169,10 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         );
 
         // slither-disable-next-line unused-return
+        $._dShares.add(dShare);
+        // slither-disable-next-line unused-return
         $._wrappedDShares.add(wrappedDShare);
+        assert($._dShares.length() == $._wrappedDShares.length());
 
         // slither-disable-next-line reentrancy-events
         emit DShareAdded(dShare, wrappedDShare, symbol, name);
@@ -161,7 +185,9 @@ contract DShareFactory is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         if (WrappedDShare(wrappedDShare).asset() != dShare) revert Mismatch();
 
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
+        if (!$._dShares.add(dShare)) revert PreviouslyAnnounced();
         if (!$._wrappedDShares.add(wrappedDShare)) revert PreviouslyAnnounced();
+        assert($._dShares.length() == $._wrappedDShares.length());
 
         emit DShareAdded(dShare, wrappedDShare, DShare(dShare).symbol(), DShare(dShare).name());
     }

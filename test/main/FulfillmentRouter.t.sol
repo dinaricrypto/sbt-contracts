@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
 import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/MockDShareFactory.sol";
+import "../utils/mocks/GetMockDShareFactory.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {OrderProcessor, IOrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
-import "../../src/TokenLockCheck.sol";
 import {NumberUtils} from "../../src/common/NumberUtils.sol";
 import {FeeLib} from "../../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
@@ -16,14 +15,17 @@ import {FulfillmentRouter} from "../../src/orders/FulfillmentRouter.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract FulfillmentRouterTest is Test {
+    using GetMockDShareFactory for DShareFactory;
+
     event OrderFill(
         uint256 indexed id,
-        address indexed requester,
-        address paymentToken,
-        address assetToken,
-        uint256 fillAmount,
-        uint256 receivedAmount,
-        uint256 feesPaid
+        address indexed paymentToken,
+        address indexed assetToken,
+        address requester,
+        uint256 assetAmount,
+        uint256 paymentAmount,
+        uint256 feesPaid,
+        bool sell
     );
     event OrderFulfilled(uint256 indexed id, address indexed recipient);
     event OrderCancelled(uint256 indexed id, address indexed recipient, string reason);
@@ -31,7 +33,6 @@ contract FulfillmentRouterTest is Test {
     DShare token;
     OrderProcessor issuer;
     MockToken paymentToken;
-    TokenLockCheck tokenLockCheck;
     TransferRestrictor restrictor;
     Vault vault;
     FulfillmentRouter router;
@@ -54,39 +55,32 @@ contract FulfillmentRouterTest is Test {
         admin = vm.addr(adminPrivateKey);
 
         vm.startPrank(admin);
-        MockDShareFactory tokenFactory = new MockDShareFactory();
-        token = tokenFactory.deploy("Dinari Token", "dTKN");
+        (DShareFactory tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
+        token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
-        tokenLockCheck = new TokenLockCheck();
-        tokenLockCheck.setCallSelector(address(paymentToken), IERC20Usdc.isBlacklisted.selector);
-        tokenLockCheck.setAsDShare(address(token));
-
+        vault = new Vault(admin);
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
-                    address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, treasury, tokenLockCheck))
+                    address(issuerImpl),
+                    abi.encodeCall(
+                        OrderProcessor.initialize, (admin, treasury, address(vault), tokenFactory, address(1))
+                    )
                 )
             )
         );
-        vault = new Vault(admin);
         router = new FulfillmentRouter(admin);
 
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
-            perOrderFeeBuy: 1e8,
-            percentageFeeRateBuy: 5_000,
-            perOrderFeeSell: 1e8,
-            percentageFeeRateSell: 5_000
-        });
-        issuer.setDefaultFees(address(paymentToken), defaultFees);
-        issuer.grantRole(issuer.ASSETTOKEN_ROLE(), address(token));
-        issuer.grantRole(issuer.OPERATOR_ROLE(), address(router));
-        issuer.setMaxOrderDecimals(address(token), int8(token.decimals()));
+        issuer.setPaymentToken(
+            address(paymentToken), address(1), paymentToken.isBlacklisted.selector, 1e8, 5_000, 1e8, 5_000
+        );
+        issuer.setOperator(address(router), true);
 
         vault.grantRole(vault.OPERATOR_ROLE(), address(router));
         router.grantRole(router.OPERATOR_ROLE(), operator);
@@ -94,6 +88,7 @@ contract FulfillmentRouterTest is Test {
         vm.stopPrank();
 
         dummyOrder = IOrderProcessor.Order({
+            requestTimestamp: uint64(block.timestamp),
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -102,9 +97,7 @@ contract FulfillmentRouterTest is Test {
             assetTokenQuantity: 0,
             paymentTokenQuantity: 100 ether,
             price: 0,
-            tif: IOrderProcessor.TIF.GTC,
-            splitAmount: 0,
-            splitRecipient: address(0)
+            tif: IOrderProcessor.TIF.GTC
         });
     }
 
@@ -115,42 +108,20 @@ contract FulfillmentRouterTest is Test {
             )
         );
         vm.prank(admin);
-        router.fillOrder(address(issuer), address(vault), 0, dummyOrder, 0, 0);
+        router.fillOrder(address(issuer), address(vault), dummyOrder, 0, 0, 0);
     }
 
-    function testFillBuyOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
-        vm.assume(orderAmount > 0);
-        vm.assume(fillAmount > 0);
-        vm.assume(fillAmount <= orderAmount);
-        uint256 fees;
-        {
-            (uint256 flatFee, uint24 percentageFeeRate) = issuer.getFeeRatesForOrder(user, false, address(paymentToken));
-            fees = FeeLib.estimateTotalFees(flatFee, percentageFeeRate, orderAmount);
-            vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-        }
-        uint256 quantityIn = orderAmount + fees;
-
-        IOrderProcessor.Order memory order = dummyOrder;
-        order.paymentTokenQuantity = orderAmount;
-
-        vm.prank(admin);
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
-        paymentToken.approve(address(issuer), quantityIn);
-
-        vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
-
-        vm.expectEmit(true, true, true, false);
-        emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
+    function testFillBuyOrderReverts() public {
+        vm.expectRevert(FulfillmentRouter.BuyFillsNotSupported.selector);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
+        router.fillOrder(address(issuer), address(vault), dummyOrder, 0, 0, 0);
     }
 
-    function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount) public {
+    function testFillSellOrder(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 fees) public {
         vm.assume(orderAmount > 0);
         vm.assume(fillAmount > 0);
         vm.assume(fillAmount <= orderAmount);
+        vm.assume(fees <= receivedAmount);
 
         IOrderProcessor.Order memory order = dummyOrder;
         order.sell = true;
@@ -169,8 +140,8 @@ contract FulfillmentRouterTest is Test {
         paymentToken.mint(address(vault), receivedAmount);
 
         vm.expectEmit(true, true, true, false);
-        emit OrderFill(id, order.recipient, order.paymentToken, order.assetToken, fillAmount, receivedAmount, 0);
+        emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, true);
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), id, order, fillAmount, receivedAmount);
+        router.fillOrder(address(issuer), address(vault), order, fillAmount, receivedAmount, fees);
     }
 }

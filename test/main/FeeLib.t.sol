@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
@@ -14,11 +14,11 @@ contract FeeLibTest is Test {
 
     function testUSDCFlatFee() public {
         // 1 USDC flat fee
-        uint256 flatFee = wrapFlatFeeForOrder(address(usdc), 1e8);
+        uint256 flatFee = wrapFlatFeeForOrder(usdc.decimals(), 1e8);
         assertEq(flatFee, 1e6);
     }
 
-    function wrapFlatFeeForOrder(address newToken, uint64 perOrderFee) public view returns (uint256) {
-        return FeeLib.flatFeeForOrder(newToken, perOrderFee);
+    function wrapFlatFeeForOrder(uint8 newTokenDecimals, uint64 perOrderFee) public pure returns (uint256) {
+        return FeeLib.flatFeeForOrder(newTokenDecimals, perOrderFee);
     }
 }
