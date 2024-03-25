@@ -41,6 +41,7 @@
     "keys": "npx ts-node script/printkeys.ts"
   },
   "devDependencies": {
+    "@axelar-network/axelar-gmp-sdk-solidity": "^5.6.4",
     "@axelar-network/interchain-token-service": "^1.2.1",
     "@typechain/ethers-v5": "^11.0.0",
     "@types/node": "^16.11.0",
@@ -58,7 +59,6 @@
     "pretty"
   ],
   "dependencies": {
-    "@axelar-network/axelar-gmp-sdk-solidity": "^5.6.4",
     "ethers": "5.7.2"
   }
 }
