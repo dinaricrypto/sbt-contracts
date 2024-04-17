@@ -459,40 +459,18 @@ contract OrderProcessor is
         onlyOperator
         returns (uint256 id)
     {
-        // Start gas measurement
-        uint256 gasStart = gasleft();
-
         // Recover requester and validate signature
         if (signature.deadline < block.timestamp) revert ExpiredSignature();
         address requester =
             ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, signature.deadline)), signature.signature);
 
         // Create order
-        PaymentTokenConfig memory paymentTokenConfig;
-        (id, paymentTokenConfig) = _createOrder(order, requester);
-
-        // Charge user for gas fees now for buy orders
-        if (!order.sell) {
-            uint256 tokenPriceInWei = _getTokenPriceInWei(paymentTokenConfig.oracle);
-
-            uint256 gasCostInWei = (gasStart - gasleft()) * tx.gasprice;
-
-            // Apply payment token price to calculate payment amount
-            // Assumes payment token price includes token decimals
-            uint256 networkFee = gasCostInWei * 10 ** paymentTokenConfig.decimals / tokenPriceInWei;
-
-            // Pull payment for gas fees
-            OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-            IERC20(order.paymentToken).safeTransferFrom(requester, $._vault, networkFee);
-        }
+        return _createOrder(order, requester);
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
     // slither-disable-next-line cyclomatic-complexity
-    function _createOrder(Order calldata order, address requester)
-        private
-        returns (uint256 id, PaymentTokenConfig memory paymentTokenConfig)
-    {
+    function _createOrder(Order calldata order, address requester) private returns (uint256 id) {
         // ------------------ Checks ------------------ //
 
         // Cheap checks first
@@ -511,7 +489,7 @@ contract OrderProcessor is
 
         // Check for whitelisted tokens
         if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
-        paymentTokenConfig = $._paymentTokens[order.paymentToken];
+        PaymentTokenConfig memory paymentTokenConfig = $._paymentTokens[order.paymentToken];
         if (paymentTokenConfig.oracle == address(0)) revert UnsupportedToken(order.paymentToken);
 
         // Precision checked for assetTokenQuantity, market buys excluded
@@ -590,7 +568,7 @@ contract OrderProcessor is
 
     /// @inheritdoc IOrderProcessor
     function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
-        (id,) = _createOrder(order, msg.sender);
+        return _createOrder(order, msg.sender);
     }
 
     function hashOrderRequest(Order calldata order, uint256 deadline) public pure returns (bytes32) {

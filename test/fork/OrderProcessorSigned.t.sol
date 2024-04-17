@@ -161,9 +161,8 @@ contract OrderProcessorSignedTest is Test {
         assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(orderId), order.paymentTokenQuantity);
 
-        assertGt(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
-        uint256 gasFee = paymentToken.balanceOf(operator) - operatorBalanceBefore - orderAmount;
-        assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn - gasFee);
+        assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
+        assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
     }
 
     function testRequestSellOrderThroughOperator(uint256 orderAmount) public {
