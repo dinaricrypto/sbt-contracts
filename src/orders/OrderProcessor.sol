@@ -49,6 +49,7 @@ contract OrderProcessor is
 
     struct PaymentTokenConfig {
         bool enabled;
+        // Assumes token decimals do not change
         uint8 decimals;
         // Token blacklist method selectors
         bytes4 blacklistCallSelector;
