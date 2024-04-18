@@ -85,7 +85,6 @@ contract FulfillmentRouterTest is Test {
 
         dummyOrder = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
-            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),

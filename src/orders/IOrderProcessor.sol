@@ -41,8 +41,6 @@ interface IOrderProcessor {
     struct Order {
         // Timestamp or other salt added to order hash for replay protection
         uint64 requestTimestamp;
-        // Requester of order
-        address requester;
         // Recipient of order fills
         address recipient;
         // Bridged asset token
@@ -80,6 +78,8 @@ interface IOrderProcessor {
     struct FeeQuote {
         // Unique ID and hash of order data used to validate order details stored offchain
         uint256 orderId;
+        // Requester of order
+        address requester;
         // Fee amount in payment token
         uint256 fee;
         // Timestamp of fee quote

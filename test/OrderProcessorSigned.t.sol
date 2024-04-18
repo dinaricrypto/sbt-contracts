@@ -95,7 +95,6 @@ contract OrderProcessorSignedTest is Test {
 
         dummyOrder = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
-            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -223,6 +222,7 @@ contract OrderProcessorSignedTest is Test {
         uint256 orderId = issuer.hashOrder(order);
         IOrderProcessor.FeeQuote memory feeQuote = IOrderProcessor.FeeQuote({
             orderId: orderId,
+            requester: vm.addr(userKey),
             fee: fee,
             timestamp: uint64(block.timestamp),
             deadline: deadline

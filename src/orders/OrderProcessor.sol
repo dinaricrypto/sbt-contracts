@@ -105,13 +105,13 @@ contract OrderProcessor is
     /// ------------------ Constants ------------------ ///
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(uint64 requestTimestamp,address requester,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
+        "Order(uint64 requestTimestamp,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
     bytes32 private constant ORDER_REQUEST_TYPEHASH = keccak256("OrderRequest(uint256 id,uint64 deadline)");
 
     bytes32 private constant FEE_QUOTE_TYPEHASH =
-        keccak256("FeeQuote(uint256 orderId,uint256 fee,uint64 timestamp,uint64 deadline)");
+        keccak256("FeeQuote(uint256 orderId,address requester,uint256 fee,uint64 timestamp,uint64 deadline)");
 
     /// ------------------ State ------------------ ///
 
@@ -434,13 +434,17 @@ contract OrderProcessor is
         address requester =
             ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline)), orderSignature.signature);
 
-        _validateFeeQuote(feeQuote, feeQuoteSignature);
+        _validateFeeQuote(requester, feeQuote, feeQuoteSignature);
 
         // Create order
         return _createOrder(order, requester, order.sell ? 0 : feeQuote.fee);
     }
 
-    function _validateFeeQuote(FeeQuote calldata feeQuote, bytes calldata feeQuoteSignature) private view {
+    function _validateFeeQuote(address requester, FeeQuote calldata feeQuote, bytes calldata feeQuoteSignature)
+        private
+        view
+    {
+        if (feeQuote.requester != requester) revert NotRequester();
         if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
         address feeQuoteSigner = ECDSA.recover(_hashTypedDataV4(hashFeeQuote(feeQuote)), feeQuoteSignature);
         checkOperator(feeQuoteSigner);
@@ -452,7 +456,6 @@ contract OrderProcessor is
         // ------------------ Checks ------------------ //
 
         // Cheap checks first
-        if (order.requester != requester) revert NotRequester();
         if (order.recipient == address(0)) revert ZeroAddress();
         uint256 orderAmount = (order.sell) ? order.assetTokenQuantity : order.paymentTokenQuantity;
         // No zero orders
@@ -515,7 +518,7 @@ contract OrderProcessor is
         whenOrdersNotPaused
         returns (uint256 id)
     {
-        _validateFeeQuote(feeQuote, feeQuoteSignature);
+        _validateFeeQuote(msg.sender, feeQuote, feeQuoteSignature);
 
         // Create order
         return _createOrder(order, msg.sender, order.sell ? 0 : feeQuote.fee);
@@ -544,7 +547,6 @@ contract OrderProcessor is
                 abi.encode(
                     ORDER_TYPEHASH,
                     order.requestTimestamp,
-                    order.requester,
                     order.recipient,
                     order.assetToken,
                     order.paymentToken,
@@ -561,7 +563,14 @@ contract OrderProcessor is
 
     function hashFeeQuote(FeeQuote calldata feeQuote) public pure returns (bytes32) {
         return keccak256(
-            abi.encode(FEE_QUOTE_TYPEHASH, feeQuote.orderId, feeQuote.fee, feeQuote.timestamp, feeQuote.deadline)
+            abi.encode(
+                FEE_QUOTE_TYPEHASH,
+                feeQuote.orderId,
+                feeQuote.requester,
+                feeQuote.fee,
+                feeQuote.timestamp,
+                feeQuote.deadline
+            )
         );
     }
 
