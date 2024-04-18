@@ -22,7 +22,6 @@ contract OrderProcessorTest is Test {
     event VaultSet(address indexed vault);
     event PaymentTokenSet(
         address indexed paymentToken,
-        address oracle,
         bytes4 blacklistCallSelector,
         uint64 perOrderFeeBuy,
         uint24 percentageFeeRateBuy,
@@ -91,7 +90,7 @@ contract OrderProcessorTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, address(1)))
+                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory))
                 )
             )
         );
@@ -100,9 +99,7 @@ contract OrderProcessorTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(issuer));
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        issuer.setPaymentToken(
-            address(paymentToken), address(1), paymentToken.isBlacklisted.selector, 1e8, 5_000, 1e8, 5_000
-        );
+        issuer.setPaymentToken(address(paymentToken), paymentToken.isBlacklisted.selector, 1e8, 5_000, 1e8, 5_000);
         issuer.setOperator(operator, true);
 
         (uint256 flatFee, uint24 percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
@@ -133,7 +130,6 @@ contract OrderProcessorTest is Test {
         assertEq(issuer.treasury(), treasury);
         assertEq(issuer.vault(), operator);
         assertEq(address(issuer.dShareFactory()), address(tokenFactory));
-        assertEq(issuer.ethUsdOracle(), address(1));
     }
 
     function testInitializationReverts() public {
@@ -141,28 +137,18 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
-            address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, address(0), operator, tokenFactory, address(1)))
+            address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, address(0), operator, tokenFactory))
+        );
+
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, treasury, address(0), tokenFactory))
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, address(0), tokenFactory, address(1)))
-        );
-
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        new ERC1967Proxy(
-            address(issuerImpl),
-            abi.encodeCall(
-                OrderProcessor.initialize, (admin, treasury, operator, DShareFactory(address(0)), address(1))
-            )
-        );
-
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        new ERC1967Proxy(
-            address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, address(0)))
+            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, DShareFactory(address(0))))
         );
     }
 
@@ -235,19 +221,6 @@ contract OrderProcessorTest is Test {
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
         issuer.setPaymentToken(
             address(testToken),
-            oracle,
-            testToken.isBlacklisted.selector,
-            perOrderFee,
-            percentageFeeRate,
-            perOrderFee,
-            percentageFeeRate
-        );
-
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        vm.prank(admin);
-        issuer.setPaymentToken(
-            address(testToken),
-            address(0),
             testToken.isBlacklisted.selector,
             perOrderFee,
             percentageFeeRate,
@@ -259,7 +232,6 @@ contract OrderProcessorTest is Test {
         vm.prank(admin);
         issuer.setPaymentToken(
             address(testToken),
-            oracle,
             0x032f29a1, // lock selector doesn't exist for token contract
             perOrderFee,
             percentageFeeRate,
@@ -270,7 +242,6 @@ contract OrderProcessorTest is Test {
         vm.expectEmit(true, true, true, true);
         emit PaymentTokenSet(
             address(testToken),
-            oracle,
             testToken.isBlacklisted.selector,
             perOrderFee,
             percentageFeeRate,
@@ -280,7 +251,6 @@ contract OrderProcessorTest is Test {
         vm.prank(admin);
         issuer.setPaymentToken(
             address(testToken),
-            oracle,
             testToken.isBlacklisted.selector,
             perOrderFee,
             percentageFeeRate,
@@ -289,7 +259,6 @@ contract OrderProcessorTest is Test {
         );
         (
             uint8 decimals,
-            address setOracle,
             bytes4 blacklistCallSelector,
             uint64 perOrderFeeBuy,
             uint24 percentageFeeRateBuy,
@@ -297,7 +266,6 @@ contract OrderProcessorTest is Test {
             uint24 percentageFeeRateSell
         ) = issuer.getPaymentTokenConfig(address(testToken));
         assertEq(decimals, testToken.decimals());
-        assertEq(setOracle, oracle);
         assertEq(blacklistCallSelector, testToken.isBlacklisted.selector);
         assertEq(perOrderFeeBuy, perOrderFee);
         assertEq(percentageFeeRateBuy, percentageFeeRate);

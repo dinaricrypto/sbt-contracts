@@ -13,7 +13,6 @@ import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/exten
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
-import {AggregatorV3Interface} from "chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {IDShare} from "../IDShare.sol";
@@ -49,9 +48,8 @@ contract OrderProcessor is
     }
 
     struct PaymentTokenConfig {
+        bool enabled;
         uint8 decimals;
-        // Payment token USD price oracles
-        address oracle;
         // Token blacklist method selectors
         bytes4 blacklistCallSelector;
         // Standard fee schedule per paymentToken
@@ -93,7 +91,6 @@ contract OrderProcessor is
     event OrdersPaused(bool paused);
     event PaymentTokenSet(
         address indexed paymentToken,
-        address oracle,
         bytes4 blacklistCallSelector,
         uint64 perOrderFeeBuy,
         uint24 percentageFeeRateBuy,
@@ -102,7 +99,6 @@ contract OrderProcessor is
     );
     event PaymentTokenRemoved(address indexed paymentToken);
     event OrderDecimalReductionSet(address indexed assetToken, uint8 decimalReduction);
-    event EthUsdOracleSet(address indexed ethUsdOracle);
     event OperatorSet(address indexed account, bool status);
 
     /// ------------------ Constants ------------------ ///
@@ -132,8 +128,6 @@ contract OrderProcessor is
         mapping(uint256 => OrderState) _orders;
         // Reduciton of order decimals for asset token, defaults to 0
         mapping(address => uint8) _orderDecimalReduction;
-        // ETH USD price oracle
-        address _ethUsdOracle;
         // Payment token configuration data
         mapping(address => PaymentTokenConfig) _paymentTokens;
         // Latest pairwise price
@@ -157,15 +151,12 @@ contract OrderProcessor is
     /// @param _treasury Address to receive fees
     /// @param _vault Address of vault contract
     /// @param _dShareFactory DShareFactory contract
-    /// @param _ethUsdOracle ETH USD price oracle
     /// @dev Treasury cannot be zero address
-    function initialize(
-        address _owner,
-        address _treasury,
-        address _vault,
-        IDShareFactory _dShareFactory,
-        address _ethUsdOracle
-    ) public virtual initializer {
+    function initialize(address _owner, address _treasury, address _vault, IDShareFactory _dShareFactory)
+        public
+        virtual
+        initializer
+    {
         __Ownable_init(_owner);
         __EIP712_init("OrderProcessor", "1");
         __Multicall_init();
@@ -174,14 +165,12 @@ contract OrderProcessor is
         if (_treasury == address(0)) revert ZeroAddress();
         if (_vault == address(0)) revert ZeroAddress();
         if (address(_dShareFactory) == address(0)) revert ZeroAddress();
-        if (_ethUsdOracle == address(0)) revert ZeroAddress();
 
         // Initialize
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._treasury = _treasury;
         $._vault = _vault;
         $._dShareFactory = _dShareFactory;
-        $._ethUsdOracle = _ethUsdOracle;
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -246,17 +235,11 @@ contract OrderProcessor is
         return $._orderDecimalReduction[token];
     }
 
-    function ethUsdOracle() external view returns (address) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._ethUsdOracle;
-    }
-
     function getPaymentTokenConfig(address paymentToken)
         public
         view
         returns (
             uint8 decimals,
-            address oracle,
             bytes4 blacklistCallSelector,
             uint64 perOrderFeeBuy,
             uint24 percentageFeeRateBuy,
@@ -268,7 +251,6 @@ contract OrderProcessor is
         PaymentTokenConfig memory tokenConfig = $._paymentTokens[paymentToken];
         return (
             tokenConfig.decimals,
-            tokenConfig.oracle,
             tokenConfig.blacklistCallSelector,
             tokenConfig.perOrderFeeBuy,
             tokenConfig.percentageFeeRateBuy,
@@ -281,14 +263,12 @@ contract OrderProcessor is
     function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24) {
         (
             uint8 decimals,
-            address oracle,
             ,
             uint64 perOrderFeeBuy,
             uint24 percentageFeeRateBuy,
             uint64 perOrderFeeSell,
             uint24 percentageFeeRateSell
         ) = getPaymentTokenConfig(paymentToken);
-        if (oracle == address(0)) revert UnsupportedToken(paymentToken);
         if (sell) {
             return (FeeLib.flatFeeForOrder(decimals, perOrderFeeSell), percentageFeeRateSell);
         } else {
@@ -382,7 +362,6 @@ contract OrderProcessor is
 
     /// @notice Set payment token configuration information
     /// @param paymentToken Payment token address
-    /// @param oracle Payment token price oracle
     /// @param blacklistCallSelector Method selector for blacklist check
     /// @param perOrderFeeBuy Flat fee for buy orders
     /// @param percentageFeeRateBuy Percentage fee rate for buy orders
@@ -391,14 +370,12 @@ contract OrderProcessor is
     /// @dev Only callable by admin
     function setPaymentToken(
         address paymentToken,
-        address oracle,
         bytes4 blacklistCallSelector,
         uint64 perOrderFeeBuy,
         uint24 percentageFeeRateBuy,
         uint64 perOrderFeeSell,
         uint24 percentageFeeRateSell
     ) external onlyOwner {
-        if (oracle == address(0)) revert ZeroAddress();
         FeeLib.checkPercentageFeeRate(percentageFeeRateBuy);
         FeeLib.checkPercentageFeeRate(percentageFeeRateSell);
         // Token contract must implement the selector, if specified
@@ -406,8 +383,8 @@ contract OrderProcessor is
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._paymentTokens[paymentToken] = PaymentTokenConfig({
+            enabled: true,
             decimals: IERC20Metadata(paymentToken).decimals(),
-            oracle: oracle,
             blacklistCallSelector: blacklistCallSelector,
             perOrderFeeBuy: perOrderFeeBuy,
             percentageFeeRateBuy: percentageFeeRateBuy,
@@ -416,7 +393,6 @@ contract OrderProcessor is
         });
         emit PaymentTokenSet(
             paymentToken,
-            oracle,
             blacklistCallSelector,
             perOrderFeeBuy,
             percentageFeeRateBuy,
@@ -442,12 +418,6 @@ contract OrderProcessor is
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._orderDecimalReduction[token] = decimalReduction;
         emit OrderDecimalReductionSet(token, decimalReduction);
-    }
-
-    function setEthUsdOracle(address _ethUsdOracle) external onlyOwner {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        $._ethUsdOracle = _ethUsdOracle;
-        emit EthUsdOracleSet(_ethUsdOracle);
     }
 
     /// ------------------ Order Lifecycle ------------------ ///
@@ -490,7 +460,7 @@ contract OrderProcessor is
         // Check for whitelisted tokens
         if (!$._dShareFactory.isTokenDShare(order.assetToken)) revert UnsupportedToken(order.assetToken);
         PaymentTokenConfig memory paymentTokenConfig = $._paymentTokens[order.paymentToken];
-        if (paymentTokenConfig.oracle == address(0)) revert UnsupportedToken(order.paymentToken);
+        if (!paymentTokenConfig.enabled) revert UnsupportedToken(order.paymentToken);
 
         // Precision checked for assetTokenQuantity, market buys excluded
         if (order.sell || order.orderType == OrderType.LIMIT) {
@@ -535,35 +505,6 @@ contract OrderProcessor is
             // Escrow fees
             IERC20(order.paymentToken).safeTransferFrom(requester, address(this), feesEscrowed);
         }
-    }
-
-    /**
-     * @notice Get the current oracle price for a payment token
-     */
-    function getTokenPriceInWei(address paymentToken) external view returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return _getTokenPriceInWei($._paymentTokens[paymentToken].oracle);
-    }
-
-    function _getTokenPriceInWei(address _paymentTokenOracle) internal view returns (uint256) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        address _ethUsdOracle = $._ethUsdOracle;
-
-        // slither-disable-next-line unused-return
-        (, int256 paymentPrice,,,) = AggregatorV3Interface(_paymentTokenOracle).latestRoundData();
-        // slither-disable-next-line unused-return
-        (, int256 ethUSDPrice,,,) = AggregatorV3Interface(_ethUsdOracle).latestRoundData();
-        // adjust values to align decimals
-        uint8 paymentPriceDecimals = AggregatorV3Interface(_paymentTokenOracle).decimals();
-        uint8 ethUSDPriceDecimals = AggregatorV3Interface(_ethUsdOracle).decimals();
-        if (paymentPriceDecimals > ethUSDPriceDecimals) {
-            ethUSDPrice = ethUSDPrice * int256(10 ** (paymentPriceDecimals - ethUSDPriceDecimals));
-        } else if (paymentPriceDecimals < ethUSDPriceDecimals) {
-            paymentPrice = paymentPrice * int256(10 ** (ethUSDPriceDecimals - paymentPriceDecimals));
-        }
-        // compute payment price in wei
-        uint256 paymentPriceInWei = mulDiv(uint256(paymentPrice), 1 ether, uint256(ethUSDPrice));
-        return uint256(paymentPriceInWei);
     }
 
     /// @inheritdoc IOrderProcessor

@@ -51,10 +51,6 @@ contract OrderProcessorSignedTest is Test {
     address public admin;
     address constant treasury = address(4);
     address constant operator = address(3);
-    address constant ethUsdPriceOracle = 0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612;
-    address constant usdcPriceOracle = 0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3;
-
-    uint256 constant SELL_GAS_COST = 1000000;
 
     function setUp() public {
         userPrivateKey = 0x1;
@@ -73,9 +69,7 @@ contract OrderProcessorSignedTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(
-                        OrderProcessor.initialize, (admin, treasury, operator, tokenFactory, ethUsdPriceOracle)
-                    )
+                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory))
                 )
             )
         );
@@ -84,9 +78,7 @@ contract OrderProcessorSignedTest is Test {
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.BURNER_ROLE(), address(issuer));
 
-        issuer.setPaymentToken(
-            address(paymentToken), usdcPriceOracle, paymentToken.isBlacklisted.selector, 1e8, 5_000, 1e8, 5_000
-        );
+        issuer.setPaymentToken(address(paymentToken), paymentToken.isBlacklisted.selector, 1e8, 5_000, 1e8, 5_000);
         issuer.setOperator(operator, true);
         vm.stopPrank();
 
@@ -111,17 +103,6 @@ contract OrderProcessorSignedTest is Test {
         });
     }
 
-    function testUpdateEthOracle(address _oracle) public {
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
-        issuer.setEthUsdOracle(_oracle);
-
-        vm.expectEmit(true, true, true, true);
-        emit EthUsdOracleSet(_oracle);
-        vm.prank(admin);
-        issuer.setEthUsdOracle(_oracle);
-        assertEq(issuer.ethUsdOracle(), _oracle);
-    }
-
     function testRequestBuyOrderThroughOperator(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
 
@@ -133,10 +114,6 @@ contract OrderProcessorSignedTest is Test {
         order.paymentTokenQuantity = orderAmount;
         uint256 quantityIn = order.paymentTokenQuantity + fees;
         deal(address(paymentToken), user, type(uint256).max);
-
-        // Get current price eth in token
-        uint256 paymentTokenPriceInWei = issuer.getTokenPriceInWei(address(paymentToken));
-        assertGt(paymentTokenPriceInWei, 0);
 
         uint256 permitNonce = 0;
 

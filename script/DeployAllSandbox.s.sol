@@ -22,9 +22,6 @@ contract DeployAllSandbox is Script {
         address operator;
         address distributor;
         address relayer;
-        address ethusdoracle;
-        address usdcoracle;
-        address usdtoracle;
     }
 
     struct Deployments {
@@ -46,7 +43,6 @@ contract DeployAllSandbox is Script {
 
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
-    uint256 constant SELL_GAS_COST = 1000000;
 
     function run() external {
         // load env variables
@@ -57,10 +53,7 @@ contract DeployAllSandbox is Script {
             treasury: vm.envAddress("TREASURY"),
             operator: vm.envAddress("OPERATOR"),
             distributor: vm.envAddress("DISTRIBUTOR"),
-            relayer: vm.envAddress("RELAYER"),
-            ethusdoracle: vm.envAddress("ETHUSDORACLE"),
-            usdcoracle: vm.envAddress("USDCORACLE"),
-            usdtoracle: vm.envAddress("USDTORACLE")
+            relayer: vm.envAddress("RELAYER")
         });
 
         Deployments memory deployments;
@@ -128,13 +121,7 @@ contract DeployAllSandbox is Script {
                     address(deployments.orderProcessorImplementation),
                     abi.encodeCall(
                         OrderProcessor.initialize,
-                        (
-                            cfg.deployer,
-                            cfg.treasury,
-                            address(deployments.vault),
-                            deployments.dShareFactory,
-                            cfg.ethusdoracle
-                        )
+                        (cfg.deployer, cfg.treasury, address(deployments.vault), deployments.dShareFactory)
                     )
                 )
             )
@@ -146,7 +133,6 @@ contract DeployAllSandbox is Script {
         // config payment token
         deployments.orderProcessor.setPaymentToken(
             address(deployments.usdc),
-            cfg.usdcoracle,
             deployments.usdc.isBlacklisted.selector,
             perOrderFee,
             percentageFeeRate,
@@ -156,7 +142,6 @@ contract DeployAllSandbox is Script {
 
         deployments.orderProcessor.setPaymentToken(
             address(deployments.usdt),
-            cfg.usdtoracle,
             deployments.usdt.isBlacklisted.selector,
             perOrderFee,
             percentageFeeRate,
@@ -166,7 +151,6 @@ contract DeployAllSandbox is Script {
 
         deployments.orderProcessor.setPaymentToken(
             address(deployments.usdce),
-            cfg.usdcoracle,
             deployments.usdce.isBlacklisted.selector,
             perOrderFee,
             percentageFeeRate,
