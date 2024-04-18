@@ -19,7 +19,7 @@ No files changed, compilation skipped
 | FulfillmentRouter        |    7,500 |     17,076 |
 | GetMockDShareFactory     |       57 |     24,519 |
 | InterchainAddressTracker |    1,487 |     23,089 |
-| InterchainTokenService   |   22,208 |      2,368 |
+| InterchainTokenService   |   22,543 |      2,033 |
 | LibString                |       57 |     24,519 |
 | Math                     |       57 |     24,519 |
 | MessageHashUtils         |       57 |     24,519 |
@@ -29,7 +29,7 @@ No files changed, compilation skipped
 | NumberUtils              |       57 |     24,519 |
 | Operator                 |    1,541 |     23,035 |
 | OracleLib                |       57 |     24,519 |
-| OrderProcessor           |   23,317 |      1,259 |
+| OrderProcessor           |   21,865 |      2,711 |
 | OrderSigUtils            |      856 |     23,720 |
 | Pausable                 |      180 |     24,396 |
 | RolesBase                |      363 |     24,213 |
@@ -48,7 +48,6 @@ No files changed, compilation skipped
 | StringToBytes32          |       57 |     24,519 |
 | Strings                  |       57 |     24,519 |
 | TransferRestrictor       |    5,697 |     18,879 |
-| UnityOracle              |      698 |     23,878 |
 | UpgradeableBeacon        |      980 |     23,596 |
 | Vault                    |    5,822 |     18,754 |
 | WrappedDShare            |   10,438 |     14,138 |
