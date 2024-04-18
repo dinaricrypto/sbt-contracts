@@ -235,44 +235,26 @@ contract OrderProcessor is
         return $._orderDecimalReduction[token];
     }
 
-    function getPaymentTokenConfig(address paymentToken)
-        public
-        view
-        returns (
-            uint8 decimals,
-            bytes4 blacklistCallSelector,
-            uint64 perOrderFeeBuy,
-            uint24 percentageFeeRateBuy,
-            uint64 perOrderFeeSell,
-            uint24 percentageFeeRateSell
-        )
-    {
+    function getPaymentTokenConfig(address paymentToken) public view returns (PaymentTokenConfig memory) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        PaymentTokenConfig memory tokenConfig = $._paymentTokens[paymentToken];
-        return (
-            tokenConfig.decimals,
-            tokenConfig.blacklistCallSelector,
-            tokenConfig.perOrderFeeBuy,
-            tokenConfig.percentageFeeRateBuy,
-            tokenConfig.perOrderFeeSell,
-            tokenConfig.percentageFeeRateSell
-        );
+        return $._paymentTokens[paymentToken];
     }
 
     /// @inheritdoc IOrderProcessor
     function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24) {
-        (
-            uint8 decimals,
-            ,
-            uint64 perOrderFeeBuy,
-            uint24 percentageFeeRateBuy,
-            uint64 perOrderFeeSell,
-            uint24 percentageFeeRateSell
-        ) = getPaymentTokenConfig(paymentToken);
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        PaymentTokenConfig memory paymentTokenConfig = $._paymentTokens[paymentToken];
+        if (!paymentTokenConfig.enabled) revert UnsupportedToken(paymentToken);
         if (sell) {
-            return (FeeLib.flatFeeForOrder(decimals, perOrderFeeSell), percentageFeeRateSell);
+            return (
+                FeeLib.flatFeeForOrder(paymentTokenConfig.decimals, paymentTokenConfig.perOrderFeeSell),
+                paymentTokenConfig.percentageFeeRateSell
+            );
         } else {
-            return (FeeLib.flatFeeForOrder(decimals, perOrderFeeBuy), percentageFeeRateBuy);
+            return (
+                FeeLib.flatFeeForOrder(paymentTokenConfig.decimals, paymentTokenConfig.perOrderFeeBuy),
+                paymentTokenConfig.percentageFeeRateBuy
+            );
         }
     }
 

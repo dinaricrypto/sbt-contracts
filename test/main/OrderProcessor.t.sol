@@ -257,20 +257,14 @@ contract OrderProcessorTest is Test {
             perOrderFee,
             percentageFeeRate
         );
-        (
-            uint8 decimals,
-            bytes4 blacklistCallSelector,
-            uint64 perOrderFeeBuy,
-            uint24 percentageFeeRateBuy,
-            uint64 perOrderFeeSell,
-            uint24 percentageFeeRateSell
-        ) = issuer.getPaymentTokenConfig(address(testToken));
-        assertEq(decimals, testToken.decimals());
-        assertEq(blacklistCallSelector, testToken.isBlacklisted.selector);
-        assertEq(perOrderFeeBuy, perOrderFee);
-        assertEq(percentageFeeRateBuy, percentageFeeRate);
-        assertEq(perOrderFeeSell, perOrderFee);
-        assertEq(percentageFeeRateSell, percentageFeeRate);
+        OrderProcessor.PaymentTokenConfig memory config = issuer.getPaymentTokenConfig(address(testToken));
+        assertTrue(config.enabled);
+        assertEq(config.decimals, testToken.decimals());
+        assertEq(config.blacklistCallSelector, testToken.isBlacklisted.selector);
+        assertEq(config.perOrderFeeBuy, perOrderFee);
+        assertEq(config.percentageFeeRateBuy, percentageFeeRate);
+        assertEq(config.perOrderFeeSell, perOrderFee);
+        assertEq(config.percentageFeeRateSell, percentageFeeRate);
 
         testToken.blacklist(user);
         assertTrue(issuer.isTransferLocked(address(testToken), user));
