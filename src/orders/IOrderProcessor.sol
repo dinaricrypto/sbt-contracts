@@ -41,6 +41,8 @@ interface IOrderProcessor {
     struct Order {
         // Timestamp or other salt added to order hash for replay protection
         uint64 requestTimestamp;
+        // Requester of order
+        address requester;
         // Recipient of order fills
         address recipient;
         // Bridged asset token
@@ -63,26 +65,37 @@ interface IOrderProcessor {
 
     struct OrderRequest {
         // Unique ID and hash of order data used to validate order details stored offchain
-        uint256 id;
+        uint256 orderId;
         // Signature expiration timestamp
-        uint256 deadline;
+        uint64 deadline;
     }
 
     struct Signature {
         // Signature expiration timestamp
-        uint256 deadline;
+        uint64 deadline;
         // Signature bytes (r, s, v)
         bytes signature;
     }
 
+    struct FeeQuote {
+        // Unique ID and hash of order data used to validate order details stored offchain
+        uint256 orderId;
+        // Fee amount in payment token
+        uint256 fee;
+        // Timestamp of fee quote
+        uint64 timestamp;
+        // Signature expiration timestamp
+        uint64 deadline;
+    }
+
     struct PricePoint {
-        uint64 blocktime;
         // Price specified with 18 decimals
         uint256 price;
+        uint64 blocktime;
     }
 
     /// @dev Emitted order details and order ID for each order
-    event OrderCreated(uint256 indexed id, address indexed requester, Order order);
+    event OrderCreated(uint256 indexed id, address indexed requester, Order order, uint256 feesEscrowed);
     /// @dev Emitted for each fill
     event OrderFill(
         uint256 indexed id,
@@ -91,7 +104,7 @@ interface IOrderProcessor {
         address requester,
         uint256 assetAmount,
         uint256 paymentAmount,
-        uint256 fees,
+        uint256 feesTaken,
         bool sell
     );
     /// @dev Emitted when order is completely filled, terminal
@@ -131,6 +144,15 @@ interface IOrderProcessor {
     /// @return percentageFeeRate Percentage fee rate for order
     function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24);
 
+    /// @notice Get total standard fees for an order
+    /// @param sell Sell order
+    /// @param paymentToken Payment token for order
+    /// @param paymentTokenQuantity Payment token quantity for order
+    function totalStandardFee(bool sell, address paymentToken, uint256 paymentTokenQuantity)
+        external
+        view
+        returns (uint256);
+
     /// @notice Check if an account is locked from transferring tokens
     /// @param token Token to check
     /// @param account Account to check
@@ -147,16 +169,23 @@ interface IOrderProcessor {
 
     /// @notice Lock tokens and initialize signed order
     /// @param order Order request to initialize
-    /// @param signature Signature for order
+    /// @param orderSignature Signature and deadline for order
+    /// @param feeQuote Fee quote for order
+    /// @param feeQuoteSignature Signature for fee quote
     /// @return id Order id
     /// @dev Only callable by operator
-    function createOrderWithSignature(Order calldata order, Signature calldata signature) external returns (uint256);
+    function createOrderWithSignature(
+        Order calldata order,
+        Signature calldata orderSignature,
+        FeeQuote calldata feeQuote,
+        bytes calldata feeQuoteSignature
+    ) external returns (uint256);
 
-    /// @notice Request an order
+    /// @notice Request an order with standard fees
     /// @param order Order request to submit
     /// @return id Order id
     /// @dev Emits OrderCreated event to be sent to fulfillment service (operator)
-    function requestOrder(Order calldata order) external returns (uint256);
+    function createOrderStandardFees(Order calldata order) external returns (uint256);
 
     /// @notice Fill an order
     /// @param order Order request to fill

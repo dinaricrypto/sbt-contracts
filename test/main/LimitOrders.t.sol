@@ -70,6 +70,7 @@ contract LimitOrderTest is Test {
     {
         order = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
+            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -94,7 +95,7 @@ contract LimitOrderTest is Test {
 
         vm.expectRevert(OrderProcessor.LimitPriceNotSet.selector);
         vm.startPrank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
     }
 
     function testFillLimitBuyOrderPriceReverts(
@@ -119,7 +120,7 @@ contract LimitOrderTest is Test {
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
 
         vm.expectRevert(OrderProcessor.OrderFillBelowLimitPrice.selector);
         vm.prank(operator);
@@ -148,7 +149,7 @@ contract LimitOrderTest is Test {
         token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
 
         vm.expectRevert(OrderProcessor.OrderFillAboveLimitPrice.selector);
         vm.prank(operator);
@@ -174,7 +175,7 @@ contract LimitOrderTest is Test {
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
 
         vm.prank(operator);
         issuer.fillOrder(order, fillAmount, receivedAmount, fees);

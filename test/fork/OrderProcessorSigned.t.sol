@@ -21,7 +21,9 @@ contract OrderProcessorSignedTest is Test {
 
     // TODO: add order fill with vault
     // TODO: test fill sells
-    event OrderCreated(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
+    event OrderCreated(
+        uint256 indexed id, address indexed recipient, IOrderProcessor.Order order, uint256 feesEscrowed
+    );
 
     event PaymentTokenOracleSet(address indexed paymentToken, address indexed oracle);
     event EthUsdOracleSet(address indexed oracle);
@@ -43,19 +45,22 @@ contract OrderProcessorSignedTest is Test {
 
     uint256 public userPrivateKey;
     uint256 public adminPrivateKey;
+    uint256 public operatorPrivateKey;
     uint256 flatFee;
     uint256 dummyOrderFees;
 
     address public user;
     address public admin;
     address constant treasury = address(4);
-    address constant operator = address(3);
+    address public operator;
 
     function setUp() public {
         userPrivateKey = 0x1;
         adminPrivateKey = 0x4;
+        operatorPrivateKey = 0x3;
         user = vm.addr(userPrivateKey);
         admin = vm.addr(adminPrivateKey);
+        operator = vm.addr(operatorPrivateKey);
 
         vm.startPrank(admin);
         (tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
@@ -90,6 +95,7 @@ contract OrderProcessorSignedTest is Test {
 
         dummyOrder = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
+            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -115,6 +121,11 @@ contract OrderProcessorSignedTest is Test {
         deal(address(paymentToken), user, type(uint256).max);
 
         uint256 permitNonce = 0;
+        (
+            IOrderProcessor.Signature memory orderSignature,
+            IOrderProcessor.FeeQuote memory feeQuote,
+            bytes memory feeQuoteSignature
+        ) = prepareOrderRequestSignatures(order, userPrivateKey, fees, operatorPrivateKey);
 
         // calldata
         bytes[] memory multicalldata = new bytes[](2);
@@ -122,20 +133,19 @@ contract OrderProcessorSignedTest is Test {
             paymentSigUtils, address(paymentToken), type(uint256).max, user, userPrivateKey, permitNonce
         );
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
+            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature
         );
 
-        uint256 orderId = issuer.hashOrder(order);
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
 
         vm.expectEmit(true, true, true, true);
-        emit OrderCreated(orderId, user, order);
+        emit OrderCreated(feeQuote.orderId, user, order, fees);
         vm.prank(operator);
         issuer.multicall(multicalldata);
 
-        assertEq(uint8(issuer.getOrderStatus(orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-        assertEq(issuer.getUnfilledAmount(orderId), order.paymentTokenQuantity);
+        assertEq(uint8(issuer.getOrderStatus(feeQuote.orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(feeQuote.orderId), order.paymentTokenQuantity);
 
         assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
         assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
@@ -150,19 +160,24 @@ contract OrderProcessorSignedTest is Test {
         deal(address(token), user, orderAmount);
 
         uint256 permitNonce = 0;
+        (
+            IOrderProcessor.Signature memory orderSignature,
+            IOrderProcessor.FeeQuote memory feeQuote,
+            bytes memory feeQuoteSignature
+        ) = prepareOrderRequestSignatures(order, userPrivateKey, 0, operatorPrivateKey);
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(shareSigUtils, address(token), orderAmount, user, userPrivateKey, permitNonce);
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, prepareOrderRequestSignature(order, userPrivateKey)
+            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature
         );
 
         uint256 orderId = issuer.hashOrder(order);
         uint256 userBalanceBefore = token.balanceOf(user);
 
         vm.expectEmit(true, true, true, true);
-        emit OrderCreated(orderId, user, order);
+        emit OrderCreated(orderId, user, order, 0);
         vm.prank(operator);
         issuer.multicall(multicalldata);
 
@@ -194,15 +209,28 @@ contract OrderProcessorSignedTest is Test {
         );
     }
 
-    function prepareOrderRequestSignature(IOrderProcessor.Order memory order, uint256 _privateKey)
-        internal
-        view
-        returns (IOrderProcessor.Signature memory)
-    {
-        uint256 deadline = block.timestamp + 30 days;
+    function prepareOrderRequestSignatures(
+        IOrderProcessor.Order memory order,
+        uint256 userKey,
+        uint256 fee,
+        uint256 operatorKey
+    ) internal view returns (IOrderProcessor.Signature memory, IOrderProcessor.FeeQuote memory, bytes memory) {
+        uint64 deadline = uint64(block.timestamp + 30 days);
         bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(_privateKey, orderRequestDigest);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userKey, orderRequestDigest);
+        bytes memory orderSignature = abi.encodePacked(r, s, v);
 
-        return IOrderProcessor.Signature({deadline: deadline, signature: abi.encodePacked(r, s, v)});
+        uint256 orderId = issuer.hashOrder(order);
+        IOrderProcessor.FeeQuote memory feeQuote = IOrderProcessor.FeeQuote({
+            orderId: orderId,
+            fee: fee,
+            timestamp: uint64(block.timestamp),
+            deadline: deadline
+        });
+        bytes32 feeQuoteDigest = orderSigUtils.getOrderFeeQuoteToSign(feeQuote);
+        (v, r, s) = vm.sign(operatorKey, feeQuoteDigest);
+        bytes memory feeQuoteSignature = abi.encodePacked(r, s, v);
+
+        return (IOrderProcessor.Signature({deadline: deadline, signature: orderSignature}), feeQuote, feeQuoteSignature);
     }
 }

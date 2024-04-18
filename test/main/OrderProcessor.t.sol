@@ -33,7 +33,9 @@ contract OrderProcessorTest is Test {
     event OrderDecimalReductionSet(address indexed assetToken, uint8 decimalReduction);
     event OperatorSet(address indexed account, bool set);
 
-    event OrderCreated(uint256 indexed id, address indexed recipient, IOrderProcessor.Order order);
+    event OrderCreated(
+        uint256 indexed id, address indexed requester, IOrderProcessor.Order order, uint256 feesEscrowed
+    );
     event OrderFill(
         uint256 indexed id,
         address indexed paymentToken,
@@ -113,6 +115,7 @@ contract OrderProcessorTest is Test {
     function getDummyOrder(bool sell) internal view returns (IOrderProcessor.Order memory) {
         return IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
+            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -312,7 +315,7 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.ZeroValue.selector);
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
     }
 
     function testRequestBuyOrder(uint256 orderAmount) public {
@@ -337,9 +340,9 @@ contract OrderProcessorTest is Test {
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
         vm.expectEmit(true, true, true, true);
-        emit OrderCreated(orderId, user, order);
+        emit OrderCreated(orderId, user, order, fees);
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        uint256 id = issuer.createOrderStandardFees(order);
         assertEq(id, orderId);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
@@ -364,9 +367,9 @@ contract OrderProcessorTest is Test {
         uint256 userBalanceBefore = token.balanceOf(user);
         uint256 id = issuer.hashOrder(order);
         vm.expectEmit(true, true, true, true);
-        emit OrderCreated(id, user, order);
+        emit OrderCreated(id, user, order, 0);
         vm.prank(user);
-        uint256 id2 = issuer.requestOrder(order);
+        uint256 id2 = issuer.createOrderStandardFees(order);
         assertEq(id, id2);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), orderAmount);
@@ -379,7 +382,7 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
     }
 
     function testRequestOrderPausedReverts(bool sell) public {
@@ -388,7 +391,7 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.Paused.selector);
         vm.prank(user);
-        issuer.requestOrder(getDummyOrder(sell));
+        issuer.createOrderStandardFees(getDummyOrder(sell));
     }
 
     function testAssetTokenBlacklistReverts(bool sell) public {
@@ -398,7 +401,7 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.Blacklist.selector);
         vm.prank(user);
-        issuer.requestOrder(getDummyOrder(sell));
+        issuer.createOrderStandardFees(getDummyOrder(sell));
     }
 
     function testPaymentTokenBlackListReverts(bool sell) public {
@@ -408,7 +411,7 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.Blacklist.selector);
         vm.prank(user);
-        issuer.requestOrder(getDummyOrder(sell));
+        issuer.createOrderStandardFees(getDummyOrder(sell));
     }
 
     function testRequestOrderUnsupportedPaymentReverts(bool sell) public {
@@ -419,7 +422,7 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, tryPaymentToken));
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
     }
 
     function testRequestOrderUnsupportedAssetReverts(bool sell) public {
@@ -430,7 +433,7 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(OrderProcessor.UnsupportedToken.selector, tryAssetToken));
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
     }
 
     function testRequestSellOrderInvalidPrecision() public {
@@ -452,7 +455,7 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.InvalidPrecision.selector);
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
 
         // update OrderAmount
         order.assetTokenQuantity = 10 ** tokenDecimals;
@@ -463,7 +466,7 @@ contract OrderProcessorTest is Test {
         token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
     }
 
     function testRequestBuyOrderWithPermit() public {
@@ -488,7 +491,7 @@ contract OrderProcessorTest is Test {
         calls[0] = abi.encodeWithSelector(
             issuer.selfPermit.selector, address(paymentToken), permit.owner, permit.value, permit.deadline, v, r, s
         );
-        calls[1] = abi.encodeWithSelector(OrderProcessor.requestOrder.selector, dummyOrder);
+        calls[1] = abi.encodeWithSelector(OrderProcessor.createOrderStandardFees.selector, dummyOrder);
 
         uint256 orderId = issuer.hashOrder(dummyOrder);
 
@@ -496,7 +499,7 @@ contract OrderProcessorTest is Test {
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
         vm.expectEmit(true, true, true, true);
-        emit OrderCreated(orderId, user, dummyOrder);
+        emit OrderCreated(orderId, user, dummyOrder, dummyOrderFees);
         vm.prank(user);
         issuer.multicall(calls);
         assertEq(paymentToken.nonces(user), 1);
@@ -528,7 +531,7 @@ contract OrderProcessorTest is Test {
         paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        uint256 id = issuer.createOrderStandardFees(order);
 
         if (fillAmount == 0) {
             vm.expectRevert(OrderProcessor.ZeroValue.selector);
@@ -584,7 +587,7 @@ contract OrderProcessorTest is Test {
         token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        uint256 id = issuer.createOrderStandardFees(order);
 
         vm.prank(admin);
         paymentToken.mint(operator, receivedAmount);
@@ -643,7 +646,7 @@ contract OrderProcessorTest is Test {
         paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        uint256 id = issuer.createOrderStandardFees(order);
 
         // balances before
         uint256 userAssetBefore = token.balanceOf(user);
@@ -679,7 +682,7 @@ contract OrderProcessorTest is Test {
         token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        uint256 id = issuer.createOrderStandardFees(order);
 
         vm.prank(admin);
         paymentToken.mint(operator, receivedAmount);
@@ -751,7 +754,7 @@ contract OrderProcessorTest is Test {
         paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(dummyOrder);
+        uint256 id = issuer.createOrderStandardFees(dummyOrder);
 
         vm.expectEmit(true, true, true, true);
         emit CancelRequested(id, user);
@@ -768,7 +771,7 @@ contract OrderProcessorTest is Test {
         paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(dummyOrder);
+        uint256 id = issuer.createOrderStandardFees(dummyOrder);
 
         vm.expectRevert(OrderProcessor.NotRequester.selector);
         issuer.requestCancel(id);
@@ -799,7 +802,7 @@ contract OrderProcessorTest is Test {
         paymentToken.approve(address(issuer), quantityIn);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        uint256 id = issuer.createOrderStandardFees(order);
 
         uint256 feesEarned = 0;
         if (fillAmount > 0) {

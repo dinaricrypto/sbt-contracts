@@ -88,6 +88,7 @@ contract BuyProcessorRequestTest is Test {
         (flatFee, percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
         order = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
+            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -110,7 +111,7 @@ contract BuyProcessorRequestTest is Test {
             r,
             s
         );
-        calls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, order, bytes32("0x01"));
+        calls[1] = abi.encodeWithSelector(issuer.createOrderStandardFees.selector, order, bytes32("0x01"));
     }
 
     function testSelfPermit() public {
@@ -150,7 +151,7 @@ contract BuyProcessorRequestTest is Test {
         newcalls[0] = abi.encodeWithSelector(
             issuer.selfPermit.selector, address(paymentToken), newpermit.owner, quantityIn, permitDeadline, v2, r2, s2
         );
-        newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder);
+        newcalls[1] = abi.encodeWithSelector(issuer.createOrderStandardFees.selector, neworder);
         vm.prank(user);
         issuer.multicall(newcalls);
     }
