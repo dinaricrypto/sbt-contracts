@@ -105,7 +105,7 @@ contract OrderProcessor is
     /// ------------------ Constants ------------------ ///
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(uint64 requestTimestamp,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
+        "Order(uint64 requestTimestamp,address requester,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
     bytes32 private constant ORDER_REQUEST_TYPEHASH = keccak256("OrderRequest(uint256 id,uint64 deadline)");
@@ -529,6 +529,7 @@ contract OrderProcessor is
                 abi.encode(
                     ORDER_TYPEHASH,
                     order.requestTimestamp,
+                    order.requester,
                     order.recipient,
                     order.assetToken,
                     order.paymentToken,
