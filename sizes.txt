@@ -29,7 +29,7 @@ No files changed, compilation skipped
 | NumberUtils              |       57 |     24,519 |
 | Operator                 |    1,541 |     23,035 |
 | OracleLib                |       57 |     24,519 |
-| OrderProcessor           |   24,023 |        553 |
+| OrderProcessor           |   24,359 |        217 |
 | OrderSigUtils            |    1,302 |     23,274 |
 | Pausable                 |      180 |     24,396 |
 | RolesBase                |      363 |     24,213 |
