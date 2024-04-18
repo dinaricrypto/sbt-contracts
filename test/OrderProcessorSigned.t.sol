@@ -2,19 +2,19 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import "../../src/orders/OrderProcessor.sol";
-import "../utils/SigUtils.sol";
-import "../utils/mocks/MockToken.sol";
-import "../utils/mocks/GetMockDShareFactory.sol";
-import "../utils/OrderSigUtils.sol";
+import "../src/orders/OrderProcessor.sol";
+import "./utils/SigUtils.sol";
+import "./utils/mocks/MockToken.sol";
+import "./utils/mocks/GetMockDShareFactory.sol";
+import "./utils/OrderSigUtils.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {FeeLib} from "../../src/common/FeeLib.sol";
+import {FeeLib} from "../src/common/FeeLib.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import "prb-math/Common.sol" as PrbMath;
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {NumberUtils} from "../../src/common/NumberUtils.sol";
+import {NumberUtils} from "../src/common/NumberUtils.sol";
 
 contract OrderProcessorSignedTest is Test {
     using GetMockDShareFactory for DShareFactory;

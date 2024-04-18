@@ -434,13 +434,16 @@ contract OrderProcessor is
         address requester =
             ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline)), orderSignature.signature);
 
-        // Validate fee quote signature
-        if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
-        address feeQuoteSigner = ECDSA.recover(_hashTypedDataV4(hashFeeQuote(feeQuote)), feeQuoteSignature);
-        checkOperator(feeQuoteSigner);
+        _validateFeeQuote(feeQuote, feeQuoteSignature);
 
         // Create order
         return _createOrder(order, requester, order.sell ? 0 : feeQuote.fee);
+    }
+
+    function _validateFeeQuote(FeeQuote calldata feeQuote, bytes calldata feeQuoteSignature) private view {
+        if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
+        address feeQuoteSigner = ECDSA.recover(_hashTypedDataV4(hashFeeQuote(feeQuote)), feeQuoteSignature);
+        checkOperator(feeQuoteSigner);
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
@@ -504,6 +507,18 @@ contract OrderProcessor is
             // Escrow fees
             IERC20(order.paymentToken).safeTransferFrom(requester, address(this), feesEscrowed);
         }
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function createOrder(Order calldata order, FeeQuote calldata feeQuote, bytes calldata feeQuoteSignature)
+        external
+        whenOrdersNotPaused
+        returns (uint256 id)
+    {
+        _validateFeeQuote(feeQuote, feeQuoteSignature);
+
+        // Create order
+        return _createOrder(order, msg.sender, order.sell ? 0 : feeQuote.fee);
     }
 
     /// @inheritdoc IOrderProcessor

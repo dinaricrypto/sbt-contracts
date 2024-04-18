@@ -2,8 +2,8 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import {DShare} from "../../src/DShare.sol";
-import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
+import {DShare} from "../src/DShare.sol";
+import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
 import {
     IAccessControlDefaultAdminRules,
     IAccessControl
@@ -11,7 +11,7 @@ import {
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {PRBMath_MulDiv18_Overflow, PRBMath_MulDiv_Overflow} from "prb-math/Common.sol";
-import {NumberUtils} from "../../src/common/NumberUtils.sol";
+import {NumberUtils} from "../src/common/NumberUtils.sol";
 
 contract DShareTest is Test {
     event NameSet(string name);

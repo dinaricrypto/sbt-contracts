@@ -2,13 +2,13 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import {MockToken} from "../utils/mocks/MockToken.sol";
-import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
-import "../utils/mocks/GetMockDShareFactory.sol";
-import "../../src/orders/OrderProcessor.sol";
-import "../../src/orders/IOrderProcessor.sol";
-import {NumberUtils} from "../../src/common/NumberUtils.sol";
-import {FeeLib} from "../../src/common/FeeLib.sol";
+import {MockToken} from "./utils/mocks/MockToken.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
+import "./utils/mocks/GetMockDShareFactory.sol";
+import "../src/orders/OrderProcessor.sol";
+import "../src/orders/IOrderProcessor.sol";
+import {NumberUtils} from "../src/common/NumberUtils.sol";
+import {FeeLib} from "../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LimitOrderTest is Test {

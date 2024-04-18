@@ -181,6 +181,16 @@ interface IOrderProcessor {
         bytes calldata feeQuoteSignature
     ) external returns (uint256);
 
+    /// @notice Request an order
+    /// @param order Order request to submit
+    /// @param feeQuote Fee quote for order
+    /// @param feeQuoteSignature Signature for fee quote
+    /// @return id Order id
+    /// @dev Emits OrderCreated event to be sent to fulfillment service (operator)
+    function createOrder(Order calldata order, FeeQuote calldata feeQuote, bytes calldata feeQuoteSignature)
+        external
+        returns (uint256);
+
     /// @notice Request an order with standard fees
     /// @param order Order request to submit
     /// @return id Order id

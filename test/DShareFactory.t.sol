@@ -2,10 +2,10 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
-import {DShareFactory} from "../../src/DShareFactory.sol";
-import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {DShare} from "../../src/DShare.sol";
-import {WrappedDShare} from "../../src/WrappedDShare.sol";
+import {DShareFactory} from "../src/DShareFactory.sol";
+import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import {DShare} from "../src/DShare.sol";
+import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";

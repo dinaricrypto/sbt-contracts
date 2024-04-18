@@ -92,10 +92,8 @@ jobs:
 
       - name: Run Forge tests
         run: |
-          forge test -f $RPC_ARBITRUM -vvv
+          forge test -vvv
         id: test
-        env: 
-          RPC_ARBITRUM: ${{ secrets.RPC_ARBITRUM }}
 
   coverage:
     name: Forge Coverage
@@ -122,9 +120,7 @@ jobs:
           version: nightly
 
       - name: Run Forge coverage
-        run: forge coverage -f $RPC_ARBITRUM --report lcov --ir-minimum
-        env: 
-          RPC_ARBITRUM: ${{ secrets.RPC_ARBITRUM }}
+        run: forge coverage --report lcov --ir-minimum
 
       - name: Report Coverage
         uses: codecov/codecov-action@v3
