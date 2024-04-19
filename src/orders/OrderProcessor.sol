@@ -108,7 +108,10 @@ contract OrderProcessor is
         "Order(uint64 requestTimestamp,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
-    bytes32 private constant ORDER_REQUEST_TYPEHASH = keccak256("OrderRequest(uint256 id,uint256 deadline)");
+    bytes32 private constant ORDER_REQUEST_TYPEHASH = keccak256("OrderRequest(uint256 id,uint64 deadline)");
+
+    bytes32 private constant FEE_QUOTE_TYPEHASH =
+        keccak256("FeeQuote(uint256 orderId,address requester,uint256 fee,uint64 timestamp,uint64 deadline)");
 
     /// ------------------ State ------------------ ///
 
@@ -242,7 +245,7 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24) {
+    function getStandardFees(bool sell, address paymentToken) public view returns (uint256, uint24) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         PaymentTokenConfig memory paymentTokenConfig = $._paymentTokens[paymentToken];
         if (!paymentTokenConfig.enabled) revert UnsupportedToken(paymentToken);
@@ -257,6 +260,16 @@ contract OrderProcessor is
                 paymentTokenConfig.percentageFeeRateBuy
             );
         }
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function totalStandardFee(bool sell, address paymentToken, uint256 paymentTokenQuantity)
+        public
+        view
+        returns (uint256)
+    {
+        (uint256 fee, uint24 percentageFeeRate) = getStandardFees(sell, paymentToken);
+        return FeeLib.applyPercentageFee(percentageFeeRate, paymentTokenQuantity) + fee;
     }
 
     function isTransferLocked(address token, address account) external view returns (bool) {
@@ -293,9 +306,13 @@ contract OrderProcessor is
     }
 
     modifier onlyOperator() {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        if (!$._operators[msg.sender]) revert NotOperator();
+        checkOperator(msg.sender);
         _;
+    }
+
+    function checkOperator(address account) internal view {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        if (!$._operators[account]) revert NotOperator();
     }
 
     /// @notice Set treasury address
@@ -406,24 +423,36 @@ contract OrderProcessor is
     /// ------------------ Order Lifecycle ------------------ ///
 
     /// @inheritdoc IOrderProcessor
-    function createOrderWithSignature(Order calldata order, Signature calldata signature)
-        external
-        whenOrdersNotPaused
-        onlyOperator
-        returns (uint256 id)
-    {
-        // Recover requester and validate signature
-        if (signature.deadline < block.timestamp) revert ExpiredSignature();
+    function createOrderWithSignature(
+        Order calldata order,
+        Signature calldata orderSignature,
+        FeeQuote calldata feeQuote,
+        bytes calldata feeQuoteSignature
+    ) external whenOrdersNotPaused onlyOperator returns (uint256 id) {
+        // Recover requester and validate order signature
+        if (orderSignature.deadline < block.timestamp) revert ExpiredSignature();
         address requester =
-            ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, signature.deadline)), signature.signature);
+            ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline)), orderSignature.signature);
+
+        _validateFeeQuote(requester, feeQuote, feeQuoteSignature);
 
         // Create order
-        return _createOrder(order, requester);
+        return _createOrder(order, requester, order.sell ? 0 : feeQuote.fee);
+    }
+
+    function _validateFeeQuote(address requester, FeeQuote calldata feeQuote, bytes calldata feeQuoteSignature)
+        private
+        view
+    {
+        if (feeQuote.requester != requester) revert NotRequester();
+        if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
+        address feeQuoteSigner = ECDSA.recover(_hashTypedDataV4(hashFeeQuote(feeQuote)), feeQuoteSignature);
+        checkOperator(feeQuoteSigner);
     }
 
     /// @dev Validate order, initialize order state, and pull tokens
     // slither-disable-next-line cyclomatic-complexity
-    function _createOrder(Order calldata order, address requester) private returns (uint256 id) {
+    function _createOrder(Order calldata order, address requester, uint256 feesEscrowed) private returns (uint256 id) {
         // ------------------ Checks ------------------ //
 
         // Cheap checks first
@@ -461,20 +490,13 @@ contract OrderProcessor is
                 || _checkTransferLocked(order.paymentToken, requester, paymentTokenConfig.blacklistCallSelector)
         ) revert Blacklist();
 
-        // Calculate fee escrow due now for buy orders
-        uint256 feesEscrowed = 0;
-        if (!order.sell) {
-            feesEscrowed = FeeLib.flatFeeForOrder(paymentTokenConfig.decimals, paymentTokenConfig.perOrderFeeBuy)
-                + FeeLib.applyPercentageFee(paymentTokenConfig.percentageFeeRateBuy, order.paymentTokenQuantity);
-        }
-
         // ------------------ Effects ------------------ //
 
         // Initialize order state
         $._orders[id] = OrderState({requester: requester, unfilledAmount: orderAmount, feesEscrowed: feesEscrowed});
         $._status[id] = OrderStatus.ACTIVE;
 
-        emit OrderCreated(id, requester, order);
+        emit OrderCreated(id, requester, order, feesEscrowed);
 
         // ------------------ Interactions ------------------ //
 
@@ -491,11 +513,30 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function requestOrder(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
-        return _createOrder(order, msg.sender);
+    function createOrder(Order calldata order, FeeQuote calldata feeQuote, bytes calldata feeQuoteSignature)
+        external
+        whenOrdersNotPaused
+        returns (uint256 id)
+    {
+        _validateFeeQuote(msg.sender, feeQuote, feeQuoteSignature);
+
+        // Create order
+        return _createOrder(order, msg.sender, order.sell ? 0 : feeQuote.fee);
     }
 
-    function hashOrderRequest(Order calldata order, uint256 deadline) public pure returns (bytes32) {
+    /// @inheritdoc IOrderProcessor
+    function createOrderStandardFees(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
+        if (order.sell) {
+            return _createOrder(order, msg.sender, 0);
+        } else {
+            (uint256 flatFee, uint24 percentageFeeRate) = getStandardFees(false, order.paymentToken);
+            return _createOrder(
+                order, msg.sender, FeeLib.applyPercentageFee(percentageFeeRate, order.paymentTokenQuantity) + flatFee
+            );
+        }
+    }
+
+    function hashOrderRequest(Order calldata order, uint64 deadline) public pure returns (bytes32) {
         return keccak256(abi.encode(ORDER_REQUEST_TYPEHASH, hashOrder(order), deadline));
     }
 
@@ -516,6 +557,19 @@ contract OrderProcessor is
                     order.price,
                     order.tif
                 )
+            )
+        );
+    }
+
+    function hashFeeQuote(FeeQuote calldata feeQuote) public pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                FEE_QUOTE_TYPEHASH,
+                feeQuote.orderId,
+                feeQuote.requester,
+                feeQuote.fee,
+                feeQuote.timestamp,
+                feeQuote.deadline
             )
         );
     }

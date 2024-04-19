@@ -2,11 +2,11 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import {DShare} from "../../src/DShare.sol";
-import {WrappedDShare} from "../../src/WrappedDShare.sol";
-import {TransferRestrictor, ITransferRestrictor} from "../../src/TransferRestrictor.sol";
+import {DShare} from "../src/DShare.sol";
+import {WrappedDShare} from "../src/WrappedDShare.sol";
+import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {NumberUtils} from "../../src/common/NumberUtils.sol";
+import {NumberUtils} from "../src/common/NumberUtils.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 
 contract WrappedDShareTest is Test {

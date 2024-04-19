@@ -2,16 +2,16 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import {MockToken} from "../utils/mocks/MockToken.sol";
-import "../utils/mocks/GetMockDShareFactory.sol";
-import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
-import {OrderProcessor, IOrderProcessor} from "../../src/orders/OrderProcessor.sol";
-import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
-import {NumberUtils} from "../../src/common/NumberUtils.sol";
-import {FeeLib} from "../../src/common/FeeLib.sol";
+import {MockToken} from "./utils/mocks/MockToken.sol";
+import "./utils/mocks/GetMockDShareFactory.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
+import {OrderProcessor, IOrderProcessor} from "../src/orders/OrderProcessor.sol";
+import {TransferRestrictor} from "../src/TransferRestrictor.sol";
+import {NumberUtils} from "../src/common/NumberUtils.sol";
+import {FeeLib} from "../src/common/FeeLib.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
-import {Vault} from "../../src/orders/Vault.sol";
-import {FulfillmentRouter} from "../../src/orders/FulfillmentRouter.sol";
+import {Vault} from "../src/orders/Vault.sol";
+import {FulfillmentRouter} from "../src/orders/FulfillmentRouter.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract FulfillmentRouterTest is Test {
@@ -130,7 +130,7 @@ contract FulfillmentRouterTest is Test {
         token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
-        uint256 id = issuer.requestOrder(order);
+        uint256 id = issuer.createOrderStandardFees(order);
 
         vm.prank(admin);
         paymentToken.mint(address(vault), receivedAmount);
