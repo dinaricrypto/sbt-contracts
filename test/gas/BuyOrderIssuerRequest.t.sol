@@ -4,14 +4,14 @@ pragma solidity ^0.8.22;
 import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {MockToken} from "../../utils/mocks/MockToken.sol";
-import "../../utils/mocks/GetMockDShareFactory.sol";
-import "../../utils/SigUtils.sol";
-import "../../../src/orders/OrderProcessor.sol";
-import "../../../src/orders/IOrderProcessor.sol";
+import {MockToken} from "../utils/mocks/MockToken.sol";
+import "../utils/mocks/GetMockDShareFactory.sol";
+import "../utils/SigUtils.sol";
+import "../../src/orders/OrderProcessor.sol";
+import "../../src/orders/IOrderProcessor.sol";
 import "openzeppelin-contracts/contracts/utils/Strings.sol";
-import {NumberUtils} from "../../../src/common/NumberUtils.sol";
-import {FeeLib} from "../../../src/common/FeeLib.sol";
+import {NumberUtils} from "../../src/common/NumberUtils.sol";
+import {FeeLib} from "../../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract BuyProcessorRequestTest is Test {
@@ -110,7 +110,7 @@ contract BuyProcessorRequestTest is Test {
             r,
             s
         );
-        calls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, order, bytes32("0x01"));
+        calls[1] = abi.encodeWithSelector(issuer.createOrderStandardFees.selector, order, bytes32("0x01"));
     }
 
     function testSelfPermit() public {
@@ -150,7 +150,7 @@ contract BuyProcessorRequestTest is Test {
         newcalls[0] = abi.encodeWithSelector(
             issuer.selfPermit.selector, address(paymentToken), newpermit.owner, quantityIn, permitDeadline, v2, r2, s2
         );
-        newcalls[1] = abi.encodeWithSelector(issuer.requestOrder.selector, neworder);
+        newcalls[1] = abi.encodeWithSelector(issuer.createOrderStandardFees.selector, neworder);
         vm.prank(user);
         issuer.multicall(newcalls);
     }

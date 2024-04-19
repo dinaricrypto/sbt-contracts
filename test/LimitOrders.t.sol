@@ -2,13 +2,13 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import {MockToken} from "../utils/mocks/MockToken.sol";
-import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
-import "../utils/mocks/GetMockDShareFactory.sol";
-import "../../src/orders/OrderProcessor.sol";
-import "../../src/orders/IOrderProcessor.sol";
-import {NumberUtils} from "../../src/common/NumberUtils.sol";
-import {FeeLib} from "../../src/common/FeeLib.sol";
+import {MockToken} from "./utils/mocks/MockToken.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
+import "./utils/mocks/GetMockDShareFactory.sol";
+import "../src/orders/OrderProcessor.sol";
+import "../src/orders/IOrderProcessor.sol";
+import {NumberUtils} from "../src/common/NumberUtils.sol";
+import {FeeLib} from "../src/common/FeeLib.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract LimitOrderTest is Test {
@@ -94,7 +94,7 @@ contract LimitOrderTest is Test {
 
         vm.expectRevert(OrderProcessor.LimitPriceNotSet.selector);
         vm.startPrank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
     }
 
     function testFillLimitBuyOrderPriceReverts(
@@ -119,7 +119,7 @@ contract LimitOrderTest is Test {
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
 
         vm.expectRevert(OrderProcessor.OrderFillBelowLimitPrice.selector);
         vm.prank(operator);
@@ -148,7 +148,7 @@ contract LimitOrderTest is Test {
         token.approve(address(issuer), order.assetTokenQuantity);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
 
         vm.expectRevert(OrderProcessor.OrderFillAboveLimitPrice.selector);
         vm.prank(operator);
@@ -174,7 +174,7 @@ contract LimitOrderTest is Test {
         paymentToken.approve(address(issuer), order.paymentTokenQuantity + fees);
 
         vm.prank(user);
-        issuer.requestOrder(order);
+        issuer.createOrderStandardFees(order);
 
         vm.prank(operator);
         issuer.fillOrder(order, fillAmount, receivedAmount, fees);
