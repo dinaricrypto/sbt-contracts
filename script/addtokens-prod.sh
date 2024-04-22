@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cp .env.prod-arb .env
+cp .env.prod-blast .env
 source .env
 
-forge script script/AddTokens.s.sol:AddTokensScript --rpc-url $RPC_URL -vvv --resume
+forge script script/AddTokens.s.sol:AddTokensScript --rpc-url $RPC_URL -vvv --broadcast
