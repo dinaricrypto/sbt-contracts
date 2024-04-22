@@ -570,6 +570,7 @@ contract OrderProcessorTest is Test {
             } else {
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
                 assertEq(paymentToken.balanceOf(address(issuer)), feesMax - fees);
+                assertEq(issuer.getFeesTaken(id), fees);
             }
         }
     }

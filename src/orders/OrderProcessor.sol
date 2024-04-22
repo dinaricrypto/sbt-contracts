@@ -45,6 +45,8 @@ contract OrderProcessor is
         uint256 unfilledAmount;
         // Buy order fees escrowed
         uint256 feesEscrowed;
+        // Cumulative fees taken for order
+        uint256 feesTaken;
     }
 
     struct PaymentTokenConfig {
@@ -231,6 +233,12 @@ contract OrderProcessor is
     function getFeesEscrowed(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._orders[id].feesEscrowed;
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function getFeesTaken(uint256 id) external view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._orders[id].feesTaken;
     }
 
     /// @inheritdoc IOrderProcessor
@@ -493,7 +501,8 @@ contract OrderProcessor is
         // ------------------ Effects ------------------ //
 
         // Initialize order state
-        $._orders[id] = OrderState({requester: requester, unfilledAmount: orderAmount, feesEscrowed: feesEscrowed});
+        $._orders[id] =
+            OrderState({requester: requester, unfilledAmount: orderAmount, feesEscrowed: feesEscrowed, feesTaken: 0});
         $._status[id] = OrderStatus.ACTIVE;
 
         emit OrderCreated(id, requester, order, feesEscrowed);
@@ -655,6 +664,7 @@ contract OrderProcessor is
             if (!order.sell) {
                 $._orders[id].feesEscrowed = remainingFeesEscrowed;
             }
+            $._orders[id].feesTaken += fees;
         }
 
         // ------------------ Interactions ------------------ //

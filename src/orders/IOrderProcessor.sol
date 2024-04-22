@@ -133,6 +133,11 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getFeesEscrowed(uint256 id) external view returns (uint256);
 
+    /// @notice Get cumulative payment token fees taken for an order
+    /// @param id Order ID
+    /// @dev Only valid for ACTIVE orders
+    function getFeesTaken(uint256 id) external view returns (uint256);
+
     /// @notice Reduces the precision allowed for the asset token quantity of an order
     /// @param token The address of the token
     function orderDecimalReduction(address token) external view returns (uint8);
