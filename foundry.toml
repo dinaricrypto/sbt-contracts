@@ -4,7 +4,6 @@ out = "out"
 libs = ["node_modules", "lib"]
 solc_version = '0.8.25'
 evm_version = 'cancun'
-via_ir = true
 optimizer_runs = 2_000
 gas_price = 200_000_000
 
