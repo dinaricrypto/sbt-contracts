@@ -7,8 +7,8 @@ No files changed, compilation skipped
 | Bytes32ToString          |       85 |     24,491 |
 | Create3Address           |       62 |     24,514 |
 | CreateDeploy             |      372 |     24,204 |
-| DShare                   |   13,164 |     11,412 |
-| DShareFactory            |    9,977 |     14,599 |
+| DShare                   |   12,854 |     11,722 |
+| DShareFactory            |    9,100 |     15,476 |
 | DividendDistribution     |    7,125 |     17,451 |
 | ECDSA                    |       85 |     24,491 |
 | ERC1967Proxy             |      176 |     24,400 |
@@ -19,7 +19,7 @@ No files changed, compilation skipped
 | FulfillmentRouter        |    7,854 |     16,722 |
 | GetMockDShareFactory     |       85 |     24,491 |
 | InterchainAddressTracker |    1,366 |     23,210 |
-| InterchainTokenService   |   25,051 |       -475 |
+| InterchainTokenService   |   23,767 |        809 |
 | LibString                |       85 |     24,491 |
 | Math                     |       85 |     24,491 |
 | MessageHashUtils         |       85 |     24,491 |
@@ -29,7 +29,7 @@ No files changed, compilation skipped
 | NumberUtils              |       85 |     24,491 |
 | Operator                 |    1,744 |     22,832 |
 | OracleLib                |       85 |     24,491 |
-| OrderProcessor           |   23,852 |        724 |
+| OrderProcessor           |   23,395 |      1,181 |
 | OrderSigUtils            |    1,661 |     22,915 |
 | Pausable                 |      150 |     24,426 |
 | RolesBase                |      401 |     24,175 |
