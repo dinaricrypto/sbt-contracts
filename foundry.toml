@@ -4,7 +4,7 @@ out = "out"
 libs = ["node_modules", "lib"]
 solc_version = '0.8.25'
 evm_version = 'cancun'
-optimizer_runs = 2_000
+optimizer_runs = 20_000
 gas_price = 200_000_000
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
