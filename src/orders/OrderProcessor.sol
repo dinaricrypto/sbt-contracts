@@ -584,13 +584,10 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    // slither-disable-next-line cyclomatic-complexity
     function fillOrder(Order calldata order, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
         external
         onlyOperator
     {
-        // ------------------ Checks ------------------ //
-
         // No nonsense
         if (fillAmount == 0) revert ZeroValue();
         // Order ID
@@ -604,31 +601,101 @@ contract OrderProcessor is
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
-        uint256 assetAmount;
-        uint256 paymentAmount;
-        uint256 remainingFeesEscrowed = 0;
         if (order.sell) {
-            // Fees cannot exceed proceeds
-            if (fees > receivedAmount) revert AmountTooLarge();
-            // For limit sell orders, ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
-            if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv18(fillAmount, order.price)) {
-                revert OrderFillAboveLimitPrice();
-            }
-            assetAmount = fillAmount;
-            paymentAmount = receivedAmount;
+            _fillSellOrder(id, order, orderState, fillAmount, receivedAmount, fees);
         } else {
-            // Fees cannot exceed remaining deposit
-            if (fees > orderState.feesEscrowed) revert AmountTooLarge();
-            // For limit buy orders, ensure that the received amount is greater or equal to fill amount / limit price, order price has ether decimals
-            if (order.orderType == OrderType.LIMIT && receivedAmount < mulDiv(fillAmount, 1 ether, order.price)) {
-                revert OrderFillBelowLimitPrice();
-            }
-            assetAmount = receivedAmount;
-            paymentAmount = fillAmount;
-            remainingFeesEscrowed = orderState.feesEscrowed - fees;
+            _fillBuyOrder(id, order, orderState, receivedAmount, fillAmount, fees);
+        }
+
+        // If there are protocol fees from the order, transfer them to the treasury
+        if (fees > 0) {
+            IERC20(order.paymentToken).safeTransfer($._treasury, fees);
+        }
+    }
+
+    function _fillSellOrder(
+        uint256 id,
+        Order calldata order,
+        OrderState memory orderState,
+        uint256 assetAmount,
+        uint256 paymentAmount,
+        uint256 fees
+    ) private {
+        // ------------------ Checks ------------------ //
+
+        // Fees cannot exceed proceeds
+        if (fees > paymentAmount) revert AmountTooLarge();
+        // For limit sell orders, ensure that the received amount is greater or equal to limit price * fill amount, order price has ether decimals
+        if (order.orderType == OrderType.LIMIT && paymentAmount < mulDiv18(assetAmount, order.price)) {
+            revert OrderFillAboveLimitPrice();
         }
 
         // ------------------ Effects ------------------ //
+
+        _publishFill(id, orderState.requester, order, assetAmount, paymentAmount, fees);
+
+        _updateFillState(id, orderState, assetAmount, fees);
+
+        // Transfer the received amount from the filler to this contract
+        IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), paymentAmount);
+
+        // If there are proceeds from the order, transfer them to the recipient
+        uint256 paymentEarned = paymentAmount - fees;
+        if (paymentEarned > 0) {
+            IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
+        }
+    }
+
+    function _fillBuyOrder(
+        uint256 id,
+        Order calldata order,
+        OrderState memory orderState,
+        uint256 assetAmount,
+        uint256 paymentAmount,
+        uint256 fees
+    ) private {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+
+        // ------------------ Checks ------------------ //
+
+        // Fees cannot exceed remaining deposit
+        if (fees > orderState.feesEscrowed) revert AmountTooLarge();
+        // For limit buy orders, ensure that the received amount is greater or equal to fill amount / limit price, order price has ether decimals
+        if (order.orderType == OrderType.LIMIT && assetAmount < mulDiv(paymentAmount, 1 ether, order.price)) {
+            revert OrderFillBelowLimitPrice();
+        }
+
+        // ------------------ Effects ------------------ //
+
+        _publishFill(id, orderState.requester, order, assetAmount, paymentAmount, fees);
+
+        bool fulfilled = _updateFillState(id, orderState, paymentAmount, fees);
+
+        // Update fee escrow (and refund if eligible)
+        uint256 remainingFeesEscrowed = orderState.feesEscrowed - fees;
+        if (fulfilled) {
+            // Refund remaining fees
+            if (remainingFeesEscrowed > 0) {
+                // Interaction
+                IERC20(order.paymentToken).safeTransfer(orderState.requester, remainingFeesEscrowed);
+            }
+        } else {
+            $._orders[id].feesEscrowed = remainingFeesEscrowed;
+        }
+
+        // Mint asset
+        IDShare(order.assetToken).mint(order.recipient, assetAmount);
+    }
+
+    function _publishFill(
+        uint256 id,
+        address requester,
+        Order calldata order,
+        uint256 assetAmount,
+        uint256 paymentAmount,
+        uint256 fees
+    ) private {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
         // Update price oracle
         bytes32 pairIndex = OracleLib.pairIndex(order.assetToken, order.paymentToken);
@@ -641,52 +708,30 @@ contract OrderProcessor is
 
         // Notify order filled
         emit OrderFill(
-            id, order.paymentToken, order.assetToken, orderState.requester, assetAmount, paymentAmount, fees, order.sell
+            id, order.paymentToken, order.assetToken, requester, assetAmount, paymentAmount, fees, order.sell
         );
+    }
+
+    function _updateFillState(uint256 id, OrderState memory orderState, uint256 fillAmount, uint256 fees)
+        private
+        returns (bool fulfilled)
+    {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
         // Update order state
         uint256 newUnfilledAmount = orderState.unfilledAmount - fillAmount;
         // If order is completely filled then clear order state
-        if (newUnfilledAmount == 0) {
+        fulfilled = newUnfilledAmount == 0;
+        if (fulfilled) {
             $._status[id] = OrderStatus.FULFILLED;
             // Clear order state
             delete $._orders[id];
             // Notify order fulfilled
             emit OrderFulfilled(id, orderState.requester);
-            // Refund remaining fees
-            if (remainingFeesEscrowed > 0) {
-                // Interaction
-                IERC20(order.paymentToken).safeTransfer(orderState.requester, remainingFeesEscrowed);
-            }
         } else {
             // Otherwise update order state
             $._orders[id].unfilledAmount = newUnfilledAmount;
-            if (!order.sell) {
-                $._orders[id].feesEscrowed = remainingFeesEscrowed;
-            }
-            $._orders[id].feesTaken += fees;
-        }
-
-        // ------------------ Interactions ------------------ //
-
-        // Move funds from operator for sells, mint assets for buys
-        if (order.sell) {
-            // Transfer the received amount from the filler to this contract
-            IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), receivedAmount);
-
-            // If there are proceeds from the order, transfer them to the recipient
-            uint256 paymentEarned = receivedAmount - fees;
-            if (paymentEarned > 0) {
-                IERC20(order.paymentToken).safeTransfer(order.recipient, paymentEarned);
-            }
-        } else {
-            // Mint asset
-            IDShare(order.assetToken).mint(order.recipient, receivedAmount);
-        }
-
-        // If there are protocol fees from the order, transfer them to the treasury
-        if (fees > 0) {
-            IERC20(order.paymentToken).safeTransfer($._treasury, fees);
+            $._orders[id].feesTaken = orderState.feesTaken + fees;
         }
     }
 

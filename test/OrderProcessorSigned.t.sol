@@ -30,7 +30,6 @@ contract OrderProcessorSignedTest is Test {
 
     error InsufficientBalance();
 
-    OrderProcessor public issuerImpl;
     OrderProcessor public issuer;
     MockToken public paymentToken;
     DShareFactory public tokenFactory;
@@ -68,7 +67,7 @@ contract OrderProcessorSignedTest is Test {
         paymentToken = new MockToken("Money", "$");
         vm.stopPrank();
 
-        issuerImpl = new OrderProcessor();
+        OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
@@ -215,21 +214,29 @@ contract OrderProcessorSignedTest is Test {
         uint256 operatorKey
     ) internal view returns (IOrderProcessor.Signature memory, IOrderProcessor.FeeQuote memory, bytes memory) {
         uint64 deadline = uint64(block.timestamp + 30 days);
-        bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(userKey, orderRequestDigest);
-        bytes memory orderSignature = abi.encodePacked(r, s, v);
 
-        uint256 orderId = issuer.hashOrder(order);
-        IOrderProcessor.FeeQuote memory feeQuote = IOrderProcessor.FeeQuote({
-            orderId: orderId,
-            requester: vm.addr(userKey),
-            fee: fee,
-            timestamp: uint64(block.timestamp),
-            deadline: deadline
-        });
-        bytes32 feeQuoteDigest = orderSigUtils.getOrderFeeQuoteToSign(feeQuote);
-        (v, r, s) = vm.sign(operatorKey, feeQuoteDigest);
-        bytes memory feeQuoteSignature = abi.encodePacked(r, s, v);
+        bytes memory orderSignature;
+        {
+            bytes32 orderRequestDigest = orderSigUtils.getOrderRequestHashToSign(order, deadline);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(userKey, orderRequestDigest);
+            orderSignature = abi.encodePacked(r, s, v);
+        }
+
+        IOrderProcessor.FeeQuote memory feeQuote;
+        bytes memory feeQuoteSignature;
+        {
+            uint256 orderId = issuer.hashOrder(order);
+            feeQuote = IOrderProcessor.FeeQuote({
+                orderId: orderId,
+                requester: vm.addr(userKey),
+                fee: fee,
+                timestamp: uint64(block.timestamp),
+                deadline: deadline
+            });
+            bytes32 feeQuoteDigest = orderSigUtils.getOrderFeeQuoteToSign(feeQuote);
+            (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorKey, feeQuoteDigest);
+            feeQuoteSignature = abi.encodePacked(r, s, v);
+        }
 
         return (IOrderProcessor.Signature({deadline: deadline, signature: orderSignature}), feeQuote, feeQuoteSignature);
     }
