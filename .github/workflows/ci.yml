@@ -120,7 +120,7 @@ jobs:
           version: nightly
 
       - name: Run Forge coverage
-        run: forge coverage --report lcov --ir-minimum
+        run: forge coverage --report lcov
 
       - name: Report Coverage
         uses: codecov/codecov-action@v3
