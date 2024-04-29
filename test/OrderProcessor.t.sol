@@ -214,6 +214,17 @@ contract OrderProcessorTest is Test {
         }
     }
 
+    function testSetDShareFactory() public {
+        (DShareFactory newTokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        issuer.setDShareFactory(newTokenFactory);
+
+        vm.prank(admin);
+        issuer.setDShareFactory(newTokenFactory);
+
+        assertEq(address(issuer.dShareFactory()), address(newTokenFactory));
+    }
+
     function testSetPaymentToken(address oracle, uint64 perOrderFee, uint24 percentageFeeRate) public {
         vm.assume(percentageFeeRate < 1_000_000);
         vm.assume(oracle != address(0));

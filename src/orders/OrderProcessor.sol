@@ -323,6 +323,14 @@ contract OrderProcessor is
         if (!$._operators[account]) revert NotOperator();
     }
 
+    /// @notice Set dShareFactory address
+    /// @param _dShareFactory Address of dShareFactory contract
+    /// @dev Only callable by admin
+    function setDShareFactory(IDShareFactory _dShareFactory) external onlyOwner {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        $._dShareFactory = _dShareFactory;
+    }
+
     /// @notice Set treasury address
     /// @param account Address to receive fees
     /// @dev Only callable by admin
