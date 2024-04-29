@@ -494,8 +494,13 @@ contract OrderProcessor is
         if (
             IDShare(order.assetToken).isBlacklisted(order.recipient)
                 || IDShare(order.assetToken).isBlacklisted(requester)
-                || _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenConfig.blacklistCallSelector)
-                || _checkTransferLocked(order.paymentToken, requester, paymentTokenConfig.blacklistCallSelector)
+                || (
+                    paymentTokenConfig.blacklistCallSelector != 0
+                        && (
+                            _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenConfig.blacklistCallSelector)
+                                || _checkTransferLocked(order.paymentToken, requester, paymentTokenConfig.blacklistCallSelector)
+                        )
+                )
         ) revert Blacklist();
 
         // ------------------ Effects ------------------ //
