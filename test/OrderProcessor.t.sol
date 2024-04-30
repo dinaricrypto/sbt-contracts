@@ -317,7 +317,8 @@ contract OrderProcessorTest is Test {
         issuer.createOrderStandardFees(order);
     }
 
-    function testRequestBuyOrder(uint256 orderAmount) public {
+    function testRequestBuyOrder(address recipient, uint256 orderAmount) public {
+        vm.assume(recipient != address(0));
         vm.assume(orderAmount > 0);
 
         (uint256 flatFee, uint24 percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
@@ -325,6 +326,7 @@ contract OrderProcessorTest is Test {
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = getDummyOrder(false);
+        order.recipient = recipient;
         order.paymentTokenQuantity = orderAmount;
         uint256 quantityIn = order.paymentTokenQuantity + fees;
 
