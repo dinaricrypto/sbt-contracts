@@ -294,6 +294,17 @@ contract OrderProcessor is
         return abi.decode(token.functionStaticCall(abi.encodeWithSelector(selector, account)), (bool));
     }
 
+    function _checkBlacklisted(address assetToken, address paymentToken, bytes4 blacklistCallSelector, address account)
+        internal
+        view
+    {
+        // Black list checker, assumes asset tokens are dShares
+        if (
+            IDShare(assetToken).isBlacklisted(account)
+                || (blacklistCallSelector != 0 && _checkTransferLocked(paymentToken, account, blacklistCallSelector))
+        ) revert Blacklist();
+    }
+
     function latestFillPrice(address assetToken, address paymentToken) external view returns (PricePoint memory) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._latestFillPrice[OracleLib.pairIndex(assetToken, paymentToken)];
@@ -490,18 +501,12 @@ contract OrderProcessor is
             }
         }
 
-        // Black list checker, assumes asset tokens are dShares
-        if (
-            IDShare(order.assetToken).isBlacklisted(order.recipient)
-                || IDShare(order.assetToken).isBlacklisted(requester)
-                || (
-                    paymentTokenConfig.blacklistCallSelector != 0
-                        && (
-                            _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenConfig.blacklistCallSelector)
-                                || _checkTransferLocked(order.paymentToken, requester, paymentTokenConfig.blacklistCallSelector)
-                        )
-                )
-        ) revert Blacklist();
+        _checkBlacklisted(order.assetToken, order.paymentToken, paymentTokenConfig.blacklistCallSelector, requester);
+        if (order.recipient != requester) {
+            _checkBlacklisted(
+                order.assetToken, order.paymentToken, paymentTokenConfig.blacklistCallSelector, order.recipient
+            );
+        }
 
         // ------------------ Effects ------------------ //
 
