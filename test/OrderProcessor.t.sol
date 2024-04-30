@@ -356,27 +356,29 @@ contract OrderProcessorTest is Test {
     function testRequestBuyOrderBlacklistUnspecified(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
 
-        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
+        vm.prank(admin);
+        MockERC20 newToken = new MockERC20("Test Token", "TEST", 6);
+
+        vm.prank(admin);
+        issuer.setPaymentToken(address(newToken), bytes4(0), 1e8, 5_000, 1e8, 5_000);
+
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getStandardFees(false, address(newToken));
         uint256 fees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, orderAmount);
         vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
 
         IOrderProcessor.Order memory order = getDummyOrder(false);
+        order.paymentToken = address(newToken);
         order.paymentTokenQuantity = orderAmount;
         uint256 quantityIn = order.paymentTokenQuantity + fees;
 
         vm.prank(admin);
-        paymentToken.mint(user, quantityIn);
+        newToken.mint(user, quantityIn);
         vm.prank(user);
-        paymentToken.approve(address(issuer), quantityIn);
-
-        vm.prank(admin);
-        issuer.setPaymentToken(address(paymentToken), bytes4(0), 1e8, 5_000, 1e8, 5_000);
+        newToken.approve(address(issuer), quantityIn);
 
         uint256 orderId = issuer.hashOrder(order);
 
         // balances before
-        uint256 userBalanceBefore = paymentToken.balanceOf(user);
-        uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
         vm.expectEmit(true, true, true, true);
         emit OrderCreated(orderId, user, order, fees);
         vm.prank(user);
