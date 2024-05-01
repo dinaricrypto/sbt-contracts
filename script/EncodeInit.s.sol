@@ -5,7 +5,7 @@ import "forge-std/Script.sol";
 import "../src/DShareFactory.sol";
 
 contract Encode is Script {
-    function run() external {
+    function run() external view {
         bytes memory data = abi.encodeCall(DShareFactory.initializeV2, ());
         console.log("Encoded call:");
         console.logBytes(data);
