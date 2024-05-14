@@ -9,6 +9,7 @@ import {OrderProcessor, IOrderProcessor} from "../src/orders/OrderProcessor.sol"
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {NumberUtils} from "../src/common/NumberUtils.sol";
 import {FeeLib} from "../src/common/FeeLib.sol";
+import {mulDiv} from "prb-math/Common.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 import {Vault} from "../src/orders/Vault.sol";
 import {FulfillmentRouter} from "../src/orders/FulfillmentRouter.sol";
@@ -97,6 +98,21 @@ contract FulfillmentRouterTest is Test {
         });
     }
 
+    function getDummyOrder(bool sell) internal view returns (IOrderProcessor.Order memory) {
+        return IOrderProcessor.Order({
+            requestTimestamp: uint64(block.timestamp),
+            recipient: user,
+            assetToken: address(token),
+            paymentToken: address(paymentToken),
+            sell: sell,
+            orderType: IOrderProcessor.OrderType.MARKET,
+            assetTokenQuantity: sell ? 100 ether : 0,
+            paymentTokenQuantity: sell ? 0 : 100 ether,
+            price: 0,
+            tif: IOrderProcessor.TIF.GTC
+        });
+    }
+
     function testFillOrderRevertsUnauthorized() public {
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -139,5 +155,52 @@ contract FulfillmentRouterTest is Test {
         emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, true);
         vm.prank(operator);
         router.fillOrder(address(issuer), address(vault), order, fillAmount, receivedAmount, fees);
+    }
+
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
+        vm.prank(admin);
+        issuer.setOperator(operator, true);
+        vm.assume(orderAmount > 0);
+        vm.assume(fillAmount < orderAmount);
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
+        uint256 fees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, orderAmount);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
+
+        IOrderProcessor.Order memory order = getDummyOrder(false);
+        order.paymentTokenQuantity = orderAmount;
+
+        vm.prank(admin);
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.approve(address(issuer), quantityIn);
+
+        vm.prank(user);
+        uint256 id = issuer.createOrderStandardFees(order);
+
+        uint256 feesEarned = 0;
+        if (fillAmount > 0) {
+            feesEarned = flatFee + mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
+            vm.prank(operator);
+            issuer.fillOrder(order, fillAmount, 100, feesEarned);
+        }
+
+        vm.prank(admin);
+        issuer.setOperator(address(router), true);
+
+        // balances before
+        vm.expectEmit(true, true, true, true);
+        emit OrderCancelled(id, order.recipient, reason);
+        vm.prank(operator);
+        router.cancelOrder(address(issuer), address(vault), order, id, reason);
+        assertEq(paymentToken.balanceOf(address(issuer)), 0);
+        assertEq(paymentToken.balanceOf(treasury), feesEarned);
+        // balances after
+        if (fillAmount > 0) {
+            assertEq(paymentToken.balanceOf(address(user)), quantityIn - fillAmount - feesEarned);
+        } else {
+            assertEq(paymentToken.balanceOf(address(user)), quantityIn);
+        }
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 }

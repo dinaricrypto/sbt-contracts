@@ -36,4 +36,26 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
         IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
         IOrderProcessor(orderProcessor).fillOrder(order, fillAmount, receivedAmount, fees);
     }
+
+    function cancelOrder(
+        address orderProcessor,
+        address vault,
+        IOrderProcessor.Order calldata order,
+        uint256 orderId,
+        string calldata reason
+    ) external onlyRole(OPERATOR_ROLE) {
+        // get requester address
+        address requester = IOrderProcessor(orderProcessor).getOrderRequester(orderId);
+        // get unfilledAmount
+        uint256 unfilledAmount = IOrderProcessor(orderProcessor).getUnfilledAmount(orderId);
+
+        // cancel Order
+        IOrderProcessor(orderProcessor).cancelOrder(order, reason);
+
+        // refund requester
+        if (!order.sell && unfilledAmount > 0) {
+            // withdraw payment token from vault
+            IVault(vault).withdrawFunds(IERC20(order.paymentToken), requester, unfilledAmount);
+        }
+    }
 }

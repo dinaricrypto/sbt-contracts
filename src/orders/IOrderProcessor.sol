@@ -149,6 +149,10 @@ interface IOrderProcessor {
     /// @return percentageFeeRate Percentage fee rate for order
     function getStandardFees(bool sell, address paymentToken) external view returns (uint256, uint24);
 
+    /// @notice Get the requester of an order
+    /// @param id Order ID
+    function getOrderRequester(uint256 id) external view returns (address);
+
     /// @notice Get total standard fees for an order
     /// @param sell Sell order
     /// @param paymentToken Payment token for order

@@ -253,6 +253,12 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
+    function getOrderRequester(uint256 id) public view returns (address) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._orders[id].requester;
+    }
+
+    /// @inheritdoc IOrderProcessor
     function getStandardFees(bool sell, address paymentToken) public view returns (uint256, uint24) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         PaymentTokenConfig memory paymentTokenConfig = $._paymentTokens[paymentToken];
@@ -292,6 +298,17 @@ contract OrderProcessor is
     function _checkTransferLocked(address token, address account, bytes4 selector) internal view returns (bool) {
         // assumes bool result
         return abi.decode(token.functionStaticCall(abi.encodeWithSelector(selector, account)), (bool));
+    }
+
+    function _checkBlacklisted(address assetToken, address paymentToken, bytes4 blacklistCallSelector, address account)
+        internal
+        view
+    {
+        // Black list checker, assumes asset tokens are dShares
+        if (
+            IDShare(assetToken).isBlacklisted(account)
+                || (blacklistCallSelector != 0 && _checkTransferLocked(paymentToken, account, blacklistCallSelector))
+        ) revert Blacklist();
     }
 
     function latestFillPrice(address assetToken, address paymentToken) external view returns (PricePoint memory) {
@@ -490,18 +507,12 @@ contract OrderProcessor is
             }
         }
 
-        // Black list checker, assumes asset tokens are dShares
-        if (
-            IDShare(order.assetToken).isBlacklisted(order.recipient)
-                || IDShare(order.assetToken).isBlacklisted(requester)
-                || (
-                    paymentTokenConfig.blacklistCallSelector != 0
-                        && (
-                            _checkTransferLocked(order.paymentToken, order.recipient, paymentTokenConfig.blacklistCallSelector)
-                                || _checkTransferLocked(order.paymentToken, requester, paymentTokenConfig.blacklistCallSelector)
-                        )
-                )
-        ) revert Blacklist();
+        _checkBlacklisted(order.assetToken, order.paymentToken, paymentTokenConfig.blacklistCallSelector, requester);
+        if (order.recipient != requester) {
+            _checkBlacklisted(
+                order.assetToken, order.paymentToken, paymentTokenConfig.blacklistCallSelector, order.recipient
+            );
+        }
 
         // ------------------ Effects ------------------ //
 
@@ -789,7 +800,6 @@ contract OrderProcessor is
             IDShare(order.assetToken).mint(requester, unfilledAmount);
         } else {
             // Return unfilled
-            IERC20(order.paymentToken).safeTransferFrom(msg.sender, requester, unfilledAmount);
             if (feeRefund > 0) {
                 IERC20(order.paymentToken).safeTransfer(requester, feeRefund);
             }
