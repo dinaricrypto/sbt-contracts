@@ -174,7 +174,6 @@ contract FulfillmentRouterTest is Test {
         paymentToken.mint(user, quantityIn);
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
-
         vm.prank(user);
         uint256 id = issuer.createOrderStandardFees(order);
 
@@ -185,15 +184,18 @@ contract FulfillmentRouterTest is Test {
             issuer.fillOrder(order, fillAmount, 100, feesEarned);
         }
 
-        vm.prank(admin);
-        issuer.setOperator(address(router), true);
+        uint256 unfilledAmount = orderAmount - fillAmount;
+        uint256 issuerBalance = paymentToken.balanceOf(address(issuer));
 
         // balances before
+        vm.prank(operator);
+        router.cancelBuyOrder(address(issuer), order, address(vault), id);
+        assertEq(paymentToken.balanceOf(address(issuer)), unfilledAmount + issuerBalance);
+
         vm.expectEmit(true, true, true, true);
         emit OrderCancelled(id, order.recipient, reason);
         vm.prank(operator);
-        router.cancelOrder(address(issuer), address(vault), order, id, reason);
-        assertEq(paymentToken.balanceOf(address(issuer)), 0);
+        issuer.cancelOrder(order, reason);
         assertEq(paymentToken.balanceOf(treasury), feesEarned);
         // balances after
         if (fillAmount > 0) {
@@ -202,5 +204,39 @@ contract FulfillmentRouterTest is Test {
             assertEq(paymentToken.balanceOf(address(user)), quantityIn);
         }
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
+    }
+
+    function testCancelOrderRevertSell(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
+        public
+    {
+        vm.assume(orderAmount > 0);
+        vm.assume(fillAmount > 0);
+        vm.assume(fillAmount <= orderAmount);
+        vm.assume(fees <= receivedAmount);
+
+        IOrderProcessor.Order memory order = dummyOrder;
+        order.sell = true;
+        order.paymentTokenQuantity = 0;
+        order.assetTokenQuantity = orderAmount;
+
+        vm.prank(admin);
+        token.mint(user, orderAmount);
+        vm.prank(user);
+        token.approve(address(issuer), orderAmount);
+
+        vm.prank(user);
+        uint256 id = issuer.createOrderStandardFees(order);
+
+        vm.prank(admin);
+        paymentToken.mint(address(vault), receivedAmount);
+
+        vm.expectEmit(true, true, true, false);
+        emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, true);
+        vm.prank(operator);
+        router.fillOrder(address(issuer), address(vault), order, fillAmount, receivedAmount, fees);
+
+        vm.expectRevert(FulfillmentRouter.OnlyForBuyOrders.selector);
+        vm.prank(operator);
+        router.cancelBuyOrder(address(issuer), order, address(vault), id);
     }
 }

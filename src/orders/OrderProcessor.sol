@@ -253,12 +253,6 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function getOrderRequester(uint256 id) public view returns (address) {
-        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        return $._orders[id].requester;
-    }
-
-    /// @inheritdoc IOrderProcessor
     function getStandardFees(bool sell, address paymentToken) public view returns (uint256, uint24) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         PaymentTokenConfig memory paymentTokenConfig = $._paymentTokens[paymentToken];
@@ -800,6 +794,7 @@ contract OrderProcessor is
             IDShare(order.assetToken).mint(requester, unfilledAmount);
         } else {
             // Return unfilled
+            IERC20(order.paymentToken).safeTransfer(requester, unfilledAmount);
             if (feeRefund > 0) {
                 IERC20(order.paymentToken).safeTransfer(requester, feeRefund);
             }
