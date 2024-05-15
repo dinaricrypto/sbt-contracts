@@ -51,7 +51,8 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
 
         if (unfilledAmount > 0) {
             // withdraw payment token from vault
-            IVault(vault).withdrawFunds(IERC20(order.paymentToken), orderProcessor, unfilledAmount);
+            IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), unfilledAmount);
+            IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, unfilledAmount);
             IOrderProcessor(orderProcessor).cancelOrder(order, reason);
         }
     }

@@ -794,7 +794,7 @@ contract OrderProcessor is
             IDShare(order.assetToken).mint(requester, unfilledAmount);
         } else {
             // Return unfilled
-            IERC20(order.paymentToken).safeTransfer(requester, unfilledAmount);
+            IERC20(order.paymentToken).safeTransferFrom(msg.sender, requester, unfilledAmount);
             if (feeRefund > 0) {
                 IERC20(order.paymentToken).safeTransfer(requester, feeRefund);
             }

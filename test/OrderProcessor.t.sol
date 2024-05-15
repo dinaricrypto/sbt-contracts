@@ -849,7 +849,7 @@ contract OrderProcessorTest is Test {
         uint256 unfilledAmount = orderAmount - fillAmount;
 
         vm.prank(operator);
-        paymentToken.transfer(address(issuer), unfilledAmount);
+        paymentToken.approve(address(issuer), unfilledAmount);
 
         // balances before
         vm.expectEmit(true, true, true, true);
