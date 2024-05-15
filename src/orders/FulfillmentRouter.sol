@@ -42,7 +42,8 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
         address orderProcessor,
         IOrderProcessor.Order calldata order,
         address vault,
-        uint256 orderId
+        uint256 orderId,
+        string calldata reason
     ) external onlyRole(OPERATOR_ROLE) {
         if (order.sell) revert OnlyForBuyOrders();
         // get unfilledAmount
@@ -51,6 +52,7 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
         if (unfilledAmount > 0) {
             // withdraw payment token from vault
             IVault(vault).withdrawFunds(IERC20(order.paymentToken), orderProcessor, unfilledAmount);
+            IOrderProcessor(orderProcessor).cancelOrder(order, reason);
         }
     }
 }

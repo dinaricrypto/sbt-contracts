@@ -820,6 +820,79 @@ contract OrderProcessorTest is Test {
         issuer.requestCancel(id);
     }
 
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
+        vm.assume(orderAmount > 0);
+        vm.assume(fillAmount < orderAmount);
+        (uint256 flatFee, uint24 percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
+        uint256 fees = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, orderAmount);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+        uint256 quantityIn = orderAmount + fees;
+
+        IOrderProcessor.Order memory order = getDummyOrder(false);
+        order.paymentTokenQuantity = orderAmount;
+
+        vm.prank(admin);
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.approve(address(issuer), quantityIn);
+
+        vm.prank(user);
+        uint256 id = issuer.createOrderStandardFees(order);
+
+        uint256 feesEarned = 0;
+        if (fillAmount > 0) {
+            feesEarned = flatFee + mulDiv(fees - flatFee, fillAmount, order.paymentTokenQuantity);
+            vm.prank(operator);
+            issuer.fillOrder(order, fillAmount, 100, feesEarned);
+        }
+
+        uint256 unfilledAmount = orderAmount - fillAmount;
+
+        vm.prank(operator);
+        paymentToken.transfer(address(issuer), unfilledAmount);
+
+        // balances before
+        vm.expectEmit(true, true, true, true);
+        emit OrderCancelled(id, order.recipient, reason);
+        vm.prank(operator);
+        issuer.cancelOrder(order, reason);
+        assertEq(paymentToken.balanceOf(address(issuer)), 0);
+        assertEq(paymentToken.balanceOf(treasury), feesEarned);
+        // balances after
+        if (fillAmount > 0) {
+            assertEq(paymentToken.balanceOf(address(user)), quantityIn - fillAmount - feesEarned);
+        } else {
+            assertEq(paymentToken.balanceOf(address(user)), quantityIn);
+        }
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
+    }
+
+    function testCancelSellOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
+        vm.assume(orderAmount > 0);
+        vm.assume(fillAmount < orderAmount);
+
+        IOrderProcessor.Order memory order = getDummyOrder(true);
+        order.assetTokenQuantity = orderAmount;
+
+        vm.prank(admin);
+        token.mint(user, orderAmount);
+        vm.prank(user);
+        token.approve(address(issuer), orderAmount);
+
+        vm.prank(user);
+        uint256 id = issuer.createOrderStandardFees(order);
+
+        // balances before
+        vm.expectEmit(true, true, true, true);
+        emit OrderCancelled(id, order.recipient, reason);
+        vm.prank(operator);
+        issuer.cancelOrder(order, reason);
+        assertEq(token.balanceOf(address(issuer)), 0);
+        // balances after
+        assertEq(token.balanceOf(address(user)), orderAmount);
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
+    }
+
     function testCancelOrderNotFoundReverts() public {
         vm.expectRevert(OrderProcessor.OrderNotFound.selector);
         vm.prank(operator);

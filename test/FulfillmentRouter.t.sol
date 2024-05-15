@@ -157,7 +157,7 @@ contract FulfillmentRouterTest is Test {
         router.fillOrder(address(issuer), address(vault), order, fillAmount, receivedAmount, fees);
     }
 
-    function testCancelOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
+    function testCancelOrder(uint256 orderAmount, uint256 fillAmount) public {
         vm.prank(admin);
         issuer.setOperator(operator, true);
         vm.assume(orderAmount > 0);
@@ -184,18 +184,11 @@ contract FulfillmentRouterTest is Test {
             issuer.fillOrder(order, fillAmount, 100, feesEarned);
         }
 
-        uint256 unfilledAmount = orderAmount - fillAmount;
-        uint256 issuerBalance = paymentToken.balanceOf(address(issuer));
-
-        // balances before
-        vm.prank(operator);
-        router.cancelBuyOrder(address(issuer), order, address(vault), id);
-        assertEq(paymentToken.balanceOf(address(issuer)), unfilledAmount + issuerBalance);
-
         vm.expectEmit(true, true, true, true);
-        emit OrderCancelled(id, order.recipient, reason);
+        emit OrderCancelled(id, order.recipient, "cancel");
         vm.prank(operator);
-        issuer.cancelOrder(order, reason);
+        router.cancelBuyOrder(address(issuer), order, address(vault), id, "cancel");
+        assertEq(paymentToken.balanceOf(address(issuer)), 0);
         assertEq(paymentToken.balanceOf(treasury), feesEarned);
         // balances after
         if (fillAmount > 0) {
@@ -214,10 +207,9 @@ contract FulfillmentRouterTest is Test {
         vm.assume(fillAmount <= orderAmount);
         vm.assume(fees <= receivedAmount);
 
-        IOrderProcessor.Order memory order = dummyOrder;
-        order.sell = true;
-        order.paymentTokenQuantity = 0;
-        order.assetTokenQuantity = orderAmount;
+        dummyOrder.sell = true;
+        dummyOrder.assetTokenQuantity = orderAmount;
+        dummyOrder.paymentTokenQuantity = 0;
 
         vm.prank(admin);
         token.mint(user, orderAmount);
@@ -225,18 +217,27 @@ contract FulfillmentRouterTest is Test {
         token.approve(address(issuer), orderAmount);
 
         vm.prank(user);
-        uint256 id = issuer.createOrderStandardFees(order);
+        uint256 id = issuer.createOrderStandardFees(dummyOrder);
 
         vm.prank(admin);
         paymentToken.mint(address(vault), receivedAmount);
 
         vm.expectEmit(true, true, true, false);
-        emit OrderFill(id, order.paymentToken, order.assetToken, order.recipient, fillAmount, receivedAmount, 0, true);
+        emit OrderFill(
+            id,
+            dummyOrder.paymentToken,
+            dummyOrder.assetToken,
+            dummyOrder.recipient,
+            fillAmount,
+            receivedAmount,
+            0,
+            true
+        );
         vm.prank(operator);
-        router.fillOrder(address(issuer), address(vault), order, fillAmount, receivedAmount, fees);
+        router.fillOrder(address(issuer), address(vault), dummyOrder, fillAmount, receivedAmount, fees);
 
         vm.expectRevert(FulfillmentRouter.OnlyForBuyOrders.selector);
         vm.prank(operator);
-        router.cancelBuyOrder(address(issuer), order, address(vault), id);
+        router.cancelBuyOrder(address(issuer), dummyOrder, address(vault), id, "cancel");
     }
 }
