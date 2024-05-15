@@ -15,6 +15,7 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
     using SafeERC20 for IERC20;
 
     error BuyFillsNotSupported();
+    error OnlyForBuyOrders();
 
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
 
@@ -35,5 +36,24 @@ contract FulfillmentRouter is AccessControlDefaultAdminRules, Multicall {
         // fill order with payment token
         IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, receivedAmount);
         IOrderProcessor(orderProcessor).fillOrder(order, fillAmount, receivedAmount, fees);
+    }
+
+    function cancelBuyOrder(
+        address orderProcessor,
+        IOrderProcessor.Order calldata order,
+        address vault,
+        uint256 orderId,
+        string calldata reason
+    ) external onlyRole(OPERATOR_ROLE) {
+        if (order.sell) revert OnlyForBuyOrders();
+        // get unfilledAmount
+        uint256 unfilledAmount = IOrderProcessor(orderProcessor).getUnfilledAmount(orderId);
+
+        if (unfilledAmount > 0) {
+            // withdraw payment token from vault
+            IVault(vault).withdrawFunds(IERC20(order.paymentToken), address(this), unfilledAmount);
+            IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, unfilledAmount);
+            IOrderProcessor(orderProcessor).cancelOrder(order, reason);
+        }
     }
 }

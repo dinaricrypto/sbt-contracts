@@ -847,6 +847,7 @@ contract OrderProcessorTest is Test {
         }
 
         uint256 unfilledAmount = orderAmount - fillAmount;
+
         vm.prank(operator);
         paymentToken.approve(address(issuer), unfilledAmount);
 
@@ -863,6 +864,32 @@ contract OrderProcessorTest is Test {
         } else {
             assertEq(paymentToken.balanceOf(address(user)), quantityIn);
         }
+        assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
+    }
+
+    function testCancelSellOrder(uint256 orderAmount, uint256 fillAmount, string calldata reason) public {
+        vm.assume(orderAmount > 0);
+        vm.assume(fillAmount < orderAmount);
+
+        IOrderProcessor.Order memory order = getDummyOrder(true);
+        order.assetTokenQuantity = orderAmount;
+
+        vm.prank(admin);
+        token.mint(user, orderAmount);
+        vm.prank(user);
+        token.approve(address(issuer), orderAmount);
+
+        vm.prank(user);
+        uint256 id = issuer.createOrderStandardFees(order);
+
+        // balances before
+        vm.expectEmit(true, true, true, true);
+        emit OrderCancelled(id, order.recipient, reason);
+        vm.prank(operator);
+        issuer.cancelOrder(order, reason);
+        assertEq(token.balanceOf(address(issuer)), 0);
+        // balances after
+        assertEq(token.balanceOf(address(user)), orderAmount);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 
