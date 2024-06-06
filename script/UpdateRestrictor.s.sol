@@ -17,7 +17,7 @@ contract UpdateRestrictor is Script {
 
         factory.setNewTransferRestrictor(restrictor);
 
-        (address[] memory assetTokens, ) = factory.getDShares();
+        (address[] memory assetTokens,) = factory.getDShares();
 
         for (uint256 i = 0; i < assetTokens.length; i++) {
             DShare dshare = DShare(assetTokens[i]);
