@@ -1,11 +1,9 @@
 import "dotenv/config";
-import { createWalletClient, http, Hex, getContract, formatUnits } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import * as all from 'viem/chains';
+import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
+const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.3.0/order_processor.json');
 const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
 const orderProcessorAbi = orderProcessorData.abi;
 
@@ -15,59 +13,71 @@ const tokenAbi = [
     "function decimals() external view returns (uint8)",
 ];
 
-function getChain(chainId: number) {
-    for (const chain of Object.values(all)) {
-        if (chain.id === chainId) return chain;
-    }
-
-    throw new Error("Chain with id ${chainId} not found");
-}
-
 async function main() {
 
     // ------------------ Setup ------------------
 
+    // permit EIP712 signature data type
+    const permitTypes = {
+        Permit: [
+            {
+                name: "owner",
+                type: "address"
+            },
+            {
+                name: "spender",
+                type: "address"
+            },
+            {
+                name: "value",
+                type: "uint256"
+            },
+            {
+                name: "nonce",
+                type: "uint256"
+            },
+            {
+                name: "deadline",
+                type: "uint256"
+            }
+        ],
+    };
+
     // setup values
-    const privateKey = process.env.PRIVATE_KEY as Hex;
+    const privateKey = process.env.PRIVATE_KEY;
     if (!privateKey) throw new Error("empty key");
-    const CHAINID_STR = process.env.CHAINID;
-    if (!CHAINID_STR) throw new Error("empty chain id");
-    const chainId = parseInt(CHAINID_STR);
     const RPC_URL = process.env.RPC_URL;
     if (!RPC_URL) throw new Error("empty rpc url");
     const assetTokenAddress = "0xed12e3394e78C2B0074aa4479b556043cC84503C"; // SPY
     const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
 
     // setup provider and signer
-    const account = privateKeyToAccount(privateKey);
-    const client = createWalletClient({ 
-        account,
-        chain: getChain(chainId), 
-        transport: http(RPC_URL)
-      })
+    const provider = ethers.getDefaultProvider(RPC_URL);
+    const signer = new ethers.Wallet(privateKey, provider);
+    const chainId = Number((await provider.getNetwork()).chainId);
     const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
     console.log(`Order Processor Address: ${orderProcessorAddress}`);
 
-    // connect to payment token contract
-    const paymentToken = getContract({
-        address: paymentTokenAddress,
-        abi: tokenAbi,
-        client
-    });
+    // connect signer to payment token contract
+    const paymentToken = new ethers.Contract(
+        paymentTokenAddress,
+        tokenAbi,
+        signer,
+    );
 
-    // connect to asset token contract
-    const assetToken = getContract({
-        address: assetTokenAddress,
-        abi: tokenAbi,
-        client
-    });
+    // connect signer to asset token contract
+    const assetToken = new ethers.Contract(
+        assetTokenAddress,
+        tokenAbi,
+        signer,
+    );
 
-    // connect to buy processor contract
-    const orderProcessor = getContract({
-        address: orderProcessorAddress,
-        abi: orderProcessorAbi,
-        client
-    });
+    // connect signer to buy processor contract
+    const orderProcessor = new ethers.Contract(
+        orderProcessorAddress,
+        orderProcessorAbi,
+        signer,
+    );
 
     // ------------------ Configure Order ------------------
 
@@ -81,31 +91,31 @@ async function main() {
     // check the order precision doesn't exceed max decimals
     // applicable to sell and limit orders only
     if (sellOrder || orderType === 1) {
-        const maxDecimals = await orderProcessor.read.maxOrderDecimals([assetTokenAddress]) as bigint;
-        const assetTokenDecimals = await assetToken.read.decimals() as bigint;
-        const allowablePrecision = BigInt(10) ** (assetTokenDecimals - maxDecimals);
-        if (orderAmount % allowablePrecision != BigInt(0)) {
+        const maxDecimals = await orderProcessor.maxOrderDecimals(assetTokenAddress);
+        const assetTokenDecimals = await assetToken.decimals();
+        const allowablePrecision = 10 ** (assetTokenDecimals - maxDecimals);
+        if (Number(orderAmount) % allowablePrecision != 0) {
             throw new Error(`Order amount precision exceeds max decimals of ${maxDecimals}`);
         }
     }
 
-    // get fees from endpoint, fees will be added to buy order deposit or taken from sell order proceeds
-
-    const fees = await orderProcessor.read.estimateTotalFeesForOrder([account.address, false, paymentTokenAddress, orderAmount]) as bigint;
+    // get fees, fees will be added to buy order deposit or taken from sell order proceeds
+    const fees = await orderProcessor.estimateTotalFeesForOrder(signer.address, false, paymentTokenAddress, orderAmount);
     const totalSpendAmount = orderAmount + fees;
-    console.log(`fees: ${formatUnits(fees, 6)}`);
+    console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
 
     // ------------------ Approve Spend ------------------
 
     // approve buy processor to spend payment token
-    const approveTxHash = await paymentToken.write.approve([orderProcessorAddress, totalSpendAmount]);
-    console.log(`approve tx hash: ${approveTxHash}`);
+    const approveTx = await paymentToken.approve(orderProcessorAddress, totalSpendAmount);
+    await approveTx.wait();
+    console.log(`approve tx hash: ${approveTx.hash}`);
 
     // ------------------ Submit Order ------------------
 
     // submit request order transaction
     // see IOrderProcessor.Order struct for order parameters
-    const tx = await orderProcessor.write.requestOrder([
+    const tx = await orderProcessor.requestOrder([
         signer.address,
         assetTokenAddress,
         paymentTokenAddress,
