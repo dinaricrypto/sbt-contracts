@@ -3,7 +3,7 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.3.0/order_processor.json');
+const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
 const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
 const orderProcessorAbi = orderProcessorData.abi;
 
@@ -16,32 +16,6 @@ const tokenAbi = [
 async function main() {
 
     // ------------------ Setup ------------------
-
-    // permit EIP712 signature data type
-    const permitTypes = {
-        Permit: [
-            {
-                name: "owner",
-                type: "address"
-            },
-            {
-                name: "spender",
-                type: "address"
-            },
-            {
-                name: "value",
-                type: "uint256"
-            },
-            {
-                name: "nonce",
-                type: "uint256"
-            },
-            {
-                name: "deadline",
-                type: "uint256"
-            }
-        ],
-    };
 
     // setup values
     const privateKey = process.env.PRIVATE_KEY;
@@ -102,7 +76,7 @@ async function main() {
     // get fees, fees will be added to buy order deposit or taken from sell order proceeds
     const fees = await orderProcessor.estimateTotalFeesForOrder(signer.address, false, paymentTokenAddress, orderAmount);
     const totalSpendAmount = orderAmount + fees;
-    console.log(`fees: ${ethers.formatUnits(fees, 6)}`);
+    console.log(`fees: ${ethers.utils.formatUnits(fees, 6)}`);
 
     // ------------------ Approve Spend ------------------
 
@@ -125,7 +99,7 @@ async function main() {
         orderAmount, // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
         0, // Unused limit price
         1, // GTC
-        ethers.ZeroAddress, // split recipient
+        ethers.constants.AddressZero, // split recipient
         0, // split amount
     ]);
     const receipt = await tx.wait();

@@ -37,7 +37,8 @@
     "ci:publish:build:typescript": "rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json && cp package.json ./dist/typescript/",
     "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari",
     "mnemonic": "npx ts-node script/mnemonic.ts",
-    "keys": "npx ts-node script/printkeys.ts"
+    "keys": "npx ts-node script/printkeys.ts",
+    "example:order": "npx ts-node script/examples/request_order_approve_ethers.ts"
   },
   "devDependencies": {
     "@axelar-network/axelar-gmp-sdk-solidity": "^5.6.4",
