@@ -22,8 +22,10 @@ async function main() {
     if (!privateKey) throw new Error("empty key");
     const RPC_URL = process.env.RPC_URL;
     if (!RPC_URL) throw new Error("empty rpc url");
-    const assetTokenAddress = "0xed12e3394e78C2B0074aa4479b556043cC84503C"; // SPY
-    const paymentTokenAddress = "0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff";
+    const assetTokenAddress = process.env.ASSETTOKEN;
+    if (!assetTokenAddress) throw new Error("empty asset token address");
+    const paymentTokenAddress = process.env.PAYMENTTOKEN;
+    if (!paymentTokenAddress) throw new Error("empty payment token address");
 
     // setup provider and signer
     const provider = ethers.getDefaultProvider(RPC_URL);
@@ -74,7 +76,8 @@ async function main() {
     }
 
     // get fees, fees will be added to buy order deposit or taken from sell order proceeds
-    const fees = await orderProcessor.estimateTotalFeesForOrder(signer.address, false, paymentTokenAddress, orderAmount);
+    // TODO: get fees quote for sell order
+    const fees = await orderProcessor.totalStandardFee(false, paymentTokenAddress, orderAmount);
     const totalSpendAmount = orderAmount + fees;
     console.log(`fees: ${ethers.utils.formatUnits(fees, 6)}`);
 
@@ -89,7 +92,8 @@ async function main() {
 
     // submit request order transaction
     // see IOrderProcessor.Order struct for order parameters
-    const tx = await orderProcessor.requestOrder([
+    const tx = await orderProcessor.createOrderStandardFees([
+        Date.now(),
         signer.address,
         assetTokenAddress,
         paymentTokenAddress,
@@ -99,8 +103,6 @@ async function main() {
         orderAmount, // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
         0, // Unused limit price
         1, // GTC
-        ethers.constants.AddressZero, // split recipient
-        0, // split amount
     ]);
     const receipt = await tx.wait();
     console.log(`tx hash: ${tx.hash}`);
