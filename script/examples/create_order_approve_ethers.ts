@@ -42,6 +42,7 @@ async function main() {
     // setup provider and signer
     const provider = ethers.getDefaultProvider(RPC_URL);
     const signer = new ethers.Wallet(privateKey, provider);
+    console.log(`Signer Address: ${signer.address}`);
     const chainId = Number((await provider.getNetwork()).chainId);
     const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
     console.log(`Order Processor Address: ${orderProcessorAddress}`);
@@ -88,13 +89,14 @@ async function main() {
     }
 
     const orderParams = {
+        requestTimestamp: Date.now(),
         recipient: signer.address,
         assetToken: assetTokenAddress,
         paymentToken: paymentTokenAddress,
         sell: sellOrder,
         orderType: orderType,
         assetTokenQuantity: 0, // Asset amount to sell. Ignored for buys. Fees will be taken from proceeds for sells.
-        paymentTokenQuantity: orderAmount.toString(), // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
+        paymentTokenQuantity: Number(orderAmount), // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
         price: 0, // Unused limit price
         tif: 1, // GTC
     };
@@ -107,38 +109,46 @@ async function main() {
         order_data: orderParams
     };
     const feeQuoteResponse = await dinariClient.post("/api/v1/web3/orders/fee", feeQuoteData);
-    console.log(feeQuoteResponse.status);
-    console.log(`fee quote response: ${feeQuoteResponse.data.json}`);
-    // const totalSpendAmount = orderAmount + fees;
-    // console.log(`fees: ${ethers.utils.formatUnits(fees, 6)}`);
+    // console.log(feeQuoteResponse.status);
+    // console.log(JSON.stringify(feeQuoteResponse.data));
+    // console.log(`fee quote response: ${feeQuoteResponse.data.json}`);
+    const fees = BigInt(feeQuoteResponse.data.fee_quote.fee);
+    const totalSpendAmount = orderAmount + fees;
+    console.log(`fees: ${ethers.utils.formatUnits(fees, 6)}`);
 
     // ------------------ Approve Spend ------------------
 
     // approve buy processor to spend payment token
-    // const approveTx = await paymentToken.approve(orderProcessorAddress, totalSpendAmount);
-    // await approveTx.wait();
-    // console.log(`approve tx hash: ${approveTx.hash}`);
+    const approveTx = await paymentToken.approve(orderProcessorAddress, totalSpendAmount);
+    await approveTx.wait();
+    console.log(`approve tx hash: ${approveTx.hash}`);
 
-    // // ------------------ Submit Order ------------------
+    // ------------------ Submit Order ------------------
 
-    // // submit request order transaction
-    // // see IOrderProcessor.Order struct for order parameters
-    // const tx = await orderProcessor.createOrderStandardFees([
-    //     Date.now(),
-    //     orderParams.recipient,
-    //     orderParams.assetToken,
-    //     orderParams.paymentToken,
-    //     orderParams.sell,
-    //     orderParams.orderType,
-    //     orderParams.assetTokenQuantity, 
-    //     orderParams.paymentTokenQuantity, 
-    //     orderParams.price, 
-    //     orderParams.tif, 
-    // ]);
-    // const receipt = await tx.wait();
-    // console.log(`tx hash: ${tx.hash}`);
+    // submit request order transaction
+    // see IOrderProcessor.Order struct for order parameters
+    const tx = await orderProcessor.createOrder([
+        orderParams.requestTimestamp,
+        orderParams.recipient,
+        orderParams.assetToken,
+        orderParams.paymentToken,
+        orderParams.sell,
+        orderParams.orderType,
+        orderParams.assetTokenQuantity, 
+        orderParams.paymentTokenQuantity, 
+        orderParams.price, 
+        orderParams.tif, 
+    ], [
+        feeQuoteResponse.data.fee_quote.orderId,
+        feeQuoteResponse.data.fee_quote.requester,
+        feeQuoteResponse.data.fee_quote.fee,
+        feeQuoteResponse.data.fee_quote.timestamp,
+        feeQuoteResponse.data.fee_quote.deadline,
+    ], feeQuoteResponse.data.fee_quote_signature);
+    const receipt = await tx.wait();
+    console.log(`tx hash: ${tx.hash}`);
 
-    // // get order id from event
+    // get order id from event
     // const events = receipt.logs.map((log: any) => orderProcessor.interface.parseLog(log));
     // if (!events) throw new Error("no events");
     // const orderEvent = events.find((event: any) => event && event.name === "OrderRequested");
