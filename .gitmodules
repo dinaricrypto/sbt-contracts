@@ -22,3 +22,6 @@
 [submodule "lib/interchain-token-service"]
 	path = lib/interchain-token-service
 	url = https://github.com/axelarnetwork/interchain-token-service
+[submodule "lib/kinto-contracts-helpers"]
+	path = lib/kinto-contracts-helpers
+	url = https://github.com/dinaricrypto/kinto-contracts-helpers
