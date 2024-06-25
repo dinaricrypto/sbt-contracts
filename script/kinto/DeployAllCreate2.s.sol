@@ -142,6 +142,7 @@ contract DeployAllCreate2 is Script {
         deployments.dividendDistributor = new DividendDistribution{
             salt: keccak256(abi.encode(string.concat("DividendDistribution", environmentName, version)))
         }(owner);
+        console.log("dividendDistributor: %s", address(deployments.dividendDistributor));
 
         vm.stopBroadcast();
     }
