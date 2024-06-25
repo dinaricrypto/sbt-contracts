@@ -15,10 +15,6 @@ import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconP
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllCreate2 is Script {
-    struct DeployConfig {
-        address treasury;
-    }
-
     struct Deployments {
         Vault vault;
         TransferRestrictor transferRestrictor;
@@ -33,8 +29,7 @@ contract DeployAllCreate2 is Script {
         DividendDistribution dividendDistributor;
     }
 
-    uint64 constant perOrderFee = 0.05 ether;
-    uint24 constant percentageFeeRate = 5_000;
+    string constant version = "0.4.0pre2";
 
     function run() external {
         // load env variables
@@ -49,8 +44,6 @@ contract DeployAllCreate2 is Script {
         console.log("environment: %s", environmentName);
         console.log("deployer: %s", deployer);
         console.log("owner: %s", owner);
-
-        string memory version = "0.4.0pre2";
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
