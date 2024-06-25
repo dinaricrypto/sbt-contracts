@@ -3,13 +3,14 @@ pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
 import {MockToken} from "../test/utils/mocks/MockToken.sol";
-import {Vault} from "../src/orders/Vault.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {DShare} from "../src/DShare.sol";
 import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {DShareFactory} from "../src/DShareFactory.sol";
+import {Vault} from "../src/orders/Vault.sol";
+import {FulfillmentRouter} from "../src/orders/FulfillmentRouter.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
@@ -28,7 +29,6 @@ contract DeployAllSandbox is Script {
         MockToken usdc;
         MockToken usdt;
         MockToken usdce;
-        Vault vault;
         TransferRestrictor transferRestrictor;
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
@@ -38,6 +38,8 @@ contract DeployAllSandbox is Script {
         DShareFactory dShareFactory;
         OrderProcessor orderProcessorImplementation;
         OrderProcessor orderProcessor;
+        Vault vault;
+        FulfillmentRouter fulfillmentRouter;
         DividendDistribution dividendDistributor;
     }
 
@@ -127,8 +129,12 @@ contract DeployAllSandbox is Script {
             )
         );
 
+        // fulfillment router
+        deployments.fulfillmentRouter = new FulfillmentRouter(cfg.deployer);
+
         // config operator
-        deployments.orderProcessor.setOperator(cfg.operator, true);
+        deployments.orderProcessor.setOperator(address(deployments.fulfillmentRouter), true);
+        deployments.fulfillmentRouter.grantRole(deployments.fulfillmentRouter.OPERATOR_ROLE(), cfg.operator);
 
         // config payment token
         deployments.orderProcessor.setPaymentToken(
