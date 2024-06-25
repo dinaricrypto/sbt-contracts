@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cp .env-kinto-stage .env
+cp .env.kinto-stage .env
 source .env
 
 forge script script/kinto/DeployAllCreate2.s.sol:DeployAllCreate2 --rpc-url $RPC_URL -vvvv --broadcast --skip-simulation

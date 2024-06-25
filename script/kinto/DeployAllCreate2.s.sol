@@ -50,7 +50,7 @@ contract DeployAllCreate2 is Script {
         console.log("deployer: %s", deployer);
         console.log("owner: %s", owner);
 
-        string memory version = "0.4.0pre";
+        string memory version = "0.4.0pre2";
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
@@ -58,10 +58,10 @@ contract DeployAllCreate2 is Script {
         /// ------------------ asset tokens ------------------
 
         // deploy transfer restrictor
-        TransferRestrictor transferRestrictor = new TransferRestrictor{
+        deployments.transferRestrictor = new TransferRestrictor{
             salt: keccak256(abi.encode(string.concat("TransferRestrictor", environmentName, version)))
         }(owner);
-        console.log("transferRestrictor: %s", address(transferRestrictor));
+        console.log("transferRestrictor: %s", address(deployments.transferRestrictor));
 
         // deploy dShares logic implementation
         deployments.dShareImplementation =
