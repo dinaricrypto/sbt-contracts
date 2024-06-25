@@ -2,21 +2,20 @@
 pragma solidity ^0.8.23;
 
 import "forge-std/Script.sol";
-import {Vault} from "../../src/orders/Vault.sol";
 import {TransferRestrictor} from "../../src/TransferRestrictor.sol";
 import {DShare} from "../../src/DShare.sol";
 import {WrappedDShare} from "../../src/WrappedDShare.sol";
 import {OrderProcessor} from "../../src/orders/OrderProcessor.sol";
 import {DividendDistribution} from "../../src/dividend/DividendDistribution.sol";
 import {DShareFactory} from "../../src/DShareFactory.sol";
+import {Vault} from "../../src/orders/Vault.sol";
+import {FulfillmentRouter} from "../../src/orders/FulfillmentRouter.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DeployAllCreate2 is Script {
     struct Deployments {
-        Vault vault;
         TransferRestrictor transferRestrictor;
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
@@ -26,10 +25,12 @@ contract DeployAllCreate2 is Script {
         DShareFactory dShareFactory;
         OrderProcessor orderProcessorImplementation;
         OrderProcessor orderProcessor;
+        Vault vault;
+        FulfillmentRouter fulfillmentRouter;
         DividendDistribution dividendDistributor;
     }
 
-    string constant version = "0.4.0pre2";
+    string constant version = "0.4.0";
 
     function run() external {
         // load env variables
@@ -129,6 +130,12 @@ contract DeployAllCreate2 is Script {
             )
         );
         console.log("orderProcessor: %s", address(deployments.orderProcessor));
+
+        // fulfillment router
+        deployments.fulfillmentRouter = new FulfillmentRouter{
+            salt: keccak256(abi.encode(string.concat("FulfillmentRouter", environmentName, version)))
+        }(owner);
+        console.log("fulfillmentRouter: %s", address(deployments.fulfillmentRouter));
 
         /// ------------------ dividend distributor ------------------
 
