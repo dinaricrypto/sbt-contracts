@@ -108,9 +108,7 @@ async function main() {
     console.log(`tx hash: ${tx.hash}`);
 
     // get order id from event
-    const events = receipt.logs.map((log: any) => orderProcessor.interface.parseLog(log));
-    if (!events) throw new Error("no events");
-    const orderEvent = events.find((event: any) => event && event.name === "OrderRequested");
+    const orderEvent = receipt.logs.filter((log: any) => log.topics[0] === orderProcessor.interface.getEventTopic("OrderCreated")).map((log: any) => orderProcessor.interface.parseLog(log))[0];
     if (!orderEvent) throw new Error("no order event");
     const orderId = orderEvent.args[0];
     const orderAccount = orderEvent.args[1];
