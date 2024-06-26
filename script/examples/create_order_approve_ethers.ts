@@ -70,8 +70,8 @@ async function main() {
 
     // ------------------ Configure Order ------------------
 
-    // order amount (1000 USDC)
-    const orderAmount = BigInt(1000_000_000);
+    // order amount (100 USDC)
+    const orderAmount = BigInt(100_000_000);
     // buy order (Change to true for Sell Order)
     const sellOrder = false;
     // market order
@@ -149,18 +149,16 @@ async function main() {
     console.log(`tx hash: ${tx.hash}`);
 
     // get order id from event
-    // const events = receipt.logs.map((log: any) => orderProcessor.interface.parseLog(log));
-    // if (!events) throw new Error("no events");
-    // const orderEvent = events.find((event: any) => event && event.name === "OrderRequested");
-    // if (!orderEvent) throw new Error("no order event");
-    // const orderId = orderEvent.args[0];
-    // const orderAccount = orderEvent.args[1];
-    // console.log(`Order ID: ${orderId}`);
-    // console.log(`Order Account: ${orderAccount}`);
+    const orderEvent = receipt.logs.filter((log: any) => log.topics[0] === orderProcessor.interface.getEventTopic("OrderCreated")).map((log: any) => orderProcessor.interface.parseLog(log))[0];
+    if (!orderEvent) throw new Error("no order event");
+    const orderId = orderEvent.args[0];
+    const orderAccount = orderEvent.args[1];
+    console.log(`Order ID: ${orderId}`);
+    console.log(`Order Account: ${orderAccount}`);
 
-    // // use order id to get order status (ACTIVE, FULFILLED, CANCELLED)
-    // const orderStatus = await orderProcessor.getOrderStatus(orderId);
-    // console.log(`Order Status: ${orderStatus}`);
+    // use order id to get order status (ACTIVE, FULFILLED, CANCELLED)
+    const orderStatus = await orderProcessor.getOrderStatus(orderId);
+    console.log(`Order Status: ${orderStatus}`);
 }
 
 main()
