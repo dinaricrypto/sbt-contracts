@@ -109,9 +109,6 @@ async function main() {
         order_data: orderParams
     };
     const feeQuoteResponse = await dinariClient.post("/api/v1/web3/orders/fee", feeQuoteData);
-    // console.log(feeQuoteResponse.status);
-    // console.log(JSON.stringify(feeQuoteResponse.data));
-    // console.log(`fee quote response: ${feeQuoteResponse.data.json}`);
     const fees = BigInt(feeQuoteResponse.data.fee_quote.fee);
     const totalSpendAmount = orderAmount + fees;
     console.log(`fees: ${ethers.utils.formatUnits(fees, 6)}`);

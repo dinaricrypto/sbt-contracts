@@ -38,8 +38,9 @@
     "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari",
     "mnemonic": "npx ts-node script/mnemonic.ts",
     "keys": "npx ts-node script/printkeys.ts",
-    "example:order": "npx ts-node script/examples/create_order_approve_ethers.ts",
-    "example:listen": "npx ts-node script/examples/listen_fill.ts"
+    "example:order": "npx ts-node script/examples/create_order.ts",
+    "example:listen": "npx ts-node script/examples/listen_fill.ts",
+    "example:cancel": "npx ts-node script/examples/request_cancel.ts"
   },
   "devDependencies": {
     "@axelar-network/axelar-gmp-sdk-solidity": "^5.6.4",
