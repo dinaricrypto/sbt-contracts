@@ -3,9 +3,7 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
-const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
-const orderProcessorAbi = orderProcessorData.abi;
+
 
 async function main() {
 
@@ -18,6 +16,17 @@ async function main() {
   // get websockets rpc url
   const RPC_URL = process.env.RPC_URL_WSS;
   if (!RPC_URL) throw new Error("empty rpc url");
+
+  // ------------------ Connect Abi------------------
+  const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
+  let orderProcessorData: any;
+  try {
+    orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Error reading order processor data: ${error}`);
+  }
+  const orderProcessorAbi = orderProcessorData.abi;
+
 
   // setup provider and signer
   const provider = new ethers.providers.WebSocketProvider(RPC_URL);
@@ -43,9 +52,9 @@ async function main() {
     console.log(`Account ${requesterAccount} Order ${orderId} filled. Paid ${feesTaken} fees.`);
     if (sell) {
       console.log(`${assetToken}:${assetAmount} => ${paymentToken}:${paymentAmount}`);
-     } else {
+    } else {
       console.log(`${paymentToken}:${paymentAmount} => ${assetToken}:${assetAmount}`);
-     }
+    }
   });
 }
 
