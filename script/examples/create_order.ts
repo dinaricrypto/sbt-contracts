@@ -68,13 +68,13 @@ async function main() {
   const dinariApiKey = process.env.DINARI_API_KEY;
   if (!dinariApiKey) throw new Error("empty dinari api key");
 
-    // setup axios
-    const dinariClient = axios.create({
-      baseURL: "https://api-enterprise.sandbox.dinari.com",
-      headers: {
-          "Authorization": `Bearer ${dinariApiKey}`,
-          "Content-Type": "application/json",
-      },
+  // setup axios
+  const dinariClient = axios.create({
+    baseURL: "https://api-enterprise.sandbox.dinari.com",
+    headers: {
+      "Authorization": `Bearer ${dinariApiKey}`,
+      "Content-Type": "application/json",
+    },
   });
 
   // setup provider and signer
@@ -141,12 +141,12 @@ async function main() {
     tif: 1, // GTC
   };
 
-    // get fees, fees will be added to buy order deposit or taken from sell order proceeds
-    // TODO: get fees quote for sell order
-    const feeQuoteData = {
-      chain_id: chainId,
-      contract_address: orderProcessorAddress,
-      order_data: orderParams
+  // get fees, fees will be added to buy order deposit or taken from sell order proceeds
+  // TODO: get fees quote for sell order
+  const feeQuoteData = {
+    chain_id: chainId,
+    contract_address: orderProcessorAddress,
+    order_data: orderParams
   };
   const feeQuoteResponse = await dinariClient.post("/api/v1/web3/orders/fee", feeQuoteData);
   const fees = BigInt(feeQuoteResponse.data.fee_quote.fee);
@@ -197,7 +197,7 @@ async function main() {
 
   // ------------------ Submit Order ------------------
 
-  // create requestOrder call data
+  // createOrder call data
   // see IOrderProcessor.Order struct for order parameters
   const requestOrderData = orderProcessor.interface.encodeFunctionData("createOrder", [[
     orderParams.requestTimestamp,
@@ -206,10 +206,10 @@ async function main() {
     orderParams.paymentToken,
     orderParams.sell,
     orderParams.orderType,
-    orderParams.assetTokenQuantity, 
-    orderParams.paymentTokenQuantity, 
-    orderParams.price, 
-    orderParams.tif, 
+    orderParams.assetTokenQuantity,
+    orderParams.paymentTokenQuantity,
+    orderParams.price,
+    orderParams.tif,
   ], [
     feeQuoteResponse.data.fee_quote.orderId,
     feeQuoteResponse.data.fee_quote.requester,
@@ -218,7 +218,7 @@ async function main() {
     feeQuoteResponse.data.fee_quote.deadline,
   ], feeQuoteResponse.data.fee_quote_signature]);
 
-  // submit permit + request order multicall transaction
+  // submit permit + create order multicall transaction
   const tx = await orderProcessor.multicall([
     selfPermitData,
     requestOrderData,
