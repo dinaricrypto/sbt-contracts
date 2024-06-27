@@ -4,9 +4,6 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
-[submodule "lib/sbt-deployments"]
-	path = lib/sbt-deployments
-	url = https://github.com/dinaricrypto/sbt-deployments
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
@@ -22,3 +19,6 @@
 [submodule "lib/interchain-token-service"]
 	path = lib/interchain-token-service
 	url = https://github.com/axelarnetwork/interchain-token-service
+[submodule "lib/sbt-deployments"]
+	path = lib/sbt-deployments
+	url = https://github.com/dinaricrypto/sbt-deployments
