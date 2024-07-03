@@ -3,8 +3,6 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-
-
 async function main() {
 
   // ------------------ Setup ------------------
@@ -45,17 +43,44 @@ async function main() {
   // ------------------ Listen ------------------
 
   // fill event filter for a specific account
-  const filter = orderProcessor.filters.OrderFill(null, requester);
+  const filter: ethers.EventFilter = orderProcessor.filters.OrderFill(null);
 
-  // listen for fill events
-  orderProcessor.on(filter, (orderId, paymentToken, assetToken, requesterAccount, assetAmount, paymentAmount, feesTaken, sell) => {
-    console.log(`Account ${requesterAccount} Order ${orderId} filled. Paid ${feesTaken} fees.`);
-    if (sell) {
-      console.log(`${assetToken}:${assetAmount} => ${paymentToken}:${paymentAmount}`);
-    } else {
-      console.log(`${paymentToken}:${paymentAmount} => ${assetToken}:${assetAmount}`);
-    }
-  });
+  // Fetch all OrderFill events with the filter
+  try {
+    const allEvents = await orderProcessor.queryFilter(filter);
+    console.log(`Fetched ${allEvents.length} events`);
+
+    // Filter events to include only those with the specific requester address
+    const filteredEvents = allEvents.filter(event => event.args && event.args.requester.toLowerCase() === requester.toLowerCase());
+    console.log(`Filtered ${filteredEvents.length} events for requester ${requester}`);
+    
+    // Print only the filtered events
+    filteredEvents.forEach(event => {
+      if (event.args) {
+        const { orderId, paymentToken, assetToken, requester, assetAmount, paymentAmount, feesTaken, sell } = event.args as unknown as {
+          orderId: ethers.BigNumber,
+          paymentToken: string,
+          assetToken: string,
+          requester: string,
+          assetAmount: ethers.BigNumber,
+          paymentAmount: ethers.BigNumber,
+          feesTaken: ethers.BigNumber,
+          sell: boolean
+        };
+        console.log('OrderFill event:', event);
+        console.log(`Account ${requester} Order ${event.args[0]} filled. Paid ${feesTaken} fees.`);
+        if (sell) {
+          console.log(`${assetToken}:${assetAmount} => ${paymentToken}:${paymentAmount}`);
+        } else {
+          console.log(`${paymentToken}:${paymentAmount} => ${assetToken}:${assetAmount}`);
+        }
+      } else {
+        console.log('Event args are undefined:', event);
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching events:', error);
+  }
 }
 
 main()
