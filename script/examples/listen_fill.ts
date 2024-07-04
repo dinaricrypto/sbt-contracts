@@ -5,17 +5,8 @@ import path from 'path';
 
 async function main() {
 
-  // ------------------ Setup ------------------
-
-  // get account to listen for
-  const requester = process.env.USER_ACCOUNT;
-  if (!requester) throw new Error("empty user address");
-
-  // get websockets rpc url
-  const RPC_URL = process.env.RPC_URL_WSS;
-  if (!RPC_URL) throw new Error("empty rpc url");
-
   // ------------------ Connect Abi------------------
+  
   const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
   let orderProcessorData: any;
   try {
@@ -25,6 +16,15 @@ async function main() {
   }
   const orderProcessorAbi = orderProcessorData.abi;
 
+  // ------------------ Setup ------------------
+
+  // get account to listen for
+  const requester = process.env.USER_ACCOUNT;
+  if (!requester) throw new Error("empty user address");
+
+  // get websockets rpc url
+  const RPC_URL = process.env.RPC_URL_WSS;
+  if (!RPC_URL) throw new Error("empty rpc url");
 
   // setup provider and signer
   const provider = new ethers.providers.WebSocketProvider(RPC_URL);
@@ -43,7 +43,7 @@ async function main() {
   // ------------------ Listen ------------------
 
   // fill event filter for a specific account
-  const filter: ethers.EventFilter = orderProcessor.filters.OrderFill(null);
+  const filter: ethers.EventFilter = orderProcessor.filters.OrderFill();
 
   // Listen for new OrderFill events
   orderProcessor.on(filter, (orderId: ethers.BigNumber, paymentToken: string, assetToken: string, requesterAccount: string, assetAmount: ethers.BigNumber, paymentAmount: ethers.BigNumber, feesTaken: ethers.BigNumber, sell: boolean) => {
