@@ -3,11 +3,18 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
-const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
-const orderProcessorAbi = orderProcessorData.abi;
-
 async function main() {
+
+  // ------------------ Connect Abi------------------
+  
+  const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
+  let orderProcessorData: any;
+  try {
+    orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Error reading order processor data: ${error}`);
+  }
+  const orderProcessorAbi = orderProcessorData.abi;
 
   // ------------------ Setup ------------------
 
@@ -36,17 +43,21 @@ async function main() {
   // ------------------ Listen ------------------
 
   // fill event filter for a specific account
-  const filter = orderProcessor.filters.OrderFill(null, requester);
+  const filter: ethers.EventFilter = orderProcessor.filters.OrderFill();
 
-  // listen for fill events
-  orderProcessor.on(filter, (orderId, paymentToken, assetToken, requesterAccount, assetAmount, paymentAmount, feesTaken, sell) => {
-    console.log(`Account ${requesterAccount} Order ${orderId} filled. Paid ${feesTaken} fees.`);
-    if (sell) {
-      console.log(`${assetToken}:${assetAmount} => ${paymentToken}:${paymentAmount}`);
-     } else {
-      console.log(`${paymentToken}:${paymentAmount} => ${assetToken}:${assetAmount}`);
-     }
+  // Listen for new OrderFill events
+  orderProcessor.on(filter, (orderId: ethers.BigNumber, paymentToken: string, assetToken: string, requesterAccount: string, assetAmount: ethers.BigNumber, paymentAmount: ethers.BigNumber, feesTaken: ethers.BigNumber, sell: boolean) => {
+    console.log('New OrderFill event detected');
+    if (requesterAccount.toLowerCase() === requester.toLowerCase()) {
+      console.log(`Account ${requesterAccount} Order ${orderId.toString()} filled. Paid ${feesTaken.toString()} fees.`);
+      if (sell) {
+        console.log(`${assetToken}:${assetAmount.toString()} => ${paymentToken}:${paymentAmount.toString()}`);
+      } else {
+        console.log(`${paymentToken}:${paymentAmount.toString()} => ${assetToken}:${assetAmount.toString()}`);
+      }
+    }
   });
+
 }
 
 main()
