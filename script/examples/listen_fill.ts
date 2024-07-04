@@ -3,16 +3,23 @@ import { ethers } from "ethers";
 import fs from 'fs';
 import path from 'path';
 
-const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.3.0/order_processor.json');
-const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
-const orderProcessorAbi = orderProcessorData.abi;
-
 async function main() {
+
+  // ------------------ Connect Abi------------------
+  
+  const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
+  let orderProcessorData: any;
+  try {
+    orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
+  } catch (error) {
+    throw new Error(`Error reading order processor data: ${error}`);
+  }
+  const orderProcessorAbi = orderProcessorData.abi;
 
   // ------------------ Setup ------------------
 
   // get account to listen for
-  const requester = process.env.USER_ADDRESS;
+  const requester = process.env.USER_ACCOUNT;
   if (!requester) throw new Error("empty user address");
 
   // get websockets rpc url
@@ -20,8 +27,9 @@ async function main() {
   if (!RPC_URL) throw new Error("empty rpc url");
 
   // setup provider and signer
-  const provider = ethers.getDefaultProvider(RPC_URL);
+  const provider = new ethers.providers.WebSocketProvider(RPC_URL);
   const chainId = Number((await provider.getNetwork()).chainId);
+  console.log(`Chain ID: ${chainId}`);
   const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
   console.log(`Order Processor Address: ${orderProcessorAddress}`);
 
@@ -35,12 +43,19 @@ async function main() {
   // ------------------ Listen ------------------
 
   // fill event filter for a specific account
-  const filter = orderProcessor.filters.OrderFill(null, requester);
+  const filter: ethers.EventFilter = orderProcessor.filters.OrderFill();
 
-  // listen for fill events
-  await orderProcessor.on(filter, (event: ethers.ContractEventPayload) => {
-    const [orderId, requesterAccount, fillAmount, receivedAmount, feesPaid] = event.args;
-    console.log(`Account ${requesterAccount} Order ${orderId} filled for ${fillAmount}, received ${receivedAmount}, paid ${feesPaid}`);
+  // Listen for new OrderFill events
+  orderProcessor.on(filter, (orderId: ethers.BigNumber, paymentToken: string, assetToken: string, requesterAccount: string, assetAmount: ethers.BigNumber, paymentAmount: ethers.BigNumber, feesTaken: ethers.BigNumber, sell: boolean) => {
+    console.log('New OrderFill event detected');
+    if (requesterAccount.toLowerCase() === requester.toLowerCase()) {
+      console.log(`Account ${requesterAccount} Order ${orderId.toString()} filled. Paid ${feesTaken.toString()} fees.`);
+      if (sell) {
+        console.log(`${assetToken}:${assetAmount.toString()} => ${paymentToken}:${paymentAmount.toString()}`);
+      } else {
+        console.log(`${paymentToken}:${paymentAmount.toString()} => ${assetToken}:${assetAmount.toString()}`);
+      }
+    }
   });
 
 }
