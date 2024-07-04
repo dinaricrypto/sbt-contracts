@@ -45,42 +45,19 @@ async function main() {
   // fill event filter for a specific account
   const filter: ethers.EventFilter = orderProcessor.filters.OrderFill(null);
 
-  // Fetch all OrderFill events with the filter
-  try {
-    const allEvents = await orderProcessor.queryFilter(filter);
-    console.log(`Fetched ${allEvents.length} events`);
-
-    // Filter events to include only those with the specific requester address
-    const filteredEvents = allEvents.filter(event => event.args && event.args.requester.toLowerCase() === requester.toLowerCase());
-    console.log(`Filtered ${filteredEvents.length} events for requester ${requester}`);
-    
-    // Print only the filtered events
-    filteredEvents.forEach(event => {
-      if (event.args) {
-        const { orderId, paymentToken, assetToken, requester, assetAmount, paymentAmount, feesTaken, sell } = event.args as unknown as {
-          orderId: ethers.BigNumber,
-          paymentToken: string,
-          assetToken: string,
-          requester: string,
-          assetAmount: ethers.BigNumber,
-          paymentAmount: ethers.BigNumber,
-          feesTaken: ethers.BigNumber,
-          sell: boolean
-        };
-        console.log('OrderFill event:', event);
-        console.log(`Account ${requester} Order ${event.args[0]} filled. Paid ${feesTaken} fees.`);
-        if (sell) {
-          console.log(`${assetToken}:${assetAmount} => ${paymentToken}:${paymentAmount}`);
-        } else {
-          console.log(`${paymentToken}:${paymentAmount} => ${assetToken}:${assetAmount}`);
-        }
+  // Listen for new OrderFill events
+  orderProcessor.on(filter, (orderId: ethers.BigNumber, paymentToken: string, assetToken: string, requesterAccount: string, assetAmount: ethers.BigNumber, paymentAmount: ethers.BigNumber, feesTaken: ethers.BigNumber, sell: boolean) => {
+    console.log('New OrderFill event detected');
+    if (requesterAccount.toLowerCase() === requester.toLowerCase()) {
+      console.log(`Account ${requesterAccount} Order ${orderId.toString()} filled. Paid ${feesTaken.toString()} fees.`);
+      if (sell) {
+        console.log(`${assetToken}:${assetAmount.toString()} => ${paymentToken}:${paymentAmount.toString()}`);
       } else {
-        console.log('Event args are undefined:', event);
+        console.log(`${paymentToken}:${paymentAmount.toString()} => ${assetToken}:${assetAmount.toString()}`);
       }
-    });
-  } catch (error) {
-    console.error('Error fetching events:', error);
-  }
+    }
+  });
+
 }
 
 main()
