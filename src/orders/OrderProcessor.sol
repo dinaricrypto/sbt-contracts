@@ -132,14 +132,14 @@ contract OrderProcessor is
         mapping(uint256 => OrderStatus) _status;
         // Active order state
         mapping(uint256 => OrderState) _orders;
-        // Order tracking
-        mapping(uint256 => OrderTracking) _tracking;
         // Reduciton of order decimals for asset token, defaults to 0
         mapping(address => uint8) _orderDecimalReduction;
         // Payment token configuration data
         mapping(address => PaymentTokenConfig) _paymentTokens;
         // Latest pairwise price
         mapping(bytes32 => PricePoint) _latestFillPrice;
+        // Order tracking
+        mapping(uint256 => OrderTracking) _tracking;
     }
 
     // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.OrderProcessor")) - 1)) & ~bytes32(uint256(0xff))
