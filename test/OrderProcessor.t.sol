@@ -344,9 +344,11 @@ contract OrderProcessorTest is Test {
         emit OrderCreated(orderId, user, order, fees);
         vm.prank(user);
         uint256 id = issuer.createOrderStandardFees(order);
+        (, uint256 trackingReceivedAmount) = issuer.getOrderTrackedAmount(id);
         assertEq(id, orderId);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
+        assertEq(trackingReceivedAmount, 0);
         assertEq(issuer.getFeesEscrowed(id), fees);
         assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
         assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
@@ -590,6 +592,8 @@ contract OrderProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, receivedAmount, fees);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
+            (uint256 trackedUnfilledAmount, uint256 trackingReceivedAmount) = issuer.getOrderTrackedAmount(id);
+            assertEq(issuer.getUnfilledAmount(id), trackedUnfilledAmount);
             IOrderProcessor.PricePoint memory fillPrice = issuer.latestFillPrice(order.assetToken, order.paymentToken);
             assertTrue(
                 fillPrice.price == 0
@@ -602,6 +606,7 @@ contract OrderProcessorTest is Test {
                 // if order is fullfilled in on time
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
                 assertEq(paymentToken.balanceOf(user), feesMax - fees);
+                assertEq(trackingReceivedAmount, receivedAmount);
             } else {
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
                 assertEq(paymentToken.balanceOf(address(issuer)), feesMax - fees);
@@ -653,6 +658,8 @@ contract OrderProcessorTest is Test {
             vm.prank(operator);
             issuer.fillOrder(order, fillAmount, receivedAmount, fees);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
+            (uint256 trackedUnfilledAmount, uint256 trackingReceivedAmount) = issuer.getOrderTrackedAmount(id);
+            assertEq(issuer.getUnfilledAmount(id), trackedUnfilledAmount);
             // balances after
             assertEq(paymentToken.balanceOf(user), userPaymentBefore + receivedAmount - fees);
             assertEq(paymentToken.balanceOf(operator), operatorPaymentBefore - receivedAmount);
@@ -662,6 +669,7 @@ contract OrderProcessorTest is Test {
             } else {
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
             }
+            assertEq(trackingReceivedAmount, receivedAmount);
         }
     }
 
