@@ -132,6 +132,8 @@ contract OrderProcessor is
         mapping(uint256 => OrderStatus) _status;
         // Active order state
         mapping(uint256 => OrderState) _orders;
+        // Order tracking
+        mapping(uint256 => OrderTracking) _tracking;
         // Reduciton of order decimals for asset token, defaults to 0
         mapping(address => uint8) _orderDecimalReduction;
         // Payment token configuration data
@@ -227,6 +229,13 @@ contract OrderProcessor is
     function getUnfilledAmount(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._orders[id].unfilledAmount;
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function getOrderTrackedAmount(uint256 id) external view returns (uint256, uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        OrderTracking memory tracking = $._tracking[id];
+        return (tracking.unfilledAmount, tracking.receivedAmount);
     }
 
     /// @inheritdoc IOrderProcessor
@@ -644,7 +653,7 @@ contract OrderProcessor is
 
         _publishFill(id, orderState.requester, order, assetAmount, paymentAmount, fees);
 
-        _updateFillState(id, orderState, assetAmount, fees);
+        _updateFillState(id, orderState, assetAmount, fees, paymentAmount);
 
         // Transfer the received amount from the filler to this contract
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), paymentAmount);
@@ -679,7 +688,7 @@ contract OrderProcessor is
 
         _publishFill(id, orderState.requester, order, assetAmount, paymentAmount, fees);
 
-        bool fulfilled = _updateFillState(id, orderState, paymentAmount, fees);
+        bool fulfilled = _updateFillState(id, orderState, paymentAmount, fees, assetAmount);
 
         // Update fee escrow (and refund if eligible)
         uint256 remainingFeesEscrowed = orderState.feesEscrowed - fees;
@@ -722,16 +731,21 @@ contract OrderProcessor is
         );
     }
 
-    function _updateFillState(uint256 id, OrderState memory orderState, uint256 fillAmount, uint256 fees)
-        private
-        returns (bool fulfilled)
-    {
+    function _updateFillState(
+        uint256 id,
+        OrderState memory orderState,
+        uint256 fillAmount,
+        uint256 fees,
+        uint256 receivedAmount
+    ) private returns (bool fulfilled) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
         // Update order state
         uint256 newUnfilledAmount = orderState.unfilledAmount - fillAmount;
         // If order is completely filled then clear order state
         fulfilled = newUnfilledAmount == 0;
+        $._tracking[id].unfilledAmount = newUnfilledAmount;
+        $._tracking[id].receivedAmount += receivedAmount;
         if (fulfilled) {
             $._status[id] = OrderStatus.FULFILLED;
             // Clear order state
