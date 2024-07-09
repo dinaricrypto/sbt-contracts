@@ -94,12 +94,6 @@ interface IOrderProcessor {
         uint64 blocktime;
     }
 
-    struct OrderTracking {
-        // Fill tracking for order
-        uint256 unfilledAmount;
-        uint256 receivedAmount;
-    }
-
     /// @dev Emitted order details and order ID for each order
     event OrderCreated(uint256 indexed id, address indexed requester, Order order, uint256 feesEscrowed);
     /// @dev Emitted for each fill
@@ -135,9 +129,9 @@ interface IOrderProcessor {
     /// @param id Order ID
     function getUnfilledAmount(uint256 id) external view returns (uint256);
 
-    /// @notice Get unfilled and received amounts for an order
+    /// @notice Get received amount for an order
     /// @param id Order ID
-    function getOrderTrackedAmount(uint256 id) external view returns (uint256, uint256);
+    function getReceivedAmount(uint256 id) external view returns (uint256);
 
     /// @notice Get fees in payment token escrowed for a buy order
     /// @param id Order ID
