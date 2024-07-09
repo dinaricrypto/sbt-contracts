@@ -751,6 +751,7 @@ contract OrderProcessor is
         // If order is completely filled then clear order state
         fulfilled = newUnfilledAmount == 0;
         if (fulfilled) {
+            $._orders[id].feesEscrowed = 0;
             $._status[id] = OrderStatus.FULFILLED;
             // Notify order fulfilled
             emit OrderFulfilled(id, orderState.requester);
