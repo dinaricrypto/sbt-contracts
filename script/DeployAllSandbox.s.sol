@@ -41,6 +41,13 @@ contract DeployAllSandbox is Script {
         DividendDistribution dividendDistributor;
     }
 
+    struct ImplementationBytecodes {
+        bytes dShareBytecode;
+        bytes wrappedDShareBytecode;
+        bytes dShareFactoryBytecode;
+        bytes orderProcessorBytecode;
+    }
+
     uint64 constant perOrderFee = 1 ether;
     uint24 constant percentageFeeRate = 5_000;
 
@@ -57,6 +64,13 @@ contract DeployAllSandbox is Script {
         });
 
         Deployments memory deployments;
+
+        ImplementationBytecodes memory implBytecodes = ImplementationBytecodes({
+            dShareBytecode: type(DShare).creationCode,
+            wrappedDShareBytecode: type(WrappedDShare).creationCode,
+            dShareFactoryBytecode: type(DShareFactory).creationCode,
+            orderProcessorBytecode: type(OrderProcessor).creationCode
+        });
 
         console.log("deployer: %s", cfg.deployer);
 
@@ -78,19 +92,22 @@ contract DeployAllSandbox is Script {
         deployments.transferRestrictor = new TransferRestrictor(cfg.deployer);
 
         // deploy dShares logic implementation
-        deployments.dShareImplementation = address(new DShare());
+        deployments.dShareImplementation =
+            deployWithCreate2(keccak256(abi.encodePacked(cfg.deployer)), implBytecodes.dShareBytecode);
 
         // deploy dShares beacon
         deployments.dShareBeacon = new UpgradeableBeacon(deployments.dShareImplementation, cfg.deployer);
 
         // deploy wrapped dShares logic implementation
-        deployments.wrappeddShareImplementation = address(new WrappedDShare());
+        deployments.wrappeddShareImplementation =
+            deployWithCreate2(keccak256(abi.encodePacked(cfg.deployer)), implBytecodes.wrappedDShareBytecode);
 
         // deploy wrapped dShares beacon
         deployments.wrappeddShareBeacon = new UpgradeableBeacon(deployments.wrappeddShareImplementation, cfg.deployer);
 
         // deploy dShare factory
-        deployments.dShareFactoryImplementation = address(new DShareFactory());
+        deployments.dShareFactoryImplementation =
+            deployWithCreate2(keccak256(abi.encodePacked(cfg.deployer)), implBytecodes.dShareFactoryBytecode);
 
         deployments.dShareFactory = DShareFactory(
             address(
@@ -114,7 +131,9 @@ contract DeployAllSandbox is Script {
         // vault
         deployments.vault = new Vault(cfg.deployer);
 
-        deployments.orderProcessorImplementation = new OrderProcessor();
+        deployments.orderProcessorImplementation = OrderProcessor(
+            deployWithCreate2(keccak256(abi.encodePacked(cfg.deployer)), implBytecodes.orderProcessorBytecode)
+        );
         deployments.orderProcessor = OrderProcessor(
             address(
                 new ERC1967Proxy(
@@ -166,5 +185,12 @@ contract DeployAllSandbox is Script {
         deployments.dividendDistributor.grantRole(deployments.dividendDistributor.DISTRIBUTOR_ROLE(), cfg.distributor);
 
         vm.stopBroadcast();
+    }
+
+    function deployWithCreate2(bytes32 salt, bytes memory bytecode) internal returns (address addr) {
+        assembly {
+            addr := create2(0, add(bytecode, 0x20), mload(bytecode), salt)
+        }
+        require(addr != address(0), "CREATE2: Failed on deploy");
     }
 }
