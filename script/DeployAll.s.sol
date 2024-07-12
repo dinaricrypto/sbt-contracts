@@ -28,9 +28,9 @@ contract DeployAll is Script {
         // address distributor;
         address usdc;
         address usdplus;
-        // address pyth;
-        // bytes32 ethusdoracleid;
     }
+    // address pyth;
+    // bytes32 ethusdoracleid;
 
     struct Deployments {
         TransferRestrictor transferRestrictor;
@@ -47,9 +47,9 @@ contract DeployAll is Script {
         // BuyUnlockedProcessor directBuyIssuer;
         ForwarderPyth forwarder;
         FulfillmentRouter fulfillmentRouter;
-        // Vault vault;
-        // DividendDistribution dividendDistributor;
     }
+    // Vault vault;
+    // DividendDistribution dividendDistributor;
 
     uint256 constant SELL_GAS_COST = 421_549;
 
@@ -65,9 +65,9 @@ contract DeployAll is Script {
             // distributor: vm.envAddress("DISTRIBUTOR"),
             usdc: vm.envAddress("USDC"),
             usdplus: vm.envAddress("USDPLUS")
-            // pyth: vm.envAddress("PYTH"),
-            // ethusdoracleid: vm.envBytes32("ETHUSDORACLEID")
         });
+        // pyth: vm.envAddress("PYTH"),
+        // ethusdoracleid: vm.envBytes32("ETHUSDORACLEID")
 
         Deployments memory deps;
 
