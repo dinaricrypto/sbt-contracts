@@ -3,7 +3,7 @@ src = "src"
 out = "out"
 libs = ["node_modules", "lib"]
 solc_version = '0.8.22'
-evm_version = 'paris'
+evm_version = 'cancun'
 optimizer_runs = 200
 gas_price = 200_000_000
 

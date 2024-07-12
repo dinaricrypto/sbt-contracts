@@ -22,32 +22,33 @@ contract DeployAll is Script {
     struct DeployConfig {
         address deployer;
         address treasury;
-        address operator;
-        address operator2;
-        address relayer;
-        address distributor;
-        address usdb;
-        address pyth;
-        bytes32 ethusdoracleid;
+        // address operator;
+        // address operator2;
+        // address relayer;
+        // address distributor;
+        address usdc;
+        address usdplus;
+        // address pyth;
+        // bytes32 ethusdoracleid;
     }
 
     struct Deployments {
         TransferRestrictor transferRestrictor;
-        address dShareImplementation;
+        // address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
-        address wrappeddShareImplementation;
+        // address wrappeddShareImplementation;
         UpgradeableBeacon wrappeddShareBeacon;
-        address dShareFactoryImplementation;
+        // address dShareFactoryImplementation;
         DShareFactory dShareFactory;
         TokenLockCheck tokenLockCheck;
         OrderProcessor orderProcessorImplementation;
         OrderProcessor orderProcessor;
-        BuyUnlockedProcessor directBuyIssuerImplementation;
-        BuyUnlockedProcessor directBuyIssuer;
+        // BuyUnlockedProcessor directBuyIssuerImplementation;
+        // BuyUnlockedProcessor directBuyIssuer;
         ForwarderPyth forwarder;
         FulfillmentRouter fulfillmentRouter;
-        Vault vault;
-        DividendDistribution dividendDistributor;
+        // Vault vault;
+        // DividendDistribution dividendDistributor;
     }
 
     uint256 constant SELL_GAS_COST = 421_549;
@@ -58,13 +59,14 @@ contract DeployAll is Script {
         DeployConfig memory cfg = DeployConfig({
             deployer: vm.addr(deployerPrivateKey),
             treasury: vm.envAddress("TREASURY"),
-            operator: vm.envAddress("OPERATOR"),
-            operator2: vm.envAddress("OPERATOR2"),
-            relayer: vm.envAddress("RELAYER"),
-            distributor: vm.envAddress("DISTRIBUTOR"),
-            usdb: vm.envAddress("USDB"),
-            pyth: vm.envAddress("PYTH"),
-            ethusdoracleid: vm.envBytes32("ETHUSDORACLEID")
+            // operator: vm.envAddress("OPERATOR"),
+            // operator2: vm.envAddress("OPERATOR2"),
+            // relayer: vm.envAddress("RELAYER"),
+            // distributor: vm.envAddress("DISTRIBUTOR"),
+            usdc: vm.envAddress("USDC"),
+            usdplus: vm.envAddress("USDPLUS")
+            // pyth: vm.envAddress("PYTH"),
+            // ethusdoracleid: vm.envBytes32("ETHUSDORACLEID")
         });
 
         Deployments memory deps;
@@ -77,40 +79,20 @@ contract DeployAll is Script {
         /// ------------------ asset tokens ------------------
 
         // deploy transfer restrictor
-        deps.transferRestrictor = new TransferRestrictor(cfg.deployer);
-
-        // deploy dShares logic implementation
-        deps.dShareImplementation = address(new DShare());
+        deps.transferRestrictor = TransferRestrictor(0xa030E2a6f377E59704A585748897a1Ddc5963cB1);
 
         // deploy dShares beacon
-        deps.dShareBeacon = new UpgradeableBeacon(deps.dShareImplementation, cfg.deployer);
-
-        // deploy wrapped dShares logic implementation
-        deps.wrappeddShareImplementation = address(new WrappedDShare());
+        deps.dShareBeacon = UpgradeableBeacon(0x525783cb1f1ABA2FC5dFF884E6510a82704D3274);
 
         // deploy wrapped dShares beacon
-        deps.wrappeddShareBeacon = new UpgradeableBeacon(deps.wrappeddShareImplementation, cfg.deployer);
+        deps.wrappeddShareBeacon = UpgradeableBeacon(0xa5D5F87DA8B58Bd41514754738fAE4C8c4419FB0);
 
-        // deploy dShare factory
-        deps.dShareFactoryImplementation = address(new DShareFactory());
-
-        new ERC1967Proxy(
-            deps.dShareFactoryImplementation,
-            abi.encodeCall(
-                DShareFactory.initialize,
-                (
-                    cfg.deployer,
-                    address(deps.dShareBeacon),
-                    address(deps.wrappeddShareBeacon),
-                    address(deps.transferRestrictor)
-                )
-            )
-        );
+        deps.dShareFactory = DShareFactory(0x92289a641517BA65438605eF0EeCF5fFB08B597c);
 
         /// ------------------ order processors ------------------
 
         // deploy blacklist prechecker
-        deps.tokenLockCheck = new TokenLockCheck();
+        deps.tokenLockCheck = TokenLockCheck(0xDE9925851f41B4A405f7C8A44DdaB399D861dC5b);
 
         deps.orderProcessorImplementation = new OrderProcessor();
         deps.orderProcessor = OrderProcessor(
@@ -122,58 +104,29 @@ contract DeployAll is Script {
             )
         );
 
-        deps.directBuyIssuerImplementation = new BuyUnlockedProcessor();
-        deps.directBuyIssuer = BuyUnlockedProcessor(
-            address(
-                new ERC1967Proxy(
-                    address(deps.directBuyIssuerImplementation),
-                    abi.encodeCall(OrderProcessor.initialize, (cfg.deployer, cfg.treasury, deps.tokenLockCheck))
-                )
-            )
-        );
-
         // config payment token
         OrderProcessor.FeeRates memory defaultFees = OrderProcessor.FeeRates({
             perOrderFeeBuy: 1e8,
-            percentageFeeRateBuy: 0,
+            percentageFeeRateBuy: 5_000,
             perOrderFeeSell: 1e8,
             percentageFeeRateSell: 5_000
         });
 
-        deps.orderProcessor.setDefaultFees(cfg.usdb, defaultFees);
-        deps.directBuyIssuer.setDefaultFees(cfg.usdb, defaultFees);
+        deps.orderProcessor.setDefaultFees(cfg.usdc, defaultFees);
+        deps.orderProcessor.setDefaultFees(cfg.usdplus, defaultFees);
 
         /// ------------------ forwarder ------------------
 
-        deps.forwarder = new ForwarderPyth(cfg.pyth, cfg.ethusdoracleid, SELL_GAS_COST);
-
-        deps.forwarder.setPaymentOracle(cfg.usdb, bytes32(uint256(1)));
+        deps.forwarder = ForwarderPyth(0xDfC5441EF5eEbf7bFa73B5420C57F42CC84f1B7f);
 
         deps.forwarder.setSupportedModule(address(deps.orderProcessor), true);
-        deps.forwarder.setSupportedModule(address(deps.directBuyIssuer), true);
-
-        deps.forwarder.setRelayer(cfg.relayer, true);
 
         deps.orderProcessor.grantRole(deps.orderProcessor.FORWARDER_ROLE(), address(deps.forwarder));
-        deps.directBuyIssuer.grantRole(deps.directBuyIssuer.FORWARDER_ROLE(), address(deps.forwarder));
 
         /// ------------------ vault ------------------
 
-        deps.fulfillmentRouter = new FulfillmentRouter(cfg.deployer);
+        deps.fulfillmentRouter = FulfillmentRouter(0x8E65Ac7f98bb0D643DDb1C00A9d3e9292690A39b);
         deps.orderProcessor.grantRole(deps.orderProcessor.OPERATOR_ROLE(), address(deps.fulfillmentRouter));
-        deps.directBuyIssuer.grantRole(deps.directBuyIssuer.OPERATOR_ROLE(), address(deps.fulfillmentRouter));
-        deps.fulfillmentRouter.grantRole(deps.fulfillmentRouter.OPERATOR_ROLE(), cfg.operator);
-        deps.fulfillmentRouter.grantRole(deps.fulfillmentRouter.OPERATOR_ROLE(), cfg.operator2);
-
-        deps.vault = new Vault(cfg.deployer);
-        deps.vault.grantRole(deps.vault.OPERATOR_ROLE(), address(deps.fulfillmentRouter));
-
-        /// ------------------ dividend distributor ------------------
-
-        deps.dividendDistributor = new DividendDistribution(cfg.deployer);
-
-        // add dividend operator
-        deps.dividendDistributor.grantRole(deps.dividendDistributor.DISTRIBUTOR_ROLE(), cfg.distributor);
 
         vm.stopBroadcast();
     }
