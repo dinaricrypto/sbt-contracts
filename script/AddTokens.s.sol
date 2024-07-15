@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.22;
 
 import "forge-std/Script.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
-import {BuyUnlockedProcessor} from "../src/orders/BuyUnlockedProcessor.sol";
 import {DShare} from "../src/DShare.sol";
+import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 contract AddTokensScript is Script {
     // When new issuers have been deployed, this script will add tokens to them.
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         OrderProcessor issuer = OrderProcessor(vm.envAddress("ORDERPROCESSOR"));
-        BuyUnlockedProcessor directIssuer = BuyUnlockedProcessor(vm.envAddress("BUYUNLOCKEDPROCESSOR"));
 
         address[38] memory assetTokens = [
             // arbitrum
@@ -138,12 +137,12 @@ contract AddTokensScript is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         bytes[] memory issuerCalls = new bytes[](assetTokens.length);
-        bytes[] memory directIssuerCalls = new bytes[](assetTokens.length);
 
         for (uint256 i = 0; i < assetTokens.length; i++) {
             // TODO: add to deployall scripts
-            issuerCalls[i] = abi.encodeWithSelector(issuer.setMaxOrderDecimals.selector, assetTokens[i], 9);
-            directIssuerCalls[i] = abi.encodeWithSelector(directIssuer.setMaxOrderDecimals.selector, assetTokens[i], 9);
+            issuerCalls[i] = abi.encodeWithSelector(
+                issuer.setOrderDecimalReduction.selector, assetTokens[i], IERC20Metadata(assetTokens[i]).decimals() - 9
+            );
             // issuer.setMaxOrderDecimals(assetTokens[i], 9);
             // issuer.grantRole(issuer.ASSETTOKEN_ROLE(), assetTokens[i]);
             // directIssuer.setMaxOrderDecimals(assetTokens[i], 9);
@@ -152,11 +151,9 @@ contract AddTokensScript is Script {
             // DShare assetToken = DShare(assetTokens[i]);
             // assetToken.grantRole(assetToken.MINTER_ROLE(), address(issuer));
             // assetToken.grantRole(assetToken.BURNER_ROLE(), address(issuer));
-            // assetToken.grantRole(assetToken.MINTER_ROLE(), address(directIssuer));
         }
 
         issuer.multicall(issuerCalls);
-        directIssuer.multicall(directIssuerCalls);
 
         vm.stopBroadcast();
     }

@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.22;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
 
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 
@@ -22,6 +22,7 @@ interface IDShare {
     /// @dev Only callable by approved burner
     /// @dev Deployer can always burn after split
     function burn(uint256 value) external;
+    function burnFrom(address from, uint256 value) external;
 
     /**
      * @param account The address of the account

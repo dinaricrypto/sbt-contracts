@@ -1,5 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-pragma solidity 0.8.22;
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.23;
 
 /// @notice Interface for the extended functionalities of DividendDistribution contract
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dividend/IDividendDistributor.sol)
