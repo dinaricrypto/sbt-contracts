@@ -80,13 +80,14 @@ async function main() {
     // check the order precision doesn't exceed max decimals
     // applicable to sell and limit orders only
     if (sellOrder || orderType === 1) {
-        const maxDecimals = await orderProcessor.maxOrderDecimals(assetTokenAddress);
-        const assetTokenDecimals = await assetToken.decimals();
-        const allowablePrecision = 10 ** (assetTokenDecimals - maxDecimals);
-        if (Number(orderAmount) % allowablePrecision != 0) {
-            throw new Error(`Order amount precision exceeds max decimals of ${maxDecimals}`);
+        const allowedDecimalReduction = await orderProcessor.orderDecimalReduction(assetTokenAddress);
+        const allowablePrecisionReduction = 10 ** allowedDecimalReduction;
+        if (Number(orderAmount) % allowablePrecisionReduction != 0) {
+          const assetTokenDecimals = await assetToken.decimals();
+          const maxDecimals = assetTokenDecimals - allowedDecimalReduction;
+          throw new Error(`Order amount precision exceeds max decimals of ${maxDecimals}`);
         }
-    }
+        }
 
     const orderParams = {
         requestTimestamp: Date.now(),
