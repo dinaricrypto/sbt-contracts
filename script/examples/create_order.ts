@@ -116,14 +116,17 @@ async function main() {
   const sellOrder = false;
   // market order
   const orderType = Number(0);
+  // limit price
+  const limitPrice = Number(0);
 
   // check the order precision doesn't exceed max decimals
   // applicable to sell and limit orders only
   if (sellOrder || orderType === 1) {
-    const maxDecimals = await orderProcessor.maxOrderDecimals(assetTokenAddress);
-    const assetTokenDecimals = await assetToken.decimals();
-    const allowablePrecision = 10 ** (assetTokenDecimals - maxDecimals);
-    if (Number(orderAmount) % allowablePrecision != 0) {
+    const allowedDecimalReduction = await orderProcessor.orderDecimalReduction(assetTokenAddress);
+    const allowablePrecisionReduction = 10 ** allowedDecimalReduction;
+    if (Number(orderAmount) % allowablePrecisionReduction != 0) {
+      const assetTokenDecimals = await assetToken.decimals();
+      const maxDecimals = assetTokenDecimals - allowedDecimalReduction;
       throw new Error(`Order amount precision exceeds max decimals of ${maxDecimals}`);
     }
   }
@@ -137,7 +140,7 @@ async function main() {
     orderType: orderType,
     assetTokenQuantity: 0, // Asset amount to sell. Ignored for buys. Fees will be taken from proceeds for sells.
     paymentTokenQuantity: Number(orderAmount), // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
-    price: 0, // Unused limit price
+    price: limitPrice, // Limit price unused for market orders
     tif: 1, // GTC
   };
 
