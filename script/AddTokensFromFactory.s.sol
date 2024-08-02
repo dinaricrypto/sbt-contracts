@@ -6,7 +6,7 @@ import {DShareFactory} from "../src/DShareFactory.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import {DShare} from "../src/DShare.sol";
 
-contract AddTokens is Script {
+contract AddTokensFromFactory is Script {
     // When new issuers have been deployed, this script will add tokens to them.
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
@@ -24,9 +24,11 @@ contract AddTokens is Script {
 
             DShare assetToken = DShare(assetTokens[i]);
             if (!assetToken.hasRole(MINTER_ROLE, address(issuer))) {
+                console.log("Granting MINTER_ROLE to", address(issuer), "for", assetTokens[i]);
                 assetToken.grantRole(MINTER_ROLE, address(issuer));
             }
             if (!assetToken.hasRole(BURNER_ROLE, address(issuer))) {
+                console.log("Granting BURNER_ROLE to", address(issuer), "for", assetTokens[i]);
                 assetToken.grantRole(BURNER_ROLE, address(issuer));
             }
         }
