@@ -16,9 +16,6 @@
 [submodule "lib/prb-math"]
 	path = lib/prb-math
 	url = https://github.com/PaulRBerg/prb-math
-[submodule "lib/interchain-token-service"]
-	path = lib/interchain-token-service
-	url = https://github.com/axelarnetwork/interchain-token-service
 [submodule "lib/sbt-deployments"]
 	path = lib/sbt-deployments
 	url = https://github.com/dinaricrypto/sbt-deployments

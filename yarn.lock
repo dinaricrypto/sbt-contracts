@@ -5,32 +5,6 @@ __metadata:
   version: 6
   cacheKey: 8
 
-"@axelar-network/axelar-cgp-solidity@npm:6.2.1":
-  version: 6.2.1
-  resolution: "@axelar-network/axelar-cgp-solidity@npm:6.2.1"
-  dependencies:
-    "@axelar-network/axelar-gmp-sdk-solidity": 5.6.4
-  checksum: 28b3b977b81324786d139e4d7f76f786bcdc8a9597a6bc3025a01bbeb044ce5496b0dda60ca77b5b09e83a0ee2318e4d39dfcef1fa07aece3edf65259d9d6436
-  languageName: node
-  linkType: hard
-
-"@axelar-network/axelar-gmp-sdk-solidity@npm:5.6.4, @axelar-network/axelar-gmp-sdk-solidity@npm:^5.6.4":
-  version: 5.6.4
-  resolution: "@axelar-network/axelar-gmp-sdk-solidity@npm:5.6.4"
-  checksum: d5b559d6f19975013c9c38b4477717fca74df5bdfbc0d55e9d723b185b86a093363b9f4a547b864188e41c44e6b2aa1147190029148f7da1c6354ec5f0edb571
-  languageName: node
-  linkType: hard
-
-"@axelar-network/interchain-token-service@npm:^1.2.1":
-  version: 1.2.1
-  resolution: "@axelar-network/interchain-token-service@npm:1.2.1"
-  dependencies:
-    "@axelar-network/axelar-cgp-solidity": 6.2.1
-    "@axelar-network/axelar-gmp-sdk-solidity": 5.6.4
-  checksum: 980cb28d230608d091208747f517baa46be0aa363409dce3a0db26c8e00de297bea8b4488a4aaa0d677c51d033ff09ed16ab50b42545239dc58f16452bf0f4b4
-  languageName: node
-  linkType: hard
-
 "@cspotcode/source-map-support@npm:^0.8.0":
   version: 0.8.1
   resolution: "@cspotcode/source-map-support@npm:0.8.1"
@@ -44,8 +18,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@dinari/sbt-contracts@workspace:."
   dependencies:
-    "@axelar-network/axelar-gmp-sdk-solidity": ^5.6.4
-    "@axelar-network/interchain-token-service": ^1.2.1
     "@typechain/ethers-v5": ^11.0.0
     "@types/node": ^16.11.0
     axios: ^1.7.2
