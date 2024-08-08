@@ -74,7 +74,7 @@ async function main() {
           const maxDecimals = assetTokenDecimals - allowedDecimalReduction;
           throw new Error(`Order amount precision exceeds max decimals of ${maxDecimals}`);
         }
-        }
+    }
 
     // get fees, fees will be added to buy order deposit or taken from sell order proceeds
     // TODO: get fees quote for sell order
