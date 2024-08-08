@@ -16,10 +16,9 @@ No files changed, compilation skipped
 | EnumerableSet            |       85 |     24,491 |
 | FeeLib                   |       85 |     24,491 |
 | FixedPointMathLib        |       85 |     24,491 |
-| FulfillmentRouter        |    7,854 |     16,722 |
+| FulfillmentRouter        |    8,112 |     16,464 |
 | GetMockDShareFactory     |       85 |     24,491 |
 | InterchainAddressTracker |    1,366 |     23,210 |
-| InterchainTokenService   |   23,767 |        809 |
 | LibString                |       85 |     24,491 |
 | Math                     |       85 |     24,491 |
 | MessageHashUtils         |       85 |     24,491 |
@@ -29,7 +28,7 @@ No files changed, compilation skipped
 | NumberUtils              |       85 |     24,491 |
 | Operator                 |    1,744 |     22,832 |
 | OracleLib                |       85 |     24,491 |
-| OrderProcessor           |   23,321 |      1,255 |
+| OrderProcessor           |   23,476 |      1,100 |
 | OrderSigUtils            |    1,661 |     22,915 |
 | Pausable                 |      150 |     24,426 |
 | RolesBase                |      401 |     24,175 |

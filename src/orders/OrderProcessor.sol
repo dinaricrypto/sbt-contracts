@@ -47,6 +47,8 @@ contract OrderProcessor is
         uint256 feesEscrowed;
         // Cumulative fees taken for order
         uint256 feesTaken;
+        // Amount of token received from fills
+        uint256 receivedAmount;
     }
 
     struct PaymentTokenConfig {
@@ -70,8 +72,7 @@ contract OrderProcessor is
     error Paused();
     /// @dev Zero value
     error ZeroValue();
-    /// @dev Order does not exist
-    error OrderNotFound();
+    error OrderNotActive();
     error ExistingOrder();
     /// @dev Amount too large
     error AmountTooLarge();
@@ -227,6 +228,12 @@ contract OrderProcessor is
     function getUnfilledAmount(uint256 id) external view returns (uint256) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         return $._orders[id].unfilledAmount;
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function getReceivedAmount(uint256 id) external view returns (uint256) {
+        OrderProcessorStorage storage $ = _getOrderProcessorStorage();
+        return $._orders[id].receivedAmount;
     }
 
     /// @inheritdoc IOrderProcessor
@@ -511,8 +518,13 @@ contract OrderProcessor is
         // ------------------ Effects ------------------ //
 
         // Initialize order state
-        $._orders[id] =
-            OrderState({requester: requester, unfilledAmount: orderAmount, feesEscrowed: feesEscrowed, feesTaken: 0});
+        $._orders[id] = OrderState({
+            requester: requester,
+            unfilledAmount: orderAmount,
+            feesEscrowed: feesEscrowed,
+            feesTaken: 0,
+            receivedAmount: 0
+        });
         $._status[id] = OrderStatus.ACTIVE;
 
         emit OrderCreated(id, requester, order, feesEscrowed);
@@ -606,8 +618,8 @@ contract OrderProcessor is
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         OrderState memory orderState = $._orders[id];
 
-        // Order must exist
-        if (orderState.requester == address(0)) revert OrderNotFound();
+        // Order must be active
+        if ($._status[id] != OrderStatus.ACTIVE) revert OrderNotActive();
         // Fill cannot exceed remaining order
         if (fillAmount > orderState.unfilledAmount) revert AmountTooLarge();
 
@@ -644,7 +656,7 @@ contract OrderProcessor is
 
         _publishFill(id, orderState.requester, order, assetAmount, paymentAmount, fees);
 
-        _updateFillState(id, orderState, assetAmount, fees);
+        _updateFillState(id, orderState, assetAmount, paymentAmount, fees);
 
         // Transfer the received amount from the filler to this contract
         IERC20(order.paymentToken).safeTransferFrom(msg.sender, address(this), paymentAmount);
@@ -679,7 +691,7 @@ contract OrderProcessor is
 
         _publishFill(id, orderState.requester, order, assetAmount, paymentAmount, fees);
 
-        bool fulfilled = _updateFillState(id, orderState, paymentAmount, fees);
+        bool fulfilled = _updateFillState(id, orderState, paymentAmount, assetAmount, fees);
 
         // Update fee escrow (and refund if eligible)
         uint256 remainingFeesEscrowed = orderState.feesEscrowed - fees;
@@ -722,36 +734,37 @@ contract OrderProcessor is
         );
     }
 
-    function _updateFillState(uint256 id, OrderState memory orderState, uint256 fillAmount, uint256 fees)
-        private
-        returns (bool fulfilled)
-    {
+    function _updateFillState(
+        uint256 id,
+        OrderState memory orderState,
+        uint256 fillAmount,
+        uint256 receivedAmount,
+        uint256 fees
+    ) private returns (bool fulfilled) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
         // Update order state
         uint256 newUnfilledAmount = orderState.unfilledAmount - fillAmount;
+        $._orders[id].unfilledAmount = newUnfilledAmount;
+        $._orders[id].receivedAmount = orderState.receivedAmount + receivedAmount;
+        $._orders[id].feesTaken = orderState.feesTaken + fees;
         // If order is completely filled then clear order state
         fulfilled = newUnfilledAmount == 0;
         if (fulfilled) {
+            $._orders[id].feesEscrowed = 0;
             $._status[id] = OrderStatus.FULFILLED;
-            // Clear order state
-            delete $._orders[id];
             // Notify order fulfilled
             emit OrderFulfilled(id, orderState.requester);
-        } else {
-            // Otherwise update order state
-            $._orders[id].unfilledAmount = newUnfilledAmount;
-            $._orders[id].feesTaken = orderState.feesTaken + fees;
         }
     }
 
     /// @inheritdoc IOrderProcessor
     function requestCancel(uint256 id) external {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        // Order must exist
-        address requester = $._orders[id].requester;
-        if (requester == address(0)) revert OrderNotFound();
+        // Order must be active
+        if ($._status[id] != OrderStatus.ACTIVE) revert OrderNotActive();
         // Only requester can request cancellation
+        address requester = $._orders[id].requester;
         if (requester != msg.sender) revert NotRequester();
 
         // Send cancel request to bridge
@@ -766,24 +779,23 @@ contract OrderProcessor is
         uint256 id = hashOrder(order);
 
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
-        OrderState storage orderState = $._orders[id];
-        address requester = orderState.requester;
-        // Order must exist
-        if (requester == address(0)) revert OrderNotFound();
+        // Order must be active
+        if ($._status[id] != OrderStatus.ACTIVE) revert OrderNotActive();
 
         // ------------------ Effects ------------------ //
 
         // If buy order, then refund fee deposit
+        OrderState storage orderState = $._orders[id];
         uint256 feeRefund = order.sell ? 0 : orderState.feesEscrowed;
         uint256 unfilledAmount = orderState.unfilledAmount;
+
+        orderState.feesEscrowed = 0;
 
         // Order is cancelled
         $._status[id] = OrderStatus.CANCELLED;
 
-        // Clear order state
-        delete $._orders[id];
-
         // Notify order cancelled
+        address requester = orderState.requester;
         emit OrderCancelled(id, requester, reason);
 
         // ------------------ Interactions ------------------ //

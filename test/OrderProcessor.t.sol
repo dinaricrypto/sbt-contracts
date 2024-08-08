@@ -344,9 +344,11 @@ contract OrderProcessorTest is Test {
         emit OrderCreated(orderId, user, order, fees);
         vm.prank(user);
         uint256 id = issuer.createOrderStandardFees(order);
+        uint256 receivedAmount = issuer.getReceivedAmount(id);
         assertEq(id, orderId);
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
         assertEq(issuer.getUnfilledAmount(id), order.paymentTokenQuantity);
+        assertEq(receivedAmount, 0);
         assertEq(issuer.getFeesEscrowed(id), fees);
         assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
         assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
@@ -602,6 +604,7 @@ contract OrderProcessorTest is Test {
                 // if order is fullfilled in on time
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.FULFILLED));
                 assertEq(paymentToken.balanceOf(user), feesMax - fees);
+                assertEq(issuer.getReceivedAmount(id), receivedAmount);
             } else {
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
                 assertEq(paymentToken.balanceOf(address(issuer)), feesMax - fees);
@@ -662,6 +665,7 @@ contract OrderProcessorTest is Test {
             } else {
                 assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
             }
+            assertEq(issuer.getReceivedAmount(id), receivedAmount);
         }
     }
 
@@ -774,7 +778,7 @@ contract OrderProcessorTest is Test {
     }
 
     function testFillOrderNoOrderReverts(bool sell) public {
-        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
+        vm.expectRevert(OrderProcessor.OrderNotActive.selector);
         vm.prank(operator);
         issuer.fillOrder(getDummyOrder(sell), 100, 100, 10);
     }
@@ -815,7 +819,7 @@ contract OrderProcessorTest is Test {
     }
 
     function testRequestCancelNotFoundReverts(uint256 id) public {
-        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
+        vm.expectRevert(OrderProcessor.OrderNotActive.selector);
         vm.prank(user);
         issuer.requestCancel(id);
     }
@@ -893,8 +897,8 @@ contract OrderProcessorTest is Test {
         assertEq(uint8(issuer.getOrderStatus(id)), uint8(IOrderProcessor.OrderStatus.CANCELLED));
     }
 
-    function testCancelOrderNotFoundReverts() public {
-        vm.expectRevert(OrderProcessor.OrderNotFound.selector);
+    function testCancelOrderNotActiveReverts() public {
+        vm.expectRevert(OrderProcessor.OrderNotActive.selector);
         vm.prank(operator);
         issuer.cancelOrder(getDummyOrder(false), "msg");
     }
