@@ -149,16 +149,3 @@ contract DeployAllSandbox is Script {
         vm.stopBroadcast();
     }
 }
-
-//  deployer: 0x702347E2B1be68444C1451922275b66AABDaC528
-//  transfer restrictor: 0x585b916116631A5310f224F146f2F6ffb8FE656E
-//  dShare implementation: 0xE4Ff8Bf2d94f578C25E9b0aA6f5071800Ee0375F
-//  dShare beacon: 0x338e7708C5ee50d08A3fa13D67a569a07c99dF16
-//  wrapped dShare implementation: 0x8316f45Da92c3b9A032095c5F383E9f0f7361f4C
-//  wrapped dShare beacon: 0x94E0555B92E3907f6598b68Bc82c33079C8850Af
-//  dShare factory implementation: 0x638c2Fa8B02E8F294e8Af9d7F2248Ec1E085aa79
-//  dShare factory: 0xaa5474bbb3aec03B81D1E280c821dBeF60A7aABe
-//  vault: 0x3934aeeE752235AEe8139dbeC4493639534EFf2D
-//  order processor implementation: 0x897627378772f7139Dda8fD16602019aA6d557F2
-//  order processor: 0x94902a03f7E27c6f512B3E1E8cc7b1e1d2CCeE63
-//  dividend distributor: 0x0F96bf4a333ab9f46B7bA9B873B99F6022798Aa5
