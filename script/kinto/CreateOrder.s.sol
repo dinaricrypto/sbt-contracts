@@ -17,13 +17,13 @@ contract CreateOrder is Script, EntryPointHelper {
         address owner = vm.envAddress("KINTO_WALLET");
         IEntryPoint _entryPoint = IEntryPoint(vm.envAddress("ENTRYPOINT"));
         ISponsorPaymaster _sponsorPaymaster = ISponsorPaymaster(vm.envAddress("SPONSOR_PAYMASTER"));
-        OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDER_PROCESSOR"));
+        OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDERPROCESSOR"));
         ERC20 usdc = ERC20(vm.envAddress("USDC"));
 
         console.log("deployer: %s", deployer);
         console.log("owner: %s", owner);
 
-        address assetToken = address(0);
+        address assetToken = 0xF5Afd69d9C7a867E47dE4147f6a031175ea05103;
         uint256 orderAmount = 10_000_000;
 
         IOrderProcessor.Order memory order = IOrderProcessor.Order({
