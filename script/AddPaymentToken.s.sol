@@ -10,13 +10,13 @@ contract AddPaymentToken is Script {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         OrderProcessor issuer = OrderProcessor(vm.envAddress("ORDERPROCESSOR"));
-        address usdc = vm.envAddress("USDC");
+        address usdc = vm.envAddress("USDPLUS");
 
         console.log("deployer: %s", deployer);
 
         vm.startBroadcast(deployerPrivateKey);
 
-        issuer.setPaymentToken(address(usdc), bytes4(0), 1e8, 5_000, 1e8, 5_000);
+        issuer.setPaymentToken(address(usdc), bytes4(0xfe575a87), 0.2e8, 2_500, 0.2e8, 2_500);
 
         vm.stopBroadcast();
     }
