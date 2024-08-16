@@ -21,6 +21,8 @@ contract ConfigOperators is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         issuer.setOperator(address(fulfillmentRouter), true);
+        issuer.setOperator(operator1, true);
+        issuer.setOperator(operator2, true);
         vault.grantRole(vault.OPERATOR_ROLE(), address(fulfillmentRouter));
         fulfillmentRouter.grantRole(fulfillmentRouter.OPERATOR_ROLE(), operator1);
         fulfillmentRouter.grantRole(fulfillmentRouter.OPERATOR_ROLE(), operator2);
