@@ -28,7 +28,6 @@ contract DeployAllSandbox is Script {
     }
 
     struct Deployments {
-        Vault vault;
         TransferRestrictor transferRestrictor;
         address dShareImplementation;
         UpgradeableBeacon dShareBeacon;
