@@ -14,6 +14,7 @@ import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/U
 import {IAccessControlDefaultAdminRules} from
     "openzeppelin-contracts/contracts/access/extensions/IAccessControlDefaultAdminRules.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {Ownable2Step} from "openzeppelin-contracts/contracts/access/Ownable2Step.sol";
 
 import "kinto-contracts-helpers/EntryPointHelper.sol";
 
@@ -93,6 +94,15 @@ contract MigrateOwner is Script, EntryPointHelper {
 
         // _handleOps(
         //     _entryPoint,
+        //     abi.encodeCall(Ownable2Step.transferOwnership, (newOwner)),
+        //     kintoWallet,
+        //     address(cfg.orderProcessor),
+        //     address(_sponsorPaymaster),
+        //     deployerPrivateKey
+        // );
+
+        // _handleOps(
+        //     _entryPoint,
         //     abi.encodeCall(IAccessControlDefaultAdminRules.beginDefaultAdminTransfer, (newOwner)),
         //     kintoWallet,
         //     address(cfg.vault),
@@ -119,6 +129,7 @@ contract MigrateOwner is Script, EntryPointHelper {
         // );
 
         cfg.transferRestrictor.acceptDefaultAdminTransfer();
+        cfg.orderProcessor.acceptOwnership();
         cfg.vault.acceptDefaultAdminTransfer();
         cfg.fulfillmentRouter.acceptDefaultAdminTransfer();
         cfg.dividendDistributor.acceptDefaultAdminTransfer();
