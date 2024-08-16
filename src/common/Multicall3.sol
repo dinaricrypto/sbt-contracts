@@ -2,7 +2,8 @@
 pragma solidity ^0.8.12;
 
 /// @notice Aggregate results from multiple function calls
-/// @author Modified from (https://github.com/mds1/multicall/blob/main/src/Multicall3.sol)
+/// @dev No code changes were made other than floating pragma and comments
+/// @author Migrated from (https://github.com/mds1/multicall/blob/main/src/Multicall3.sol)
 contract Multicall3 {
     struct Call {
         address target;
