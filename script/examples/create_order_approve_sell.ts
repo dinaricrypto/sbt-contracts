@@ -1,7 +1,8 @@
-import "dotenv/config";
-import { ethers } from "ethers";
+import 'dotenv/config';
+import { ethers } from 'ethers';
 import fs from 'fs';
 import path from 'path';
+import axios from 'axios';
 
 const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
 const orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
@@ -26,10 +27,22 @@ async function main() {
     if (!assetTokenAddress) throw new Error("empty asset token address");
     const paymentTokenAddress = process.env.PAYMENTTOKEN;
     if (!paymentTokenAddress) throw new Error("empty payment token address");
+    const dinariApiKey = process.env.DINARI_API_KEY;
+    if (!dinariApiKey) throw new Error("empty dinari api key");
+
+    // setup axios
+    const dinariClient = axios.create({
+        baseURL: "https://api-enterprise.sandbox.dinari.com",
+        headers: {
+            "Authorization": `Bearer ${dinariApiKey}`,
+            "Content-Type": "application/json",
+        },
+    });
 
     // setup provider and signer
     const provider = ethers.getDefaultProvider(RPC_URL);
     const signer = new ethers.Wallet(privateKey, provider);
+    console.log(`Signer Address: ${signer.address}`);
     const chainId = Number((await provider.getNetwork()).chainId);
     const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
     console.log(`Order Processor Address: ${orderProcessorAddress}`);
@@ -57,10 +70,10 @@ async function main() {
 
     // ------------------ Configure Order ------------------
 
-    // order amount (1000 USDC)
-    const orderAmount = BigInt(1000_000_000);
+    // order amount (100 USDC)
+    const orderAmount = BigInt("100000000000000000");
     // buy order (Change to true for Sell Order)
-    const sellOrder = false;
+    const sellOrder = true;
     // market order
     const orderType = Number(0);
 
@@ -76,9 +89,39 @@ async function main() {
         }
     }
 
+    const orderParams = {
+        requestTimestamp: Date.now(),
+        recipient: signer.address,
+        assetToken: assetTokenAddress,
+        paymentToken: paymentTokenAddress,
+        sell: sellOrder,
+        orderType: orderType,
+        assetTokenQuantity: orderAmount, // Asset amount to sell. Ignored for buys. Fees will be taken from proceeds for sells.
+        paymentTokenQuantity: 0, // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
+        price: 0, // Unused limit price
+        tif: 1, // GTC
+    };
+
     // get fees, fees will be added to buy order deposit or taken from sell order proceeds
     // TODO: get fees quote for sell order
-    const fees = await orderProcessor.totalStandardFee(false, paymentTokenAddress, orderAmount);
+    const feeQuoteData = {
+        chain_id: chainId,
+        contract_address: orderProcessorAddress,
+        order_data: {
+            requestTimestamp: orderParams.requestTimestamp,
+            recipient: orderParams.recipient,
+            assetToken: orderParams.assetToken,
+            paymentToken: orderParams.paymentToken,
+            sell: orderParams.sell,
+            orderType: orderParams.orderType,
+            assetTokenQuantity: orderParams.assetTokenQuantity.toString(), 
+            paymentTokenQuantity: orderParams.paymentTokenQuantity.toString(), 
+            price: orderParams.price, 
+            tif: orderParams.tif
+        }
+    };
+    const feeQuoteResponse = await dinariClient.post("/api/v1/web3/orders/fee", feeQuoteData);
+    const fees = BigInt(feeQuoteResponse.data.fee_quote.fee);
     const totalSpendAmount = orderAmount + fees;
     console.log(`fees: ${ethers.utils.formatUnits(fees, 6)}`);
 
@@ -93,18 +136,24 @@ async function main() {
 
     // submit request order transaction
     // see IOrderProcessor.Order struct for order parameters
-    const tx = await orderProcessor.createOrderStandardFees([
-        Date.now(),
-        signer.address,
-        assetTokenAddress,
-        paymentTokenAddress,
-        sellOrder,
-        orderType,
-        0, // Asset amount to sell. Ignored for buys. Fees will be taken from proceeds for sells.
-        orderAmount, // Payment amount to spend. Ignored for sells. Fees will be added to this amount for buys.
-        0, // Unused limit price
-        1, // GTC
-    ]);
+    const tx = await orderProcessor.createOrder([
+        orderParams.requestTimestamp,
+        orderParams.recipient,
+        orderParams.assetToken,
+        orderParams.paymentToken,
+        orderParams.sell,
+        orderParams.orderType,
+        orderParams.assetTokenQuantity, 
+        orderParams.paymentTokenQuantity, 
+        orderParams.price, 
+        orderParams.tif, 
+    ], [
+        feeQuoteResponse.data.fee_quote.orderId,
+        feeQuoteResponse.data.fee_quote.requester,
+        feeQuoteResponse.data.fee_quote.fee,
+        feeQuoteResponse.data.fee_quote.timestamp,
+        feeQuoteResponse.data.fee_quote.deadline,
+    ], feeQuoteResponse.data.fee_quote_signature);
     const receipt = await tx.wait();
     console.log(`tx hash: ${tx.hash}`);
 
