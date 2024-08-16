@@ -1,6 +1,7 @@
 ignore:
   - "script"
   - "test"
+  - "src/common/Multicall3.sol"
 
 coverage:
   status:

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cp .env.sandbox-plume-sepolia .env
+cp .env.prod-kinto .env
 source .env
 
 # args
@@ -8,3 +8,5 @@ source .env
 forge verify-contract --chain-id 161221135 --verifier blockscout --watch --constructor-args $(cast abi-encode "constructor(address)" "0x702347E2B1be68444C1451922275b66AABDaC528") 0x0F96bf4a333ab9f46B7bA9B873B99F6022798Aa5 src/dividend/DividendDistribution.sol:DividendDistribution
 # no args
 # forge verify-contract --chain-id 161221135 --verifier blockscout --watch 0x897627378772f7139Dda8fD16602019aA6d557F2 src/orders/OrderProcessor.sol:OrderProcessor
+# forge verify-contract --chain-id 11155111 --watch 0x9aaB6100C89D6c80dF3f052Bb86680dC33031733 src/orders/OrderProcessor.sol:OrderProcessor
+forge verify-contract --chain-id 7887 --verifier blockscout --watch 0x2cc0188fA85FD8Ce748C7Df6066873fdcfaD95e9 src/common/Multicall3.sol:Multicall3
