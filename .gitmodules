@@ -19,3 +19,6 @@
 [submodule "lib/sbt-deployments"]
 	path = lib/sbt-deployments
 	url = https://github.com/dinaricrypto/sbt-deployments
+[submodule "lib/multicall"]
+	path = lib/multicall
+	url = https://github.com/mds1/multicall
