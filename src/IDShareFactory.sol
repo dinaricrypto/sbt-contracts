@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.23;
 
-import {TransferRestrictor} from "./TransferRestrictor.sol";
-import {DShare} from "./DShare.sol";
-import {WrappedDShare} from "./WrappedDShare.sol";
-
 ///@notice Factory interface to create new dShares
 ///@author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/IDShareFactory.sol)
 interface IDShareFactory {
