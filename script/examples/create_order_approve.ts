@@ -78,8 +78,8 @@ async function main() {
     const orderType = Number(0);
 
     // check the order precision doesn't exceed max decimals
-    // applicable to sell and limit orders only
-    if (sellOrder || orderType === 1) {
+    // applicable to sell orders only
+    if (sellOrder) {
         const allowedDecimalReduction = await orderProcessor.orderDecimalReduction(assetTokenAddress);
         const allowablePrecisionReduction = 10 ** allowedDecimalReduction;
         if (Number(orderAmount) % allowablePrecisionReduction != 0) {
