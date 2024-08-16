@@ -122,13 +122,12 @@ async function main() {
     };
     const feeQuoteResponse = await dinariClient.post("/api/v1/web3/orders/fee", feeQuoteData);
     const fees = BigInt(feeQuoteResponse.data.fee_quote.fee);
-    const totalSpendAmount = orderAmount + fees;
     console.log(`fees: ${ethers.utils.formatUnits(fees, 6)}`);
 
     // ------------------ Approve Spend ------------------
 
     // approve buy processor to spend payment token
-    const approveTx = await paymentToken.approve(orderProcessorAddress, totalSpendAmount);
+    const approveTx = await assetToken.approve(orderProcessorAddress, orderAmount);
     await approveTx.wait();
     console.log(`approve tx hash: ${approveTx.hash}`);
 
