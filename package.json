@@ -39,6 +39,7 @@
     "mnemonic": "npx ts-node script/mnemonic.ts",
     "keys": "npx ts-node script/printkeys.ts",
     "example:order": "npx ts-node script/examples/create_order.ts",
+    "example:order:sell": "npx ts-node script/examples/create_order_approve_sell.ts",
     "example:listen": "npx ts-node script/examples/listen_fill.ts",
     "example:cancel": "npx ts-node script/examples/request_cancel.ts"
   },
