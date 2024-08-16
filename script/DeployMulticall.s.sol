@@ -2,7 +2,7 @@
 pragma solidity ^0.8.13;
 
 import "forge-std/Script.sol";
-import "multicall/Multicall3.sol";
+import "../src/common/Multicall3.sol";
 
 contract DeployMulticall is Script {
     function run() external {
