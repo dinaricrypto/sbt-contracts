@@ -593,10 +593,12 @@ contract OrderProcessorTest is Test {
             issuer.fillOrder(order, fillAmount, receivedAmount, fees);
             assertEq(issuer.getUnfilledAmount(id), orderAmount - fillAmount);
             IOrderProcessor.PricePoint memory fillPrice = issuer.latestFillPrice(order.assetToken, order.paymentToken);
-            assertTrue(
-                fillPrice.price == 0
-                    || fillPrice.price == mulDiv(fillAmount, 10 ** (18 - paymentToken.decimals()), receivedAmount)
-            );
+            if (fillPrice.price > 0) {
+                assertEq(
+                    fillPrice.price,
+                    mulDiv(fillAmount, 10 ** (token.decimals() + 18 - paymentToken.decimals()), receivedAmount)
+                );
+            }
             // balances after
             assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
             assertEq(paymentToken.balanceOf(treasury), fees);
