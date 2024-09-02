@@ -13,14 +13,35 @@ contract UpgradeProcessor is Script {
 
         console.log("deployer: %s", deployer);
 
+        bytes32 salt = keccak256(abi.encodePacked("0.4.2"));
+
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
         /// ------------------ order processor ------------------
 
-        OrderProcessor orderProcessorImplementation = new OrderProcessor();
+        // In case of multiple deployments on single chain, check if the contract is already deployed
+        // address implAddress = getAddress(deployer, keccak256(type(OrderProcessor).creationCode), salt);
+        // if (implAddress.code.length == 0) {
+        OrderProcessor orderProcessorImplementation = new OrderProcessor{salt: salt}();
+        // assert(address(orderProcessorImplementation) == implAddress);
+        // }
+        console.log("order processor implementation: %s", address(orderProcessorImplementation));
         processor.upgradeToAndCall(address(orderProcessorImplementation), "");
 
         vm.stopBroadcast();
+    }
+
+    function getAddress(address sender, bytes32 creationCodeHash, bytes32 salt) public pure returns (address addr) {
+        assembly {
+            let ptr := mload(0x40)
+
+            mstore(add(ptr, 0x40), creationCodeHash)
+            mstore(add(ptr, 0x20), salt)
+            mstore(ptr, sender)
+            let start := add(ptr, 0x0b)
+            mstore8(start, 0xff)
+            addr := keccak256(start, 85)
+        }
     }
 }
