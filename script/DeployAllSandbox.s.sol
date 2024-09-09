@@ -12,6 +12,7 @@ import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import {DShareFactory} from "../src/DShareFactory.sol";
 import {Vault} from "../src/orders/Vault.sol";
 import {FulfillmentRouter} from "../src/orders/FulfillmentRouter.sol";
+import {LatestPriceHelper} from "../src/orders/LatestPriceHelper.sol";
 import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
@@ -39,6 +40,7 @@ contract DeployAllSandbox is Script {
         OrderProcessor orderProcessor;
         Vault vault;
         FulfillmentRouter fulfillmentRouter;
+        LatestPriceHelper latestPriceHelper;
         DividendDistribution dividendDistributor;
     }
 
@@ -135,6 +137,9 @@ contract DeployAllSandbox is Script {
 
         // fulfillment router
         deployments.fulfillmentRouter = new FulfillmentRouter(cfg.deployer);
+
+        // latest price helper
+        deployments.latestPriceHelper = new LatestPriceHelper{salt: salt}();
 
         // config operator
         deployments.orderProcessor.setOperator(address(deployments.fulfillmentRouter), true);
