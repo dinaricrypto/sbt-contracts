@@ -8,6 +8,7 @@ import "./utils/mocks/GetMockDShareFactory.sol";
 import "./utils/SigUtils.sol";
 import "../src/orders/OrderProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
+import "../src/orders/LatestPriceHelper.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 import {NumberUtils} from "../src/common/NumberUtils.sol";
 import {FeeLib} from "../src/common/FeeLib.sol";
@@ -63,6 +64,7 @@ contract OrderProcessorTest is Test {
     MockToken paymentToken;
     SigUtils sigUtils;
     TransferRestrictor restrictor;
+    LatestPriceHelper latestPriceHelper;
 
     uint256 userPrivateKey;
     uint256 adminPrivateKey;
@@ -109,6 +111,8 @@ contract OrderProcessorTest is Test {
 
         restrictor = TransferRestrictor(address(token.transferRestrictor()));
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
+
+        latestPriceHelper = new LatestPriceHelper();
         vm.stopPrank();
     }
 
@@ -599,6 +603,12 @@ contract OrderProcessorTest is Test {
                     mulDiv(fillAmount, 10 ** (token.decimals() + 18 - paymentToken.decimals()), receivedAmount)
                 );
             }
+            address[] memory paymentTokens = new address[](1);
+            paymentTokens[0] = order.paymentToken;
+            IOrderProcessor.PricePoint memory fillPrice2 =
+                latestPriceHelper.aggregateLatestPriceFromProcessor(address(issuer), order.assetToken, paymentTokens);
+            assertEq(fillPrice2.price, fillPrice.price);
+            assertEq(fillPrice2.blocktime, fillPrice.blocktime);
             // balances after
             assertEq(token.balanceOf(address(user)), userAssetBefore + receivedAmount);
             assertEq(paymentToken.balanceOf(treasury), fees);
