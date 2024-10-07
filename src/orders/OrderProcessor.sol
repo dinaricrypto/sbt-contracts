@@ -12,6 +12,7 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
+import {ERC165Checker} from "openzeppelin-contracts/contracts/utils/introspection/ERC165Checker.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 import {SelfPermit} from "../common/SelfPermit.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
@@ -19,6 +20,7 @@ import {IDShare} from "../IDShare.sol";
 import {FeeLib} from "../common/FeeLib.sol";
 import {OracleLib} from "../common/OracleLib.sol";
 import {IDShareFactory} from "../IDShareFactory.sol";
+import {IOrderFillCallback} from "./IOrderFillCallback.sol";
 
 /// @notice Core contract managing orders for dShare tokens
 /// @dev Assumes dShare asset tokens have 18 decimals and payment tokens have .decimals()
@@ -86,6 +88,7 @@ contract OrderProcessor is
     error OrderFillAboveLimitPrice();
     error NotOperator();
     error NotRequester();
+    error InvalidFillCallback();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -625,8 +628,10 @@ contract OrderProcessor is
 
         if (order.sell) {
             _fillSellOrder(id, order, orderState, fillAmount, receivedAmount, fees);
+            _postFillHook(id, orderState.requester, order, fillAmount, receivedAmount);
         } else {
             _fillBuyOrder(id, order, orderState, receivedAmount, fillAmount, fees);
+            _postFillHook(id, orderState.requester, order, fillAmount, receivedAmount);
         }
 
         // If there are protocol fees from the order, transfer them to the treasury
@@ -755,6 +760,22 @@ contract OrderProcessor is
             $._status[id] = OrderStatus.FULFILLED;
             // Notify order fulfilled
             emit OrderFulfilled(id, orderState.requester);
+        }
+    }
+
+    function _postFillHook(
+        uint256 id,
+        address requester,
+        Order calldata order,
+        uint256 assetAmount,
+        uint256 paymentAmount
+    ) private {
+        // Attempt to call onOrderFill on requester, ignore if not implemented
+        if (ERC165Checker.supportsInterface(requester, type(IOrderFillCallback).interfaceId)) {
+            bytes4 magicValue = IOrderFillCallback(requester).onOrderFill(
+                id, order.paymentToken, order.assetToken, assetAmount, paymentAmount, order.sell
+            );
+            if (magicValue != IOrderFillCallback.onOrderFill.selector) revert InvalidFillCallback();
         }
     }
 
