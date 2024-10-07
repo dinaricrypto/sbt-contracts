@@ -66,6 +66,7 @@ contract OrderProcessorTest is Test {
     SigUtils sigUtils;
     TransferRestrictor restrictor;
     LatestPriceHelper latestPriceHelper;
+    MockFillCallback fillCallback;
 
     uint256 userPrivateKey;
     uint256 adminPrivateKey;
@@ -114,6 +115,7 @@ contract OrderProcessorTest is Test {
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), restrictor_role);
 
         latestPriceHelper = new LatestPriceHelper();
+        fillCallback = new MockFillCallback();
         vm.stopPrank();
     }
 
@@ -818,13 +820,20 @@ contract OrderProcessorTest is Test {
         order.paymentTokenQuantity = orderAmount;
 
         vm.prank(admin);
-        paymentToken.mint(user, quantityIn);
-        vm.prank(user);
+        paymentToken.mint(address(fillCallback), quantityIn);
+        vm.prank(address(fillCallback));
         paymentToken.approve(address(issuer), quantityIn);
 
-        vm.prank(user);
+        vm.prank(address(fillCallback));
         issuer.createOrderStandardFees(order);
 
+        // Fail with incorrect callback
+        fillCallback.setMagicValue(bytes4(0));
+        vm.expectRevert(OrderProcessor.InvalidFillCallback.selector);
+        vm.prank(operator);
+        issuer.fillOrder(order, fillAmount, receivedAmount, fees);
+
+        fillCallback.setMagicValue(fillCallback.MAGIC_VALUE());
         vm.prank(operator);
         issuer.fillOrder(order, fillAmount, receivedAmount, fees);
     }
