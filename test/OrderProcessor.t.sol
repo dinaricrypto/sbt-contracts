@@ -5,6 +5,7 @@ import "forge-std/Test.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import "./utils/mocks/GetMockDShareFactory.sol";
+import "./utils/mocks/MockFillCallback.sol";
 import "./utils/SigUtils.sol";
 import "../src/orders/OrderProcessor.sol";
 import "../src/orders/IOrderProcessor.sol";
@@ -793,6 +794,39 @@ contract OrderProcessorTest is Test {
         vm.expectRevert(OrderProcessor.OrderNotActive.selector);
         vm.prank(operator);
         issuer.fillOrder(getDummyOrder(sell), 100, 100, 10);
+    }
+
+    function testFillOrderCallback(uint256 orderAmount, uint256 fillAmount, uint256 receivedAmount, uint256 fees)
+        public
+    {
+        vm.assume(orderAmount > 0);
+        vm.assume(fillAmount > 0);
+        vm.assume(fillAmount <= orderAmount);
+        vm.assume(fees <= receivedAmount);
+
+        uint256 feesMax;
+        {
+            (uint256 flatFee, uint24 percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
+            feesMax = flatFee + FeeLib.applyPercentageFee(percentageFeeRate, orderAmount);
+            vm.assume(!NumberUtils.addCheckOverflow(orderAmount, feesMax));
+        }
+        vm.assume(fees <= feesMax);
+
+        uint256 quantityIn = orderAmount + feesMax;
+
+        IOrderProcessor.Order memory order = getDummyOrder(false);
+        order.paymentTokenQuantity = orderAmount;
+
+        vm.prank(admin);
+        paymentToken.mint(user, quantityIn);
+        vm.prank(user);
+        paymentToken.approve(address(issuer), quantityIn);
+
+        vm.prank(user);
+        issuer.createOrderStandardFees(order);
+
+        vm.prank(operator);
+        issuer.fillOrder(order, fillAmount, receivedAmount, fees);
     }
 
     function testRequestCancel() public {

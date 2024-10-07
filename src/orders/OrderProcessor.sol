@@ -631,7 +631,7 @@ contract OrderProcessor is
             _postFillHook(id, orderState.requester, order, fillAmount, receivedAmount);
         } else {
             _fillBuyOrder(id, order, orderState, receivedAmount, fillAmount, fees);
-            _postFillHook(id, orderState.requester, order, fillAmount, receivedAmount);
+            _postFillHook(id, orderState.requester, order, receivedAmount, fillAmount);
         }
 
         // If there are protocol fees from the order, transfer them to the treasury
