@@ -243,13 +243,12 @@ contract DinariAdapterToken is ComponentToken {
         return (orderInfo.sell, orderInfo.orderAmount, orderInfo.fees);
     }
 
-    function getNextSubmittedOrderStatus() public view returns (IOrderProcessor.OrderStatus) {
+    function getNextSubmittedOrder() public view returns (uint256) {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         if ($.submittedOrders.length() == 0) {
             revert NoOutstandingOrders();
         }
-        uint256 orderId = uint256($.submittedOrders.front());
-        return $.externalOrderContract.getOrderStatus(orderId);
+        return uint256($.submittedOrders.front());
     }
 
     function processSubmittedOrders() public {
@@ -302,13 +301,14 @@ contract DinariAdapterToken is ComponentToken {
             uint256 proceeds = orderContract.getReceivedAmount(orderId);
 
             if (orderInfo.sell) {
-                super.notifyRedeem(proceeds, orderInfo.orderAmount, nestStakingContract);
+                uint256 feesTaken = orderContract.getFeesTaken(orderId);
+                super.notifyRedeem(proceeds - feesTaken, orderInfo.orderAmount, nestStakingContract);
             } else {
-                super.notifyDeposit(totalInput, proceeds, nestStakingContract);
-
                 // Wrap dshares
                 dshareToken.approve(address(wrappedDshareToken), proceeds);
-                wrappedDshareToken.deposit(proceeds, address(this));
+                uint256 shares = wrappedDshareToken.deposit(proceeds, address(this));
+
+                super.notifyDeposit(totalInput, shares, nestStakingContract);
 
                 // Send fee refund to controller
                 uint256 totalSpent = orderInfo.orderAmount + orderContract.getFeesTaken(orderId);
