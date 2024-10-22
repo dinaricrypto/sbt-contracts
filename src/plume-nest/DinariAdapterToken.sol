@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import { Initializable } from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
-import { IERC4626 } from "@openzeppelin/contracts/interfaces/IERC4626.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { DoubleEndedQueue } from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
+import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 
-import { ComponentToken } from "lib/contracts/nest/src/ComponentToken.sol";
-import { IComponentToken } from "lib/contracts/nest/src/interfaces/IComponentToken.sol";
-import { IAggregateToken } from "lib/contracts/nest/src/interfaces/IAggregateToken.sol";
-import { IOrderProcessor } from "../orders/IOrderProcessor.sol";
+import {ComponentToken} from "lib/contracts/nest/src/ComponentToken.sol";
+import {IComponentToken} from "lib/contracts/nest/src/interfaces/IComponentToken.sol";
+import {IAggregateToken} from "lib/contracts/nest/src/interfaces/IAggregateToken.sol";
+import {IOrderProcessor} from "../orders/IOrderProcessor.sol";
 
 /**
  * @title DinariAdapterToken
@@ -22,7 +22,6 @@ import { IOrderProcessor } from "../orders/IOrderProcessor.sol";
  * @dev Assets is USDC
  */
 contract DinariAdapterToken is ComponentToken {
-
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
     // Storage
@@ -105,9 +104,7 @@ contract DinariAdapterToken is ComponentToken {
     // Override Functions
 
     /// @inheritdoc IERC4626
-    function convertToShares(
-        uint256 assets
-    ) public view override(ComponentToken) returns (uint256 shares) {
+    function convertToShares(uint256 assets) public view override(ComponentToken) returns (uint256 shares) {
         // Apply dshare price and wrapped conversion rate, fees
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor orderContract = $.externalOrderContract;
@@ -117,11 +114,11 @@ contract DinariAdapterToken is ComponentToken {
         return IERC4626($.wrappedDshareToken).convertToShares(((orderAmount + fees) * price.price) / 1 ether);
     }
 
-    function _getOrderFromTotalBuy(
-        IOrderProcessor orderContract,
-        address paymentToken,
-        uint256 totalBuy
-    ) private view returns (uint256 orderAmount, uint256 fees) {
+    function _getOrderFromTotalBuy(IOrderProcessor orderContract, address paymentToken, uint256 totalBuy)
+        private
+        view
+        returns (uint256 orderAmount, uint256 fees)
+    {
         // order * (1 + vfee) + flat = total
         // order = (total - flat) / (1 + vfee)
         (uint256 flatFee, uint24 percentageFeeRate) = orderContract.getStandardFees(false, paymentToken);
@@ -131,9 +128,7 @@ contract DinariAdapterToken is ComponentToken {
     }
 
     /// @inheritdoc IERC4626
-    function convertToAssets(
-        uint256 shares
-    ) public view override(ComponentToken) returns (uint256 assets) {
+    function convertToAssets(uint256 shares) public view override(ComponentToken) returns (uint256 assets) {
         // Apply wrapped conversion rate and dshare price, subtract fees
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor orderContract = $.externalOrderContract;
@@ -149,11 +144,11 @@ contract DinariAdapterToken is ComponentToken {
     }
 
     /// @inheritdoc IComponentToken
-    function requestDeposit(
-        uint256 assets,
-        address controller,
-        address owner
-    ) public override(ComponentToken) returns (uint256 requestId) {
+    function requestDeposit(uint256 assets, address controller, address owner)
+        public
+        override(ComponentToken)
+        returns (uint256 requestId)
+    {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         address nestStakingContract = $.nestStakingContract;
         if (msg.sender != nestStakingContract) {
@@ -184,16 +179,16 @@ contract DinariAdapterToken is ComponentToken {
             tif: IOrderProcessor.TIF.DAY
         });
         uint256 orderId = orderContract.createOrderStandardFees(order);
-        $.submittedOrderInfo[orderId] = DShareOrderInfo({ sell: false, orderAmount: orderAmount, fees: fees });
+        $.submittedOrderInfo[orderId] = DShareOrderInfo({sell: false, orderAmount: orderAmount, fees: fees});
         $.submittedOrders.pushBack(bytes32(orderId));
     }
 
     /// @inheritdoc IComponentToken
-    function requestRedeem(
-        uint256 shares,
-        address controller,
-        address owner
-    ) public override(ComponentToken) returns (uint256 requestId) {
+    function requestRedeem(uint256 shares, address controller, address owner)
+        public
+        override(ComponentToken)
+        returns (uint256 requestId)
+    {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         address nestStakingContract = $.nestStakingContract;
         if (msg.sender != nestStakingContract) {
@@ -233,7 +228,7 @@ contract DinariAdapterToken is ComponentToken {
             tif: IOrderProcessor.TIF.DAY
         });
         uint256 orderId = orderContract.createOrderStandardFees(order);
-        $.submittedOrderInfo[orderId] = DShareOrderInfo({ sell: true, orderAmount: orderAmount, fees: 0 });
+        $.submittedOrderInfo[orderId] = DShareOrderInfo({sell: true, orderAmount: orderAmount, fees: 0});
         $.submittedOrders.pushBack(bytes32(orderId));
     }
 
@@ -332,11 +327,11 @@ contract DinariAdapterToken is ComponentToken {
     }
 
     /// @inheritdoc IComponentToken
-    function deposit(
-        uint256 assets,
-        address receiver,
-        address controller
-    ) public override(ComponentToken) returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver, address controller)
+        public
+        override(ComponentToken)
+        returns (uint256 shares)
+    {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         address orderContract = address($.externalOrderContract);
         if (msg.sender != orderContract) {
@@ -350,11 +345,11 @@ contract DinariAdapterToken is ComponentToken {
     }
 
     /// @inheritdoc IComponentToken
-    function redeem(
-        uint256 shares,
-        address receiver,
-        address controller
-    ) public override(ComponentToken) returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address controller)
+        public
+        override(ComponentToken)
+        returns (uint256 assets)
+    {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         address orderContract = address($.externalOrderContract);
         if (msg.sender != orderContract) {
@@ -366,5 +361,4 @@ contract DinariAdapterToken is ComponentToken {
         }
         return super.redeem(shares, receiver, controller);
     }
-
 }
