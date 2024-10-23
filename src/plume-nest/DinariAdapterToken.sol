@@ -1,18 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 
 import {ComponentToken} from "lib/contracts/nest/src/ComponentToken.sol";
 import {IComponentToken} from "lib/contracts/nest/src/interfaces/IComponentToken.sol";
-import {IAggregateToken} from "lib/contracts/nest/src/interfaces/IAggregateToken.sol";
 import {IOrderProcessor} from "../orders/IOrderProcessor.sol";
 
 /**
@@ -138,6 +133,7 @@ contract DinariAdapterToken is ComponentToken {
         uint256 dshares = IERC4626($.wrappedDshareToken).convertToAssets(shares);
         // Round down to nearest supported decimal
         uint256 precisionReductionFactor = 10 ** orderContract.orderDecimalReduction(dshareToken);
+        // slither-disable-next-line divide-before-multiply
         uint256 proceeds = ((dshares / precisionReductionFactor) * precisionReductionFactor * 1 ether) / price.price;
         uint256 fees = orderContract.totalStandardFee(true, paymentToken, proceeds);
         return proceeds - fees;
@@ -165,7 +161,7 @@ contract DinariAdapterToken is ComponentToken {
         super.requestDeposit(totalInput, controller, owner);
 
         // Approve dshares
-        IERC20(paymentToken).approve(address(orderContract), totalInput);
+        SafeERC20.safeIncreaseAllowance(IERC20(paymentToken), address(orderContract), totalInput);
         // Buy
         IOrderProcessor.Order memory order = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
@@ -203,6 +199,7 @@ contract DinariAdapterToken is ComponentToken {
         address dshareToken = $.dshareToken;
         IOrderProcessor orderContract = $.externalOrderContract;
         uint256 precisionReductionFactor = 10 ** orderContract.orderDecimalReduction(dshareToken);
+        // slither-disable-next-line divide-before-multiply
         uint256 orderAmount = (dshares / precisionReductionFactor) * precisionReductionFactor;
 
         // Subcall with dust removed
@@ -211,10 +208,12 @@ contract DinariAdapterToken is ComponentToken {
         // Rewrap dust
         uint256 dshareDust = dshares - orderAmount;
         if (dshareDust > 0) {
+            // slither-disable-next-line unused-return
             IERC4626(wrappedDshareToken).deposit(dshareDust, address(this));
+            // Dust shares not minted back to owner, rounded orderAmount used in requestRedeem
         }
         // Approve dshares
-        IERC20(dshareToken).approve(address(orderContract), orderAmount);
+        SafeERC20.safeIncreaseAllowance(IERC20(dshareToken), address(orderContract), orderAmount);
         // Sell
         IOrderProcessor.Order memory order = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
@@ -270,6 +269,7 @@ contract DinariAdapterToken is ComponentToken {
                 break;
             }
 
+            // slither-disable-next-line unused-return
             orders.popFront();
         }
     }
@@ -305,7 +305,7 @@ contract DinariAdapterToken is ComponentToken {
                 super.notifyRedeem(proceeds - feesTaken, orderInfo.orderAmount, nestStakingContract);
             } else {
                 // Wrap dshares
-                dshareToken.approve(address(wrappedDshareToken), proceeds);
+                SafeERC20.safeIncreaseAllowance(dshareToken, address(wrappedDshareToken), proceeds);
                 uint256 shares = wrappedDshareToken.deposit(proceeds, address(this));
 
                 super.notifyDeposit(totalInput, shares, nestStakingContract);
@@ -314,7 +314,7 @@ contract DinariAdapterToken is ComponentToken {
                 uint256 totalSpent = orderInfo.orderAmount + orderContract.getFeesTaken(orderId);
                 uint256 refund = totalInput - totalSpent;
                 if (refund > 0) {
-                    paymentToken.transfer(nestStakingContract, refund);
+                    SafeERC20.safeTransfer(paymentToken, nestStakingContract, refund);
                 }
             }
         }
@@ -340,6 +340,7 @@ contract DinariAdapterToken is ComponentToken {
             revert OrderStillActive();
         }
 
+        // slither-disable-next-line unused-return
         orders.popFront();
     }
 
