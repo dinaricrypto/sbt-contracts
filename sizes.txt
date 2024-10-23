@@ -1,53 +1,43 @@
 No files changed, compilation skipped
-| Contract                 | Size (B) | Margin (B) |
-|--------------------------|----------|------------|
-| Address                  |       85 |     24,491 |
-| AddressBytes             |       85 |     24,491 |
-| BeaconProxy              |      321 |     24,255 |
-| Bytes32ToString          |       85 |     24,491 |
-| Create3Address           |       62 |     24,514 |
-| CreateDeploy             |      372 |     24,204 |
-| DShare                   |   12,854 |     11,722 |
-| DShareFactory            |    9,100 |     15,476 |
-| DividendDistribution     |    7,125 |     17,451 |
-| ECDSA                    |       85 |     24,491 |
-| ERC1967Proxy             |      176 |     24,400 |
-| ERC1967Utils             |       85 |     24,491 |
-| EnumerableSet            |       85 |     24,491 |
-| FeeLib                   |       85 |     24,491 |
-| FixedPointMathLib        |       85 |     24,491 |
-| FulfillmentRouter        |    8,112 |     16,464 |
-| GetMockDShareFactory     |       85 |     24,491 |
-| InterchainAddressTracker |    1,366 |     23,210 |
-| LibString                |       85 |     24,491 |
-| Math                     |       85 |     24,491 |
-| MessageHashUtils         |       85 |     24,491 |
-| MockERC20                |    2,929 |     21,647 |
-| MockToken                |    6,567 |     18,009 |
-| Multicall                |      957 |     23,619 |
-| NumberUtils              |       85 |     24,491 |
-| Operator                 |    1,744 |     22,832 |
-| OracleLib                |       85 |     24,491 |
-| OrderProcessor           |   23,476 |      1,100 |
-| OrderSigUtils            |    1,661 |     22,915 |
-| Pausable                 |      150 |     24,426 |
-| RolesBase                |      401 |     24,175 |
-| RolesConstants           |       62 |     24,514 |
-| SafeCast                 |       85 |     24,491 |
-| SafeERC20                |       85 |     24,491 |
-| SafeTokenCall            |       85 |     24,491 |
-| SafeTokenTransfer        |       85 |     24,491 |
-| SafeTokenTransferFrom    |       85 |     24,491 |
-| SafeTransferLib          |       85 |     24,491 |
-| ShortStrings             |       85 |     24,491 |
-| SigUtils                 |      617 |     23,959 |
-| SignedMath               |       85 |     24,491 |
-| StorageSlot              |       85 |     24,491 |
-| StringStorage            |       85 |     24,491 |
-| StringToBytes32          |       85 |     24,491 |
-| Strings                  |       85 |     24,491 |
-| TransferRestrictor       |    5,267 |     19,309 |
-| UpgradeableBeacon        |      912 |     23,664 |
-| Vault                    |    5,708 |     18,868 |
-| WrappedDShare            |    7,883 |     16,693 |
+| Contract             | Runtime Size (B) | Initcode Size (B) | Runtime Margin (B) | Initcode Margin (B) |
+|----------------------|------------------|-------------------|--------------------|---------------------|
+| Address              |               85 |               135 |             24,491 |              49,017 |
+| BeaconProxy          |              321 |             1,431 |             24,255 |              47,721 |
+| BitMaps              |               85 |               135 |             24,491 |              49,017 |
+| DShare               |           12,854 |            13,068 |             11,722 |              36,084 |
+| DShareFactory        |            9,100 |             9,349 |             15,476 |              39,803 |
+| DinariAdapterToken   |           25,423 |            25,680 |               -847 |              23,472 |
+| DividendDistribution |            7,125 |             7,625 |             17,451 |              41,527 |
+| DoubleEndedQueue     |               85 |               135 |             24,491 |              49,017 |
+| ECDSA                |               85 |               135 |             24,491 |              49,017 |
+| ERC1967Proxy         |              176 |               983 |             24,400 |              48,169 |
+| ERC1967Utils         |               85 |               135 |             24,491 |              49,017 |
+| EnumerableSet        |               85 |               135 |             24,491 |              49,017 |
+| FeeLib               |               85 |               135 |             24,491 |              49,017 |
+| FixedPointMathLib    |               85 |               135 |             24,491 |              49,017 |
+| FulfillmentRouter    |            8,112 |             8,591 |             16,464 |              40,561 |
+| GetMockDShareFactory |               85 |               135 |             24,491 |              49,017 |
+| LatestPriceHelper    |              865 |               893 |             23,711 |              48,259 |
+| LibString            |               85 |               135 |             24,491 |              49,017 |
+| Math                 |               85 |               135 |             24,491 |              49,017 |
+| MessageHashUtils     |               85 |               135 |             24,491 |              49,017 |
+| MockERC20            |            2,929 |             3,666 |             21,647 |              45,486 |
+| MockToken            |            6,567 |             8,436 |             18,009 |              40,716 |
+| Multicall3           |            3,694 |             3,722 |             20,882 |              45,430 |
+| NumberUtils          |               85 |               135 |             24,491 |              49,017 |
+| OracleLib            |               85 |               135 |             24,491 |              49,017 |
+| OrderProcessor       |           23,476 |            23,725 |              1,100 |              25,427 |
+| OrderSigUtils        |            1,661 |             1,807 |             22,915 |              47,345 |
+| SafeCast             |               85 |               135 |             24,491 |              49,017 |
+| SafeERC20            |               85 |               135 |             24,491 |              49,017 |
+| SafeTransferLib      |               85 |               135 |             24,491 |              49,017 |
+| ShortStrings         |               85 |               135 |             24,491 |              49,017 |
+| SigUtils             |              617 |               701 |             23,959 |              48,451 |
+| SignedMath           |               85 |               135 |             24,491 |              49,017 |
+| StorageSlot          |               85 |               135 |             24,491 |              49,017 |
+| Strings              |               85 |               135 |             24,491 |              49,017 |
+| TransferRestrictor   |            5,267 |             5,746 |             19,309 |              43,406 |
+| UpgradeableBeacon    |              912 |             1,325 |             23,664 |              47,827 |
+| Vault                |            5,708 |             6,187 |             18,868 |              42,965 |
+| WrappedDShare        |            7,883 |             8,097 |             16,693 |              41,055 |
 
