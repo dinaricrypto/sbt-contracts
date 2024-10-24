@@ -97,7 +97,7 @@ contract DinariAdapterTokenTest is Test {
         vm.prank(operator);
         issuer.fillOrder(
             IOrderProcessor.Order(
-                uint64(block.timestamp),
+                uint64(0),
                 address(adapterToken),
                 address(token),
                 address(usd),
@@ -147,7 +147,7 @@ contract DinariAdapterTokenTest is Test {
         vm.prank(operator);
         issuer.fillOrder(
             IOrderProcessor.Order(
-                uint64(block.timestamp),
+                uint64(1),
                 address(adapterToken),
                 address(token),
                 address(usd),

@@ -40,6 +40,7 @@ contract DinariAdapterToken is ComponentToken {
         //
         mapping(uint256 orderId => DShareOrderInfo) submittedOrderInfo;
         DoubleEndedQueue.Bytes32Deque submittedOrders;
+        uint64 orderNonce;
     }
 
     // keccak256(abi.encode(uint256(keccak256("plume.storage.DinariAdapterToken")) - 1)) & ~bytes32(uint256(0xff))
@@ -164,7 +165,7 @@ contract DinariAdapterToken is ComponentToken {
         SafeERC20.safeIncreaseAllowance(IERC20(paymentToken), address(orderContract), totalInput);
         // Buy
         IOrderProcessor.Order memory order = IOrderProcessor.Order({
-            requestTimestamp: uint64(block.timestamp),
+            requestTimestamp: $.orderNonce++,
             recipient: address(this),
             assetToken: $.dshareToken,
             paymentToken: paymentToken,
@@ -216,7 +217,7 @@ contract DinariAdapterToken is ComponentToken {
         SafeERC20.safeIncreaseAllowance(IERC20(dshareToken), address(orderContract), orderAmount);
         // Sell
         IOrderProcessor.Order memory order = IOrderProcessor.Order({
-            requestTimestamp: uint64(block.timestamp),
+            requestTimestamp: $.orderNonce++,
             recipient: address(this),
             assetToken: dshareToken,
             paymentToken: asset(),
