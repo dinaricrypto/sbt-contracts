@@ -351,7 +351,6 @@ contract DinariAdapterToken is ComponentToken {
         override(ComponentToken)
         returns (uint256 shares)
     {
-        // Restrict caller?
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         address nestStakingContract = $.nestStakingContract;
         if (receiver != nestStakingContract) {
@@ -366,7 +365,6 @@ contract DinariAdapterToken is ComponentToken {
         override(ComponentToken)
         returns (uint256 assets)
     {
-        // Restrict caller?
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         address nestStakingContract = $.nestStakingContract;
         if (receiver != nestStakingContract) {

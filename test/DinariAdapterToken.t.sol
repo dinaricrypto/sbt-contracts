@@ -6,7 +6,7 @@ import "./utils/mocks/GetMockDShareFactory.sol";
 import {DShare} from "../src/DShare.sol";
 import {WrappedDShare} from "../src/WrappedDShare.sol";
 import "../src/orders/OrderProcessor.sol";
-import {DinariAdapterToken} from "../src/plume-nest/DinariAdapterToken.sol";
+import {DinariAdapterToken, ComponentToken} from "../src/plume-nest/DinariAdapterToken.sol";
 import {
     IAccessControlDefaultAdminRules,
     IAccessControl
@@ -79,19 +79,32 @@ contract DinariAdapterTokenTest is Test {
         vm.prank(admin);
         usd.mint(nest, amount);
 
+        // request must come from nest
+        vm.expectRevert(abi.encodeWithSelector(ComponentToken.Unauthorized.selector, admin, nest));
+        vm.prank(admin);
+        uint256 orderId = adapterToken.requestDeposit(amount, nest, nest);
+
         // submit request
         vm.prank(nest);
         usd.approve(address(adapterToken), amount);
         vm.prank(nest);
-        uint256 orderId = adapterToken.requestDeposit(amount, nest, nest);
+        orderId = adapterToken.requestDeposit(amount, nest, nest);
         assertEq(adapterToken.balanceOf(nest), 0);
+        assertEq(adapterToken.totalSupply(), 0);
         assertEq(usd.balanceOf(address(adapterToken)), 0);
         assertEq(token.balanceOf(address(adapterToken)), 0);
+        assertGe(adapterToken.pendingDepositRequest(0, nest), amount - 1);
+        assertEq(adapterToken.claimableDepositRequest(0, nest), 0);
         uint256 nextOrder = adapterToken.getNextSubmittedOrder();
         assertEq(nextOrder, orderId);
         assertEq(uint256(issuer.getOrderStatus(orderId)), 1);
         (bool sell, uint256 orderAmount, uint256 fees) = adapterToken.getSubmittedOrderInfo(orderId);
         assertEq(sell, false);
+
+        // process orders does nothing if order not filled
+        adapterToken.processSubmittedOrders();
+        nextOrder = adapterToken.getNextSubmittedOrder();
+        assertEq(nextOrder, orderId);
 
         // fill order
         vm.prank(operator);
@@ -120,12 +133,163 @@ contract DinariAdapterTokenTest is Test {
 
         // update adapter for order
         adapterToken.processSubmittedOrders();
+        // fetching order should fail - no more orders
+        vm.expectRevert(DinariAdapterToken.NoOutstandingOrders.selector);
+        adapterToken.getNextSubmittedOrder();
+        assertEq(adapterToken.totalSupply(), 0);
+        assertEq(adapterToken.pendingDepositRequest(0, nest), 0);
+        uint256 claimableDeposit = adapterToken.claimableDepositRequest(0, nest);
+        assertGe(adapterToken.claimableDepositRequest(0, nest), amount - 1);
+
+        // deposit must come from nest
+        vm.expectRevert(abi.encodeWithSelector(ComponentToken.Unauthorized.selector, admin, nest));
+        vm.prank(admin);
+        adapterToken.deposit(orderAmount + 1, nest, nest);
+
+        // deposit must not be too large
+        vm.expectRevert(
+            abi.encodeWithSelector(ComponentToken.InsufficientRequestBalance.selector, nest, claimableDeposit + 1, 1)
+        );
+        vm.prank(nest);
+        adapterToken.deposit(claimableDeposit + 1, nest, nest);
+
+        // finalize deposit
+        vm.prank(nest);
+        adapterToken.deposit(claimableDeposit, nest, nest);
+        uint256 shares = adapterToken.balanceOf(nest);
+        assertEq(adapterToken.totalSupply(), shares);
+        assertEq(shares, wToken.balanceOf(address(adapterToken)));
+        assertEq(token.balanceOf(address(adapterToken)), 0);
+        assertEq(usd.balanceOf(address(adapterToken)), 0);
+        assertEq(adapterToken.pendingDepositRequest(0, nest), 0);
+        assertEq(adapterToken.claimableDepositRequest(0, nest), 0);
+
+        // request must come from nest
+        vm.expectRevert(abi.encodeWithSelector(ComponentToken.Unauthorized.selector, admin, nest));
+        vm.prank(admin);
+        orderId = adapterToken.requestRedeem(shares, nest, nest);
+
+        // submit request
+        vm.prank(nest);
+        orderId = adapterToken.requestRedeem(shares, nest, nest);
+        assertEq(adapterToken.balanceOf(nest), 0);
+        nextOrder = adapterToken.getNextSubmittedOrder();
+        assertEq(nextOrder, orderId);
+        assertEq(uint256(issuer.getOrderStatus(orderId)), 1);
+        assertEq(adapterToken.pendingRedeemRequest(0, nest), shares);
+        assertEq(adapterToken.claimableRedeemRequest(0, nest), 0);
+
+        // fill order
+        vm.prank(admin);
+        usd.mint(operator, shares + 1);
+        vm.prank(operator);
+        usd.approve(address(issuer), shares + 1);
+        vm.prank(operator);
+        issuer.fillOrder(
+            IOrderProcessor.Order(
+                uint64(1),
+                address(adapterToken),
+                address(token),
+                address(usd),
+                true,
+                IOrderProcessor.OrderType.MARKET,
+                shares,
+                0,
+                0,
+                IOrderProcessor.TIF.DAY
+            ),
+            shares,
+            shares + 1,
+            2
+        );
+        assertEq(usd.balanceOf(address(adapterToken)), shares - 1);
+        assertEq(token.balanceOf(address(adapterToken)), 0);
+        assertEq(uint256(issuer.getOrderStatus(orderId)), 2);
+        nextOrder = adapterToken.getNextSubmittedOrder();
+        assertEq(nextOrder, orderId);
+
+        // update adapter for order
+        adapterToken.processSubmittedOrders();
+        // fetching order should fail - no more orders
+        vm.expectRevert(DinariAdapterToken.NoOutstandingOrders.selector);
+        adapterToken.getNextSubmittedOrder();
+        assertEq(adapterToken.pendingRedeemRequest(0, nest), 0);
+        assertEq(adapterToken.claimableRedeemRequest(0, nest), shares);
+
+        // redeem must come from nest
+        vm.expectRevert(abi.encodeWithSelector(ComponentToken.Unauthorized.selector, admin, nest));
+        vm.prank(admin);
+        adapterToken.redeem(shares, nest, nest);
+
+        // finalize redeem
+        vm.prank(nest);
+        adapterToken.redeem(shares, nest, nest);
+        assertEq(token.balanceOf(address(adapterToken)), 0);
+        assertEq(usd.balanceOf(address(adapterToken)), 0);
+        assertEq(adapterToken.pendingRedeemRequest(0, nest), 0);
+        assertEq(adapterToken.claimableRedeemRequest(0, nest), 0);
+    }
+
+    function testRequestDepositFillProcessNextRequestRedeemFillProcess(uint128 amount) public {
+        vm.assume(amount > 0.2e8);
+
+        vm.prank(admin);
+        usd.mint(nest, amount);
+
+        // submit request
+        vm.prank(nest);
+        usd.approve(address(adapterToken), amount);
+        vm.prank(nest);
+        uint256 orderId = adapterToken.requestDeposit(amount, nest, nest);
+        assertEq(adapterToken.balanceOf(nest), 0);
+        assertEq(usd.balanceOf(address(adapterToken)), 0);
+        assertEq(token.balanceOf(address(adapterToken)), 0);
+        uint256 nextOrder = adapterToken.getNextSubmittedOrder();
+        assertEq(nextOrder, orderId);
+        assertEq(uint256(issuer.getOrderStatus(orderId)), 1);
+        (bool sell, uint256 orderAmount, uint256 fees) = adapterToken.getSubmittedOrderInfo(orderId);
+        assertEq(sell, false);
+
+        // process next order reverts if order not filled
+        vm.expectRevert(DinariAdapterToken.OrderStillActive.selector);
+        adapterToken.processNextSubmittedOrder();
+        nextOrder = adapterToken.getNextSubmittedOrder();
+        assertEq(nextOrder, orderId);
+
+        // fill order
+        vm.prank(operator);
+        issuer.fillOrder(
+            IOrderProcessor.Order(
+                uint64(0),
+                address(adapterToken),
+                address(token),
+                address(usd),
+                false,
+                IOrderProcessor.OrderType.MARKET,
+                0,
+                orderAmount,
+                0,
+                IOrderProcessor.TIF.DAY
+            ),
+            orderAmount,
+            orderAmount + 1,
+            fees - 1
+        );
+        assertEq(token.balanceOf(address(adapterToken)), orderAmount + 1);
+        assertEq(usd.balanceOf(address(adapterToken)), 1);
+        assertEq(uint256(issuer.getOrderStatus(orderId)), 2);
+        nextOrder = adapterToken.getNextSubmittedOrder();
+        assertEq(nextOrder, orderId);
+
+        // update adapter for order
+        adapterToken.processNextSubmittedOrder();
+        // fetching order should fail - no more orders
         vm.expectRevert(DinariAdapterToken.NoOutstandingOrders.selector);
         adapterToken.getNextSubmittedOrder();
 
         // finalize deposit
         vm.prank(nest);
-        adapterToken.deposit(orderAmount + 1, nest, nest);
+        adapterToken.deposit(amount - 1, nest, nest);
         uint256 shares = adapterToken.balanceOf(nest);
         assertEq(shares, wToken.balanceOf(address(adapterToken)));
         assertEq(token.balanceOf(address(adapterToken)), 0);
@@ -169,14 +333,70 @@ contract DinariAdapterTokenTest is Test {
         assertEq(nextOrder, orderId);
 
         // update adapter for order
-        adapterToken.processSubmittedOrders();
-        vm.expectRevert(DinariAdapterToken.NoOutstandingOrders.selector);
-        adapterToken.getNextSubmittedOrder();
+        adapterToken.processNextSubmittedOrder();
 
         // finalize redeem
         vm.prank(nest);
         adapterToken.redeem(shares, nest, nest);
         assertEq(token.balanceOf(address(adapterToken)), 0);
         assertEq(usd.balanceOf(address(adapterToken)), 0);
+    }
+
+    function testRequestDepositCancelProcess(uint128 amount) public {
+        vm.assume(amount > 0.2e8);
+
+        vm.prank(admin);
+        usd.mint(nest, amount);
+
+        // submit request
+        vm.prank(nest);
+        usd.approve(address(adapterToken), amount);
+        vm.prank(nest);
+        uint256 orderId = adapterToken.requestDeposit(amount, nest, nest);
+        assertEq(adapterToken.balanceOf(nest), 0);
+        assertEq(usd.balanceOf(address(adapterToken)), 0);
+        assertEq(token.balanceOf(address(adapterToken)), 0);
+        uint256 nextOrder = adapterToken.getNextSubmittedOrder();
+        assertEq(nextOrder, orderId);
+        assertEq(uint256(issuer.getOrderStatus(orderId)), 1);
+        (bool sell, uint256 orderAmount, uint256 fees) = adapterToken.getSubmittedOrderInfo(orderId);
+        assertEq(sell, false);
+        assertGe(adapterToken.pendingDepositRequest(0, nest), amount - 1);
+        assertEq(adapterToken.claimableDepositRequest(0, nest), 0);
+
+        // cancel order
+        vm.prank(operator);
+        usd.approve(address(issuer), orderAmount);
+        vm.prank(operator);
+        issuer.cancelOrder(
+            IOrderProcessor.Order(
+                uint64(0),
+                address(adapterToken),
+                address(token),
+                address(usd),
+                false,
+                IOrderProcessor.OrderType.MARKET,
+                0,
+                orderAmount,
+                0,
+                IOrderProcessor.TIF.DAY
+            ),
+            ""
+        );
+        assertEq(token.balanceOf(address(adapterToken)), 0);
+        assertGe(usd.balanceOf(address(adapterToken)), amount - 1);
+        assertEq(uint256(issuer.getOrderStatus(orderId)), 3);
+        nextOrder = adapterToken.getNextSubmittedOrder();
+        assertEq(nextOrder, orderId);
+        assertGe(adapterToken.pendingDepositRequest(0, nest), amount - 1);
+        assertEq(adapterToken.claimableDepositRequest(0, nest), 0);
+
+        // update adapter for order
+        adapterToken.processSubmittedOrders();
+        // fetching order should fail - no more orders
+        vm.expectRevert(DinariAdapterToken.NoOutstandingOrders.selector);
+        adapterToken.getNextSubmittedOrder();
+        assertEq(adapterToken.pendingDepositRequest(0, nest), 0);
+        assertEq(adapterToken.claimableDepositRequest(0, nest), 0);
     }
 }
