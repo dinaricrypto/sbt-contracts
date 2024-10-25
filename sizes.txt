@@ -4,18 +4,19 @@ No files changed, compilation skipped
 | Address              |               85 |               135 |             24,491 |              49,017 |
 | BeaconProxy          |              321 |             1,431 |             24,255 |              47,721 |
 | BitMaps              |               85 |               135 |             24,491 |              49,017 |
-| DShare               |           11,616 |            11,830 |             12,960 |              37,322 |
+| DShare               |           11,605 |            11,819 |             12,971 |              37,333 |
 | DShareFactory        |            8,915 |             9,164 |             15,661 |              39,988 |
-| DinariAdapterToken   |           23,855 |            24,112 |                721 |              25,040 |
-| DividendDistribution |            6,126 |             6,626 |             18,450 |              42,526 |
+| DinariAdapterToken   |           24,163 |            24,420 |                413 |              24,732 |
+| DividendDistribution |            5,704 |             6,204 |             18,872 |              42,948 |
 | DoubleEndedQueue     |               85 |               135 |             24,491 |              49,017 |
 | ECDSA                |               85 |               135 |             24,491 |              49,017 |
 | ERC1967Proxy         |              176 |               983 |             24,400 |              48,169 |
 | ERC1967Utils         |               85 |               135 |             24,491 |              49,017 |
 | EnumerableSet        |               85 |               135 |             24,491 |              49,017 |
+| Errors               |               85 |               135 |             24,491 |              49,017 |
 | FeeLib               |               85 |               135 |             24,491 |              49,017 |
 | FixedPointMathLib    |               85 |               135 |             24,491 |              49,017 |
-| FulfillmentRouter    |            7,543 |             8,022 |             17,033 |              41,130 |
+| FulfillmentRouter    |            7,339 |             7,818 |             17,237 |              41,334 |
 | GetMockDShareFactory |               85 |               135 |             24,491 |              49,017 |
 | LatestPriceHelper    |              865 |               893 |             23,711 |              48,259 |
 | LibString            |               85 |               135 |             24,491 |              49,017 |
@@ -26,8 +27,9 @@ No files changed, compilation skipped
 | Multicall3           |            3,504 |             3,532 |             21,072 |              45,620 |
 | NumberUtils          |               85 |               135 |             24,491 |              49,017 |
 | OracleLib            |               85 |               135 |             24,491 |              49,017 |
-| OrderProcessor       |           21,736 |            21,985 |              2,840 |              27,167 |
+| OrderProcessor       |           21,604 |            21,853 |              2,972 |              27,299 |
 | OrderSigUtils        |            1,661 |             1,807 |             22,915 |              47,345 |
+| Panic                |               85 |               135 |             24,491 |              49,017 |
 | SafeCast             |               85 |               135 |             24,491 |              49,017 |
 | SafeERC20            |               85 |               135 |             24,491 |              49,017 |
 | SafeTransferLib      |               85 |               135 |             24,491 |              49,017 |
@@ -36,8 +38,9 @@ No files changed, compilation skipped
 | SignedMath           |               85 |               135 |             24,491 |              49,017 |
 | StorageSlot          |               85 |               135 |             24,491 |              49,017 |
 | Strings              |               85 |               135 |             24,491 |              49,017 |
-| TransferRestrictor   |            4,395 |             4,874 |             20,181 |              44,278 |
+| TransferRestrictor   |            4,384 |             4,863 |             20,192 |              44,289 |
+| TransientSlot        |               85 |               135 |             24,491 |              49,017 |
 | UpgradeableBeacon    |              782 |             1,195 |             23,794 |              47,957 |
-| Vault                |            4,831 |             5,310 |             19,745 |              43,842 |
+| Vault                |            4,409 |             4,888 |             20,167 |              44,264 |
 | WrappedDShare        |            7,311 |             7,525 |             17,265 |              41,627 |
 
