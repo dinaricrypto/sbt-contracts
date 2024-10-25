@@ -8,8 +8,8 @@ import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEnde
 import {ReentrancyGuardTransientUpgradeable} from
     "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
 
-import {ComponentToken} from "lib/contracts/nest/src/ComponentToken.sol";
-import {IComponentToken} from "lib/contracts/nest/src/interfaces/IComponentToken.sol";
+import {ComponentToken, IERC7540} from "plume-contracts/nest/src/ComponentToken.sol";
+import {IComponentToken} from "plume-contracts/nest/src/interfaces/IComponentToken.sol";
 import {IOrderProcessor} from "../orders/IOrderProcessor.sol";
 
 /**
@@ -101,7 +101,7 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
 
     // Override Functions
 
-    /// @inheritdoc IERC4626
+    /// @inheritdoc IComponentToken
     function convertToShares(uint256 assets) public view override(ComponentToken) returns (uint256 shares) {
         // Apply dshare price and wrapped conversion rate, fees
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -125,7 +125,7 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
         fees = orderContract.totalStandardFee(false, paymentToken, orderAmount);
     }
 
-    /// @inheritdoc IERC4626
+    /// @inheritdoc IComponentToken
     function convertToAssets(uint256 shares) public view override(ComponentToken) returns (uint256 assets) {
         // Apply wrapped conversion rate and dshare price, subtract fees
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -364,7 +364,7 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
         return super.deposit(assets, receiver, controller);
     }
 
-    /// @inheritdoc IComponentToken
+    /// @inheritdoc IERC7540
     function mint(uint256 shares, address receiver, address controller)
         public
         override(ComponentToken)
@@ -394,7 +394,7 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
         return super.redeem(shares, receiver, controller);
     }
 
-    /// @inheritdoc IComponentToken
+    /// @inheritdoc IERC7540
     function withdraw(uint256 assets, address receiver, address controller)
         public
         override(ComponentToken)
