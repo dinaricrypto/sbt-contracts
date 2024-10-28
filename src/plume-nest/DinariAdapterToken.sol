@@ -307,13 +307,13 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
 
             if (orderInfo.sell) {
                 uint256 feesTaken = orderContract.getFeesTaken(orderId);
-                super.notifyRedeem(proceeds - feesTaken, orderInfo.orderAmount, nestStakingContract);
+                super._notifyRedeem(proceeds - feesTaken, orderInfo.orderAmount, nestStakingContract);
             } else {
                 // Wrap dshares
                 SafeERC20.safeIncreaseAllowance(dshareToken, address(wrappedDshareToken), proceeds);
                 uint256 shares = wrappedDshareToken.deposit(proceeds, address(this));
 
-                super.notifyDeposit(totalInput, shares, nestStakingContract);
+                super._notifyDeposit(totalInput, shares, nestStakingContract);
 
                 // Send fee refund to controller
                 uint256 totalSpent = orderInfo.orderAmount + orderContract.getFeesTaken(orderId);
