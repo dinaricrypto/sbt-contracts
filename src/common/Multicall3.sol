@@ -40,7 +40,7 @@ contract Multicall3 {
         for (uint256 i = 0; i < length;) {
             bool success;
             call = calls[i];
-            // slither-disable-next-line calls-loop,low-level-calls
+            // slither-disable-next-line low-level-calls
             (success, returnData[i]) = call.target.call(call.callData);
             require(success, "Multicall3: call failed");
             unchecked {
@@ -65,7 +65,7 @@ contract Multicall3 {
         for (uint256 i = 0; i < length;) {
             Result memory result = returnData[i];
             call = calls[i];
-            // slither-disable-next-line calls-loop,low-level-calls
+            // slither-disable-next-line low-level-calls
             (result.success, result.returnData) = call.target.call(call.callData);
             if (requireSuccess) require(result.success, "Multicall3: call failed");
             unchecked {
@@ -114,7 +114,7 @@ contract Multicall3 {
         for (uint256 i = 0; i < length;) {
             Result memory result = returnData[i];
             calli = calls[i];
-            // slither-disable-next-line calls-loop,low-level-calls
+            // slither-disable-next-line low-level-calls
             (result.success, result.returnData) = calli.target.call(calli.callData);
             assembly {
                 // Revert if the call fails and failure is not allowed
@@ -155,7 +155,7 @@ contract Multicall3 {
             unchecked {
                 valAccumulator += val;
             }
-            // slither-disable-next-line arbitrary-send-eth,calls-loop,low-level-calls
+            // slither-disable-next-line arbitrary-send-eth,low-level-calls
             (result.success, result.returnData) = calli.target.call{value: val}(calli.callData);
             assembly {
                 // Revert if the call fails and failure is not allowed
