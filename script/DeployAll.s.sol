@@ -44,10 +44,8 @@ contract DeployAll is Script {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
 
-        DeployConfig memory cfg = DeployConfig({
-            deployer: vm.addr(deployerPrivateKey),
-            treasury: vm.envAddress("TREASURY")
-        });
+        DeployConfig memory cfg =
+            DeployConfig({deployer: vm.addr(deployerPrivateKey), treasury: vm.envAddress("TREASURY")});
 
         Deployments memory deployments;
 
