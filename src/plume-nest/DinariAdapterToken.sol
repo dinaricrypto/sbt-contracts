@@ -102,6 +102,11 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
     // Override Functions
 
     /// @inheritdoc IComponentToken
+    function assetsOf(address owner) public view override(ComponentToken) returns (uint256 assets) {
+        return convertToAssets(balanceOf(owner));
+    }
+
+    /// @inheritdoc IComponentToken
     function convertToShares(uint256 assets) public view override(ComponentToken) returns (uint256 shares) {
         // Apply dshare price and wrapped conversion rate, fees
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
