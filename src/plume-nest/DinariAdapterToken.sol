@@ -99,11 +99,6 @@ contract DinariAdapterToken is ComponentToken {
     // Override Functions
 
     /// @inheritdoc IComponentToken
-    function assetsOf(address owner) public view override(ComponentToken) returns (uint256 assets) {
-        return convertToAssets(balanceOf(owner));
-    }
-
-    /// @inheritdoc IComponentToken
     function convertToShares(uint256 assets) public view override(ComponentToken) returns (uint256 shares) {
         // Apply dshare price and wrapped conversion rate, fees
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -148,7 +143,6 @@ contract DinariAdapterToken is ComponentToken {
     function requestDeposit(uint256 assets, address controller, address owner)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 requestId)
     {
         // Input must be more than flat fee
@@ -190,7 +184,6 @@ contract DinariAdapterToken is ComponentToken {
     function requestRedeem(uint256 shares, address controller, address owner)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 requestId)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -257,7 +250,7 @@ contract DinariAdapterToken is ComponentToken {
         return uint256($.submittedOrders.front());
     }
 
-    function processSubmittedOrders() public nonReentrant {
+    function processSubmittedOrders() public {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor orderContract = $.externalOrderContract;
         address nestStakingContract = $.nestStakingContract;
@@ -328,7 +321,7 @@ contract DinariAdapterToken is ComponentToken {
     }
 
     /// @dev Single order processing if gas limit is reached
-    function processNextSubmittedOrder() public nonReentrant {
+    function processNextSubmittedOrder() public {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor orderContract = $.externalOrderContract;
         address nestStakingContract = $.nestStakingContract;
@@ -355,7 +348,6 @@ contract DinariAdapterToken is ComponentToken {
     function deposit(uint256 assets, address receiver, address controller)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 shares)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -370,7 +362,6 @@ contract DinariAdapterToken is ComponentToken {
     function mint(uint256 shares, address receiver, address controller)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 assets)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -385,7 +376,6 @@ contract DinariAdapterToken is ComponentToken {
     function redeem(uint256 shares, address receiver, address controller)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 assets)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -400,7 +390,6 @@ contract DinariAdapterToken is ComponentToken {
     function withdraw(uint256 assets, address receiver, address controller)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 shares)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
