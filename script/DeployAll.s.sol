@@ -18,14 +18,10 @@ import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/U
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
-contract DeployAllSandbox is Script {
+contract DeployAll is Script {
     struct DeployConfig {
         address deployer;
         address treasury;
-        address operator;
-        address distributor;
-        address relayer;
-        address paymentToken;
     }
 
     struct Deployments {
@@ -44,27 +40,18 @@ contract DeployAllSandbox is Script {
         DividendDistribution dividendDistributor;
     }
 
-    uint64 constant perOrderFee = 1e8;
-    uint24 constant percentageFeeRate = 5_000;
-
     function run() external {
         // load env variables
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
 
-        DeployConfig memory cfg = DeployConfig({
-            deployer: vm.addr(deployerPrivateKey),
-            treasury: vm.envAddress("TREASURY"),
-            operator: vm.envAddress("OPERATOR"),
-            distributor: vm.envAddress("DISTRIBUTOR"),
-            relayer: vm.envAddress("RELAYER"),
-            paymentToken: vm.envAddress("GNUSD")
-        });
+        DeployConfig memory cfg =
+            DeployConfig({deployer: vm.addr(deployerPrivateKey), treasury: vm.envAddress("TREASURY")});
 
         Deployments memory deployments;
 
         console.log("deployer: %s", cfg.deployer);
 
-        bytes32 salt = keccak256(abi.encodePacked("0.4.1pre1"));
+        bytes32 salt = keccak256(abi.encodePacked("0.4.3"));
 
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
@@ -137,26 +124,16 @@ contract DeployAllSandbox is Script {
 
         // fulfillment router
         deployments.fulfillmentRouter = new FulfillmentRouter(cfg.deployer);
+        console.log("fulfillment router: %s", address(deployments.fulfillmentRouter));
 
         // latest price helper
         deployments.latestPriceHelper = new LatestPriceHelper{salt: salt}();
-
-        // config operator
-        deployments.orderProcessor.setOperator(address(deployments.fulfillmentRouter), true);
-        deployments.fulfillmentRouter.grantRole(deployments.fulfillmentRouter.OPERATOR_ROLE(), cfg.operator);
-
-        // config payment token
-        deployments.orderProcessor.setPaymentToken(
-            cfg.paymentToken, bytes4(0), perOrderFee, percentageFeeRate, perOrderFee, percentageFeeRate
-        );
+        console.log("latest price helper: %s", address(deployments.latestPriceHelper));
 
         /// ------------------ dividend distributor ------------------
 
         deployments.dividendDistributor = new DividendDistribution{salt: salt}(cfg.deployer);
         console.log("dividend distributor: %s", address(deployments.dividendDistributor));
-
-        // add distributor
-        deployments.dividendDistributor.grantRole(deployments.dividendDistributor.DISTRIBUTOR_ROLE(), cfg.distributor);
 
         vm.stopBroadcast();
     }
