@@ -5,9 +5,6 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
-import {ReentrancyGuardTransientUpgradeable} from
-    "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardTransientUpgradeable.sol";
-
 import {ComponentToken, IERC7540} from "plume-contracts/nest/src/ComponentToken.sol";
 import {IComponentToken} from "plume-contracts/nest/src/interfaces/IComponentToken.sol";
 import {IOrderProcessor} from "../orders/IOrderProcessor.sol";
@@ -18,7 +15,7 @@ import {IOrderProcessor} from "../orders/IOrderProcessor.sol";
  * @notice Implementation of the abstract ComponentToken that interfaces with external assets.
  * @dev Asset is USDC. Holds wrapped dShares to accumulate yield.
  */
-contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeable {
+contract DinariAdapterToken is ComponentToken {
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
     // Storage
@@ -146,7 +143,6 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
     function requestDeposit(uint256 assets, address controller, address owner)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 requestId)
     {
         // Input must be more than flat fee
@@ -188,7 +184,6 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
     function requestRedeem(uint256 shares, address controller, address owner)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 requestId)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -255,7 +250,7 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
         return uint256($.submittedOrders.front());
     }
 
-    function processSubmittedOrders() public nonReentrant {
+    function processSubmittedOrders() public {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor orderContract = $.externalOrderContract;
         address nestStakingContract = $.nestStakingContract;
@@ -326,7 +321,7 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
     }
 
     /// @dev Single order processing if gas limit is reached
-    function processNextSubmittedOrder() public nonReentrant {
+    function processNextSubmittedOrder() public {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor orderContract = $.externalOrderContract;
         address nestStakingContract = $.nestStakingContract;
@@ -353,7 +348,6 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
     function deposit(uint256 assets, address receiver, address controller)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 shares)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -368,7 +362,6 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
     function mint(uint256 shares, address receiver, address controller)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 assets)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -383,7 +376,6 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
     function redeem(uint256 shares, address receiver, address controller)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 assets)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
@@ -398,7 +390,6 @@ contract DinariAdapterToken is ComponentToken, ReentrancyGuardTransientUpgradeab
     function withdraw(uint256 assets, address receiver, address controller)
         public
         override(ComponentToken)
-        nonReentrant
         returns (uint256 shares)
     {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
