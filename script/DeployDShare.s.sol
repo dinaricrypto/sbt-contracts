@@ -14,12 +14,8 @@ contract DeployDShare is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        (address dshare, address wrappedDShare) = factory.createDShare(
-            deployer,
-            "Stock",
-            "S.d",
-            "Wrapped Stock",
-            "S.dw");
+        (address dshare, address wrappedDShare) =
+            factory.createDShare(deployer, "Stock", "S.d", "Wrapped Stock", "S.dw");
         console.log("DShare address: %s", dshare);
         console.log("Wrapped DShare address: %s", wrappedDShare);
 
