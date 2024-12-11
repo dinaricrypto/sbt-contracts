@@ -359,7 +359,7 @@ contract DinariAdapterTokenTest is Test {
         uint256 nextOrder = adapterToken.getNextSubmittedOrder();
         assertEq(nextOrder, orderId);
         assertEq(uint256(issuer.getOrderStatus(orderId)), 1);
-        (bool sell, uint256 orderAmount, uint256 fees) = adapterToken.getSubmittedOrderInfo(orderId);
+        (bool sell, uint256 orderAmount,) = adapterToken.getSubmittedOrderInfo(orderId);
         assertEq(sell, false);
         assertGe(adapterToken.pendingDepositRequest(0, nest), amount - 1);
         assertEq(adapterToken.claimableDepositRequest(0, nest), 0);
