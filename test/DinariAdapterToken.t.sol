@@ -148,7 +148,7 @@ contract DinariAdapterTokenTest is Test {
 
         // deposit must not be too large
         vm.expectRevert(
-            abi.encodeWithSelector(ComponentToken.InsufficientRequestBalance.selector, nest, claimableDeposit + 1, 1)
+            abi.encodeWithSelector(ComponentToken.InvalidDepositAmount.selector, claimableDeposit + 1, claimableDeposit)
         );
         vm.prank(nest);
         adapterToken.deposit(claimableDeposit + 1, nest, nest);
@@ -288,8 +288,9 @@ contract DinariAdapterTokenTest is Test {
         adapterToken.getNextSubmittedOrder();
 
         // finalize deposit
+        uint256 claimableDeposit = adapterToken.claimableDepositRequest(0, nest);
         vm.prank(nest);
-        adapterToken.deposit(amount - 1, nest, nest);
+        adapterToken.deposit(claimableDeposit, nest, nest);
         uint256 shares = adapterToken.balanceOf(nest);
         assertEq(shares, wToken.balanceOf(address(adapterToken)));
         assertEq(token.balanceOf(address(adapterToken)), 0);
