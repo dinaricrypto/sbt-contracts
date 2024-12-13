@@ -87,7 +87,7 @@ contract DinariAdapterToken is ComponentToken {
         address wrappedDshareToken,
         address nestStakingContract,
         address externalOrderContract
-    ) public initializer {
+    ) external initializer {
         super.initialize(owner, name, symbol, IERC20(currencyToken), true, true);
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         $.dshareToken = dshareToken;
@@ -233,7 +233,7 @@ contract DinariAdapterToken is ComponentToken {
     }
 
     function getSubmittedOrderInfo(uint256 orderId)
-        public
+        external
         view
         returns (bool sell, uint256 orderAmount, uint256 fees)
     {
@@ -242,7 +242,7 @@ contract DinariAdapterToken is ComponentToken {
         return (orderInfo.sell, orderInfo.orderAmount, orderInfo.fees);
     }
 
-    function getNextSubmittedOrder() public view returns (uint256) {
+    function getNextSubmittedOrder() external view returns (uint256) {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         if ($.submittedOrders.length() == 0) {
             revert NoOutstandingOrders();
@@ -250,7 +250,7 @@ contract DinariAdapterToken is ComponentToken {
         return uint256($.submittedOrders.front());
     }
 
-    function processSubmittedOrders() public {
+    function processSubmittedOrders() external {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor orderContract = $.externalOrderContract;
         address nestStakingContract = $.nestStakingContract;
@@ -321,7 +321,7 @@ contract DinariAdapterToken is ComponentToken {
     }
 
     /// @dev Single order processing if gas limit is reached
-    function processNextSubmittedOrder() public {
+    function processNextSubmittedOrder() external {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor orderContract = $.externalOrderContract;
         address nestStakingContract = $.nestStakingContract;
