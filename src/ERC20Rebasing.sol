@@ -40,7 +40,8 @@ abstract contract ERC20Rebasing is ERC20 {
     function maxSupply() public view virtual returns (uint256) {
         uint128 balancePerShare_ = balancePerShare();
         if (balancePerShare_ < _INITIAL_BALANCE_PER_SHARE) {
-            return FixedPointMathLib.mulWad(type(uint256).max, balancePerShare_);
+            // WAD = 1e18
+            return FixedPointMathLib.fullMulDiv(type(uint256).max, balancePerShare_, 1e18);
         } else if (balancePerShare_ > _INITIAL_BALANCE_PER_SHARE) {
             return FixedPointMathLib.fullMulDiv(type(uint256).max, _INITIAL_BALANCE_PER_SHARE, balancePerShare_);
         }

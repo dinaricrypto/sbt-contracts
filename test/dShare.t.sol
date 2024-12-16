@@ -12,6 +12,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {PRBMath_MulDiv18_Overflow, PRBMath_MulDiv_Overflow} from "prb-math/Common.sol";
 import {NumberUtils} from "../src/common/NumberUtils.sol";
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
 contract DShareTest is Test {
     event NameSet(string name);
@@ -306,5 +307,26 @@ contract DShareTest is Test {
         uint256 balance = token.sharesToBalance(amount);
         assertEq(token.totalSupply(), balance);
         assertEq(token.balanceOf(user), balance);
+    }
+
+    function testMaxSupply(uint128 balancePerShare_) public {
+        vm.assume(balancePerShare_ > 0); // From testSetBalancePerShareZeroReverts
+        // Skip cases where multiplication would overflow
+        vm.assume(!NumberUtils.mulDivCheckOverflow(type(uint256).max, balancePerShare_, 1 ether));
+
+        // Set the balance per share
+        token.setBalancePerShare(balancePerShare_);
+
+        // Get actual max supply
+        uint256 maxSupply = token.maxSupply();
+
+        // Compare with expected value based on balancePerShare
+        if (balancePerShare_ == 1 ether) {
+            assertEq(maxSupply, type(uint256).max);
+        } else if (balancePerShare_ < 1 ether) {
+            assertEq(maxSupply, FixedPointMathLib.fullMulDiv(type(uint256).max, balancePerShare_, 1e18));
+        } else {
+            assertEq(maxSupply, FixedPointMathLib.fullMulDiv(type(uint256).max, 1 ether, balancePerShare_));
+        }
     }
 }
