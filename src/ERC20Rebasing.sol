@@ -4,6 +4,7 @@ pragma solidity ^0.8.23;
 import {ERC20} from "solady/src/tokens/ERC20.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 import {NumberUtils} from "./common/NumberUtils.sol";
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
 /// @notice Rebasing ERC20 token as an in-place upgrade to solady erc20
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
@@ -27,7 +28,7 @@ abstract contract ERC20Rebasing is ERC20 {
     }
 
     function balanceToShares(uint256 balance) public view returns (uint256) {
-        return mulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // floor
+        return FixedPointMathLib.mulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // floor
     }
 
     /// ------------------ ERC20 ------------------
