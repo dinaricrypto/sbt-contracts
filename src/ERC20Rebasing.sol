@@ -28,7 +28,7 @@ abstract contract ERC20Rebasing is ERC20 {
     }
 
     function balanceToShares(uint256 balance) public view returns (uint256) {
-        return FixedPointMathLib.fullMulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // floor
+        return FixedPointMathLib.fullMulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // ceil
     }
 
     /// ------------------ ERC20 ------------------
