@@ -2,7 +2,6 @@
 pragma solidity ^0.8.23;
 
 import {ERC20} from "solady/src/tokens/ERC20.sol";
-import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 import {NumberUtils} from "./common/NumberUtils.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
@@ -24,11 +23,11 @@ abstract contract ERC20Rebasing is ERC20 {
     function balancePerShare() public view virtual returns (uint128);
 
     function sharesToBalance(uint256 shares) public view returns (uint256) {
-        return mulDiv18(shares, balancePerShare()); // floor
+        return FixedPointMathLib.fullMulDiv(shares, balancePerShare(), 1e18); // floor
     }
 
     function balanceToShares(uint256 balance) public view returns (uint256) {
-        return FixedPointMathLib.mulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // floor
+        return FixedPointMathLib.fullMulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // floor
     }
 
     /// ------------------ ERC20 ------------------
@@ -40,9 +39,9 @@ abstract contract ERC20Rebasing is ERC20 {
     function maxSupply() public view virtual returns (uint256) {
         uint128 balancePerShare_ = balancePerShare();
         if (balancePerShare_ < _INITIAL_BALANCE_PER_SHARE) {
-            return mulDiv18(type(uint256).max, balancePerShare_);
+            return FixedPointMathLib.mulWad(type(uint256).max, balancePerShare_);
         } else if (balancePerShare_ > _INITIAL_BALANCE_PER_SHARE) {
-            return mulDiv(type(uint256).max, _INITIAL_BALANCE_PER_SHARE, balancePerShare_);
+            return FixedPointMathLib.fullMulDiv(type(uint256).max, _INITIAL_BALANCE_PER_SHARE, balancePerShare_);
         }
         return type(uint256).max;
     }
