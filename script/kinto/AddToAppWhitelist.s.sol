@@ -3,15 +3,23 @@ pragma solidity ^0.8.23;
 
 import "forge-std/Script.sol";
 import {IKintoAppRegistry} from "kinto-contracts-helpers/interfaces/IKintoAppRegistry.sol";
+import {IKintoWallet} from "kinto-contracts-helpers/interfaces/IKintoWallet.sol";
+import {ISponsorPaymaster} from "kinto-contracts-helpers/interfaces/ISponsorPaymaster.sol";
 
-contract AddToContractWhitelist is Script {
+import "kinto-contracts-helpers/EntryPointHelper.sol";
+
+contract AddToAppWhitelist is Script, EntryPointHelper {
     function run() external {
         // load env variables
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_KEY");
+        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY_STAGE");
         address deployer = vm.addr(deployerPrivateKey);
+        address owner = vm.envAddress("KINTO_WALLET");
         IKintoAppRegistry _appRegistry = IKintoAppRegistry(vm.envAddress("APP_REGISTRY"));
+        IEntryPoint _entryPoint = IEntryPoint(vm.envAddress("ENTRYPOINT"));
+        ISponsorPaymaster _sponsorPaymaster = ISponsorPaymaster(vm.envAddress("SPONSOR_PAYMASTER"));
 
         console.log("deployer: %s", deployer);
+        console.log("owner: %s", owner);
 
         address dinariAppParentContract = 0xB2eEc63Cdc175d6d07B8f69804C0Ab5F66aCC3cb;
 
@@ -31,7 +39,15 @@ contract AddToContractWhitelist is Script {
         // send txs as deployer
         vm.startBroadcast(deployerPrivateKey);
 
-        _appRegistry.addAppContracts(dinariAppParentContract, contracts);
+        // _appRegistry.addAppContracts(dinariAppParentContract, contracts);
+        _handleOps(
+            _entryPoint,
+            abi.encodeWithSelector(IKintoAppRegistry.addAppContracts.selector, dinariAppParentContract, contracts),
+            owner,
+            address(_appRegistry),
+            address(_sponsorPaymaster),
+            deployerPrivateKey
+        );
 
         vm.stopBroadcast();
     }
