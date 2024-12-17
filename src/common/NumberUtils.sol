@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.23;
 
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
+
 library NumberUtils {
     function addCheckOverflow(uint256 a, uint256 b) internal pure returns (bool) {
         uint256 c = 0;
@@ -31,5 +33,17 @@ library NumberUtils {
             prod1 := sub(sub(mm, prod0), lt(mm, prod0))
         }
         return prod1 >= denominator;
+    }
+
+    function mulDivUpCheckOverflow(uint256 a, uint256 b, uint256 denominator) internal pure returns (bool) {
+        if (mulDivCheckOverflow(a, b, denominator)) {
+            return true;
+        }
+        // brute force check
+        uint256 z = FixedPointMathLib.fullMulDiv(a, b, denominator);
+        assembly {
+            if mulmod(a, b, denominator) { z := add(z, 1) }
+        }
+        return z == 0;
     }
 }
