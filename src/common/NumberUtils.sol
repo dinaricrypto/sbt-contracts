@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity ^0.8.23;
 
-import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
-
 library NumberUtils {
     function addCheckOverflow(uint256 a, uint256 b) internal pure returns (bool) {
         uint256 c = 0;
