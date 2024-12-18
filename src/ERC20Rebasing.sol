@@ -113,7 +113,8 @@ abstract contract ERC20Rebasing is ERC20 {
         }
         // Check overflow
         if (totalSharesAfter < totalSharesBefore) revert TotalSupplyOverflow();
-        // Check total supply limit, same as maxSupply logic
+        // Check total supply limit
+        // Same as maxSupply logic, other balancePerShare scenario covered by the previous check
         uint128 balancePerShare_ = balancePerShare();
         if (
             balancePerShare_ > _INITIAL_BALANCE_PER_SHARE
