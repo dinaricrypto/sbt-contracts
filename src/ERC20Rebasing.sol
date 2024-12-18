@@ -37,10 +37,13 @@ abstract contract ERC20Rebasing is ERC20 {
     }
 
     function maxSupply() public view virtual returns (uint256) {
+        // Reduced maxSupply of shares to prevent overflow in balanceToShares and other functions
         uint128 balancePerShare_ = balancePerShare();
         if (balancePerShare_ < _INITIAL_BALANCE_PER_SHARE) {
+            // maxSupply = type(uint256).max * balancePerShare_ / _INITIAL_BALANCE_PER_SHARE
             return FixedPointMathLib.fullMulDiv(type(uint256).max, balancePerShare_, _INITIAL_BALANCE_PER_SHARE);
         } else if (balancePerShare_ > _INITIAL_BALANCE_PER_SHARE) {
+            // maxSupply = type(uint256).max * _INITIAL_BALANCE_PER_SHARE / balancePerShare_
             return FixedPointMathLib.fullMulDiv(type(uint256).max, _INITIAL_BALANCE_PER_SHARE, balancePerShare_);
         }
         return type(uint256).max;
@@ -110,7 +113,7 @@ abstract contract ERC20Rebasing is ERC20 {
         }
         // Check overflow
         if (totalSharesAfter < totalSharesBefore) revert TotalSupplyOverflow();
-        // Check total supply limit
+        // Check total supply limit, same as maxSupply logic
         uint128 balancePerShare_ = balancePerShare();
         if (
             balancePerShare_ > _INITIAL_BALANCE_PER_SHARE
