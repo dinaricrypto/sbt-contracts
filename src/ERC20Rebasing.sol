@@ -115,14 +115,8 @@ abstract contract ERC20Rebasing is ERC20 {
         }
         // Check overflow
         if (totalSharesAfter < totalSharesBefore) revert TotalSupplyOverflow();
-        // Check total supply limit
-        // Same as maxSupply logic, other balancePerShare scenario covered by the previous check
-        uint128 balancePerShare_ = balancePerShare();
-        if (
-            balancePerShare_ > _INITIAL_BALANCE_PER_SHARE
-                && sharesToBalance(totalSharesAfter)
-                    > FixedPointMathLib.fullMulDiv(type(uint256).max, _INITIAL_BALANCE_PER_SHARE, balancePerShare_)
-        ) revert TotalSupplyOverflow();
+        // Check total supply limit, can also revert with FullMulDivFailed in sharesToBalance
+        if (sharesToBalance(totalSharesAfter) > maxSupply()) revert TotalSupplyOverflow();
         /// @solidity memory-safe-assembly
         assembly {
             // Store the updated total supply.
