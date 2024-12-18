@@ -2,8 +2,8 @@
 pragma solidity ^0.8.23;
 
 import {ERC20} from "solady/src/tokens/ERC20.sol";
-import {mulDiv, mulDiv18} from "prb-math/Common.sol";
 import {NumberUtils} from "./common/NumberUtils.sol";
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
 /// @notice Rebasing ERC20 token as an in-place upgrade to solady erc20
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
@@ -23,11 +23,11 @@ abstract contract ERC20Rebasing is ERC20 {
     function balancePerShare() public view virtual returns (uint128);
 
     function sharesToBalance(uint256 shares) public view returns (uint256) {
-        return mulDiv18(shares, balancePerShare()); // floor
+        return FixedPointMathLib.fullMulDiv(shares, balancePerShare(), _INITIAL_BALANCE_PER_SHARE); // floor
     }
 
     function balanceToShares(uint256 balance) public view returns (uint256) {
-        return mulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // floor
+        return FixedPointMathLib.fullMulDivUp(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // ceil
     }
 
     /// ------------------ ERC20 ------------------
@@ -36,12 +36,17 @@ abstract contract ERC20Rebasing is ERC20 {
         return sharesToBalance(super.totalSupply());
     }
 
+    /// @notice Returns the maximum supply of the token in balance.
+    /// @dev Useful for sanity checks before minting since the total supply of shares can overflow.
     function maxSupply() public view virtual returns (uint256) {
+        // Reduced maxSupply of shares to prevent overflow in balanceToShares and other functions
         uint128 balancePerShare_ = balancePerShare();
         if (balancePerShare_ < _INITIAL_BALANCE_PER_SHARE) {
-            return mulDiv18(type(uint256).max, balancePerShare_);
+            // maxSupply = type(uint256).max * balancePerShare_ / _INITIAL_BALANCE_PER_SHARE
+            return FixedPointMathLib.fullMulDiv(type(uint256).max, balancePerShare_, _INITIAL_BALANCE_PER_SHARE);
         } else if (balancePerShare_ > _INITIAL_BALANCE_PER_SHARE) {
-            return mulDiv(type(uint256).max, _INITIAL_BALANCE_PER_SHARE, balancePerShare_);
+            // maxSupply = type(uint256).max * _INITIAL_BALANCE_PER_SHARE / balancePerShare_
+            return FixedPointMathLib.fullMulDiv(type(uint256).max, _INITIAL_BALANCE_PER_SHARE, balancePerShare_);
         }
         return type(uint256).max;
     }
@@ -101,20 +106,17 @@ abstract contract ERC20Rebasing is ERC20 {
     function _mint(address to, uint256 amount) internal virtual override {
         _beforeTokenTransfer(address(0), to, amount);
         uint256 totalSharesBefore = super.totalSupply();
-        uint256 totalSupplyBefore = sharesToBalance(totalSharesBefore);
-        uint256 totalSupplyAfter = 0;
-        unchecked {
-            totalSupplyAfter = totalSupplyBefore + amount;
-            if (totalSupplyAfter < totalSupplyBefore) revert TotalSupplyOverflow();
-        }
-        if (NumberUtils.mulDivCheckOverflow(totalSupplyAfter, _INITIAL_BALANCE_PER_SHARE, balancePerShare())) {
-            revert TotalSupplyOverflow();
-        }
-        uint256 shares = balanceToShares(amount);
+        // Floor the shares to mint
+        uint256 shares = FixedPointMathLib.fullMulDiv(amount, _INITIAL_BALANCE_PER_SHARE, balancePerShare());
+        // Check the total supply limit for shares
         uint256 totalSharesAfter = 0;
         unchecked {
             totalSharesAfter = totalSharesBefore + shares;
         }
+        // Check overflow
+        if (totalSharesAfter < totalSharesBefore) revert TotalSupplyOverflow();
+        // Check total supply limit, can also revert with FullMulDivFailed in sharesToBalance
+        if (sharesToBalance(totalSharesAfter) > maxSupply()) revert TotalSupplyOverflow();
         /// @solidity memory-safe-assembly
         assembly {
             // Store the updated total supply.
