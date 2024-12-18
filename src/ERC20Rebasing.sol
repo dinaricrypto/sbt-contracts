@@ -36,6 +36,8 @@ abstract contract ERC20Rebasing is ERC20 {
         return sharesToBalance(super.totalSupply());
     }
 
+    /// @notice Returns the maximum supply of the token in balance.
+    /// @dev Useful for sanity checks before minting since the total supply of shares can overflow.
     function maxSupply() public view virtual returns (uint256) {
         // Reduced maxSupply of shares to prevent overflow in balanceToShares and other functions
         uint128 balancePerShare_ = balancePerShare();
