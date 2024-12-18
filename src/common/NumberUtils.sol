@@ -34,16 +34,4 @@ library NumberUtils {
         }
         return prod1 >= denominator;
     }
-
-    function mulDivUpCheckOverflow(uint256 a, uint256 b, uint256 denominator) internal pure returns (bool) {
-        if (mulDivCheckOverflow(a, b, denominator)) {
-            return true;
-        }
-        // brute force check
-        uint256 z = FixedPointMathLib.fullMulDiv(a, b, denominator);
-        assembly {
-            if mulmod(a, b, denominator) { z := add(z, 1) }
-        }
-        return z == 0;
-    }
 }
