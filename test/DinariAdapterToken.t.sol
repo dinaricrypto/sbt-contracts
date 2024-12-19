@@ -106,6 +106,26 @@ contract DinariAdapterTokenTest is Test {
         adapterToken.convertToShares(amount);
     }
 
+    function testConvertToSharesStalePriceReverts(uint256 amount) public {
+        (uint256 flatFee,) = issuer.getStandardFees(false, address(usd));
+        vm.assume(amount > flatFee);
+
+        // Place order to set price
+        uint256 price = 10;
+        IOrderProcessor.Order memory order = getDummyOrder(false);
+        vm.prank(admin);
+        usd.mint(address(this), order.paymentTokenQuantity * 2);
+        usd.approve(address(issuer), order.paymentTokenQuantity * 2);
+        uint256 id = issuer.createOrderStandardFees(order);
+        vm.prank(operator);
+        issuer.fillOrder(order, order.paymentTokenQuantity, order.paymentTokenQuantity / price, 0);
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        vm.expectRevert(DinariAdapterToken.StalePrice.selector);
+        adapterToken.convertToShares(amount);
+    }
+
     function testConvertToShares(uint256 amount) public {
         (uint256 flatFee,) = issuer.getStandardFees(false, address(usd));
         vm.assume(amount > flatFee);
@@ -130,6 +150,31 @@ contract DinariAdapterTokenTest is Test {
 
         // Fail if no price
         vm.expectRevert(DinariAdapterToken.InvalidPrice.selector);
+        adapterToken.convertToAssets(shares);
+    }
+
+    function testConvertToAssetsStalePriceReverts(uint256 shares) public {
+        vm.assume(shares > 0);
+        uint256 price = 10;
+        vm.assume(!NumberUtils.mulCheckOverflow(shares, price));
+
+        // Place order to set price
+        IOrderProcessor.Order memory order = getDummyOrder(true);
+        vm.prank(admin);
+        token.mint(address(this), order.assetTokenQuantity);
+        token.approve(address(issuer), order.assetTokenQuantity);
+        uint256 id = issuer.createOrderStandardFees(order);
+        uint256 fillAmount = order.assetTokenQuantity * price;
+        vm.prank(admin);
+        usd.mint(operator, fillAmount);
+        vm.startPrank(operator);
+        usd.approve(address(issuer), fillAmount);
+        issuer.fillOrder(order, order.assetTokenQuantity, order.assetTokenQuantity * price, 0);
+        vm.stopPrank();
+
+        vm.warp(block.timestamp + 1 days + 1);
+
+        vm.expectRevert(DinariAdapterToken.StalePrice.selector);
         adapterToken.convertToAssets(shares);
     }
 
