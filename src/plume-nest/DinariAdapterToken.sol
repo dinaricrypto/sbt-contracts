@@ -3,14 +3,15 @@ pragma solidity ^0.8.25;
 
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
+import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {ComponentToken, IERC7540} from "plume-contracts/nest/src/ComponentToken.sol";
 import {IComponentToken} from "plume-contracts/nest/src/interfaces/IComponentToken.sol";
 import {IOrderProcessor} from "../orders/IOrderProcessor.sol";
 import {OracleLib} from "../common/OracleLib.sol";
+import {FeeLib} from "../common/FeeLib.sol";
 
 /**
  * @title DinariAdapterToken
@@ -147,7 +148,9 @@ contract DinariAdapterToken is ComponentToken {
         // order = (total - flat) / (1 + vfee)
         (uint256 flatFee, uint24 percentageFeeRate) = orderContract.getStandardFees(false, paymentToken);
         if (totalBuy <= flatFee) revert AmountTooSmall();
-        orderAmount = FixedPointMathLib.fullMulDiv(totalBuy - flatFee, 1_000_000, 1_000_000 + percentageFeeRate);
+        orderAmount = FixedPointMathLib.fullMulDiv(
+            totalBuy - flatFee, FeeLib._ONEHUNDRED_PERCENT, FeeLib._ONEHUNDRED_PERCENT + percentageFeeRate
+        );
 
         fees = orderContract.totalStandardFee(false, paymentToken, orderAmount);
     }
@@ -162,17 +165,23 @@ contract DinariAdapterToken is ComponentToken {
         address dshareToken = $.dshareToken;
         uint256 price = _getDSharePrice(orderContract, dshareToken, paymentToken);
         uint256 dshares = IERC4626($.wrappedDshareToken).convertToAssets(shares);
-        // Round down to nearest supported decimal
-        uint256 precisionReductionFactor = 10 ** orderContract.orderDecimalReduction(dshareToken);
-        // slither-disable-next-line divide-before-multiply
-        uint256 proceeds = OracleLib.applyPriceAssetToPayment(
-            (dshares / precisionReductionFactor) * precisionReductionFactor,
-            price,
-            IERC20Metadata(paymentToken).decimals()
-        );
+        uint256 orderAmount = _applyDecimalReduction(orderContract, dshareToken, dshares);
+        uint256 proceeds =
+            OracleLib.applyPriceAssetToPayment(orderAmount, price, IERC20Metadata(paymentToken).decimals());
         uint256 fees = orderContract.totalStandardFee(true, paymentToken, proceeds);
         if (proceeds <= fees) return 0;
         return proceeds - fees;
+    }
+
+    function _applyDecimalReduction(IOrderProcessor orderContract, address assetToken, uint256 amount)
+        private
+        view
+        returns (uint256)
+    {
+        // Round down to nearest supported decimal
+        uint256 precisionReductionFactor = 10 ** orderContract.orderDecimalReduction(assetToken);
+        // slither-disable-next-line divide-before-multiply
+        return (amount / precisionReductionFactor) * precisionReductionFactor;
     }
 
     /// @inheritdoc IComponentToken
@@ -196,24 +205,36 @@ contract DinariAdapterToken is ComponentToken {
         // Subcall with calculated input amount to be safe
         super.requestDeposit(totalInput, controller, owner);
 
-        // Approve dshares
-        SafeERC20.safeIncreaseAllowance(IERC20(paymentToken), address(orderContract), totalInput);
+        // Approve payment token
+        SafeTransferLib.safeApprove(paymentToken, address(orderContract), totalInput);
         // Buy
+        requestId = _placeOrder(orderContract, $.dshareToken, paymentToken, orderAmount, fees, false);
+    }
+
+    function _placeOrder(
+        IOrderProcessor orderContract,
+        address assetToken,
+        address paymentToken,
+        uint256 orderAmount,
+        uint256 fees,
+        bool sell
+    ) private returns (uint256 orderId) {
+        DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor.Order memory order = IOrderProcessor.Order({
             requestTimestamp: $.orderNonce++,
             recipient: address(this),
-            assetToken: $.dshareToken,
+            assetToken: assetToken,
             paymentToken: paymentToken,
-            sell: false,
+            sell: sell,
             orderType: IOrderProcessor.OrderType.MARKET,
-            assetTokenQuantity: 0,
-            paymentTokenQuantity: orderAmount,
+            assetTokenQuantity: sell ? orderAmount : 0,
+            paymentTokenQuantity: sell ? 0 : orderAmount,
             price: 0,
             tif: IOrderProcessor.TIF.DAY
         });
-        requestId = orderContract.createOrderStandardFees(order);
-        $.submittedOrderInfo[requestId] = DShareOrderInfo({sell: false, orderAmount: orderAmount, fees: fees});
-        $.submittedOrders.pushBack(bytes32(requestId));
+        orderId = orderContract.createOrderStandardFees(order);
+        $.submittedOrderInfo[orderId] = DShareOrderInfo({sell: sell, orderAmount: orderAmount, fees: fees});
+        $.submittedOrders.pushBack(bytes32(orderId));
     }
 
     /// @inheritdoc IComponentToken
@@ -234,9 +255,7 @@ contract DinariAdapterToken is ComponentToken {
         // Round down to nearest supported decimal
         address dshareToken = $.dshareToken;
         IOrderProcessor orderContract = $.externalOrderContract;
-        uint256 precisionReductionFactor = 10 ** orderContract.orderDecimalReduction(dshareToken);
-        // slither-disable-next-line divide-before-multiply
-        uint256 orderAmount = (dshares / precisionReductionFactor) * precisionReductionFactor;
+        uint256 orderAmount = _applyDecimalReduction(orderContract, dshareToken, dshares);
 
         // Subcall with dust removed
         super.requestRedeem(orderAmount, controller, owner);
@@ -249,23 +268,9 @@ contract DinariAdapterToken is ComponentToken {
             // Dust shares not minted back to owner, rounded orderAmount used in requestRedeem
         }
         // Approve dshares
-        SafeERC20.safeIncreaseAllowance(IERC20(dshareToken), address(orderContract), orderAmount);
+        SafeTransferLib.safeApprove(dshareToken, address(orderContract), orderAmount);
         // Sell
-        IOrderProcessor.Order memory order = IOrderProcessor.Order({
-            requestTimestamp: $.orderNonce++,
-            recipient: address(this),
-            assetToken: dshareToken,
-            paymentToken: asset(),
-            sell: true,
-            orderType: IOrderProcessor.OrderType.MARKET,
-            assetTokenQuantity: orderAmount,
-            paymentTokenQuantity: 0,
-            price: 0,
-            tif: IOrderProcessor.TIF.DAY
-        });
-        requestId = orderContract.createOrderStandardFees(order);
-        $.submittedOrderInfo[requestId] = DShareOrderInfo({sell: true, orderAmount: orderAmount, fees: 0});
-        $.submittedOrders.pushBack(bytes32(requestId));
+        requestId = _placeOrder(orderContract, dshareToken, asset(), orderAmount, 0, true);
     }
 
     function getSubmittedOrderInfo(uint256 orderId)
@@ -288,19 +293,12 @@ contract DinariAdapterToken is ComponentToken {
 
     function processSubmittedOrders() public {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
-        IOrderProcessor orderContract = $.externalOrderContract;
-        address nestStakingContract = $.nestStakingContract;
-        IERC20 dshareToken = IERC20($.dshareToken);
-        IERC4626 wrappedDshareToken = IERC4626($.wrappedDshareToken);
-        IERC20 paymentToken = IERC20(asset());
 
         DoubleEndedQueue.Bytes32Deque storage orders = $.submittedOrders;
         while (orders.length() > 0) {
             uint256 orderId = uint256(orders.front());
 
-            IOrderProcessor.OrderStatus status = _processOrder(
-                orderId, orderContract, nestStakingContract, dshareToken, wrappedDshareToken, paymentToken
-            );
+            IOrderProcessor.OrderStatus status = _processOrder(orderId);
             if (status == IOrderProcessor.OrderStatus.ACTIVE) {
                 break;
             }
@@ -310,16 +308,10 @@ contract DinariAdapterToken is ComponentToken {
         }
     }
 
-    function _processOrder(
-        uint256 orderId,
-        IOrderProcessor orderContract,
-        address nestStakingContract,
-        IERC20 dshareToken,
-        IERC4626 wrappedDshareToken,
-        IERC20 paymentToken
-    ) private returns (IOrderProcessor.OrderStatus status) {
+    function _processOrder(uint256 orderId) private returns (IOrderProcessor.OrderStatus status) {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
 
+        IOrderProcessor orderContract = $.externalOrderContract;
         status = orderContract.getOrderStatus(orderId);
         if (status == IOrderProcessor.OrderStatus.ACTIVE) {
             return status;
@@ -327,6 +319,7 @@ contract DinariAdapterToken is ComponentToken {
             revert OrderDoesNotExist();
         }
 
+        address nestStakingContract = $.nestStakingContract;
         DShareOrderInfo memory orderInfo = $.submittedOrderInfo[orderId];
         uint256 totalInput = orderInfo.orderAmount + orderInfo.fees;
 
@@ -341,8 +334,9 @@ contract DinariAdapterToken is ComponentToken {
                 super._notifyRedeem(proceeds - feesTaken, orderInfo.orderAmount, nestStakingContract);
             } else {
                 // Wrap dshares
-                SafeERC20.safeIncreaseAllowance(dshareToken, address(wrappedDshareToken), proceeds);
-                uint256 shares = wrappedDshareToken.deposit(proceeds, address(this));
+                address wrappedDshareToken = $.wrappedDshareToken;
+                SafeTransferLib.safeApprove($.dshareToken, wrappedDshareToken, proceeds);
+                uint256 shares = IERC4626(wrappedDshareToken).deposit(proceeds, address(this));
 
                 super._notifyDeposit(totalInput, shares, nestStakingContract);
 
@@ -350,7 +344,7 @@ contract DinariAdapterToken is ComponentToken {
                 uint256 totalSpent = orderInfo.orderAmount + orderContract.getFeesTaken(orderId);
                 uint256 refund = totalInput - totalSpent;
                 if (refund > 0) {
-                    SafeERC20.safeTransfer(paymentToken, nestStakingContract, refund);
+                    SafeTransferLib.safeTransfer(asset(), nestStakingContract, refund);
                 }
             }
         }
@@ -359,19 +353,13 @@ contract DinariAdapterToken is ComponentToken {
     /// @dev Single order processing if gas limit is reached
     function processNextSubmittedOrder() public {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
-        IOrderProcessor orderContract = $.externalOrderContract;
-        address nestStakingContract = $.nestStakingContract;
-        IERC20 dshareToken = IERC20($.dshareToken);
-        IERC4626 wrappedDshareToken = IERC4626($.wrappedDshareToken);
-        IERC20 paymentToken = IERC20(asset());
 
         DoubleEndedQueue.Bytes32Deque storage orders = $.submittedOrders;
         if (orders.length() == 0) {
             revert NoOutstandingOrders();
         }
         uint256 orderId = uint256(orders.front());
-        IOrderProcessor.OrderStatus status =
-            _processOrder(orderId, orderContract, nestStakingContract, dshareToken, wrappedDshareToken, paymentToken);
+        IOrderProcessor.OrderStatus status = _processOrder(orderId);
         if (status == IOrderProcessor.OrderStatus.ACTIVE) {
             revert OrderStillActive();
         }
