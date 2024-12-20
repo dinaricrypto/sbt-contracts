@@ -68,7 +68,7 @@ contract DinariAdapterToken is ComponentToken {
     error OrderDoesNotExist();
     error OrderStillActive();
     error InvalidPrice();
-    error StalePrice();
+    error StalePrice(uint64 blocktime, uint64 priceBlocktime);
     error AmountTooSmall();
 
     // Initializer
@@ -135,7 +135,9 @@ contract DinariAdapterToken is ComponentToken {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor.PricePoint memory pricePoint = orderContract.latestFillPrice($.dshareToken, paymentToken);
         if (pricePoint.price == 0) revert InvalidPrice();
-        if (pricePoint.blocktime + $.priceStaleDuration < block.timestamp) revert StalePrice();
+        if (block.timestamp - pricePoint.blocktime > $.priceStaleDuration) {
+            revert StalePrice(uint64(block.timestamp), pricePoint.blocktime);
+        }
         return pricePoint.price;
     }
 

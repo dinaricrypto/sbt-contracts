@@ -110,6 +110,8 @@ contract DinariAdapterTokenTest is Test {
         (uint256 flatFee,) = issuer.getStandardFees(false, address(usd));
         vm.assume(amount > flatFee);
 
+        uint64 priceTime = uint64(block.timestamp);
+
         // Place order to set price
         uint256 price = 10;
         IOrderProcessor.Order memory order = getDummyOrder(false);
@@ -122,7 +124,9 @@ contract DinariAdapterTokenTest is Test {
 
         vm.warp(block.timestamp + 1 days + 1);
 
-        vm.expectRevert(DinariAdapterToken.StalePrice.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(DinariAdapterToken.StalePrice.selector, uint64(block.timestamp), priceTime)
+        );
         adapterToken.convertToShares(amount);
     }
 
@@ -158,6 +162,8 @@ contract DinariAdapterTokenTest is Test {
         uint256 price = 10;
         vm.assume(!NumberUtils.mulCheckOverflow(shares, price));
 
+        uint64 priceTime = uint64(block.timestamp);
+
         // Place order to set price
         IOrderProcessor.Order memory order = getDummyOrder(true);
         vm.prank(admin);
@@ -174,7 +180,9 @@ contract DinariAdapterTokenTest is Test {
 
         vm.warp(block.timestamp + 1 days + 1);
 
-        vm.expectRevert(DinariAdapterToken.StalePrice.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(DinariAdapterToken.StalePrice.selector, uint64(block.timestamp), priceTime)
+        );
         adapterToken.convertToAssets(shares);
     }
 
