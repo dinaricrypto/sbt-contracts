@@ -22,7 +22,7 @@ import {FeeLib} from "../common/FeeLib.sol";
 contract DinariAdapterToken is ComponentToken {
     using DoubleEndedQueue for DoubleEndedQueue.Bytes32Deque;
 
-    uint64 private constant PRICE_STALE_DURATION = 1 days;
+    uint64 private constant STALE_PRICE_DURATION = 1 days;
 
     // Storage
 
@@ -48,8 +48,8 @@ contract DinariAdapterToken is ComponentToken {
         DoubleEndedQueue.Bytes32Deque submittedOrders;
         /// @dev Order nonce
         uint64 orderNonce;
-        /// @dev Oracle price stale duration
-        uint64 priceStaleDuration;
+        /// @dev Duration before oracle price is stale
+        uint64 stalePriceDuration;
     }
 
     // keccak256(abi.encode(uint256(keccak256("plume.storage.DinariAdapterToken")) - 1)) & ~bytes32(uint256(0xff))
@@ -108,7 +108,18 @@ contract DinariAdapterToken is ComponentToken {
         $.nestStakingContract = nestStakingContract;
         $.externalOrderContract = IOrderProcessor(externalOrderContract);
 
-        $.priceStaleDuration = PRICE_STALE_DURATION;
+        $.stalePriceDuration = STALE_PRICE_DURATION;
+    }
+
+    // Admin Functions
+
+    /**
+     * @notice Set the price stale duration
+     * @param stalePriceDuration New price stale duration
+     */
+    function setStalePriceDuration(uint64 stalePriceDuration) external onlyRole(ADMIN_ROLE) {
+        DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
+        $.stalePriceDuration = stalePriceDuration;
     }
 
     // Override Functions
@@ -135,7 +146,7 @@ contract DinariAdapterToken is ComponentToken {
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         IOrderProcessor.PricePoint memory pricePoint = orderContract.latestFillPrice($.dshareToken, paymentToken);
         if (pricePoint.price == 0) revert InvalidPrice();
-        if (block.timestamp - pricePoint.blocktime > $.priceStaleDuration) {
+        if (block.timestamp - pricePoint.blocktime > $.stalePriceDuration) {
             revert StalePrice(uint64(block.timestamp), pricePoint.blocktime);
         }
         return pricePoint.price;
