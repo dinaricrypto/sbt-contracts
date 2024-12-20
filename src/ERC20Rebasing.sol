@@ -115,7 +115,7 @@ abstract contract ERC20Rebasing is ERC20 {
         }
         // Check overflow
         if (totalSharesAfter < totalSharesBefore) revert TotalSupplyOverflow();
-        // Check total supply limit, can also revert with FullMulDivFailed in sharesToBalance
+        // Check total supply limit, can also revert with FullMulDivFailed in fullMulDivUp
         // Round up for total supply limit check
         if (
             FixedPointMathLib.fullMulDivUp(totalSharesAfter, balancePerShare(), _INITIAL_BALANCE_PER_SHARE)
