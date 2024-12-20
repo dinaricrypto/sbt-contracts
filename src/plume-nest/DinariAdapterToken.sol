@@ -3,9 +3,9 @@ pragma solidity 0.8.25;
 
 import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
-import {SafeTransferLib} from "solady/src/utils/SafeTransferLib.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {ComponentToken, IERC7540} from "plume-contracts/nest/src/ComponentToken.sol";
 import {IComponentToken} from "plume-contracts/nest/src/interfaces/IComponentToken.sol";
@@ -219,7 +219,7 @@ contract DinariAdapterToken is ComponentToken {
         super.requestDeposit(totalInput, controller, owner);
 
         // Approve payment token
-        SafeTransferLib.safeApprove(paymentToken, address(orderContract), totalInput);
+        SafeERC20.safeIncreaseAllowance(IERC20(paymentToken), address(orderContract), totalInput);
         // Buy
         requestId = _placeOrder(orderContract, $.dshareToken, paymentToken, orderAmount, fees, false);
     }
@@ -281,7 +281,7 @@ contract DinariAdapterToken is ComponentToken {
             // Dust shares not minted back to owner, rounded orderAmount used in requestRedeem
         }
         // Approve dshares
-        SafeTransferLib.safeApprove(dshareToken, address(orderContract), orderAmount);
+        SafeERC20.safeIncreaseAllowance(IERC20(dshareToken), address(orderContract), orderAmount);
         // Sell
         requestId = _placeOrder(orderContract, dshareToken, asset(), orderAmount, 0, true);
     }
@@ -348,7 +348,7 @@ contract DinariAdapterToken is ComponentToken {
             } else {
                 // Wrap dshares
                 address wrappedDshareToken = $.wrappedDshareToken;
-                SafeTransferLib.safeApprove($.dshareToken, wrappedDshareToken, proceeds);
+                SafeERC20.safeIncreaseAllowance(IERC20($.dshareToken), wrappedDshareToken, proceeds);
                 uint256 shares = IERC4626(wrappedDshareToken).deposit(proceeds, address(this));
 
                 super._notifyDeposit(totalInput, shares, nestStakingContract);
@@ -357,7 +357,7 @@ contract DinariAdapterToken is ComponentToken {
                 uint256 totalSpent = orderInfo.orderAmount + orderContract.getFeesTaken(orderId);
                 uint256 refund = totalInput - totalSpent;
                 if (refund > 0) {
-                    SafeTransferLib.safeTransfer(asset(), nestStakingContract, refund);
+                    SafeERC20.safeTransfer(IERC20(asset()), nestStakingContract, refund);
                 }
             }
         }
