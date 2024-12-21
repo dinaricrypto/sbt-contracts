@@ -27,7 +27,7 @@ abstract contract ERC20Rebasing is ERC20 {
     }
 
     function balanceToShares(uint256 balance) public view returns (uint256) {
-        return FixedPointMathLib.fullMulDivUp(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // ceil
+        return FixedPointMathLib.fullMulDiv(balance, _INITIAL_BALANCE_PER_SHARE, balancePerShare()); // floor
     }
 
     /// ------------------ ERC20 ------------------
@@ -107,7 +107,7 @@ abstract contract ERC20Rebasing is ERC20 {
         _beforeTokenTransfer(address(0), to, amount);
         uint256 totalSharesBefore = super.totalSupply();
         // Floor the shares to mint
-        uint256 shares = FixedPointMathLib.fullMulDiv(amount, _INITIAL_BALANCE_PER_SHARE, balancePerShare());
+        uint256 shares = balanceToShares(amount);
         // Check the total supply limit for shares
         uint256 totalSharesAfter = 0;
         unchecked {
@@ -115,8 +115,12 @@ abstract contract ERC20Rebasing is ERC20 {
         }
         // Check overflow
         if (totalSharesAfter < totalSharesBefore) revert TotalSupplyOverflow();
-        // Check total supply limit, can also revert with FullMulDivFailed in sharesToBalance
-        if (sharesToBalance(totalSharesAfter) > maxSupply()) revert TotalSupplyOverflow();
+        // Check total supply limit, can also revert with FullMulDivFailed in fullMulDivUp
+        // Round up for total supply limit check
+        if (
+            FixedPointMathLib.fullMulDivUp(totalSharesAfter, balancePerShare(), _INITIAL_BALANCE_PER_SHARE)
+                > maxSupply()
+        ) revert TotalSupplyOverflow();
         /// @solidity memory-safe-assembly
         assembly {
             // Store the updated total supply.
@@ -137,7 +141,8 @@ abstract contract ERC20Rebasing is ERC20 {
     // Convert to shares
     function _burn(address from, uint256 amount) internal virtual override {
         _beforeTokenTransfer(from, address(0), amount);
-        uint256 shares = balanceToShares(amount);
+        // Round up the shares to burn in favor of the contract
+        uint256 shares = FixedPointMathLib.fullMulDivUp(amount, _INITIAL_BALANCE_PER_SHARE, balancePerShare());
         /// @solidity memory-safe-assembly
         assembly {
             // Compute the balance slot and load its value.
