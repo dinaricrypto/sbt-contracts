@@ -69,7 +69,7 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
     function initializeV2() external onlyOwner reinitializer(2) {
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         for (uint256 i = 0; i < $._wrappedDShares.length(); i++) {
-            // slither-disable-next-line unused-return,calls-loop
+            // slither-disable-next-line unused-return
             $._dShares.add(WrappedDShare($._wrappedDShares.at(i)).asset());
         }
         assert($._dShares.length() == $._wrappedDShares.length());
@@ -134,7 +134,6 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
         address[] memory wrappedDShares = $._wrappedDShares.values();
         address[] memory dShares = new address[](wrappedDShares.length);
         for (uint256 i = 0; i < wrappedDShares.length; i++) {
-            // slither-disable-next-line calls-loop
             dShares[i] = WrappedDShare(wrappedDShares[i]).asset();
         }
         return (dShares, wrappedDShares);
