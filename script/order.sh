@@ -1,6 +1,3 @@
 #!/bin/sh
 
-cp .env.sandbox .env
-source .env
-
-forge script script/Order.s.sol:Order --rpc-url $RPC_URL -vvv --broadcast
+op run --env-file="./.env.prod-plume" -- ./script/order-cmd.sh

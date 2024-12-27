@@ -10,22 +10,22 @@ contract Order is Script {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         address user = vm.addr(privateKey);
         OrderProcessor orderProcessor = OrderProcessor(vm.envAddress("ORDERPROCESSOR"));
+        ERC20 usdc = ERC20(vm.envAddress("USDCE"));
 
         console.log("User: %s", user);
 
-        ERC20 usdc = ERC20(0x709CE4CB4b6c2A03a4f938bA8D198910E44c11ff);
-        uint256 value = 216676000;
+        uint256 value = 2_000_000;
 
         IOrderProcessor.Order memory order = IOrderProcessor.Order({
             requestTimestamp: 0,
             recipient: user,
-            assetToken: 0xD771a71E5bb303da787b4ba2ce559e39dc6eD85c,
+            assetToken: 0x2D25006DC574ac902bCEeAE4F3Bb3FA6aa8780d6,
             paymentToken: address(usdc),
             sell: false,
-            orderType: IOrderProcessor.OrderType.LIMIT,
+            orderType: IOrderProcessor.OrderType.MARKET,
             assetTokenQuantity: 0,
             paymentTokenQuantity: value,
-            price: value,
+            price: 0,
             tif: IOrderProcessor.TIF.DAY
         });
 
