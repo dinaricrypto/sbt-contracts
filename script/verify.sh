@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cp .env.prod-kinto .env
+cp .env.staging-plume .env
 source .env
 
 # args

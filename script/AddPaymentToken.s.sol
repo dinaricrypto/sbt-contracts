@@ -7,16 +7,16 @@ import {DShare} from "../src/DShare.sol";
 
 contract AddPaymentToken is Script {
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_KEY");
+        uint256 deployerPrivateKey = vm.envUint("DEPLOY_KEY");
         address deployer = vm.addr(deployerPrivateKey);
         OrderProcessor issuer = OrderProcessor(vm.envAddress("ORDERPROCESSOR"));
-        address usdc = vm.envAddress("USDPLUS");
+        address usdc = vm.envAddress("USDC");
 
         console.log("deployer: %s", deployer);
 
         vm.startBroadcast(deployerPrivateKey);
 
-        issuer.setPaymentToken(address(usdc), bytes4(0xfe575a87), 0.2e8, 2_500, 0.2e8, 2_500);
+        issuer.setPaymentToken(address(usdc), bytes4(0), 0.2e8, 2_500, 0.2e8, 2_500);
 
         vm.stopBroadcast();
     }

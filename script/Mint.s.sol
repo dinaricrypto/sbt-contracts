@@ -11,13 +11,11 @@ contract Mint is Script {
 
         address[1] memory testWallets = [
             // add test wallets here
-            address(0)
+            0x4181803232280371E02a875F51515BE57B215231
         ];
 
         address[1] memory mintAssets = [
-            // 0x1ad40240395186ea900Cb3df6Bf5B64420CeA46D // fake USDC
-            // 0x45bA256ED2F8225f1F18D76ba676C1373Ba7003F // new fake USDC
-            0xcF94Bd3B94C33Db93dcAC2F8a09239D707DF6E89 // fake USDB
+            0xa56f050AF537D1BAe27DD7b1Bcc6cd01DcC94Acb
         ];
 
         for (uint256 i = 0; i < mintAssets.length; i++) {
