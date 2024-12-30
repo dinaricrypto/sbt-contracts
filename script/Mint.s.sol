@@ -14,9 +14,7 @@ contract Mint is Script {
             0x4181803232280371E02a875F51515BE57B215231
         ];
 
-        address[1] memory mintAssets = [
-            0xa56f050AF537D1BAe27DD7b1Bcc6cd01DcC94Acb
-        ];
+        address[1] memory mintAssets = [0xa56f050AF537D1BAe27DD7b1Bcc6cd01DcC94Acb];
 
         for (uint256 i = 0; i < mintAssets.length; i++) {
             for (uint256 j = 0; j < testWallets.length; j++) {
