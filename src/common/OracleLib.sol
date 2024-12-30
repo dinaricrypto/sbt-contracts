@@ -20,4 +20,26 @@ library OracleLib {
         if (NumberUtils.mulDivCheckOverflow(paymentTokenQuantity, decimalMult, assetTokenQuantity)) return 0;
         return mulDiv(paymentTokenQuantity, decimalMult, assetTokenQuantity);
     }
+
+    function applyPriceAssetToPayment(uint256 assetTokenQuantity, uint256 price, uint8 paymentTokenDecimals)
+        internal
+        pure
+        returns (uint256)
+    {
+        // Adjusts the payment token decimals to match the asset token decimals (18) and removes 18 decimals from the result.
+        uint256 decimalMult = 10 ** (36 - paymentTokenDecimals);
+        if (NumberUtils.mulDivCheckOverflow(assetTokenQuantity, price, decimalMult)) return 0;
+        return mulDiv(assetTokenQuantity, price, decimalMult);
+    }
+
+    function applyPricePaymentToAsset(uint256 paymentTokenQuantity, uint256 price, uint8 paymentTokenDecimals)
+        internal
+        pure
+        returns (uint256)
+    {
+        // Adjusts the payment token decimals to match the asset token decimals (18) and removes 18 decimals from the result.
+        uint256 decimalMult = 10 ** (36 - paymentTokenDecimals);
+        if (NumberUtils.mulDivCheckOverflow(paymentTokenQuantity, decimalMult, price)) return 0;
+        return mulDiv(paymentTokenQuantity, decimalMult, price);
+    }
 }
