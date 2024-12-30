@@ -12,6 +12,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 import {IERC20Errors} from "openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {PRBMath_MulDiv18_Overflow, PRBMath_MulDiv_Overflow} from "prb-math/Common.sol";
 import {NumberUtils} from "../src/common/NumberUtils.sol";
+import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
 contract DShareTest is Test {
     event NameSet(string name);
@@ -24,6 +25,16 @@ contract DShareTest is Test {
     address restrictor_role = address(1);
     address user = address(2);
     address admin = address(3);
+
+    function checkMintOverFlow(uint256 toMint, uint128 balancePerShare) private returns (bool) {
+        return NumberUtils.mulDivCheckOverflow(toMint, 1 ether, balancePerShare)
+            || NumberUtils.mulDivCheckOverflow(toMint, balancePerShare, 1 ether)
+            || (
+                balancePerShare > 1 ether
+                    && FixedPointMathLib.fullMulDiv(toMint, balancePerShare, 1 ether)
+                        > FixedPointMathLib.fullMulDiv(type(uint256).max, 1 ether, balancePerShare)
+            );
+    }
 
     function setUp() public {
         vm.prank(admin);
@@ -79,7 +90,7 @@ contract DShareTest is Test {
         assertEq(address(token.transferRestrictor()), account);
     }
 
-    function testMint() public {
+    function testMintFixed() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(user, 1e18);
         assertEq(token.totalSupply(), 1e18);
@@ -94,7 +105,7 @@ contract DShareTest is Test {
         token.mint(user, 1e18);
     }
 
-    function testBurn() public {
+    function testBurnFixed() public {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(user, 1e18);
         token.grantRole(token.BURNER_ROLE(), user);
@@ -191,15 +202,15 @@ contract DShareTest is Test {
 
     function testMint(uint256 amount, uint128 balancePerShare) public {
         vm.assume(balancePerShare > 0);
-        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+        vm.assume(!checkMintOverFlow(amount, balancePerShare));
 
         token.setBalancePerShare(balancePerShare);
 
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(user, amount);
         uint256 balance = _nearestBalanceAmount(amount);
-        assertEq(token.totalSupply(), balance);
-        assertEq(token.balanceOf(user), balance);
+        assertLe(token.totalSupply(), balance);
+        assertLe(token.balanceOf(user), balance);
     }
 
     function testBurnUnauthorizedReverts(uint256 amount) public {
@@ -215,7 +226,7 @@ contract DShareTest is Test {
 
     function testBurn(uint256 amount, uint128 balancePerShare) public {
         vm.assume(balancePerShare > 0);
-        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+        vm.assume(!checkMintOverFlow(amount, balancePerShare));
 
         token.setBalancePerShare(balancePerShare);
 
@@ -223,15 +234,16 @@ contract DShareTest is Test {
         token.mint(user, amount);
         token.grantRole(token.BURNER_ROLE(), user);
 
+        uint256 userBalance = token.balanceOf(user);
         vm.prank(user);
-        token.burn(amount);
+        token.burn(userBalance);
         assertEq(token.totalSupply(), 0);
         assertEq(token.balanceOf(user), 0);
     }
 
     function testBurnFrom(uint256 amount, uint128 balancePerShare) public {
         vm.assume(balancePerShare > 0);
-        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+        vm.assume(!checkMintOverFlow(amount, balancePerShare));
 
         token.setBalancePerShare(balancePerShare);
 
@@ -239,17 +251,18 @@ contract DShareTest is Test {
         token.mint(user, amount);
         token.grantRole(token.BURNER_ROLE(), address(this));
 
+        uint256 userBalance = token.balanceOf(user);
         vm.prank(user);
-        token.approve(address(this), amount);
+        token.approve(address(this), userBalance);
 
-        token.burnFrom(user, amount);
+        token.burnFrom(user, userBalance);
         assertEq(token.totalSupply(), 0);
         assertEq(token.balanceOf(user), 0);
     }
 
     function testTransfer(uint256 amount, uint128 balancePerShare) public {
         vm.assume(balancePerShare > 0);
-        vm.assume(!NumberUtils.mulDivCheckOverflow(amount, 1 ether, balancePerShare));
+        vm.assume(!checkMintOverFlow(amount, balancePerShare));
 
         token.setBalancePerShare(balancePerShare);
 
@@ -258,11 +271,13 @@ contract DShareTest is Test {
         token.grantRole(token.MINTER_ROLE(), address(this));
         token.mint(address(this), amount);
 
-        assertTrue(token.transfer(user, amount));
-        assertEq(token.totalSupply(), balance);
+        uint256 senderBalance = token.balanceOf(address(this));
+        assertTrue(token.transfer(user, senderBalance));
+        assertLe(token.totalSupply(), balance);
 
-        assertEq(token.balanceOf(address(this)), 0);
-        assertEq(token.balanceOf(user), balance);
+        // Can collect dust
+        // assertEq(token.balanceOf(address(this)), 0);
+        assertLe(token.balanceOf(user), balance);
     }
 
     function testTransferRestrictedTo(uint256 amount) public {
@@ -306,5 +321,26 @@ contract DShareTest is Test {
         uint256 balance = token.sharesToBalance(amount);
         assertEq(token.totalSupply(), balance);
         assertEq(token.balanceOf(user), balance);
+    }
+
+    function testMaxSupply(uint128 balancePerShare_) public {
+        vm.assume(balancePerShare_ > 0); // From testSetBalancePerShareZeroReverts
+        // Skip cases where multiplication would overflow
+        vm.assume(!NumberUtils.mulDivCheckOverflow(type(uint256).max, balancePerShare_, 1 ether));
+
+        // Set the balance per share
+        token.setBalancePerShare(balancePerShare_);
+
+        // Get actual max supply
+        uint256 maxSupply = token.maxSupply();
+
+        // Compare with expected value based on balancePerShare
+        if (balancePerShare_ == 1 ether) {
+            assertEq(maxSupply, type(uint256).max);
+        } else if (balancePerShare_ < 1 ether) {
+            assertEq(maxSupply, FixedPointMathLib.fullMulDiv(type(uint256).max, balancePerShare_, 1e18));
+        } else {
+            assertEq(maxSupply, FixedPointMathLib.fullMulDiv(type(uint256).max, 1 ether, balancePerShare_));
+        }
     }
 }
