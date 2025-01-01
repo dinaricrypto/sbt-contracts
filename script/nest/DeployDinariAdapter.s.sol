@@ -11,10 +11,11 @@ contract DeployDinariAdapter is Script {
         uint256 deployKey = vm.envUint("DEPLOY_KEY");
         address deployer = vm.addr(deployKey);
         address orderProcessor = vm.envAddress("ORDERPROCESSOR");
-        address usdc = vm.envAddress("USDC");
+        address usdc = vm.envAddress("USDCE");
+        address nestvault = vm.envAddress("NESTVAULT");
 
-        address amznd = 0x6Ca703338bcBF73Ad48c1Cc33Ab2D0706bC90AB3;
-        address amzndw = 0xfa8287826C1381289d6079DB12cDf402E3F80f73;
+        address srlnd = 0x2D25006DC574ac902bCEeAE4F3Bb3FA6aa8780d6;
+        address srlndw = 0x66A68a5A0B99B3E134E21f94e85a1361fDC4e438;
 
         console.log("deployer: %s", deployer);
 
@@ -30,7 +31,7 @@ contract DeployDinariAdapter is Script {
                     address(adapterImpl),
                     abi.encodeCall(
                         DinariAdapterToken.initialize,
-                        (deployer, "AMZN.d Nest Adapter", "AMZN.dn", usdc, amznd, amzndw, deployer, orderProcessor)
+                        (deployer, "Nest SRLN.d", "nSRLN", usdc, srlnd, srlndw, nestvault, orderProcessor)
                     )
                 )
             )
