@@ -111,6 +111,44 @@ contract DinariAdapterToken is ComponentToken {
         $.stalePriceDuration = STALE_PRICE_DURATION;
     }
 
+    // View Functions
+
+    /**
+     * @notice Get the dShare token address
+     * @return dshareToken dShare token address
+     */
+    function dshareToken() external view returns (address dshareToken) {
+        DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
+        return $.dshareToken;
+    }
+
+    /**
+     * @notice Get the wrapped dShare token address
+     * @return wrappedDshareToken Wrapped dShare token address
+     */
+    function wrappedDshareToken() external view returns (address wrappedDshareToken) {
+        DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
+        return $.wrappedDshareToken;
+    }
+
+    /**
+     * @notice Get the Nest Staking contract address
+     * @return nestStakingContract Nest Staking contract address
+     */
+    function nestStakingContract() external view returns (address nestStakingContract) {
+        DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
+        return $.nestStakingContract;
+    }
+
+    /**
+     * @notice Get the stale price duration
+     * @return stalePriceDuration Stale price duration
+     */
+    function stalePriceDuration() external view returns (uint64 stalePriceDuration) {
+        DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
+        return $.stalePriceDuration;
+    }
+
     // Admin Functions
 
     /**
