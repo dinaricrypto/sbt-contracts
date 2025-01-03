@@ -19,15 +19,13 @@ contract DeployDinariAdapter is Script {
 
         console.log("deployer: %s", deployer);
 
-        bytes32 salt = keccak256(abi.encodePacked("0.4.3-test"));
-
         // send txs as deployer
         vm.startBroadcast(deployKey);
 
-        DinariAdapterToken adapterImpl = new DinariAdapterToken{salt: salt}();
+        DinariAdapterToken adapterImpl = new DinariAdapterToken();
         DinariAdapterToken adapter = DinariAdapterToken(
             address(
-                new ERC1967Proxy{salt: salt}(
+                new ERC1967Proxy(
                     address(adapterImpl),
                     abi.encodeCall(
                         DinariAdapterToken.initialize,
