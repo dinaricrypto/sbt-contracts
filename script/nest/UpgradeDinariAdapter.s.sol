@@ -18,7 +18,9 @@ contract UpgradeDinariAdapter is Script {
         vm.startBroadcast(deployKey);
 
         DinariAdapterToken adapterImpl = new DinariAdapterToken();
-        adapter.upgradeToAndCall(address(adapterImpl), abi.encodeWithSelector(DinariAdapterToken.reinitialize1.selector, ""));
+        adapter.upgradeToAndCall(
+            address(adapterImpl), abi.encodeWithSelector(DinariAdapterToken.reinitialize1.selector, "")
+        );
 
         console.log("adapter: %s", address(adapter));
 
