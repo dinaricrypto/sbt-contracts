@@ -104,7 +104,7 @@ contract DinariAdapterToken is ComponentToken {
         address wrappedDshareToken,
         address nestStakingContract,
         address externalOrderContract
-    ) external initializer {
+    ) external reinitializer(2) {
         super.initialize(owner, name, symbol, IERC20(currencyToken), true, true);
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         $.dshareToken = dshareToken;
