@@ -88,6 +88,11 @@ contract DinariAdapterTokenTest is Test {
         });
     }
 
+    function testDecimals() public {
+        assertEq(adapterToken.decimals(), token.decimals());
+        assertEq(adapterToken.decimals(), 18);
+    }
+
     function testConvertToSharesTooSmallReverts(uint256 amount) public {
         (uint256 flatFee,) = issuer.getStandardFees(false, address(usd));
         vm.assume(amount <= flatFee);
