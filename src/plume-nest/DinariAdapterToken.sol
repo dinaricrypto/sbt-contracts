@@ -5,6 +5,7 @@ import {IERC4626} from "@openzeppelin/contracts/interfaces/IERC4626.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {ERC4626Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import {DoubleEndedQueue} from "@openzeppelin/contracts/utils/structs/DoubleEndedQueue.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 import {ComponentToken, IERC7540} from "plume-contracts/nest/src/ComponentToken.sol";
@@ -50,6 +51,8 @@ contract DinariAdapterToken is ComponentToken {
         uint64 orderNonce;
         /// @dev Duration before oracle price is stale
         uint64 stalePriceDuration;
+        /// @dev Override ERC4626 decimals
+        uint8 decimals;
     }
 
     // keccak256(abi.encode(uint256(keccak256("plume.storage.DinariAdapterToken")) - 1)) & ~bytes32(uint256(0xff))
@@ -64,6 +67,7 @@ contract DinariAdapterToken is ComponentToken {
 
     // Errors
 
+    error InvalidDShare();
     error NoOutstandingOrders();
     error OrderDoesNotExist();
     error OrderStillActive();
@@ -100,7 +104,7 @@ contract DinariAdapterToken is ComponentToken {
         address wrappedDshareToken,
         address nestStakingContract,
         address externalOrderContract
-    ) external initializer {
+    ) external reinitializer(2) {
         super.initialize(owner, name, symbol, IERC20(currencyToken), true, true);
         DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
         $.dshareToken = dshareToken;
@@ -109,6 +113,30 @@ contract DinariAdapterToken is ComponentToken {
         $.externalOrderContract = IOrderProcessor(externalOrderContract);
 
         $.stalePriceDuration = STALE_PRICE_DURATION;
+
+        (bool success, uint8 dshareDecimals) = _tryGetAssetDecimals(dshareToken);
+        if (!success) revert InvalidDShare();
+        $.decimals = dshareDecimals;
+    }
+
+    function reinitialize1() external reinitializer(2) {
+        DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
+        (bool success, uint8 dshareDecimals) = _tryGetAssetDecimals($.dshareToken);
+        if (!success) revert InvalidDShare();
+        $.decimals = dshareDecimals;
+    }
+
+    // copied from OpenZeppelin ERC4626
+    function _tryGetAssetDecimals(address asset_) private view returns (bool, uint8) {
+        // slither-disable-next-line low-level-calls
+        (bool success, bytes memory encodedDecimals) = asset_.staticcall(abi.encodeCall(IERC20Metadata.decimals, ()));
+        if (success && encodedDecimals.length >= 32) {
+            uint256 returnedDecimals = abi.decode(encodedDecimals, (uint256));
+            if (returnedDecimals <= type(uint8).max) {
+                return (true, uint8(returnedDecimals));
+            }
+        }
+        return (false, 0);
     }
 
     // View Functions
@@ -161,6 +189,11 @@ contract DinariAdapterToken is ComponentToken {
     }
 
     // Override Functions
+
+    function decimals() public view override(ERC4626Upgradeable, IERC20Metadata) returns (uint8) {
+        DinariAdapterTokenStorage storage $ = _getDinariAdapterTokenStorage();
+        return $.decimals;
+    }
 
     /// @inheritdoc IComponentToken
     function convertToShares(uint256 assets) public view override(ComponentToken) returns (uint256 shares) {
