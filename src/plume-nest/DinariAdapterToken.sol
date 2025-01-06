@@ -128,6 +128,7 @@ contract DinariAdapterToken is ComponentToken {
 
     // copied from OpenZeppelin ERC4626
     function _tryGetAssetDecimals(address asset_) private view returns (bool, uint8) {
+        // slither-disable-next-line low-level-calls
         (bool success, bytes memory encodedDecimals) = asset_.staticcall(abi.encodeCall(IERC20Metadata.decimals, ()));
         if (success && encodedDecimals.length >= 32) {
             uint256 returnedDecimals = abi.decode(encodedDecimals, (uint256));
