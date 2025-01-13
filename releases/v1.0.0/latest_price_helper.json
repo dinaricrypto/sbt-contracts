@@ -1,0 +1,60 @@
+{
+  "name": "LatestPriceHelper",
+  "version": "1.0.0",
+  "deployments": {
+    "production": {
+      "1": "0x761B87Cfab3127af8E6f8A25842e8896aE567af7",
+      "11155111": "0x761B87Cfab3127af8E6f8A25842e8896aE567af7",
+      "42161": "0x761B87Cfab3127af8E6f8A25842e8896aE567af7",
+      "8453": "0x761B87Cfab3127af8E6f8A25842e8896aE567af7",
+      "7887": "0x761B87Cfab3127af8E6f8A25842e8896aE567af7"
+    },
+    "staging": {
+      "11155111": "0x761B87Cfab3127af8E6f8A25842e8896aE567af7",
+      "421614": "0x761B87Cfab3127af8E6f8A25842e8896aE567af7"
+    }
+  },
+  "abi": [
+    {
+      "type": "function",
+      "name": "aggregateLatestPriceFromProcessor",
+      "inputs": [
+        {
+          "name": "processor",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "paymentTokens",
+          "type": "address[]",
+          "internalType": "address[]"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "latestPricePoint",
+          "type": "tuple",
+          "internalType": "struct IOrderProcessor.PricePoint",
+          "components": [
+            {
+              "name": "price",
+              "type": "uint256",
+              "internalType": "uint256"
+            },
+            {
+              "name": "blocktime",
+              "type": "uint64",
+              "internalType": "uint64"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    }
+  ]
+}
