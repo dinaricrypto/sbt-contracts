@@ -1,7 +1,7 @@
 {
   "name": "OrderProcessor",
   "version": "1.0.0",
-  "networkAddresses": {
+  "deployments": {
     "production": {
       "1": "0xA8a48C202AF4E73ad19513D37158A872A4ac79Cb",
       "11155111": "0xd0d00Ee8457d79C12B4D7429F59e896F11364247",
