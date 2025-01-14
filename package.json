@@ -41,7 +41,9 @@
     "example:order": "npx ts-node script/examples/create_order.ts",
     "example:order:sell": "npx ts-node script/examples/create_order_approve_sell.ts",
     "example:listen": "npx ts-node script/examples/listen_fill.ts",
-    "example:cancel": "npx ts-node script/examples/request_cancel.ts"
+    "example:cancel": "npx ts-node script/examples/request_cancel.ts",
+    "lint:json": "ajv validate -s releases/schema.json -d \"releases/v*/*.json\" --strict=true",
+    "lint:json:debug": "echo \"Files to validate:\" && ls releases/v*/*.json && yarn lint:json"
   },
   "devDependencies": {
     "@typechain/ethers-v5": "^11.0.0",
@@ -61,6 +63,8 @@
     "pretty"
   ],
   "dependencies": {
-    "ethers": "5.7.2"
+    "ajv-cli": "^5.0.0",
+    "ethers": "5.7.2",
+    "releases": "^1.1.0"
   }
 }

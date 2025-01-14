@@ -1,6 +1,6 @@
 {
   "name": "DividendDistribution",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "deployments": {
     "production": {
       "1": "0xEC3B79d771b47a0F5DB925D7FAf793605F5560CE",

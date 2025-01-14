@@ -1,22 +1,21 @@
 {
-  "name": "Vault",
-  "version": "1.0.0",
+  "name": "TransferRestrictor",
+  "version": "0.1.1",
   "deployments": {
     "production": {
-      "1": "0x232CA17C44185ba9099417Cd500D2e5e96f2b839",
-      "11155111": "0xBBD64161b7FBEd48629F57E62718a40B66866690",
-      "42161": "0x991cB35fc5F8328cd385c6fD4E4c8FcE6B57E471",
-      "8453": "0x7148617fCd0258202747f2f65b4fE561DC0E6b40",
-      "81457": "0x6D55E512F3E80B0F6D84CD2988d72CbAa3aEC0aE",
-      "7887": "0x1498A49Ff90d9f7fE8915658A1FC3b87c9A4Ba8c",
-      "161221135": "0x3934aeeE752235AEe8139dbeC4493639534EFf2D"
+      "1": "0x88B92C99098F7A817Df0392294B96F8AB284a701",
+      "8453": "0xe1B2FEEDE3ffE7e63a89A669A08688951c94611e",
+      "81457": "0x5b4680dDDeBA47a6E0EBB200507a357eAeb4C2f8",
+      "7887": "0xB2eEc63Cdc175d6d07B8f69804C0Ab5F66aCC3cb",
+      "161221135": "0x585b916116631A5310f224F146f2F6ffb8FE656E"
     },
     "staging": {
-      "11155111": "0xb27a6FBc7365cFeabf47E3e410f244A81d409857",
-      "421614": "0xF29c231ebFc541D4114417Ae5E5F41c819Ac9277",
-      "84532": "0xC8E1D95300b1E6bFD401400B3b8E7a5bFD8Aeb02",
-      "168587773": "0x3013204BC5eA62C5da25a35425906b7E8093B48C",
-      "7887": "0xB621dA3AFC9Df83209042De965dD4Ccb0e8a0ABA"
+      "11155111": "0x689a807832a0fcd236722c244C6822Eb50a43a3E",
+      "421614": "0xC8E1D95300b1E6bFD401400B3b8E7a5bFD8Aeb02",
+      "84532": "0x4502C8376F7f28B17594Bff38d19631f7Cddec15",
+      "168587773": "0x2E5C088AB4ECD053E0a9ae29195446457143acd6",
+      "7887": "0xF34f9C994E28254334C83AcE353d814E5fB90815",
+      "161221135": "0xC979d29237bBF6d9Fa3febDB07Bb8e39ca774dEE"
     }
   },
   "abi": [
@@ -24,7 +23,7 @@
       "type": "constructor",
       "inputs": [
         {
-          "name": "admin",
+          "name": "owner",
           "type": "address",
           "internalType": "address"
         }
@@ -46,7 +45,7 @@
     },
     {
       "type": "function",
-      "name": "OPERATOR_ROLE",
+      "name": "RESTRICTOR_ROLE",
       "inputs": [],
       "outputs": [
         {
@@ -199,6 +198,25 @@
     },
     {
       "type": "function",
+      "name": "isBlacklisted",
+      "inputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool",
+          "internalType": "bool"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
       "name": "owner",
       "inputs": [],
       "outputs": [
@@ -266,22 +284,30 @@
     },
     {
       "type": "function",
-      "name": "rescueERC20",
+      "name": "requireNotRestricted",
       "inputs": [
         {
-          "name": "token",
+          "name": "from",
           "type": "address",
-          "internalType": "contract IERC20"
+          "internalType": "address"
         },
         {
           "name": "to",
           "type": "address",
           "internalType": "address"
-        },
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "restrict",
+      "inputs": [
         {
-          "name": "amount",
-          "type": "uint256",
-          "internalType": "uint256"
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
         }
       ],
       "outputs": [],
@@ -333,22 +359,12 @@
     },
     {
       "type": "function",
-      "name": "withdrawFunds",
+      "name": "unrestrict",
       "inputs": [
         {
-          "name": "token",
-          "type": "address",
-          "internalType": "contract IERC20"
-        },
-        {
-          "name": "user",
+          "name": "account",
           "type": "address",
           "internalType": "address"
-        },
-        {
-          "name": "amount",
-          "type": "uint256",
-          "internalType": "uint256"
         }
       ],
       "outputs": [],
@@ -406,25 +422,13 @@
     },
     {
       "type": "event",
-      "name": "FundsWithdrawn",
+      "name": "Restricted",
       "inputs": [
         {
-          "name": "token",
+          "name": "account",
           "type": "address",
-          "indexed": false,
-          "internalType": "contract IERC20"
-        },
-        {
-          "name": "user",
-          "type": "address",
-          "indexed": false,
+          "indexed": true,
           "internalType": "address"
-        },
-        {
-          "name": "amount",
-          "type": "uint256",
-          "indexed": false,
-          "internalType": "uint256"
         }
       ],
       "anonymous": false
@@ -505,6 +509,19 @@
       "anonymous": false
     },
     {
+      "type": "event",
+      "name": "Unrestricted",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
       "type": "error",
       "name": "AccessControlBadConfirmation",
       "inputs": []
@@ -554,29 +571,7 @@
     },
     {
       "type": "error",
-      "name": "AddressEmptyCode",
-      "inputs": [
-        {
-          "name": "target",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
-      "name": "AddressInsufficientBalance",
-      "inputs": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
-      ]
-    },
-    {
-      "type": "error",
-      "name": "FailedInnerCall",
+      "name": "AccountRestricted",
       "inputs": []
     },
     {
@@ -592,17 +587,6 @@
           "name": "value",
           "type": "uint256",
           "internalType": "uint256"
-        }
-      ]
-    },
-    {
-      "type": "error",
-      "name": "SafeERC20FailedOperation",
-      "inputs": [
-        {
-          "name": "token",
-          "type": "address",
-          "internalType": "address"
         }
       ]
     }

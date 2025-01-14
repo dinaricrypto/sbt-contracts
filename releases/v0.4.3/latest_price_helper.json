@@ -1,6 +1,6 @@
 {
   "name": "LatestPriceHelper",
-  "version": "1.0.0",
+  "version": "0.4.3",
   "deployments": {
     "production": {
       "1": "0x761B87Cfab3127af8E6f8A25842e8896aE567af7",
