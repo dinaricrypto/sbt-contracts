@@ -64,7 +64,6 @@
   ],
   "dependencies": {
     "ajv-cli": "^5.0.0",
-    "ethers": "5.7.2",
-    "releases": "^1.1.0"
+    "ethers": "5.7.2"
   }
 }
