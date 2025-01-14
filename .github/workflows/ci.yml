@@ -30,16 +30,15 @@ jobs:
           version: nightly
 
       - name: Sol Fmt
-        run: |
-          forge fmt --check
+        run: forge fmt --check
           
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: yarn
       - run: yarn install
 
@@ -83,11 +82,11 @@ jobs:
       
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: yarn
       - run: yarn install
       
@@ -117,11 +116,11 @@ jobs:
       
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: yarn
       - run: yarn install
 
