@@ -30,8 +30,17 @@ jobs:
           version: nightly
 
       - name: Sol Fmt
-        run: |
-          forge fmt --check
+        run: forge fmt --check
+          
+      - uses: actions/setup-node@v4
+      - run: corepack enable
+      - uses: actions/setup-node@v4
+        with:
+          cache: yarn
+      - run: yarn install
+
+      - name: Validate JSON Schema
+        run: yarn lint:json
   
   analyze:
     name: Slither
@@ -69,15 +78,11 @@ jobs:
           submodules: recursive
       
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
           cache: yarn
       - run: yarn install
-  
       
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -103,14 +108,10 @@ jobs:
         with:
           submodules: recursive
       
-      
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
       - run: corepack enable
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
           cache: yarn
       - run: yarn install
 
@@ -126,4 +127,4 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./lcov.info        
+          files: ./lcov.info

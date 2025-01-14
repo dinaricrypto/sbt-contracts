@@ -1,0 +1,165 @@
+{
+  "name": "UpgradeableBeacon",
+  "version": "0.3.1",
+  "deployments": {
+    "production": {
+      "1": "0x5CCB5482dc15aAdd36d6c02C0d44ce0E3e7E6835",
+      "11155111": "0xa5D5F87DA8B58Bd41514754738fAE4C8c4419FB0",
+      "42161": "0xad20601C7a3212c7BbF2ACdFEDBAD99d803bC7F5",
+      "8453": "0x9B3e9d3Fb6849c9F0eDcB2A9EbB6Af83B7817DE5",
+      "81457": "0xe1B2FEEDE3ffE7e63a89A669A08688951c94611e",
+      "7887": "0xd1d93E6Ad5219083Bb2cf3B065a562223381b71F",
+      "161221135": "0x94E0555B92E3907f6598b68Bc82c33079C8850Af"
+    },
+    "staging": {
+      "11155111": "0x7ec1f2ecf4d194AEe4992834Fd921782e3828bb7",
+      "421614": "0x23FE2f04727d363F5b5969728e1DF0d2f4b15d2e",
+      "84532": "0x6Bb0Ec10dCEF7Ac0f5Fe7f8a15d43A2e83a2FeB1",
+      "168587773": "0x22098564c1C27A13e2966805330e5DfcC9C7f10D",
+      "7887": "0x2e92D8Ba4122a40922BE2B46E01982749d8FC127",
+      "161221135": "0xA8d4cF9aED5698e58258a2BdFce42ef74e7e3234"
+    }
+  },
+  "abi": [
+    {
+      "type": "constructor",
+      "inputs": [
+        {
+          "name": "implementation_",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "initialOwner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "implementation",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "owner",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "type": "function",
+      "name": "renounceOwnership",
+      "inputs": [],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "transferOwnership",
+      "inputs": [
+        {
+          "name": "newOwner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "function",
+      "name": "upgradeTo",
+      "inputs": [
+        {
+          "name": "newImplementation",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "type": "event",
+      "name": "OwnershipTransferred",
+      "inputs": [
+        {
+          "name": "previousOwner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "newOwner",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "event",
+      "name": "Upgraded",
+      "inputs": [
+        {
+          "name": "implementation",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "type": "error",
+      "name": "BeaconInvalidImplementation",
+      "inputs": [
+        {
+          "name": "implementation",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "OwnableInvalidOwner",
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    },
+    {
+      "type": "error",
+      "name": "OwnableUnauthorizedAccount",
+      "inputs": [
+        {
+          "name": "account",
+          "type": "address",
+          "internalType": "address"
+        }
+      ]
+    }
+  ]
+}
