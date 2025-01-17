@@ -2,8 +2,7 @@
   "name": "DShareFactory",
   "version": "0.3.1",
   "deployments": {
-    "production": {
-    },
+    "production": {},
     "staging": {
       "11155111": "0x4598f6348A3bb79550E5876B3b98219D966D217b",
       "421614": "0x8A9b764204098AfF161A34353dC835bf5BB49Ce4",
