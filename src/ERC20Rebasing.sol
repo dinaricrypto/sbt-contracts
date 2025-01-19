@@ -2,7 +2,6 @@
 pragma solidity ^0.8.23;
 
 import {ERC20} from "solady/src/tokens/ERC20.sol";
-import {NumberUtils} from "./common/NumberUtils.sol";
 import {FixedPointMathLib} from "solady/src/utils/FixedPointMathLib.sol";
 
 /// @notice Rebasing ERC20 token as an in-place upgrade to solady erc20

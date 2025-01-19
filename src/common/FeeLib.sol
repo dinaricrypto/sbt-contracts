@@ -5,9 +5,9 @@ import "prb-math/Common.sol" as PrbMath;
 
 library FeeLib {
     // 1_000_000 == 100%
-    uint24 private constant _ONEHUNDRED_PERCENT = 1_000_000;
+    uint24 internal constant _ONEHUNDRED_PERCENT = 1_000_000;
 
-    uint64 private constant _FLAT_FEE_DECIMALS = 8;
+    uint64 internal constant _FLAT_FEE_DECIMALS = 8;
 
     /// @dev Fee is too large
     error FeeTooLarge();
