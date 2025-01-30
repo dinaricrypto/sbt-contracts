@@ -1,53 +1,45 @@
 {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Dinari Contract Deployment Metadata",
-    "type": "object",
-    "definitions": {
-        "ChainAddressMap": {
-            "type": "object",
-            "description": "Chain to Contract Address map in production",
-            "propertyNames": {
-                "pattern": "^[0-9]*$"
-            },
-            "additionalProperties": {
-                "type": "string",
-                "description": "The checksummed address of the token on the specified chain ID",
-                "pattern": "^0x[a-fA-F0-9]{40}$"
-            }
-        }
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Dinari Contract Deployment Metadata",
+  "type": "object",
+  "definitions": {
+    "ChainAddressMap": {
+      "type": "object",
+      "description": "Chain to Contract Address map in production",
+      "propertyNames": {
+        "pattern": "^[0-9]*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "description": "The checksummed address of the token on the specified chain ID",
+        "pattern": "^0x[a-fA-F0-9]{40}$"
+      }
+    }
+  },
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the contract"
     },
-    "properties": {
-        "name": {
-            "type": "string",
-            "description": "Name of the contract"
-        },
-        "version": {
-            "type": "string",
-            "description": "Semantic version of the contract"
-        },
-        "deployments": {
-            "type": "object",
-            "properties": {
-                "production": {
-                    "$ref": "#/definitions/ChainAddressMap"
-                },
-                "staging": {
-                    "$ref": "#/definitions/ChainAddressMap"
-                }
-            },
-            "required": [
-                "production",
-                "staging"
-            ]
-        },
-        "abi": {
-            "type": "array"
-        }
+    "version": {
+      "type": "string",
+      "description": "Semantic version of the contract"
     },
-    "required": [
-        "name",
-        "version",
-        "deployments",
-        "abi"
-    ]
+    "deployments": {
+      "type": "object",
+      "properties": {
+        "production": {
+          "$ref": "#/definitions/ChainAddressMap"
+        },
+        "staging": {
+          "$ref": "#/definitions/ChainAddressMap"
+        }
+      },
+      "required": ["production", "staging"]
+    },
+    "abi": {
+      "type": "array"
+    }
+  },
+  "required": ["name", "version", "deployments", "abi"]
 }

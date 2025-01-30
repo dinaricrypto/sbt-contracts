@@ -2,8 +2,7 @@
   "name": "Forwarder",
   "version": "0.3.1",
   "deployments": {
-    "production": {
-    },
+    "production": {},
     "staging": {
       "161221135": "0x9A940A40650c0d4B8128316739cDE69EA54aEF08"
     }
