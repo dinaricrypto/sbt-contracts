@@ -106,6 +106,39 @@ contract OrderProcessorSignedTest is Test {
         });
     }
 
+    function testCreateOrderBuy(uint256 orderAmount) public {
+        vm.assume(orderAmount > 0);
+
+        (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
+        uint256 fees = _flatFee + FeeLib.applyPercentageFee(_percentageFeeRate, orderAmount);
+        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
+
+        IOrderProcessor.Order memory order = dummyOrder;
+        order.paymentTokenQuantity = orderAmount;
+        uint256 quantityIn = order.paymentTokenQuantity + fees;
+        deal(address(paymentToken), user, type(uint256).max);
+
+        (IOrderProcessor.FeeQuote memory feeQuote, bytes memory feeQuoteSignature) =
+            prepareFeeQuote(order, userPrivateKey, fees, operatorPrivateKey);
+
+        vm.prank(user);
+        paymentToken.approve(address(issuer), quantityIn);
+
+        uint256 userBalanceBefore = paymentToken.balanceOf(user);
+        uint256 operatorBalanceBefore = paymentToken.balanceOf(operator);
+
+        vm.expectEmit(true, true, true, true);
+        emit OrderCreated(feeQuote.orderId, user, order, fees);
+        vm.prank(user);
+        issuer.createOrder(order, feeQuote, feeQuoteSignature);
+
+        assertEq(uint8(issuer.getOrderStatus(feeQuote.orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
+        assertEq(issuer.getUnfilledAmount(feeQuote.orderId), order.paymentTokenQuantity);
+
+        assertEq(paymentToken.balanceOf(operator), operatorBalanceBefore + orderAmount);
+        assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
+    }
+
     function testRequestBuyOrderThroughOperator(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
 
@@ -207,6 +240,28 @@ contract OrderProcessorSignedTest is Test {
         );
     }
 
+    function prepareFeeQuote(IOrderProcessor.Order memory order, uint256 userKey, uint256 fee, uint256 operatorKey)
+        internal
+        view
+        returns (IOrderProcessor.FeeQuote memory, bytes memory)
+    {
+        uint64 deadline = uint64(block.timestamp + 30 days);
+        uint256 orderId = issuer.hashOrder(order);
+        IOrderProcessor.FeeQuote memory feeQuote = IOrderProcessor.FeeQuote({
+            orderId: orderId,
+            requester: vm.addr(userKey),
+            fee: fee,
+            timestamp: uint64(block.timestamp),
+            deadline: deadline
+        });
+
+        bytes32 feeQuoteDigest = orderSigUtils.getOrderFeeQuoteToSign(feeQuote);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorKey, feeQuoteDigest);
+        bytes memory feeQuoteSignature = abi.encodePacked(r, s, v);
+
+        return (feeQuote, feeQuoteSignature);
+    }
+
     function prepareOrderRequestSignatures(
         IOrderProcessor.Order memory order,
         uint256 userKey,
@@ -222,21 +277,8 @@ contract OrderProcessorSignedTest is Test {
             orderSignature = abi.encodePacked(r, s, v);
         }
 
-        IOrderProcessor.FeeQuote memory feeQuote;
-        bytes memory feeQuoteSignature;
-        {
-            uint256 orderId = issuer.hashOrder(order);
-            feeQuote = IOrderProcessor.FeeQuote({
-                orderId: orderId,
-                requester: vm.addr(userKey),
-                fee: fee,
-                timestamp: uint64(block.timestamp),
-                deadline: deadline
-            });
-            bytes32 feeQuoteDigest = orderSigUtils.getOrderFeeQuoteToSign(feeQuote);
-            (uint8 v, bytes32 r, bytes32 s) = vm.sign(operatorKey, feeQuoteDigest);
-            feeQuoteSignature = abi.encodePacked(r, s, v);
-        }
+        (IOrderProcessor.FeeQuote memory feeQuote, bytes memory feeQuoteSignature) =
+            prepareFeeQuote(order, userKey, fee, operatorKey);
 
         return (IOrderProcessor.Signature({deadline: deadline, signature: orderSignature}), feeQuote, feeQuoteSignature);
     }

@@ -64,6 +64,7 @@ contract OrderProcessor is
         uint24 percentageFeeRateSell;
     }
 
+    error QuoteMismatch();
     /// @dev Signature deadline expired
     error ExpiredSignature();
     /// @dev Zero address
@@ -460,16 +461,20 @@ contract OrderProcessor is
         address requester =
             ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline)), orderSignature.signature);
 
-        _validateFeeQuote(requester, feeQuote, feeQuoteSignature);
+        id = hashOrder(order);
+        _validateFeeQuote(id, requester, feeQuote, feeQuoteSignature);
 
         // Create order
-        return _createOrder(order, requester, order.sell ? 0 : feeQuote.fee);
+        _createOrder(id, order, requester, order.sell ? 0 : feeQuote.fee);
     }
 
-    function _validateFeeQuote(address requester, FeeQuote calldata feeQuote, bytes calldata feeQuoteSignature)
-        private
-        view
-    {
+    function _validateFeeQuote(
+        uint256 id,
+        address requester,
+        FeeQuote calldata feeQuote,
+        bytes calldata feeQuoteSignature
+    ) private view {
+        if (feeQuote.orderId != id) revert QuoteMismatch();
         if (feeQuote.requester != requester) revert NotRequester();
         if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
         address feeQuoteSigner = ECDSA.recover(_hashTypedDataV4(hashFeeQuote(feeQuote)), feeQuoteSignature);
@@ -478,7 +483,7 @@ contract OrderProcessor is
 
     /// @dev Validate order, initialize order state, and pull tokens
     // slither-disable-next-line cyclomatic-complexity
-    function _createOrder(Order calldata order, address requester, uint256 feesEscrowed) private returns (uint256 id) {
+    function _createOrder(uint256 id, Order calldata order, address requester, uint256 feesEscrowed) private {
         // ------------------ Checks ------------------ //
 
         // Cheap checks first
@@ -492,7 +497,6 @@ contract OrderProcessor is
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
 
         // Order must not have existed
-        id = hashOrder(order);
         if ($._status[id] != OrderStatus.NONE) revert ExistingOrder();
 
         // Check for whitelisted tokens
@@ -549,20 +553,25 @@ contract OrderProcessor is
         whenOrdersNotPaused
         returns (uint256 id)
     {
-        _validateFeeQuote(msg.sender, feeQuote, feeQuoteSignature);
+        id = hashOrder(order);
+        _validateFeeQuote(id, msg.sender, feeQuote, feeQuoteSignature);
 
         // Create order
-        return _createOrder(order, msg.sender, order.sell ? 0 : feeQuote.fee);
+        _createOrder(id, order, msg.sender, order.sell ? 0 : feeQuote.fee);
     }
 
     /// @inheritdoc IOrderProcessor
     function createOrderStandardFees(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
+        id = hashOrder(order);
         if (order.sell) {
-            return _createOrder(order, msg.sender, 0);
+            _createOrder(id, order, msg.sender, 0);
         } else {
             (uint256 flatFee, uint24 percentageFeeRate) = getStandardFees(false, order.paymentToken);
-            return _createOrder(
-                order, msg.sender, FeeLib.applyPercentageFee(percentageFeeRate, order.paymentTokenQuantity) + flatFee
+            _createOrder(
+                id,
+                order,
+                msg.sender,
+                FeeLib.applyPercentageFee(percentageFeeRate, order.paymentTokenQuantity) + flatFee
             );
         }
     }
