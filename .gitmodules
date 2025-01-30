@@ -16,9 +16,6 @@
 [submodule "lib/prb-math"]
 	path = lib/prb-math
 	url = https://github.com/PaulRBerg/prb-math
-[submodule "lib/sbt-deployments"]
-	path = lib/sbt-deployments
-	url = https://github.com/dinaricrypto/sbt-deployments
 [submodule "lib/kinto-contracts-helpers"]
 	path = lib/kinto-contracts-helpers
 	url = https://github.com/dinaricrypto/kinto-contracts-helpers

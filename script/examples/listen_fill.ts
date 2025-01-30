@@ -7,7 +7,7 @@ async function main() {
 
   // ------------------ Connect Abi------------------
   
-  const orderProcessorDataPath = path.resolve(__dirname, '../../lib/sbt-deployments/src/v0.4.0/order_processor.json');
+  const orderProcessorDataPath = path.resolve(__dirname, '../../releases/v0.4.2/order_processor.json');
   let orderProcessorData: any;
   try {
     orderProcessorData = JSON.parse(fs.readFileSync(orderProcessorDataPath, 'utf8'));
@@ -30,7 +30,7 @@ async function main() {
   const provider = new ethers.providers.WebSocketProvider(RPC_URL);
   const chainId = Number((await provider.getNetwork()).chainId);
   console.log(`Chain ID: ${chainId}`);
-  const orderProcessorAddress = orderProcessorData.networkAddresses[chainId];
+  const orderProcessorAddress = orderProcessorData.deployments.staging[chainId];
   console.log(`Order Processor Address: ${orderProcessorAddress}`);
 
   // connect provider to order processor contract
