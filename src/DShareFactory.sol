@@ -106,7 +106,7 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
 
     /// @notice Sets a new transfer restrictor for the dShare
     /// @param _transferRestrictor New transfer restrictor
-    function setNewTransferRestrictor(address _transferRestrictor) external {
+    function setNewTransferRestrictor(address _transferRestrictor) external onlyOwner {
         if (_transferRestrictor == address(0)) revert ZeroAddress();
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         $._transferRestrictor = _transferRestrictor;

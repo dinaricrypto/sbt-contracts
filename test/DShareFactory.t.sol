@@ -97,6 +97,10 @@ contract DShareFactoryTest is Test {
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
         factory.setNewTransferRestrictor(address(0));
 
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        factory.setNewTransferRestrictor(address(restrictor));
+
         vm.expectEmit(true, true, true, true);
         emit NewTransferRestrictorSet(address(restrictor));
         factory.setNewTransferRestrictor(address(restrictor));
