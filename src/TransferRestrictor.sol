@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.25;
 
-import {AccessControlDefaultAdminRules} from
-    "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
-
+import {ControlledUpgradeable} from "./deployment/ControlledUpgradeable.sol";
 /// @notice Enforces transfer restrictions
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/TransferRestrictor.sol)
 /// Maintains the `RESTRICTOR_ROLE` who can add or remove accounts from `isBlacklisted`
 /// Accounts may be restricted if they are suspected of malicious or illegal activity
-contract TransferRestrictor is AccessControlDefaultAdminRules, ITransferRestrictor {
+
+contract TransferRestrictor is ControlledUpgradeable, ITransferRestrictor {
     /// ------------------ Types ------------------ ///
 
     /// @dev Account is restricted
@@ -30,9 +29,19 @@ contract TransferRestrictor is AccessControlDefaultAdminRules, ITransferRestrict
     /// @notice Accounts in `isBlacklisted` cannot send or receive tokens
     mapping(address => bool) public isBlacklisted;
 
-    /// ------------------ Initialization ------------------ ///
+    /// ----------------- Version ----------------- ///
+    function version() public view override returns (uint8) {
+        return 1;
+    }
 
-    constructor(address owner) AccessControlDefaultAdminRules(0, owner) {}
+    function publicVersion() public view override returns (string memory) {
+        return "1.0.0";
+    }
+
+    /// ------------------ Initialization ------------------ ///
+    function initialize(address initialOwner, address upgrader) public reinitializer(version()) {
+        __ControlledUpgradeable_init(initialOwner, upgrader);
+    }
 
     /// ------------------ Setters ------------------ ///
 

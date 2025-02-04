@@ -12,6 +12,12 @@ library GetMockDShareFactory {
     function getMockDShareFactory(address owner) internal returns (DShareFactory, DShare, WrappedDShare) {
         DShare dShareImplementation = new DShare();
         WrappedDShare wrappedDShareImplementation = new WrappedDShare();
+        TransferRestrictor restrictorImpl = new TransferRestrictor();
+        TransferRestrictor restrictor = TransferRestrictor(
+            address(
+                new ERC1967Proxy(address(restrictorImpl), abi.encodeCall(restrictorImpl.initialize, (owner, owner)))
+            )
+        );
 
         DShareFactory dShareFactoryImplementation = new DShareFactory();
         DShareFactory dShareFactory = DShareFactory(
@@ -22,9 +28,10 @@ library GetMockDShareFactory {
                         DShareFactory.initialize,
                         (
                             owner,
+                            owner,
                             address(new UpgradeableBeacon(address(dShareImplementation), owner)),
                             address(new UpgradeableBeacon(address(wrappedDShareImplementation), owner)),
-                            address(new TransferRestrictor(owner))
+                            address(restrictor)
                         )
                     )
                 )

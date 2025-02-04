@@ -6,11 +6,13 @@ import {Vault, IVault} from "../src/orders/Vault.sol";
 import {MockToken} from "./utils/mocks/MockToken.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract VaultTest is Test {
     Vault vault;
     address user;
     address admin;
+    address upgrader;
     address mockAddress;
 
     MockToken paymentToken;
@@ -22,8 +24,17 @@ contract VaultTest is Test {
         user = address(2);
         mockAddress = address(3);
         admin = address(4);
+        upgrader = address(5);
 
-        vault = new Vault(admin);
+        Vault vaultImpl = new Vault();
+        vault = Vault(
+            address(
+                new ERC1967Proxy(
+                    address(vaultImpl),
+                    abi.encodeCall(vaultImpl.initialize, (admin, upgrader))
+                )
+            )
+        );
 
         vm.startPrank(admin);
         paymentToken = new MockToken("Money", "$");

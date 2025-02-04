@@ -51,6 +51,7 @@ contract OrderProcessorSignedTest is Test {
     address public user;
     address public admin;
     address constant treasury = address(4);
+    address constant upgrader = address(5);
     address public operator;
 
     function setUp() public {
@@ -72,7 +73,7 @@ contract OrderProcessorSignedTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory))
+                    abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, treasury, operator, tokenFactory))
                 )
             )
         );

@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.25;
 
-import {
-    UUPSUpgradeable,
-    Initializable
-} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/UUPSUpgradeable.sol";
-import {Ownable2StepUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/Ownable2StepUpgradeable.sol";
+import {ControlledUpgradeable} from "../deployment/ControlledUpgradeable.sol";
 import {EIP712Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/cryptography/EIP712Upgradeable.sol";
 import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -24,9 +20,7 @@ import {IDShareFactory} from "../IDShareFactory.sol";
 /// @dev Assumes dShare asset tokens have 18 decimals and payment tokens have .decimals()
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/OrderProcessor.sol)
 contract OrderProcessor is
-    Initializable,
-    UUPSUpgradeable,
-    Ownable2StepUpgradeable,
+    ControlledUpgradeable,
     EIP712Upgradeable,
     MulticallUpgradeable,
     SelfPermit,
@@ -151,20 +145,33 @@ contract OrderProcessor is
         }
     }
 
+    /// ------------------ Version ------------------ ///
+    
+    /// @notice Returns contract version as uint8
+    function version() public pure override returns (uint8) {
+        return 1;
+    }
+
+    /// @notice Returns contract version as string
+    function publicVersion() public pure override returns (string memory) {
+        return "1.0.0";
+    }
+
     /// ------------------ Initialization ------------------ ///
 
     /// @notice Initialize contract
     /// @param _owner Owner of contract
+    /// @param _upgrader Address authorized to upgrade contract
     /// @param _treasury Address to receive fees
     /// @param _vault Address of vault contract
     /// @param _dShareFactory DShareFactory contract
     /// @dev Treasury cannot be zero address
-    function initialize(address _owner, address _treasury, address _vault, IDShareFactory _dShareFactory)
+    function initialize(address _owner, address _upgrader, address _treasury, address _vault, IDShareFactory _dShareFactory)
         public
         virtual
-        initializer
+        reinitializer(version())
     {
-        __Ownable_init(_owner);
+        __ControlledUpgradeable_init(_owner, _upgrader);
         __EIP712_init("OrderProcessor", "1");
         __Multicall_init();
 
@@ -180,12 +187,14 @@ contract OrderProcessor is
         $._dShareFactory = _dShareFactory;
     }
 
+    function reinitialize(address _upgrader) external reinitializer(version()){
+        grantRole(UPGRADER_ROLE, _upgrader);
+    }
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// ------------------ Getters ------------------ ///
 
@@ -345,7 +354,7 @@ contract OrderProcessor is
     /// @param account Address to receive fees
     /// @dev Only callable by admin
     /// Treasury cannot be zero address
-    function setTreasury(address account) external onlyOwner {
+    function setTreasury(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         // Don't send fees to zero address
         if (account == address(0)) revert ZeroAddress();
 
@@ -358,7 +367,7 @@ contract OrderProcessor is
     /// @param account Address of vault contract
     /// @dev Only callable by admin
     /// Vault cannot be zero address
-    function setVault(address account) external onlyOwner {
+    function setVault(address account) external onlyRole(DEFAULT_ADMIN_ROLE) {
         // Don't send tokens to zero address
         if (account == address(0)) revert ZeroAddress();
 
@@ -370,7 +379,7 @@ contract OrderProcessor is
     /// @notice Pause/unpause orders
     /// @param pause Pause orders if true, unpause if false
     /// @dev Only callable by admin
-    function setOrdersPaused(bool pause) external onlyOwner {
+    function setOrdersPaused(bool pause) external onlyRole(DEFAULT_ADMIN_ROLE) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._ordersPaused = pause;
         emit OrdersPaused(pause);
@@ -380,7 +389,7 @@ contract OrderProcessor is
     /// @param account Operator address
     /// @param status Operator status
     /// @dev Only callable by admin
-    function setOperator(address account, bool status) external onlyOwner {
+    function setOperator(address account, bool status) external onlyRole(DEFAULT_ADMIN_ROLE) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._operators[account] = status;
         emit OperatorSet(account, status);
@@ -401,7 +410,7 @@ contract OrderProcessor is
         uint24 percentageFeeRateBuy,
         uint64 perOrderFeeSell,
         uint24 percentageFeeRateSell
-    ) external onlyOwner {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
         FeeLib.checkPercentageFeeRate(percentageFeeRateBuy);
         FeeLib.checkPercentageFeeRate(percentageFeeRateSell);
         // Token contract must implement the selector, if specified
@@ -430,7 +439,7 @@ contract OrderProcessor is
     /// @notice Remove payment token configuration
     /// @param paymentToken Payment token address
     /// @dev Only callable by admin
-    function removePaymentToken(address paymentToken) external onlyOwner {
+    function removePaymentToken(address paymentToken) external onlyRole(DEFAULT_ADMIN_ROLE) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         delete $._paymentTokens[paymentToken];
         emit PaymentTokenRemoved(paymentToken);
@@ -440,7 +449,7 @@ contract OrderProcessor is
     /// @param token Asset token
     /// @param decimalReduction Reduces the max precision of the asset token quantity
     /// @dev Only callable by admin
-    function setOrderDecimalReduction(address token, uint8 decimalReduction) external onlyOwner {
+    function setOrderDecimalReduction(address token, uint8 decimalReduction) external onlyRole(DEFAULT_ADMIN_ROLE) {
         OrderProcessorStorage storage $ = _getOrderProcessorStorage();
         $._orderDecimalReduction[token] = decimalReduction;
         emit OrderDecimalReductionSet(token, decimalReduction);

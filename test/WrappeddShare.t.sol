@@ -20,10 +20,18 @@ contract WrappedDShareTest is Test {
     address user = address(1);
     address user2 = address(2);
     address admin = address(3);
+    address upgrader = address(4);
 
     function setUp() public {
         vm.startPrank(admin);
-        restrictor = new TransferRestrictor(admin);
+        TransferRestrictor restrictorImpl = new TransferRestrictor();
+        restrictor = TransferRestrictor(
+            address(
+                new ERC1967Proxy(
+                    address(restrictorImpl), abi.encodeCall(TransferRestrictor.initialize, (admin, upgrader))
+                )
+            )
+        );
         restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), admin);
         DShare tokenImplementation = new DShare();
         token = DShare(
