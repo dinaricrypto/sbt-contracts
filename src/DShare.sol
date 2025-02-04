@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.25;
 
-
 import {ControlledUpgradeable} from "./deployment/ControlledUpgradeable.sol";
 import {IDShare, ITransferRestrictor} from "./IDShare.sol";
 import {ERC20Rebasing} from "./ERC20Rebasing.sol";
@@ -83,7 +82,7 @@ contract DShare is IDShare, ERC20Rebasing, ControlledUpgradeable {
     }
 
     function reinitialize(address upgrader) external reinitializer(version()) {
-       grantRole(UPGRADER_ROLE, upgrader);
+        grantRole(UPGRADER_ROLE, upgrader);
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor

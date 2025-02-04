@@ -173,7 +173,9 @@ contract DShareFactory is IDShareFactory, ControlledUpgradeable {
         dShare = address(
             new BeaconProxy(
                 address($._dShareBeacon),
-                abi.encodeCall(DShare.initialize, (owner, upgrader, name, symbol, TransferRestrictor($._transferRestrictor)))
+                abi.encodeCall(
+                    DShare.initialize, (owner, upgrader, name, symbol, TransferRestrictor($._transferRestrictor))
+                )
             )
         );
         wrappedDShare = address(

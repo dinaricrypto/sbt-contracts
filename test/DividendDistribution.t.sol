@@ -46,12 +46,9 @@ contract DividendDistributionTest is Test {
         DividendDistribution distributionImpl = new DividendDistribution();
         distribution = DividendDistribution(
             address(
-                new ERC1967Proxy(
-                    address(distributionImpl), abi.encodeCall(distributionImpl.initialize, (admin, admin))
-                )
+                new ERC1967Proxy(address(distributionImpl), abi.encodeCall(distributionImpl.initialize, (admin, admin)))
             )
         );
-
 
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
         vm.stopPrank();

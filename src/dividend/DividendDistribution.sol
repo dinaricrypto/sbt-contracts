@@ -56,7 +56,6 @@ contract DividendDistribution is ControlledUpgradeable, IDividendDistributor {
 
     /// @notice The minimum time that must pass between the creation of a distribution and its end time.
     uint64 public minDistributionTime = 1 days;
-    
 
     /// ------------------- Version ------------------- ///
     function version() public view override returns (uint8) {

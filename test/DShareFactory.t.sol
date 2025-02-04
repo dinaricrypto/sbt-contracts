@@ -161,7 +161,9 @@ contract DShareFactoryTest is Test {
         address wrappedDShare = address(
             new BeaconProxy(
                 address(wrappedBeacon),
-                abi.encodeCall(WrappedDShare.initialize, (address(this), upgrader, DShare(dshare), wrappedName, wrappedSymbol))
+                abi.encodeCall(
+                    WrappedDShare.initialize, (address(this), upgrader, DShare(dshare), wrappedName, wrappedSymbol)
+                )
             )
         );
 
