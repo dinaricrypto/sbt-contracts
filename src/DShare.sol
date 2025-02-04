@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.25;
 
-import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {AccessControlDefaultAdminRulesUpgradeable} from
-    "openzeppelin-contracts-upgradeable/contracts/access/extensions/AccessControlDefaultAdminRulesUpgradeable.sol";
+
+import {ControlledUpgradeable} from "./deployment/ControlledUpgradeable.sol";
 import {IDShare, ITransferRestrictor} from "./IDShare.sol";
 import {ERC20Rebasing} from "./ERC20Rebasing.sol";
 
@@ -11,7 +10,7 @@ import {ERC20Rebasing} from "./ERC20Rebasing.sol";
 /// ERC20 with minter, burner, and blacklist
 /// Uses solady ERC20 which allows EIP-2612 domain separator with `name` changes
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dShare.sol)
-contract DShare is IDShare, Initializable, ERC20Rebasing, AccessControlDefaultAdminRulesUpgradeable {
+contract DShare is IDShare, ERC20Rebasing, ControlledUpgradeable {
     /// ------------------ Types ------------------ ///
 
     error Unauthorized();
@@ -32,6 +31,19 @@ contract DShare is IDShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
     /// @notice Role for approved burners
     bytes32 public constant BURNER_ROLE = keccak256("BURNER_ROLE");
+
+    /// ------------------ Version ------------------ ///
+    /// @notice Returns contract version as uint8
+    /// @return Version number
+    function version() public view override returns (uint8) {
+        return 1;
+    }
+
+    /// @notice Returns contract version as string
+    /// @return Version string
+    function publicVersion() public view override returns (string memory) {
+        return "1.0.0";
+    }
 
     /// ------------------ State ------------------ ///
 
@@ -56,17 +68,22 @@ contract DShare is IDShare, Initializable, ERC20Rebasing, AccessControlDefaultAd
 
     function initialize(
         address owner,
+        address upgrader,
         string memory _name,
         string memory _symbol,
         ITransferRestrictor _transferRestrictor
-    ) public initializer {
-        __AccessControlDefaultAdminRules_init_unchained(0, owner);
+    ) public reinitializer(version()) {
+        __ControlledUpgradeable_init(owner, upgrader);
 
         dShareStorage storage $ = _getdShareStorage();
         $._name = _name;
         $._symbol = _symbol;
         $._transferRestrictor = _transferRestrictor;
         $._balancePerShare = _INITIAL_BALANCE_PER_SHARE;
+    }
+
+    function reinitialize(address upgrader) external reinitializer(version()) {
+       grantRole(UPGRADER_ROLE, upgrader);
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor

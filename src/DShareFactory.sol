@@ -163,6 +163,7 @@ contract DShareFactory is IDShareFactory, ControlledUpgradeable {
     /// @return dShare Address of the new dShare
     function createDShare(
         address owner,
+        address upgrader,
         string memory name,
         string memory symbol,
         string memory wrappedName,
@@ -172,13 +173,13 @@ contract DShareFactory is IDShareFactory, ControlledUpgradeable {
         dShare = address(
             new BeaconProxy(
                 address($._dShareBeacon),
-                abi.encodeCall(DShare.initialize, (owner, name, symbol, TransferRestrictor($._transferRestrictor)))
+                abi.encodeCall(DShare.initialize, (owner, upgrader, name, symbol, TransferRestrictor($._transferRestrictor)))
             )
         );
         wrappedDShare = address(
             new BeaconProxy(
                 address($._wrappedDShareBeacon),
-                abi.encodeCall(WrappedDShare.initialize, (owner, DShare(dShare), wrappedName, wrappedSymbol))
+                abi.encodeCall(WrappedDShare.initialize, (owner, upgrader, DShare(dShare), wrappedName, wrappedSymbol))
             )
         );
 

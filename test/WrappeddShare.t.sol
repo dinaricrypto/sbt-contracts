@@ -8,6 +8,7 @@ import {TransferRestrictor, ITransferRestrictor} from "../src/TransferRestrictor
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {NumberUtils} from "../src/common/NumberUtils.sol";
 import {mulDiv, mulDiv18} from "prb-math/Common.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
 contract WrappedDShareTest is Test {
     event NameSet(string name);
@@ -38,7 +39,7 @@ contract WrappedDShareTest is Test {
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(DShare.initialize, (admin, "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (admin, upgrader, "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
@@ -49,7 +50,7 @@ contract WrappedDShareTest is Test {
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(WrappedDShare.initialize, (admin, token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                    abi.encodeCall(WrappedDShare.initialize, (admin, upgrader, token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );
@@ -76,6 +77,12 @@ contract WrappedDShareTest is Test {
     }
 
     function testSetName(string memory name) public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), xToken.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        xToken.setName(name);
         vm.expectEmit(true, true, true, true);
         emit NameSet(name);
         vm.prank(admin);
@@ -84,6 +91,12 @@ contract WrappedDShareTest is Test {
     }
 
     function testSetSymbol(string memory symbol) public {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), xToken.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        xToken.setSymbol(symbol);
         vm.expectEmit(true, true, true, true);
         emit SymbolSet(symbol);
         vm.prank(admin);
