@@ -146,7 +146,7 @@ contract OrderProcessor is
     }
 
     /// ------------------ Version ------------------ ///
-    
+
     /// @notice Returns contract version as uint8
     function version() public pure override returns (uint8) {
         return 1;
@@ -166,11 +166,13 @@ contract OrderProcessor is
     /// @param _vault Address of vault contract
     /// @param _dShareFactory DShareFactory contract
     /// @dev Treasury cannot be zero address
-    function initialize(address _owner, address _upgrader, address _treasury, address _vault, IDShareFactory _dShareFactory)
-        public
-        virtual
-        reinitializer(version())
-    {
+    function initialize(
+        address _owner,
+        address _upgrader,
+        address _treasury,
+        address _vault,
+        IDShareFactory _dShareFactory
+    ) public virtual reinitializer(version()) {
         __ControlledUpgradeable_init(_owner, _upgrader);
         __EIP712_init("OrderProcessor", "1");
         __Multicall_init();
@@ -187,7 +189,7 @@ contract OrderProcessor is
         $._dShareFactory = _dShareFactory;
     }
 
-    function reinitialize(address _upgrader) external reinitializer(version()){
+    function reinitialize(address _upgrader) external reinitializer(version()) {
         grantRole(UPGRADER_ROLE, _upgrader);
     }
 

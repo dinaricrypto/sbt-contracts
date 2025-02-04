@@ -28,12 +28,7 @@ contract VaultTest is Test {
 
         Vault vaultImpl = new Vault();
         vault = Vault(
-            address(
-                new ERC1967Proxy(
-                    address(vaultImpl),
-                    abi.encodeCall(vaultImpl.initialize, (admin, upgrader))
-                )
-            )
+            address(new ERC1967Proxy(address(vaultImpl), abi.encodeCall(vaultImpl.initialize, (admin, upgrader))))
         );
 
         vm.startPrank(admin);

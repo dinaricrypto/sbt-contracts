@@ -147,12 +147,14 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
-            address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, address(0), operator, tokenFactory))
+            address(issuerImpl),
+            abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, address(0), operator, tokenFactory))
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
-            address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, treasury, address(0), tokenFactory))
+            address(issuerImpl),
+            abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, treasury, address(0), tokenFactory))
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);

@@ -65,14 +65,8 @@ contract FulfillmentRouterTest is Test {
         paymentToken = new MockToken("Money", "$");
 
         Vault vaultImpl = new Vault();
-        vault = Vault(
-            address(
-                new ERC1967Proxy(
-                    address(vaultImpl),
-                    abi.encodeCall(Vault.initialize, (admin, upgrader))
-                )
-            )
-        );
+        vault =
+            Vault(address(new ERC1967Proxy(address(vaultImpl), abi.encodeCall(Vault.initialize, (admin, upgrader)))));
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
