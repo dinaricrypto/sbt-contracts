@@ -2,9 +2,10 @@
 pragma solidity 0.8.25;
 
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Multicall} from "openzeppelin-contracts/contracts/utils/Multicall.sol";
-import {Context} from "openzeppelin-contracts/contracts/utils/Context.sol";
-import {ContextUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/ContextUpgradeable.sol";
+import {
+    MulticallUpgradeable,
+    ContextUpgradeable
+} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {IVault} from "./IVault.sol";
 import {IOrderProcessor} from "./IOrderProcessor.sol";
 import {ControlledUpgradeable} from "../deployment/ControlledUpgradeable.sol";
@@ -16,7 +17,7 @@ import {ControlledUpgradeable} from "../deployment/ControlledUpgradeable.sol";
 /// @notice Specialized multicall for fulfilling orders with vault funds
 /// @dev Uses vault to remove the need for operator wallets to hold (non-gas) funds
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/orders/FulfillmentRouter.sol)
-contract FulfillmentRouter is ControlledUpgradeable, Multicall {
+contract FulfillmentRouter is ControlledUpgradeable, MulticallUpgradeable {
     using SafeERC20 for IERC20;
 
     error BuyFillsNotSupported();
@@ -45,6 +46,7 @@ contract FulfillmentRouter is ControlledUpgradeable, Multicall {
     /// @param upgrader Address authorized to upgrade contract
     function initialize(address initialOwner, address upgrader) public reinitializer(version()) {
         __ControlledUpgradeable_init(initialOwner, upgrader);
+        __Multicall_init_unchained();
     }
 
     ///--------------------- CORE FUNCTIONS ---------------------///
@@ -96,18 +98,5 @@ contract FulfillmentRouter is ControlledUpgradeable, Multicall {
             IERC20(order.paymentToken).safeIncreaseAllowance(orderProcessor, unfilledAmount);
             IOrderProcessor(orderProcessor).cancelOrder(order, reason);
         }
-    }
-
-    /// ---- Overrided Methods ----
-    function _msgSender() internal view virtual override(Context, ContextUpgradeable) returns (address) {
-        return msg.sender;
-    }
-
-    function _msgData() internal view virtual override(Context, ContextUpgradeable) returns (bytes calldata) {
-        return msg.data;
-    }
-
-    function _contextSuffixLength() internal view virtual override(Context, ContextUpgradeable) returns (uint256) {
-        return 0;
     }
 }
