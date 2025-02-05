@@ -35,8 +35,6 @@ contract OrderProcessorTest is Test {
     event OrderDecimalReductionSet(address indexed assetToken, uint8 decimalReduction);
     event OperatorSet(address indexed account, bool set);
 
-    error FailedCall();
-
     event OrderCreated(
         uint256 indexed id, address indexed requester, IOrderProcessor.Order order, uint256 feesEscrowed
     );
@@ -256,7 +254,7 @@ contract OrderProcessorTest is Test {
             percentageFeeRate
         );
 
-        vm.expectRevert(FailedCall.selector);
+        vm.expectRevert(Address.FailedInnerCall.selector);
         vm.prank(admin);
         issuer.setPaymentToken(
             address(testToken),
