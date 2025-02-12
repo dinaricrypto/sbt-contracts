@@ -26,4 +26,4 @@ jobs:
           role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
           role-session-name: ${{ github.actor }}
 
-      - run: aws secretsmanager get-secret-value --secret-id ${{ secrets.SECRET_ID }} --query SecretString --output text | jq .default
+      - run: aws secretsmanager get-secret-value --secret-id ${{ vars.WEB3_DEPLOYMENTS_SECRETS_ID }} --query SecretString --output text | jq .default
