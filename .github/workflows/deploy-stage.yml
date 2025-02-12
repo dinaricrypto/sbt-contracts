@@ -1,3 +1,5 @@
+name: deploy-stage
+
 on:
   release:
     types: [published]
