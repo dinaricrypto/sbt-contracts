@@ -189,8 +189,8 @@ contract OrderProcessor is
         $._dShareFactory = _dShareFactory;
     }
 
-    function reinitialize(address _upgrader) external reinitializer(version()) {
-        grantRole(UPGRADER_ROLE, _upgrader);
+    function reinitialize(address _owner, address _upgrader) external reinitializer(version()) {
+        __ControlledUpgradeable_init(_owner, _upgrader);
     }
 
     /// @custom:oz-upgrades-unsafe-allow constructor

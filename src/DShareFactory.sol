@@ -77,8 +77,8 @@ contract DShareFactory is IDShareFactory, ControlledUpgradeable {
         $._transferRestrictor = _transferRestrictor;
     }
 
-    function reinitialize(address upgrader) external reinitializer(version()) {
-        grantRole(UPGRADER_ROLE, upgrader);
+    function reinitialize(address owner, address upgrader) external reinitializer(version()) {
+        __ControlledUpgradeable_init(owner, upgrader);
     }
 
     /// @dev In-place initialization of dShares storage for existing factory

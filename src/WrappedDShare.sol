@@ -66,10 +66,6 @@ contract WrappedDShare is ControlledUpgradeable, ERC4626, ReentrancyGuardUpgrade
         $._symbol = symbol_;
     }
 
-    function reinitialize(address upgrader) external reinitializer(version()) {
-        grantRole(UPGRADER_ROLE, upgrader);
-    }
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();

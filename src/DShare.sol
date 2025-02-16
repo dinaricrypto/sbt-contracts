@@ -81,10 +81,6 @@ contract DShare is IDShare, ERC20Rebasing, ControlledUpgradeable {
         $._balancePerShare = _INITIAL_BALANCE_PER_SHARE;
     }
 
-    function reinitialize(address upgrader) external reinitializer(version()) {
-        grantRole(UPGRADER_ROLE, upgrader);
-    }
-
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
