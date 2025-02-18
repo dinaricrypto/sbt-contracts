@@ -15,6 +15,7 @@ import {FeeLib} from "../src/common/FeeLib.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
 contract OrderProcessorTest is Test {
     using GetMockDShareFactory for DShareFactory;
@@ -73,6 +74,7 @@ contract OrderProcessorTest is Test {
 
     address constant operator = address(3);
     address constant treasury = address(4);
+    address constant upgrader = address(5);
     address public restrictor_role = address(1);
 
     uint256 dummyOrderFees;
@@ -94,7 +96,7 @@ contract OrderProcessorTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, tokenFactory))
+                    abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, treasury, operator, tokenFactory))
                 )
             )
         );
@@ -143,35 +145,45 @@ contract OrderProcessorTest is Test {
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
-            address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, address(0), operator, tokenFactory))
-        );
-
-        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
-        new ERC1967Proxy(
-            address(issuerImpl), abi.encodeCall(OrderProcessor.initialize, (admin, treasury, address(0), tokenFactory))
+            address(issuerImpl),
+            abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, address(0), operator, tokenFactory))
         );
 
         vm.expectRevert(OrderProcessor.ZeroAddress.selector);
         new ERC1967Proxy(
             address(issuerImpl),
-            abi.encodeCall(OrderProcessor.initialize, (admin, treasury, operator, DShareFactory(address(0))))
+            abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, treasury, address(0), tokenFactory))
+        );
+
+        vm.expectRevert(OrderProcessor.ZeroAddress.selector);
+        new ERC1967Proxy(
+            address(issuerImpl),
+            abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, treasury, operator, DShareFactory(address(0))))
         );
     }
 
     function testUpgrade() public {
         OrderProcessor issuerImpl = new OrderProcessor();
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.UPGRADER_ROLE()
+            )
+        );
         issuer.upgradeToAndCall(address(issuerImpl), "");
 
-        vm.prank(admin);
+        vm.prank(upgrader);
         issuer.upgradeToAndCall(address(issuerImpl), "");
     }
 
     function testSetTreasury(address account) public {
         vm.assume(account != address(0));
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
+            )
+        );
         issuer.setTreasury(account);
 
         vm.expectEmit(true, true, true, true);
@@ -190,7 +202,11 @@ contract OrderProcessorTest is Test {
     function testSetVault(address account) public {
         vm.assume(account != address(0));
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
+            )
+        );
         issuer.setVault(account);
 
         vm.expectEmit(true, true, true, true);
@@ -224,7 +240,11 @@ contract OrderProcessorTest is Test {
 
         MockToken testToken = new MockToken("Test Token", "TEST");
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
+            )
+        );
         issuer.setPaymentToken(
             address(testToken),
             testToken.isBlacklisted.selector,
@@ -277,7 +297,11 @@ contract OrderProcessorTest is Test {
     }
 
     function testRemovePaymentToken(address testToken) public {
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
+            )
+        );
         issuer.removePaymentToken(testToken);
 
         vm.expectEmit(true, true, true, true);
@@ -290,7 +314,11 @@ contract OrderProcessorTest is Test {
     }
 
     function testSetOrdersPaused(bool pause) public {
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
+            )
+        );
         issuer.setOrdersPaused(pause);
 
         vm.expectEmit(true, true, true, true);
@@ -301,7 +329,11 @@ contract OrderProcessorTest is Test {
     }
 
     function testSetOperator(address account, bool set) public {
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), issuer.DEFAULT_ADMIN_ROLE()
+            )
+        );
         issuer.setOperator(account, set);
 
         vm.expectEmit(true, true, true, true);

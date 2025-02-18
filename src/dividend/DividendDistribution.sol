@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 pragma solidity 0.8.25;
 
-import {AccessControlDefaultAdminRules} from
-    "openzeppelin-contracts/contracts/access/extensions/AccessControlDefaultAdminRules.sol";
+import {ControlledUpgradeable} from "../deployment/ControlledUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IDividendDistributor} from "./IDividendDistributor.sol";
 
@@ -13,7 +12,7 @@ import {IDividendDistributor} from "./IDividendDistributor.sol";
 /// A DISTRIBUTOR_ROLE can then distribute from that pool to users until the end time.
 /// After the end time, the DISTRIBUTOR_ROLE can reclaim any remaining tokens.
 /// @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/dividend/DividendDistribution.sol)
-contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistributor {
+contract DividendDistribution is ControlledUpgradeable, IDividendDistributor {
     using SafeERC20 for IERC20;
 
     /// ------------------- Types ------------------- ///
@@ -58,9 +57,20 @@ contract DividendDistribution is AccessControlDefaultAdminRules, IDividendDistri
     /// @notice The minimum time that must pass between the creation of a distribution and its end time.
     uint64 public minDistributionTime = 1 days;
 
+    /// ------------------- Version ------------------- ///
+    function version() public view override returns (uint8) {
+        return 1;
+    }
+
+    function publicVersion() public view override returns (string memory) {
+        return "1.0.0";
+    }
+
     /// ------------------- Initialization ------------------- ///
 
-    constructor(address owner) AccessControlDefaultAdminRules(0, owner) {}
+    function initialize(address owner, address upgrader) public reinitializer(version()) {
+        __ControlledUpgradeable_init(owner, upgrader);
+    }
 
     /// @notice Set the minimum time that must pass between the creation of a distribution and its end time.
     function setMinDistributionTime(uint64 _minDistributionTime) external onlyRole(DEFAULT_ADMIN_ROLE) {
