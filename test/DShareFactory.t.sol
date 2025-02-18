@@ -155,15 +155,13 @@ contract DShareFactoryTest is Test {
         string memory wrappedSymbol = string.concat(symbol, "w");
         address dshare = address(
             new BeaconProxy(
-                address(beacon), abi.encodeCall(DShare.initialize, (address(this), upgrader, name, symbol, restrictor))
+                address(beacon), abi.encodeCall(DShare.initialize, (address(this), name, symbol, restrictor))
             )
         );
         address wrappedDShare = address(
             new BeaconProxy(
                 address(wrappedBeacon),
-                abi.encodeCall(
-                    WrappedDShare.initialize, (address(this), upgrader, DShare(dshare), wrappedName, wrappedSymbol)
-                )
+                abi.encodeCall(WrappedDShare.initialize, (address(this), DShare(dshare), wrappedName, wrappedSymbol))
             )
         );
 

@@ -39,7 +39,7 @@ contract WrappedDShareTest is Test {
             address(
                 new ERC1967Proxy(
                     address(tokenImplementation),
-                    abi.encodeCall(DShare.initialize, (admin, upgrader, "Dinari Token", "dTKN", restrictor))
+                    abi.encodeCall(DShare.initialize, (admin, "Dinari Token", "dTKN", restrictor))
                 )
             )
         );
@@ -50,7 +50,7 @@ contract WrappedDShareTest is Test {
             address(
                 new ERC1967Proxy(
                     address(xtokenImplementation),
-                    abi.encodeCall(WrappedDShare.initialize, (admin, upgrader, token, "Reinvesting dTKN.d", "dTKN.d.x"))
+                    abi.encodeCall(WrappedDShare.initialize, (admin, token, "Reinvesting dTKN.d", "dTKN.d.x"))
                 )
             )
         );

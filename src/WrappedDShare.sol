@@ -53,11 +53,11 @@ contract WrappedDShare is ControlledUpgradeable, ERC4626, ReentrancyGuardUpgrade
 
     /// ------------------- Initialization ------------------- ///
 
-    function initialize(address owner, address ugrader, DShare dShare_, string memory name_, string memory symbol_)
+    function initialize(address owner, DShare dShare_, string memory name_, string memory symbol_)
         public
         reinitializer(version())
     {
-        __ControlledUpgradeable_init(owner, ugrader);
+        __AccessControlDefaultAdminRules_init_unchained(0, owner);
         __ReentrancyGuard_init_unchained();
 
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();

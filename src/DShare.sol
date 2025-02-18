@@ -67,12 +67,11 @@ contract DShare is IDShare, ERC20Rebasing, ControlledUpgradeable {
 
     function initialize(
         address owner,
-        address upgrader,
         string memory _name,
         string memory _symbol,
         ITransferRestrictor _transferRestrictor
     ) public reinitializer(version()) {
-        __ControlledUpgradeable_init(owner, upgrader);
+        __AccessControlDefaultAdminRules_init_unchained(0, owner);
 
         dShareStorage storage $ = _getdShareStorage();
         $._name = _name;
