@@ -4,8 +4,7 @@ pragma solidity 0.8.25;
 import {DShare} from "./DShare.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
 import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
-import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {ControlledUpgradeable} from "./deployment/ControlledUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from
     "openzeppelin-contracts-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -17,7 +16,7 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
  * @author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/WrappedDShare.sol)
  */
 // slither-disable-next-line missing-inheritance
-contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+contract WrappedDShare is ControlledUpgradeable, ERC4626, ReentrancyGuardUpgradeable {
     /// ------------------- Types ------------------- ///
 
     using SafeERC20 for IERC20;
@@ -43,10 +42,22 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
         }
     }
 
+    /// ------------------- Version ------------------- ///
+    function version() public view override returns (uint8) {
+        return 1;
+    }
+
+    function publicVersion() public view override returns (string memory) {
+        return "1.0.0";
+    }
+
     /// ------------------- Initialization ------------------- ///
 
-    function initialize(address owner, DShare dShare_, string memory name_, string memory symbol_) public initializer {
-        __Ownable_init_unchained(owner);
+    function initialize(address owner, DShare dShare_, string memory name_, string memory symbol_)
+        public
+        reinitializer(version())
+    {
+        __AccessControlDefaultAdminRules_init_unchained(0, owner);
         __ReentrancyGuard_init_unchained();
 
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
@@ -66,7 +77,7 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
      * @dev Sets the name of the WrappedDShare token.
      * @param name_ The new name.
      */
-    function setName(string memory name_) external onlyOwner {
+    function setName(string memory name_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
         $._name = name_;
         emit NameSet(name_);
@@ -76,7 +87,7 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
      * @dev Sets the symbol of the WrappedDShare token.
      * @param symbol_ The new symbol.
      */
-    function setSymbol(string memory symbol_) external onlyOwner {
+    function setSymbol(string memory symbol_) external onlyRole(DEFAULT_ADMIN_ROLE) {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
         $._symbol = symbol_;
         emit SymbolSet(symbol_);
