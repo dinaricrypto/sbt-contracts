@@ -14,7 +14,7 @@ import {NumberUtils} from "../src/common/NumberUtils.sol";
 import {FeeLib} from "../src/common/FeeLib.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
-import {Address} from "openzeppelin-contracts/contracts/utils/Address.sol";
+import {Errors} from "openzeppelin-contracts/contracts/utils/Errors.sol";
 
 contract OrderProcessorTest is Test {
     using GetMockDShareFactory for DShareFactory;
@@ -234,7 +234,7 @@ contract OrderProcessorTest is Test {
             percentageFeeRate
         );
 
-        vm.expectRevert(Address.FailedInnerCall.selector);
+        vm.expectRevert(Errors.FailedCall.selector);
         vm.prank(admin);
         issuer.setPaymentToken(
             address(testToken),
