@@ -46,6 +46,12 @@ contract FulfillmentRouter is ControlledUpgradeable, MulticallUpgradeable {
         __Multicall_init_unchained();
     }
 
+    /// @notice Reinitialize the contract
+    /// @param upgrader Address authorized to upgrade contract
+    function reinitialize(address upgrader) public reinitializer(version()) {
+        grantRole(UPGRADER_ROLE, upgrader);
+    }
+
     ///--------------------- CORE FUNCTIONS ---------------------///
 
     /// @notice Fill a sell order using vault funds

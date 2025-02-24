@@ -36,8 +36,14 @@ contract Vault is IVault, ControlledUpgradeable {
     /// @notice Initialize the vault with admin and upgrader
     /// @param admin Address of the admin
     /// @param upgrader Address authorized to upgrade contract
-    function initialize(address admin, address upgrader) public reinitializer(1) {
+    function initialize(address admin, address upgrader) public reinitializer(version()) {
         __ControlledUpgradeable_init(admin, upgrader);
+    }
+
+    /// @notice Reinitialize the vault with a new upgrader
+    /// @param upgrader Address authorized to upgrade contract
+    function reinitialize(address upgrader) public reinitializer(version()) {
+        grantRole(UPGRADER_ROLE, upgrader);
     }
 
     ///--------------------- CORE FUNCTIONS ---------------------///
