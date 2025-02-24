@@ -61,7 +61,6 @@ contract TransferRestrictorTest is Test {
         }
     }
 
-
     function generateTestAddresses(uint256 count) internal pure returns (address[] memory) {
         address[] memory addresses = new address[](count);
         for (uint256 i = 0; i < count; i++) {
