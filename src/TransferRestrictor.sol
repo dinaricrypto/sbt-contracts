@@ -43,6 +43,10 @@ contract TransferRestrictor is ControlledUpgradeable, ITransferRestrictor {
         __ControlledUpgradeable_init(initialOwner, upgrader);
     }
 
+    function reinitialize(address upgrader) public reinitializer(version()) {
+        grantRole(RESTRICTOR_ROLE, upgrader);
+    }
+
     /// ------------------ Setters ------------------ ///
 
     /// @notice Restrict `account` from sending or receiving tokens
