@@ -8,13 +8,21 @@
     "registry": "https://sbt-dev-875886734390.d.codeartifact.us-west-2.amazonaws.com/npm/sbt/"
   },
   "scripts": {
+    "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
+    "pretty": "forge fmt",
+    "build": "forge build",
+    "test": "forge test -vvv",
+    "coverage": "./script/coverage.sh",
+    "gas": "./script/gasreport.sh",
+    "sizes": "forge build --sizes > sizes.txt",
     "mnemonic": "npx ts-node script/mnemonic.ts",
     "keys": "npx ts-node script/printkeys.ts",
     "example:order": "npx ts-node script/examples/create_order.ts",
     "example:order:sell": "npx ts-node script/examples/create_order_approve_sell.ts",
     "example:listen": "npx ts-node script/examples/listen_fill.ts",
     "example:cancel": "npx ts-node script/examples/request_cancel.ts",
-    "lint:releases": "ajv validate -s releases/schema.json -d \"releases/v*/*.json\" --strict=true"
+    "lint:json": "ajv validate -s releases/schema.json -d \"releases/v*/*.json\" --strict=true",
+    "lint:json:debug": "echo \"Files to validate:\" && ls releases/v*/*.json && yarn lint:json"
   },
   "devDependencies": {
     "@typechain/ethers-v5": "^11.0.0",
@@ -29,6 +37,9 @@
     "typechain": "^8.1.1",
     "typescript": "~4.9.3"
   },
+  "pre-commit": [
+    "pretty"
+  ],
   "dependencies": {
     "ajv-cli": "^5.0.0",
     "ethers": "5.7.2"
