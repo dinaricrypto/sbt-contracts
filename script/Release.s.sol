@@ -335,7 +335,7 @@ contract Release is Script {
 
         address implementation = _deployImplementation(contractName);
 
-        try vm.parseJsonAddress(configJson, string.concat(".", "DShareFactroy", ".", beaconParamName)) returns (
+        try vm.parseJsonAddress(configJson, string.concat(".", "DShareFactory", ".", beaconParamName)) returns (
             address addr
         ) {
             beaconAddress = addr;
@@ -345,6 +345,7 @@ contract Release is Script {
         }
 
         // Update beacon implementation
+        console2.log("Upgrading beacon implementation for %s", contractName);
         IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
         console2.log("Beacon implementation updated for %s", contractName);
     }
