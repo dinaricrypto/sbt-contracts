@@ -1,0 +1,33 @@
+{
+  "TransferRestrictor": {
+    "owner": "0x4181803232280371E02a875F51515BE57B215231",
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42"
+  },
+  "DShareFactory": {
+    "owner": "0x4181803232280371E02a875F51515BE57B215231",
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42",
+    "dShareBeacon": "",
+    "wrappedDShareBeacon": "",
+    "transferRestrictor": ""
+  },
+  "DividendDistribution": {
+    "owner": "0x4181803232280371E02a875F51515BE57B215231",
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42"
+  },
+  "OrderProcessor": {
+    "owner": "0x4181803232280371E02a875F51515BE57B215231",
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42",
+    "treasury": "0x09E365aCDB0d936DD250351aD0E7de3Dad8706E5",
+    "operator": "",
+    "vault": "",
+    "transfer_restrictor": ""
+  },
+  "FulfillmentRouter": {
+    "owner": "0x4181803232280371E02a875F51515BE57B215231",
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42"
+  },
+  "Vault": {
+    "owner": "0x4181803232280371E02a875F51515BE57B215231",
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42"
+  }
+}
