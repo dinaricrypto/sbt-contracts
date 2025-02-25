@@ -17,8 +17,8 @@
   "OrderProcessor": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
     "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42",
-    "treasury": "0x09E365aCDB0d936DD250351aD0E7de3Dad8706E5",
-    "operator": "",
+    "treasury": "0x4181803232280371E02a875F51515BE57B215231",
+    "operator": "0x874c1606c678cdA1d0f054f5123567198B13fedF",
     "vault": "",
     "transfer_restrictor": ""
   },
