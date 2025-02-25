@@ -3,8 +3,11 @@ pragma solidity ^0.8.13;
 
 import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
-import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ControlledUpgradeable} from "../src/deployment/ControlledUpgradeable.sol";
+
+import {IDShareFactory} from "../src/IDShareFactory.sol";
 import {console2} from "forge-std/console2.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 
@@ -72,13 +75,13 @@ contract Release is Script {
             console2.log("Previous deployment found at %s", previousDeploymentAddress);
         }
 
-        // special case for DShare and WrappedDShare
+        // case for DShare and WrappedDShare
         bool isBeaconContract = keccak256(bytes(contractName)) == keccak256(bytes("DShare"))
             || keccak256(bytes(contractName)) == keccak256(bytes("WrappedDshare"));
 
         if (isBeaconContract) {
             console2.log("Updating beacon implementation for %s", contractName);
-            proxyAddress = _updateBeaconImplementation(configJson, contractName);
+            proxyAddress = _manageBeaconDeployment(configJson, contractName);
         } else {
             if (previousDeploymentAddress == address(0)) {
                 console2.log("Deploying contract");
@@ -317,7 +320,7 @@ contract Release is Script {
         return implementation;
     }
 
-    function _updateBeaconImplementation(string memory configJson, string memory contractName)
+    function _manageBeaconDeployment(string memory configJson, string memory contractName)
         internal
         returns (address beaconAddress)
     {
@@ -332,10 +335,23 @@ contract Release is Script {
 
         address implementation = _deployImplementation(contractName);
 
-        beaconAddress = _getAddressFromInitData(configJson, "DShareFactory", beaconParamName);
+        try vm.parseJsonAddress(configJson, string.concat(".", "DShareFactroy", ".", beaconParamName)) returns (
+            address addr
+        ) {
+            beaconAddress = addr;
+        } catch {
+            beaconAddress = _deployNewBeacon(implementation);
+            console2.log("Deployed new beacon for %s at %s", contractName, beaconAddress);
+        }
 
+        // Update beacon implementation
         IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
         console2.log("Beacon implementation updated for %s", contractName);
+    }
+
+    function _deployNewBeacon(address implementation) internal returns (address) {
+        UpgradeableBeacon beacon = new UpgradeableBeacon(implementation, msg.sender);
+        return address(beacon);
     }
 
     function _getPreviousDeploymentAddress(
