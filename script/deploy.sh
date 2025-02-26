@@ -7,7 +7,7 @@
 
 . ./.VERSION
 
-CHAIN_IDS=("11155111" "421614" "84532" "98864" "1" "42161" "8453" "98865" "7887") # Chains to release to
+CHAIN_IDS=("11155111" "421614" "84532" "98864" "1" "42161" "8453" "98865" "7887" "81457" "168587773") # Chains to release to
 
 # Retrieve secrets from AWS
 CHAIN_SECRETS=$(aws secretsmanager get-secret-value --secret-id "${AWS_SECRET_ID}" --query SecretString --output text)
