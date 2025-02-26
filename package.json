@@ -32,6 +32,10 @@
   },
   "dependencies": {
     "ajv-cli": "^5.0.0",
-    "ethers": "5.7.2"
+    "commander": "^13.1.0",
+    "ethers": "5.7.2",
+    "semver": "^7.7.1",
+    "web3-types": "^1.10.0",
+    "web3-utils": "^4.3.3"
   }
 }
