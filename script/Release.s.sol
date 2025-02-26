@@ -75,23 +75,32 @@ contract Release is Script {
             console2.log("Previous deployment found at %s", previousDeploymentAddress);
         }
 
-        if (previousDeploymentAddress == address(0)) {
-            console2.log("Deploying contract");
-            proxyAddress = _deployContract(contractName, _getInitData(configJson, contractName, false));
-        } else {
-            string memory previousVersion;
-            try IVersioned(previousDeploymentAddress).publicVersion() returns (string memory v) {
-                previousVersion = v;
-            } catch {}
+        // case for DShare and WrappedDShare
+        bool isBeaconContract = keccak256(bytes(contractName)) == keccak256(bytes("DShare"))
+            || keccak256(bytes(contractName)) == keccak256(bytes("WrappedDshare"));
 
-            if (
-                keccak256(bytes(previousVersion)) != keccak256(bytes(currentVersion))
-                    || bytes(previousVersion).length == 0
-            ) {
-                console2.log("Upgrading contract");
-                proxyAddress = _upgradeContract(
-                    contractName, previousDeploymentAddress, _getInitData(configJson, contractName, true)
-                );
+        if (isBeaconContract) {
+            console2.log("Updating beacon implementation for %s", contractName);
+            proxyAddress = _manageBeaconDeployment(configJson, contractName);
+        } else {
+            if (previousDeploymentAddress == address(0)) {
+                console2.log("Deploying contract");
+                proxyAddress = _deployContract(contractName, _getInitData(configJson, contractName, false));
+            } else {
+                string memory previousVersion;
+                try IVersioned(previousDeploymentAddress).publicVersion() returns (string memory v) {
+                    previousVersion = v;
+                } catch {}
+
+                if (
+                    keccak256(bytes(previousVersion)) != keccak256(bytes(currentVersion))
+                        || bytes(previousVersion).length == 0
+                ) {
+                    console2.log("Upgrading contract");
+                    proxyAddress = _upgradeContract(
+                        contractName, previousDeploymentAddress, _getInitData(configJson, contractName, true)
+                    );
+                }
             }
         }
 
@@ -110,6 +119,8 @@ contract Release is Script {
         if (inputHash == keccak256(bytes("TransferRestrictor"))) return "transfer_restrictor";
         if (inputHash == keccak256(bytes("DShareFactory"))) return "dshare_factory";
         if (inputHash == keccak256(bytes("DividendDistribution"))) return "dividend_distribution";
+        if (inputHash == keccak256(bytes("DShare"))) return "dshare";
+        if (inputHash == keccak256(bytes("WrappedDshare"))) return "wrapped_dshare";
         if (inputHash == keccak256(bytes("OrderProcessor"))) return "order_processer";
         if (inputHash == keccak256(bytes("FulfillmentRouter"))) return "fulfillment_router";
         if (inputHash == keccak256(bytes("Vault"))) return "vault";
@@ -307,6 +318,41 @@ contract Release is Script {
         }
         require(implementation != address(0), "Implementation deployment failed");
         return implementation;
+    }
+
+    function _manageBeaconDeployment(string memory configJson, string memory contractName)
+        internal
+        returns (address beaconAddress)
+    {
+        string memory beaconParamName;
+        if (keccak256(bytes(contractName)) == keccak256(bytes("DShare"))) {
+            beaconParamName = "dShareBeacon";
+        } else if (keccak256(bytes(contractName)) == keccak256(bytes("WrappedDshare"))) {
+            beaconParamName = "wrappedDShareBeacon";
+        } else {
+            revert(string.concat("Not a beacon-based contract: ", contractName));
+        }
+
+        address implementation = _deployImplementation(contractName);
+
+        try vm.parseJsonAddress(configJson, string.concat(".", "DShareFactory", ".", beaconParamName)) returns (
+            address addr
+        ) {
+            beaconAddress = addr;
+        } catch {
+            address owner = _getAddressFromJson(configJson, string.concat(".", "UpgradeableBeacon", ".", "owner"));
+            beaconAddress = _deployNewBeacon(implementation, owner);
+            console2.log("Deployed new beacon for %s at %s", contractName, beaconAddress);
+        }
+        // Update beacon implementation
+        console2.log("Upgrading beacon implementation for %s", contractName);
+        IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
+        console2.log("Beacon implementation updated for %s", contractName);
+    }
+
+    function _deployNewBeacon(address implementation, address owner) internal returns (address) {
+        UpgradeableBeacon beacon = new UpgradeableBeacon(implementation, owner);
+        return address(beacon);
     }
 
     function _getPreviousDeploymentAddress(
