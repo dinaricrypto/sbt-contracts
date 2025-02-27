@@ -336,8 +336,6 @@ contract Release is Script {
             beaconAddress = _deployNewBeacon(implementation, owner);
             console2.log("Deployed new beacon for %s at %s", contractName, beaconAddress);
         }
-
-        return beaconAddress;
     }
 
     function _deployNewBeacon(address implementation, address owner) internal returns (address) {
