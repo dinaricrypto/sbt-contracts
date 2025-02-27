@@ -76,8 +76,7 @@ contract Release is Script {
         }
 
         // case for DShare and WrappedDShare
-        bool isBeaconContract = keccak256(bytes(contractName)) == keccak256(bytes("DShare"))
-            || keccak256(bytes(contractName)) == keccak256(bytes("WrappedDshare"));
+        bool isBeaconContract = _getBoolFromJson(configJson, string.concat(".", contractName, ".", "__useBeacon"));
 
         if (isBeaconContract) {
             console2.log("Updating beacon implementation for %s", contractName);
@@ -133,6 +132,14 @@ contract Release is Script {
             return addr;
         } catch {
             revert(string.concat("Missing or invalid address at path: ", selector));
+        }
+    }
+
+    function _getBoolFromJson(string memory json, string memory selector) internal pure returns (bool) {
+        try vm.parseJsonBool(json, selector) returns (bool value) {
+            return value;
+        } catch {
+            return false;
         }
     }
 
@@ -324,30 +331,19 @@ contract Release is Script {
         internal
         returns (address beaconAddress)
     {
-        string memory beaconParamName;
-        if (keccak256(bytes(contractName)) == keccak256(bytes("DShare"))) {
-            beaconParamName = "dShareBeacon";
-        } else if (keccak256(bytes(contractName)) == keccak256(bytes("WrappedDshare"))) {
-            beaconParamName = "wrappedDShareBeacon";
-        } else {
-            revert(string.concat("Not a beacon-based contract: ", contractName));
-        }
-
         address implementation = _deployImplementation(contractName);
-
-        try vm.parseJsonAddress(configJson, string.concat(".", "DShareFactory", ".", beaconParamName)) returns (
-            address addr
-        ) {
-            beaconAddress = addr;
-        } catch {
-            address owner = _getAddressFromJson(configJson, string.concat(".", "UpgradeableBeacon", ".", "owner"));
+        address beaconAddress = _getAddressFromInitData(configJson, contractName, "__beaconAddress");
+        address owner = _getAddressFromInitData(configJson, contractName, "owner");
+        if (beaconAddress != address(0)) {
+            console2.log("Upgrading beacon implementation for %s", contractName);
+            IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
+            console2.log("Beacon implementation updated for %s", contractName);
+        } else {
             beaconAddress = _deployNewBeacon(implementation, owner);
             console2.log("Deployed new beacon for %s at %s", contractName, beaconAddress);
         }
-        // Update beacon implementation
-        console2.log("Upgrading beacon implementation for %s", contractName);
-        IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
-        console2.log("Beacon implementation updated for %s", contractName);
+
+        return beaconAddress;
     }
 
     function _deployNewBeacon(address implementation, address owner) internal returns (address) {

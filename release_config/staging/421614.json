@@ -30,7 +30,14 @@
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
     "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42"
   },
-  "UpgradeableBeacon": {
-    "owner": "0x4181803232280371E02a875F51515BE57B215231"
+  "DShare": {
+    "owner": "0x4181803232280371E02a875F51515BE57B215231",
+    "__beaconAddress": "",
+    "__useBeacon": true
+  },
+  "WrappedDShare": {
+    "owner": "0x4181803232280371E02a875F51515BE57B215231",
+    "__beaconAddress": "",
+    "__useBeacon": true
   }
 }
