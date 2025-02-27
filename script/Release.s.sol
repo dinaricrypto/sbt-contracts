@@ -6,6 +6,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ControlledUpgradeable} from "../src/deployment/ControlledUpgradeable.sol";
+import {JsonUtils} from "./utils/JsonUtils.sol";
 
 import {IDShareFactory} from "../src/IDShareFactory.sol";
 import {console2} from "forge-std/console2.sol";
@@ -75,23 +76,39 @@ contract Release is Script {
             console2.log("Previous deployment found at %s", previousDeploymentAddress);
         }
 
-        if (previousDeploymentAddress == address(0)) {
-            console2.log("Deploying contract");
-            proxyAddress = _deployContract(contractName, _getInitData(configJson, contractName, false));
-        } else {
-            string memory previousVersion;
-            try IVersioned(previousDeploymentAddress).publicVersion() returns (string memory v) {
-                previousVersion = v;
-            } catch {}
+        // case for DShare and WrappedDShare
+        bool isBeaconContract;
 
-            if (
-                keccak256(bytes(previousVersion)) != keccak256(bytes(currentVersion))
-                    || bytes(previousVersion).length == 0
-            ) {
-                console2.log("Upgrading contract");
-                proxyAddress = _upgradeContract(
-                    contractName, previousDeploymentAddress, _getInitData(configJson, contractName, true)
-                );
+        try JsonUtils.getBoolFromJson(vm, configJson, string.concat(".", contractName, ".", "__useBeacon")) returns (
+            bool v
+        ) {
+            isBeaconContract = v;
+        } catch {
+            isBeaconContract = false;
+        }
+
+        if (isBeaconContract) {
+            console2.log("Updating beacon implementation for %s", contractName);
+            proxyAddress = _manageBeaconDeployment(configJson, contractName);
+        } else {
+            if (previousDeploymentAddress == address(0)) {
+                console2.log("Deploying contract");
+                proxyAddress = _deployContract(contractName, _getInitData(configJson, contractName, false));
+            } else {
+                string memory previousVersion;
+                try IVersioned(previousDeploymentAddress).publicVersion() returns (string memory v) {
+                    previousVersion = v;
+                } catch {}
+
+                if (
+                    keccak256(bytes(previousVersion)) != keccak256(bytes(currentVersion))
+                        || bytes(previousVersion).length == 0
+                ) {
+                    console2.log("Upgrading contract");
+                    proxyAddress = _upgradeContract(
+                        contractName, previousDeploymentAddress, _getInitData(configJson, contractName, true)
+                    );
+                }
             }
         }
 
@@ -110,19 +127,13 @@ contract Release is Script {
         if (inputHash == keccak256(bytes("TransferRestrictor"))) return "transfer_restrictor";
         if (inputHash == keccak256(bytes("DShareFactory"))) return "dshare_factory";
         if (inputHash == keccak256(bytes("DividendDistribution"))) return "dividend_distribution";
+        if (inputHash == keccak256(bytes("DShare"))) return "dshare";
+        if (inputHash == keccak256(bytes("WrappedDshare"))) return "wrapped_dshare";
         if (inputHash == keccak256(bytes("OrderProcessor"))) return "order_processer";
         if (inputHash == keccak256(bytes("FulfillmentRouter"))) return "fulfillment_router";
         if (inputHash == keccak256(bytes("Vault"))) return "vault";
 
         revert(string.concat("Unknown contract name: ", contractName));
-    }
-
-    function _getAddressFromJson(string memory json, string memory selector) internal pure returns (address) {
-        try vm.parseJsonAddress(json, selector) returns (address addr) {
-            return addr;
-        } catch {
-            revert(string.concat("Missing or invalid address at path: ", selector));
-        }
     }
 
     function _getAddressFromInitData(string memory json, string memory contractName, string memory paramName)
@@ -131,7 +142,7 @@ contract Release is Script {
         returns (address)
     {
         string memory selector = string.concat(".", contractName, ".", paramName);
-        return _getAddressFromJson(json, selector);
+        return JsonUtils.getAddressFromJson(vm, json, selector);
     }
 
     function _getInitData(string memory configJson, string memory contractName, bool isUpgrade)
@@ -309,12 +320,35 @@ contract Release is Script {
         return implementation;
     }
 
+    function _manageBeaconDeployment(string memory configJson, string memory contractName)
+        internal
+        returns (address beaconAddress)
+    {
+        beaconAddress = _getAddressFromInitData(configJson, contractName, "__beaconAddress");
+        address owner = _getAddressFromInitData(configJson, contractName, "owner");
+        address implementation = _deployImplementation(contractName);
+
+        if (beaconAddress != address(0)) {
+            console2.log("Upgrading beacon implementation for %s", contractName);
+            IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
+            console2.log("Beacon implementation updated for %s", contractName);
+        } else {
+            beaconAddress = _deployNewBeacon(implementation, owner);
+            console2.log("Deployed new beacon for %s at %s", contractName, beaconAddress);
+        }
+    }
+
+    function _deployNewBeacon(address implementation, address owner) internal returns (address) {
+        UpgradeableBeacon beacon = new UpgradeableBeacon(implementation, owner);
+        return address(beacon);
+    }
+
     function _getPreviousDeploymentAddress(
         string memory configName,
         string memory deployedVersion,
         string memory environment,
         uint256 chainId
-    ) internal returns (address) {
+    ) internal view returns (address) {
         if (bytes(deployedVersion).length == 0) return address(0);
 
         string memory deployedPath = string.concat("releases/v", deployedVersion, "/", configName, ".json");
