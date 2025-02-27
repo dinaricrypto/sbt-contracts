@@ -6,6 +6,7 @@ import {stdJson} from "forge-std/StdJson.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ControlledUpgradeable} from "../src/deployment/ControlledUpgradeable.sol";
+import {JsonUtils} from "./utils/JsonUtils.sol";
 
 import {IDShareFactory} from "../src/IDShareFactory.sol";
 import {console2} from "forge-std/console2.sol";
@@ -76,7 +77,15 @@ contract Release is Script {
         }
 
         // case for DShare and WrappedDShare
-        bool isBeaconContract = _getBoolFromJson(configJson, string.concat(".", contractName, ".", "__useBeacon"));
+        bool isBeaconContract;
+
+        try JsonUtils.getBoolFromJson(vm, configJson, string.concat(".", contractName, ".", "__useBeacon")) returns (
+            bool v
+        ) {
+            isBeaconContract = v;
+        } catch {
+            isBeaconContract = false;
+        }
 
         if (isBeaconContract) {
             console2.log("Updating beacon implementation for %s", contractName);
@@ -127,29 +136,13 @@ contract Release is Script {
         revert(string.concat("Unknown contract name: ", contractName));
     }
 
-    function _getAddressFromJson(string memory json, string memory selector) internal pure returns (address) {
-        try vm.parseJsonAddress(json, selector) returns (address addr) {
-            return addr;
-        } catch {
-            revert(string.concat("Missing or invalid address at path: ", selector));
-        }
-    }
-
-    function _getBoolFromJson(string memory json, string memory selector) internal pure returns (bool) {
-        try vm.parseJsonBool(json, selector) returns (bool value) {
-            return value;
-        } catch {
-            return false;
-        }
-    }
-
     function _getAddressFromInitData(string memory json, string memory contractName, string memory paramName)
         internal
         pure
         returns (address)
     {
         string memory selector = string.concat(".", contractName, ".", paramName);
-        return _getAddressFromJson(json, selector);
+        return JsonUtils.getAddressFromJson(vm, json, selector);
     }
 
     function _getInitData(string memory configJson, string memory contractName, bool isUpgrade)
@@ -331,9 +324,10 @@ contract Release is Script {
         internal
         returns (address beaconAddress)
     {
-        address implementation = _deployImplementation(contractName);
-        address beaconAddress = _getAddressFromInitData(configJson, contractName, "__beaconAddress");
+        beaconAddress = _getAddressFromInitData(configJson, contractName, "__beaconAddress");
         address owner = _getAddressFromInitData(configJson, contractName, "owner");
+        address implementation = _deployImplementation(contractName);
+
         if (beaconAddress != address(0)) {
             console2.log("Upgrading beacon implementation for %s", contractName);
             IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
@@ -356,7 +350,7 @@ contract Release is Script {
         string memory deployedVersion,
         string memory environment,
         uint256 chainId
-    ) internal returns (address) {
+    ) internal view returns (address) {
         if (bytes(deployedVersion).length == 0) return address(0);
 
         string memory deployedPath = string.concat("releases/v", deployedVersion, "/", configName, ".json");
