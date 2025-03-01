@@ -19,7 +19,9 @@ __metadata:
   resolution: "@dinari/sbt-contracts@workspace:."
   dependencies:
     "@typechain/ethers-v5": ^11.0.0
+    "@types/lodash": ^4.17.16
     "@types/node": ^16.11.0
+    "@types/semver": ^7.5.8
     ajv-cli: ^5.0.0
     axios: ^1.7.2
     bip39: ^3.1.0
@@ -27,6 +29,7 @@ __metadata:
     commander: ^13.1.0
     dotenv: ^16.0.3
     ethers: 5.7.2
+    loadash: ^1.0.0
     pre-commit: ^1.2.2
     prettier: ^3.0.0
     semver: ^7.7.1
@@ -552,6 +555,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@types/lodash@npm:^4.17.16":
+  version: 4.17.16
+  resolution: "@types/lodash@npm:4.17.16"
+  checksum: 915618c5735b10007e0ed7d06fdce6b344f88fc721d492b189a69064bfd046d2382e1ba61d683eeb61cad60ca0286cd110e6fe0fa4ab2e99066a40478376831d
+  languageName: node
+  linkType: hard
+
 "@types/node@npm:^16.11.0":
   version: 16.18.89
   resolution: "@types/node@npm:16.18.89"
@@ -563,6 +573,13 @@ __metadata:
   version: 2.7.3
   resolution: "@types/prettier@npm:2.7.3"
   checksum: 705384209cea6d1433ff6c187c80dcc0b95d99d5c5ce21a46a9a58060c527973506822e428789d842761e0280d25e3359300f017fbe77b9755bc772ab3dc2f83
+  languageName: node
+  linkType: hard
+
+"@types/semver@npm:^7.5.8":
+  version: 7.5.8
+  resolution: "@types/semver@npm:7.5.8"
+  checksum: ea6f5276f5b84c55921785a3a27a3cd37afee0111dfe2bcb3e03c31819c197c782598f17f0b150a69d453c9584cd14c4c4d7b9a55d2c5e6cacd4d66fdb3b3663
   languageName: node
   linkType: hard
 
@@ -1516,6 +1533,13 @@ __metadata:
     graceful-fs:
       optional: true
   checksum: 6447d6224f0d31623eef9b51185af03ac328a7553efcee30fa423d98a9e276ca08db87d71e17f2310b0263fd3ffa6c2a90a6308367f661dc21580f9469897c9e
+  languageName: node
+  linkType: hard
+
+"loadash@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "loadash@npm:1.0.0"
+  checksum: 05a105fa9773a7c15963ea783507daa4d488a7a5b782ba77d84dbfaa40b01eb6a3a6cb1a160e67c4af339c7aa9209f9bfb8ef35eefffe98838930f05752ea550
   languageName: node
   linkType: hard
 
