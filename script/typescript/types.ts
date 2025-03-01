@@ -1,4 +1,4 @@
-import {Address} from 'web3-types';
+import { Address } from "web3-types";
 
 export interface DeploymentAddress {
   address: Address;
