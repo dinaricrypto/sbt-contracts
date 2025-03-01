@@ -40,7 +40,7 @@ jobs:
       - run: yarn install
 
       - name: Validate JSON Schema
-        run: yarn lint:json
+        run: yarn lint:releases
   
   analyze:
     name: Slither
