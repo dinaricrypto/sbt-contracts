@@ -14,9 +14,8 @@
     "example:order:sell": "npx ts-node script/examples/create_order_approve_sell.ts",
     "example:listen": "npx ts-node script/examples/listen_fill.ts",
     "example:cancel": "npx ts-node script/examples/request_cancel.ts",
-    "keys": "npx ts-node script/printkeys.ts",
     "lint:releases": "ajv validate -s releases/schema.json -d \"releases/v*/*.json\" --strict=true",
-    "mnemonic": "npx ts-node script/mnemonic.ts",
+    "prettier": "prettier script/typescript release_config --write --log-level warn",
     "prettier:releases": "prettier releases --write --log-level warn"
   },
   "devDependencies": {
@@ -25,22 +24,19 @@
     "@types/node": "^16.11.0",
     "@types/semver": "^7.5.8",
     "axios": "^1.7.2",
-    "bip39": "^3.1.0",
-    "chai": "^4.3.7",
     "dotenv": "^16.0.3",
-    "pre-commit": "^1.2.2",
     "prettier": "^3.0.0",
     "ts-node": "^10.9.1",
-    "typechain": "^8.1.1",
     "typescript": "~4.9.3"
   },
   "dependencies": {
     "ajv-cli": "^5.0.0",
     "commander": "^13.1.0",
     "ethers": "5.7.2",
-    "loadash": "^1.0.0",
+    "pre-commit": "^1.2.2",
     "semver": "^7.7.1",
     "web3-types": "^1.10.0",
     "web3-utils": "^4.3.3"
-  }
+  },
+  "pre-commit": "prettier"
 }

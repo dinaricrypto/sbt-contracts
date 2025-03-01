@@ -78,8 +78,7 @@ program
       
       const releaseFilepath = path.join(releaseDirectory, `v${version}`, releaseFilename),
       
-        originalContractName = getOriginalContractName(contractName),
-        abiFilename = path.join('out', `${originalContractName}.sol`, `${originalContractName}.json`);
+        abiFilename = path.join('out', `${contractName}.sol`, `${contractName}.json`);
 
       // Create new release or load from existing
       const release: Release = fs.existsSync(releaseFilepath)
@@ -113,21 +112,6 @@ program
       fs.writeFileSync(outputFilePath, JSON.stringify(release));
     }
   });
-
-function getOriginalContractName(snakeCaseName: string): string {
-  const contractMapping: Record<string, string> = {
-    'transfer_restrictor': 'TransferRestrictor',
-    'dshare_factory': 'DShareFactory',
-    'dividend_distribution': 'DividendDistribution',
-    'dshare': 'DShare',
-    'wrapped_dshare': 'WrappedDshare',
-    'order_processer': 'OrderProcessor',
-    'fulfillment_router': 'FulfillmentRouter',
-    'vault': 'Vault'
-  };
-  
-  return contractMapping[snakeCaseName] || _.startCase(snakeCaseName).replace(/ /g, '');
-}
 
 async function main() {
   await program.parseAsync();
