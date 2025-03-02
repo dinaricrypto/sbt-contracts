@@ -118,7 +118,6 @@ contract OrderProcessorSignedTest is Test {
         uint256 quantityIn = order.paymentTokenQuantity + fees;
         deal(address(paymentToken), user, quantityIn);
 
-        // Sign fee quote with userPrivateKey since createOrder is called by user
         (IOrderProcessor.FeeQuote memory feeQuote, bytes memory feeQuoteSignature) =
             prepareFeeQuote(order, userPrivateKey, fees, operatorPrivateKey);
 
