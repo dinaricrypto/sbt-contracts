@@ -89,6 +89,7 @@ contract BuyProcessorRequestTest is Test {
         (flatFee, percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
         order = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
+            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
