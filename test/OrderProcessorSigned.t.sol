@@ -42,7 +42,7 @@ contract OrderProcessorSignedTest is Test {
 
     uint256 public userPrivateKey;
     uint256 public adminPrivateKey;
-    uint256 public operatorPrivateKey;
+    uint256 public operatorPrivateKey = 0x3;
     uint256 flatFee;
     uint256 dummyOrderFees;
 
@@ -55,7 +55,6 @@ contract OrderProcessorSignedTest is Test {
     function setUp() public {
         userPrivateKey = 0x1;
         adminPrivateKey = 0x4;
-        operatorPrivateKey = 0x3;
         user = vm.addr(userPrivateKey);
         admin = vm.addr(adminPrivateKey);
         operator = vm.addr(operatorPrivateKey);

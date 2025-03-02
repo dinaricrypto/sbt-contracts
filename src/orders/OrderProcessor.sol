@@ -472,7 +472,6 @@ contract OrderProcessor is
         bytes calldata feeQuoteSignature
     ) external whenOrdersNotPaused onlyOperator returns (uint256 id) {
         if (orderSignature.deadline < block.timestamp) revert ExpiredSignature();
-        if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
 
         id = hashOrder(order);
         bytes32 orderHash = _hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline));
@@ -495,7 +494,11 @@ contract OrderProcessor is
         if (feeQuote.orderId != id) revert QuoteMismatch();
         if (feeQuote.requester != requester) revert NotRequester();
         if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
-        address feeQuoteSigner = ECDSA.recover(_hashTypedDataV4(hashFeeQuote(feeQuote)), feeQuoteSignature);
+        bytes32 feeQuoteHash = _hashTypedDataV4(hashFeeQuote(feeQuote));
+        address feeQuoteSigner = ECDSA.recover(feeQuoteHash, feeQuoteSignature);
+        if (!SignatureChecker.isValidSignatureNow(feeQuoteSigner, feeQuoteHash, feeQuoteSignature)) {
+            revert InvalidFeeQuoteSignature();
+        }
         checkOperator(feeQuoteSigner);
     }
 
@@ -575,12 +578,8 @@ contract OrderProcessor is
         if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
 
         id = hashOrder(order);
-        bytes32 feeQuoteHash = _hashTypedDataV4(hashFeeQuote(feeQuote));
 
-        if (feeQuote.orderId != id || feeQuote.requester != msg.sender) revert FeeQuoteMismatch();
-        if (!SignatureChecker.isValidSignatureNow(msg.sender, feeQuoteHash, feeQuoteSignature)) {
-            revert InvalidFeeQuoteSignature();
-        }
+        _validateFeeQuote(id, msg.sender, feeQuote, feeQuoteSignature);
 
         _createOrder(id, order, msg.sender, order.sell ? 0 : feeQuote.fee);
     }
