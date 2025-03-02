@@ -119,7 +119,7 @@ contract OrderProcessorSignedTest is Test {
         deal(address(paymentToken), user, quantityIn);
 
         (IOrderProcessor.FeeQuote memory feeQuote, bytes memory feeQuoteSignature) =
-            prepareFeeQuote(order, userPrivateKey, fees, userPrivateKey);
+            prepareFeeQuote(order, userPrivateKey, fees, operatorPrivateKey);
 
         vm.prank(user);
         paymentToken.approve(address(issuer), quantityIn);
