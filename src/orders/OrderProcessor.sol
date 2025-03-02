@@ -481,7 +481,6 @@ contract OrderProcessor is
             revert InvalidOrderSignature();
         }
 
-        // Use _validateFeeQuote instead of direct SignatureChecker
         _validateFeeQuote(id, order.requester, feeQuote, feeQuoteSignature);
 
         _createOrder(id, order, order.requester, order.sell ? 0 : feeQuote.fee);

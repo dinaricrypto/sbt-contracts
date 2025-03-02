@@ -1029,7 +1029,7 @@ contract OrderProcessorTest is Test {
         issuer.cancelOrder(getDummyOrder(false), "msg");
     }
 
-    // Utils
+    // ------------------ utils ------------------
 
     function wrapFlatFeeForOrder(uint8 newTokenDecimals, uint64 perOrderFee) public pure returns (uint256) {
         return FeeLib.flatFeeForOrder(newTokenDecimals, perOrderFee);
