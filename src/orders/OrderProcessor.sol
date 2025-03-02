@@ -494,11 +494,7 @@ contract OrderProcessor is
         if (feeQuote.orderId != id) revert QuoteMismatch();
         if (feeQuote.requester != requester) revert NotRequester();
         if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
-        bytes32 feeQuoteHash = _hashTypedDataV4(hashFeeQuote(feeQuote));
-        address feeQuoteSigner = ECDSA.recover(feeQuoteHash, feeQuoteSignature);
-        if (!SignatureChecker.isValidSignatureNow(feeQuoteSigner, feeQuoteHash, feeQuoteSignature)) {
-            revert InvalidFeeQuoteSignature();
-        }
+        address feeQuoteSigner = ECDSA.recover(_hashTypedDataV4(hashFeeQuote(feeQuote)), feeQuoteSignature);
         checkOperator(feeQuoteSigner);
     }
 
