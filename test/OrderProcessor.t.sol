@@ -52,7 +52,7 @@ contract OrderProcessorTest is Test {
     );
     event OrderFulfilled(uint256 indexed id, address indexed recipient);
     event CancelRequested(uint256 indexed id, address indexed recipient);
-    event OrderCancelled(uint256 indexed id, address indexed requester, string reason);
+    event OrderCancelled(uint256 indexed id, address indexed recipient, string reason);
 
     struct FeeRates {
         uint64 perOrderFeeBuy;
