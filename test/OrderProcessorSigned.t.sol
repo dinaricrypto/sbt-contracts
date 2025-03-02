@@ -105,7 +105,6 @@ contract OrderProcessorSignedTest is Test {
         });
     }
 
-    // Existing tests (unchanged)
     function testCreateOrderBuy(uint256 orderAmount) public {
         vm.assume(orderAmount > 0 && orderAmount < 1e30);
         (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
