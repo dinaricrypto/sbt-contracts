@@ -83,8 +83,6 @@ contract OrderProcessor is
     error NotOperator();
     error NotRequester();
     error InvalidOrderSignature();
-    error InvalidFeeQuoteSignature();
-    error FeeQuoteMismatch();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
