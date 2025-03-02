@@ -244,7 +244,6 @@ contract OrderProcessorSignedTest is Test {
         issuer.createOrderWithSignature(order, orderSig, feeQuoteWrongId, feeQuoteSigWrongId);
     }
 
-
     // Helper functions
     function generateOrderSignature(IOrderProcessor.Order memory order, uint64 deadline, uint256 userKey)
         internal
