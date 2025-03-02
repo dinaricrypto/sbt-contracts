@@ -35,7 +35,7 @@ contract OrderProcessorTest is Test {
     event PaymentTokenRemoved(address indexed paymentToken);
     event OrdersPaused(bool paused);
     event OrderDecimalReductionSet(address indexed assetToken, uint8 decimalReduction);
-    event OperatorSet(address indexed account, bool status);
+    event OperatorSet(address indexed account, bool set);
 
     event OrderCreated(
         uint256 indexed id, address indexed requester, IOrderProcessor.Order order, uint256 feesEscrowed
@@ -50,8 +50,8 @@ contract OrderProcessorTest is Test {
         uint256 fees,
         bool sell
     );
-    event OrderFulfilled(uint256 indexed id, address indexed requester);
-    event CancelRequested(uint256 indexed id, address indexed requester);
+    event OrderFulfilled(uint256 indexed id, address indexed recipient);
+    event CancelRequested(uint256 indexed id, address indexed recipient);
     event OrderCancelled(uint256 indexed id, address indexed requester, string reason);
 
     struct FeeRates {
