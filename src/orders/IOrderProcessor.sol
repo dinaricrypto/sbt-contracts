@@ -41,8 +41,6 @@ interface IOrderProcessor {
     struct Order {
         // Timestamp or other salt added to order hash for replay protection
         uint64 requestTimestamp;
-        // Requester of order
-        address requester;
         // Recipient of order fills
         address recipient;
         // Bridged asset token

@@ -2,7 +2,6 @@
 pragma solidity 0.8.25;
 
 import {ControlledUpgradeable} from "../deployment/ControlledUpgradeable.sol";
-import {SignatureChecker} from "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
 import {EIP712Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/cryptography/EIP712Upgradeable.sol";
 import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -82,7 +81,6 @@ contract OrderProcessor is
     error OrderFillAboveLimitPrice();
     error NotOperator();
     error NotRequester();
-    error InvalidOrderSignature();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -105,7 +103,7 @@ contract OrderProcessor is
     /// ------------------ Constants ------------------ ///
 
     bytes32 private constant ORDER_TYPEHASH = keccak256(
-        "Order(uint64 requestTimestamp,address requester,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
+        "Order(uint64 requestTimestamp,address recipient,address assetToken,address paymentToken,bool sell,uint8 orderType,uint256 assetTokenQuantity,uint256 paymentTokenQuantity,uint256 price,uint8 tif)"
     );
 
     bytes32 private constant ORDER_REQUEST_TYPEHASH = keccak256("OrderRequest(uint256 id,uint64 deadline)");
@@ -469,18 +467,16 @@ contract OrderProcessor is
         FeeQuote calldata feeQuote,
         bytes calldata feeQuoteSignature
     ) external whenOrdersNotPaused onlyOperator returns (uint256 id) {
+        // Recover requester and validate order signature
         if (orderSignature.deadline < block.timestamp) revert ExpiredSignature();
+        address requester =
+            ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline)), orderSignature.signature);
 
         id = hashOrder(order);
-        bytes32 orderHash = _hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline));
+        _validateFeeQuote(id, requester, feeQuote, feeQuoteSignature);
 
-        if (!SignatureChecker.isValidSignatureNow(order.requester, orderHash, orderSignature.signature)) {
-            revert InvalidOrderSignature();
-        }
-
-        _validateFeeQuote(id, order.requester, feeQuote, feeQuoteSignature);
-
-        _createOrder(id, order, order.requester, order.sell ? 0 : feeQuote.fee);
+        // Create order
+        _createOrder(id, order, requester, order.sell ? 0 : feeQuote.fee);
     }
 
     function _validateFeeQuote(
@@ -568,20 +564,15 @@ contract OrderProcessor is
         whenOrdersNotPaused
         returns (uint256 id)
     {
-        if (order.requester != msg.sender) revert NotRequester();
-        if (feeQuote.deadline < block.timestamp) revert ExpiredSignature();
-
         id = hashOrder(order);
-
         _validateFeeQuote(id, msg.sender, feeQuote, feeQuoteSignature);
 
+        // Create order
         _createOrder(id, order, msg.sender, order.sell ? 0 : feeQuote.fee);
     }
 
     /// @inheritdoc IOrderProcessor
     function createOrderStandardFees(Order calldata order) external whenOrdersNotPaused returns (uint256 id) {
-        if (order.requester != msg.sender) revert NotRequester();
-
         id = hashOrder(order);
         if (order.sell) {
             _createOrder(id, order, msg.sender, 0);
@@ -607,7 +598,6 @@ contract OrderProcessor is
                 abi.encode(
                     ORDER_TYPEHASH,
                     order.requestTimestamp,
-                    order.requester,
                     order.recipient,
                     order.assetToken,
                     order.paymentToken,

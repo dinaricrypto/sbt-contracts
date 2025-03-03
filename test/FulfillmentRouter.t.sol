@@ -98,7 +98,6 @@ contract FulfillmentRouterTest is Test {
 
         dummyOrder = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
-            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),
@@ -114,7 +113,6 @@ contract FulfillmentRouterTest is Test {
     function getDummyOrder(bool sell) internal view returns (IOrderProcessor.Order memory) {
         return IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
-            requester: user,
             recipient: user,
             assetToken: address(token),
             paymentToken: address(paymentToken),

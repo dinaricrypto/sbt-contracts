@@ -28,7 +28,6 @@ contract CreateOrder is Script, EntryPointHelper {
 
         IOrderProcessor.Order memory order = IOrderProcessor.Order({
             requestTimestamp: uint64(block.timestamp),
-            requester: owner,
             recipient: owner,
             assetToken: assetToken,
             paymentToken: address(usdc),
