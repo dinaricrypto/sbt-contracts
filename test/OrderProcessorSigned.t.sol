@@ -2,7 +2,7 @@
 pragma solidity ^0.8.22;
 
 import "forge-std/Test.sol";
-import "../src/orders/OrderProcessor.sol";
+import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 import "./utils/SigUtils.sol";
 import "./utils/mocks/MockToken.sol";
 import "./utils/mocks/GetMockDShareFactory.sol";
@@ -160,12 +160,8 @@ contract OrderProcessorSignedTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), quantityIn, user, userPrivateKey, 0);
-        multicalldata[1] = abi.encodeWithSignature(
-            "createOrderWithSignature((uint64,address,address,address,bool,uint8,uint256,uint256,uint256,uint8),(uint64,bytes),(uint256,address,uint256,uint64,uint64),bytes)",
-            order,
-            orderSignature,
-            feeQuote,
-            feeQuoteSignature
+        multicalldata[1] = abi.encodeWithSelector(
+            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature
         );
 
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -200,12 +196,8 @@ contract OrderProcessorSignedTest is Test {
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(shareSigUtils, address(token), orderAmount, user, userPrivateKey, 0);
-        multicalldata[1] = abi.encodeWithSignature(
-            "createOrderWithSignature((uint64,address,address,address,bool,uint8,uint256,uint256,uint256,uint8),(uint64,bytes),(uint256,address,uint256,uint64,uint64),bytes)",
-            order,
-            orderSignature,
-            feeQuote,
-            feeQuoteSignature
+        multicalldata[1] = abi.encodeWithSelector(
+            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature
         );
 
         uint256 orderId = issuer.hashOrder(order);
