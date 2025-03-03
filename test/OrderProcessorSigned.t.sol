@@ -160,8 +160,12 @@ contract OrderProcessorSignedTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), quantityIn, user, userPrivateKey, 0);
-        multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature, user
+        multicalldata[1] = abi.encodeWithSignature(
+            "createOrderWithSignature((uint64,address,address,address,bool,uint8,uint256,uint256,uint256,uint8),(uint64,bytes),(uint256,address,uint256,uint64,uint64),bytes)",
+            order,
+            orderSignature,
+            feeQuote,
+            feeQuoteSignature
         );
 
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
@@ -196,8 +200,12 @@ contract OrderProcessorSignedTest is Test {
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(shareSigUtils, address(token), orderAmount, user, userPrivateKey, 0);
-        multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature, user
+        multicalldata[1] = abi.encodeWithSignature(
+            "createOrderWithSignature((uint64,address,address,address,bool,uint8,uint256,uint256,uint256,uint8),(uint64,bytes),(uint256,address,uint256,uint64,uint64),bytes)",
+            order,
+            orderSignature,
+            feeQuote,
+            feeQuoteSignature
         );
 
         uint256 orderId = issuer.hashOrder(order);
@@ -238,7 +246,7 @@ contract OrderProcessorSignedTest is Test {
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), quantityIn, user, userPrivateKey, 0);
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature, user
+            issuer.createOrderWithSignatureForWallet.selector, order, orderSignature, feeQuote, feeQuoteSignature, user
         );
 
         vm.prank(operator);
@@ -270,7 +278,7 @@ contract OrderProcessorSignedTest is Test {
 
         bytes[] memory multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector,
+            issuer.createOrderWithSignatureForWallet.selector,
             order,
             orderSignature,
             feeQuote,
@@ -318,7 +326,12 @@ contract OrderProcessorSignedTest is Test {
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), quantityIn, user, userPrivateKey, 0);
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, orderSignature, mismatchedFeeQuote, feeQuoteSignature, user
+            issuer.createOrderWithSignatureForWallet.selector,
+            order,
+            orderSignature,
+            mismatchedFeeQuote,
+            feeQuoteSignature,
+            user
         );
 
         vm.prank(operator);

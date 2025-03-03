@@ -467,6 +467,25 @@ contract OrderProcessor is
         Order calldata order,
         Signature calldata orderSignature,
         FeeQuote calldata feeQuote,
+        bytes calldata feeQuoteSignature
+    ) external whenOrdersNotPaused onlyOperator returns (uint256 id) {
+        // Recover requester and validate order signature
+        if (orderSignature.deadline < block.timestamp) revert ExpiredSignature();
+        address requester =
+            ECDSA.recover(_hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline)), orderSignature.signature);
+
+        id = hashOrder(order);
+        _validateFeeQuote(id, requester, feeQuote, feeQuoteSignature);
+
+        // Create order
+        _createOrder(id, order, requester, order.sell ? 0 : feeQuote.fee);
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function createOrderWithSignatureForWallet(
+        Order calldata order,
+        Signature calldata orderSignature,
+        FeeQuote calldata feeQuote,
         bytes calldata feeQuoteSignature,
         address requester
     ) external whenOrdersNotPaused onlyOperator returns (uint256 id) {
