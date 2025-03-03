@@ -8,62 +8,35 @@
     "registry": "https://sbt-dev-875886734390.d.codeartifact.us-west-2.amazonaws.com/npm/sbt/"
   },
   "scripts": {
-    "install:foundry": "curl -L https://foundry.paradigm.xyz | bash | foundryup",
-    "pretty": "forge fmt",
-    "build": "forge build",
-    "test": "forge test -vvv",
-    "coverage": "./script/coverage.sh",
-    "gas": "./script/gasreport.sh",
-    "sizes": "forge build --sizes > sizes.txt",
-    "metrics": "solidity-code-metrics ./src/**/*.sol --html > metrics.html",
-    "deployall:arb": "./script/deployall-arb-noverify.sh",
-    "deployall:testnet": "./script/deployall-testnet.sh",
-    "upgrade:testnet": "./script/upgrade-testnet.sh",
-    "deploy:tokenlist:testnet": "./script/deploytokenlist-testnet.sh",
-    "deploy:tokenlist:arb": "./script/deploytokenlist-arb.sh",
-    "deploy:mockpayment:testnet": "./script/deploy-mockpayment-testnet.sh",
-    "addtokens:testnet": "./script/addtokens-testnet.sh",
-    "operators:testnet": "./script/addoperators-testnet.sh",
-    "replacefees:testnet": "./script/replacefees-testnet.sh",
-    "mint:testnet": "./script/mint-testnet.sh",
-    "transfer:arb": "./script/transfer-arb.sh",
-    "errors:log": "npx ts-node script/errors_parse_ast.ts",
-    "ci:publish:build:forge": "forge build --skip test --skip script --skip Mock --skip Utils --out './out/forge' --force --extra-output-files abi --extra-output-files evm",
-    "ci:publish:build:typechain": "rm -rf out/types && typechain --target ethers-v5 --out-dir out/types './out/forge/**/*.json'",
-    "ci:publish:build:set-version": "npm version --no-git-tag-version",
-    "ci:publish:build:gen-version": "echo $(npm pkg get version | sed 's/\"//g' | sed 's/-.*//g')-build-$(date +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)",
-    "ci:publish:build:python": "cp ./out/forge/**/*.abi.json ./dist/python/src/dinari_sbt_contracts/abi/ && cp ./out/forge/**/*.bin ./dist/python/src/dinari_sbt_contracts/bin/",
-    "ci:publish:build:python:gen-version": "echo $(date +%Y.%m.%ddev%H%M%S)",
-    "ci:publish:build:typescript": "rm -rf dist/typescript && ./node_modules/.bin/tsc --p tsconfig.dist.json && cp package.json ./dist/typescript/",
-    "ci:publish:login:typescript": "aws codeartifact login --tool npm --repository sbt --domain sbt-dev --namespace @dinari",
-    "mnemonic": "npx ts-node script/mnemonic.ts",
-    "keys": "npx ts-node script/printkeys.ts",
+    "build": "./node_modules/.bin/tsc",
+    "build:releases": "node dist/index.js bundle artifacts releases",
     "example:order": "npx ts-node script/examples/create_order.ts",
     "example:order:sell": "npx ts-node script/examples/create_order_approve_sell.ts",
     "example:listen": "npx ts-node script/examples/listen_fill.ts",
     "example:cancel": "npx ts-node script/examples/request_cancel.ts",
-    "lint:json": "ajv validate -s releases/schema.json -d \"releases/v*/*.json\" --strict=true",
-    "lint:json:debug": "echo \"Files to validate:\" && ls releases/v*/*.json && yarn lint:json"
+    "lint:releases": "ajv validate -s releases/schema.json -d \"releases/v*/*.json\" --strict=true",
+    "prettier": "prettier script/typescript release_config --write --log-level warn",
+    "prettier:releases": "prettier releases --write --log-level warn"
   },
   "devDependencies": {
     "@typechain/ethers-v5": "^11.0.0",
+    "@types/lodash": "^4.17.16",
     "@types/node": "^16.11.0",
+    "@types/semver": "^7.5.8",
     "axios": "^1.7.2",
-    "bip39": "^3.1.0",
-    "chai": "^4.3.7",
     "dotenv": "^16.0.3",
-    "pre-commit": "^1.2.2",
     "prettier": "^3.0.0",
-    "solidity-code-metrics": "^0.0.23",
     "ts-node": "^10.9.1",
-    "typechain": "^8.1.1",
     "typescript": "~4.9.3"
   },
-  "pre-commit": [
-    "pretty"
-  ],
   "dependencies": {
     "ajv-cli": "^5.0.0",
-    "ethers": "5.7.2"
-  }
+    "commander": "^13.1.0",
+    "ethers": "5.7.2",
+    "pre-commit": "^1.2.2",
+    "semver": "^7.7.1",
+    "web3-types": "^1.10.0",
+    "web3-utils": "^4.3.3"
+  },
+  "pre-commit": "prettier"
 }

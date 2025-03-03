@@ -1,10 +1,27 @@
-#!/bin/sh
+#!/bin/bash
+# Deploys to multiple blockchains using release.sh
+#
+# Required environment variables:
+# CHAIN_ID           - Chain Id of RPC
+# CONTRACT           - Name of contract
+# CONTRACT_ADDRESS   - Address of contract
+# AWS_SECRET_ID      - ARN of AWS secret to use
 
-cp .env.prod-plume .env
-source .env
+# Generate FORGE_CMD
+FORGE_CMD="FOUNDRY_DISABLE_NIGHTLY_WARNING=True forge verify-contract -vvv --skip-is-verified-check"
 
-# args
-# forge verify-contract --chain-id 161221135 --verifier blockscout --watch --constructor-args $(cast abi-encode "constructor(address,bytes)" "0x638c2Fa8B02E8F294e8Af9d7F2248Ec1E085aa79" "0x000000000000000000000000702347e2b1be68444c1451922275b66aabdac5280000000000000000000000000fe4f28b0213201f333e9bf29fca76965a8c5fc80000000000000000000000003934aeee752235aee8139dbec4493639534eff2d000000000000000000000000aa5474bbb3aec03b81d1e280c821dbef60a7aabe") 0x94902a03f7E27c6f512B3E1E8cc7b1e1d2CCeE63 lib/openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol:ERC1967Proxy
-# forge verify-contract --chain-id 161221135 --verifier blockscout --watch --constructor-args $(cast abi-encode "constructor(address)" "0x702347E2B1be68444C1451922275b66AABDaC528") 0x0F96bf4a333ab9f46B7bA9B873B99F6022798Aa5 src/dividend/DividendDistribution.sol:DividendDistribution
-# no args
-forge verify-contract --chain-id 98865 --verifier blockscout --verifier-url https://phoenix-explorer.plumenetwork.xyz/api\? --watch 0x84fB5Af5Cf1ee395fa249c67a02E2f15C7111444 src/TransferRestrictor.sol:TransferRestrictor
+# Append chain-specific modifications
+if [ "$CHAIN_ID" == "98864" ] || [ "$CHAIN_ID" == "98865" ] || [ "$CHAIN_ID" == "7887" ]; then
+  FORGE_CMD="$FORGE_CMD --verifier blockscout"
+fi
+
+# Complete FORGE_CMD
+FORGE_CMD="$FORGE_CMD ${CONTRACT_ADDRESS} src/${CONTRACT}.sol:${CONTRACT}"
+
+# Retrieve secrets from AWS
+CHAIN_SECRETS=$(aws secretsmanager get-secret-value --secret-id "${AWS_SECRET_ID}" --query SecretString --output text)
+
+# Prepend FORGE_CMD with secrets
+FORGE_CMD="VERIFIER_URL=$(echo "${CHAIN_SECRETS}" | jq --raw-output ".VERIFIER_URL_${CHAIN_ID} // empty") ETHERSCAN_API_KEY=$(echo "${CHAIN_SECRETS}" | jq --raw-output ".ETHERSCAN_API_KEY_${CHAIN_ID} // empty") $FORGE_CMD"
+
+eval $FORGE_CMD

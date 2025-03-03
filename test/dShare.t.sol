@@ -25,6 +25,7 @@ contract DShareTest is Test {
     address restrictor_role = address(1);
     address user = address(2);
     address admin = address(3);
+    address upgrader = address(4);
 
     function checkMintOverFlow(uint256 toMint, uint128 balancePerShare) private returns (bool) {
         return NumberUtils.mulDivCheckOverflow(toMint, 1 ether, balancePerShare)
@@ -38,7 +39,15 @@ contract DShareTest is Test {
 
     function setUp() public {
         vm.prank(admin);
-        restrictor = new TransferRestrictor(address(this));
+        TransferRestrictor restrictorImplementation = new TransferRestrictor();
+        restrictor = TransferRestrictor(
+            address(
+                new ERC1967Proxy(
+                    address(restrictorImplementation),
+                    abi.encodeCall(TransferRestrictor.initialize, (address(this), upgrader))
+                )
+            )
+        );
         DShare tokenImplementation = new DShare();
         token = DShare(
             address(

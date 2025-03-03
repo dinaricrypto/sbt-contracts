@@ -31,6 +31,7 @@ contract BuyProcessorRequestTest is Test {
 
     address constant operator = address(3);
     address constant treasury = address(4);
+    address constant upgrader = address(5);
 
     uint8 v;
     bytes32 r;
@@ -58,7 +59,7 @@ contract BuyProcessorRequestTest is Test {
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(issuerImpl.initialize, (admin, treasury, operator, tokenFactory))
+                    abi.encodeCall(issuerImpl.initialize, (admin, upgrader, treasury, operator, tokenFactory))
                 )
             )
         );

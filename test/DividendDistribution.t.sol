@@ -6,6 +6,7 @@ import {DividendDistribution} from "../src/dividend/DividendDistribution.sol";
 import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract DividendDistributionTest is Test {
     DividendDistribution distribution;
@@ -42,7 +43,12 @@ contract DividendDistributionTest is Test {
 
         vm.startPrank(admin);
         token = new MockERC20("Money", "$", 6);
-        distribution = new DividendDistribution(admin);
+        DividendDistribution distributionImpl = new DividendDistribution();
+        distribution = DividendDistribution(
+            address(
+                new ERC1967Proxy(address(distributionImpl), abi.encodeCall(distributionImpl.initialize, (admin, admin)))
+            )
+        );
 
         distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), distributor);
         vm.stopPrank();
