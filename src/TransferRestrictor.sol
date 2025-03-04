@@ -44,16 +44,6 @@ contract TransferRestrictor is AccessControlDefaultAdminRules, ITransferRestrict
         emit Restricted(account);
     }
 
-    /// @notice Restrict multiple accounts from sending or receiving tokens
-    /// @dev Does not check if `account` is restricted
-    /// Can only be called by `RESTRICTOR_ROLE`
-    function restrict(address[] memory accounts) external onlyRole(RESTRICTOR_ROLE) {
-        for (uint256 i = 0; i < accounts.length; i++) {
-            isBlacklisted[accounts[i]] = true;
-            emit Restricted(accounts[i]);
-        }
-    }
-
     /// @notice Unrestrict `account` from sending or receiving tokens
     /// @dev Does not check if `account` is restricted
     /// Can only be called by `RESTRICTOR_ROLE`

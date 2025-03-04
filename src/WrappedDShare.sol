@@ -3,7 +3,6 @@ pragma solidity 0.8.25;
 
 import {DShare} from "./DShare.sol";
 import {ITransferRestrictor} from "./ITransferRestrictor.sol";
-import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {ERC4626, SafeTransferLib} from "solady/src/tokens/ERC4626.sol";
 import {Initializable} from "openzeppelin-contracts-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -19,10 +18,14 @@ import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/ut
  */
 // slither-disable-next-line missing-inheritance
 contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, ReentrancyGuardUpgradeable {
+    /// ------------------- Types ------------------- ///
+
     using SafeERC20 for IERC20;
 
     event NameSet(string name);
     event SymbolSet(string symbol);
+
+    /// ------------------- State ------------------- ///
 
     struct WrappedDShareStorage {
         DShare _underlyingDShare;
@@ -30,6 +33,7 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
         string _symbol;
     }
 
+    // keccak256(abi.encode(uint256(keccak256("dinaricrypto.storage.WrappeddShare")) - 1)) & ~bytes32(uint256(0xff))
     bytes32 private constant WrappedDShareStorageLocation =
         0x152e99b50b5f6a0e49f31b9c18139e0eb82d89de09b8e6a3d245658cb9305300;
 
@@ -38,6 +42,8 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
             $.slot := WrappedDShareStorageLocation
         }
     }
+
+    /// ------------------- Initialization ------------------- ///
 
     function initialize(address owner, DShare dShare_, string memory name_, string memory symbol_) public initializer {
         __Ownable_init_unchained(owner);
@@ -49,38 +55,70 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
         $._symbol = symbol_;
     }
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
     }
 
+    /// ------------------- Administration ------------------- ///
+
+    /**
+     * @dev Sets the name of the WrappedDShare token.
+     * @param name_ The new name.
+     */
     function setName(string memory name_) external onlyOwner {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
         $._name = name_;
         emit NameSet(name_);
     }
 
+    /**
+     * @dev Sets the symbol of the WrappedDShare token.
+     * @param symbol_ The new symbol.
+     */
     function setSymbol(string memory symbol_) external onlyOwner {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
         $._symbol = symbol_;
         emit SymbolSet(symbol_);
     }
 
+    /// ------------------- Getters ------------------- ///
+    /**
+     * @dev Returns the name of the WrappedDShare token.
+     * @return A string representing the name.
+     */
     function name() public view override returns (string memory) {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
         return $._name;
     }
 
+    /**
+     * @dev Returns the symbol of the WrappedDShare token.
+     * @return A string representing the symbol.
+     */
     function symbol() public view override returns (string memory) {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
         return $._symbol;
     }
 
+    /**
+     * @dev Returns the address of the underlying asset.
+     * @return The address of the underlying dShare token.
+     */
     function asset() public view override returns (address) {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
         return address($._underlyingDShare);
     }
 
+    /// ------------------- Transfer Restrictions ------------------- ///
+
+    /**
+     * @dev Hook that is called before any token transfer. This includes minting and burning.
+     * @param from Address of the sender.
+     * @param to Address of the receiver.
+     */
     function _beforeTokenTransfer(address from, address to, uint256) internal view override {
+        // Apply underlying transfer restrictions to this vault token.
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
         ITransferRestrictor restrictor = $._underlyingDShare.transferRestrictor();
         if (address(restrictor) != address(0)) {
