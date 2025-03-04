@@ -9,7 +9,7 @@ import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {BeaconProxy} from "openzeppelin-contracts/contracts/proxy/beacon/BeaconProxy.sol";
-import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 
 contract DShareFactoryTest is Test {
     DShareFactory factory;
@@ -21,9 +21,17 @@ contract DShareFactoryTest is Test {
     event NewTransferRestrictorSet(address indexed transferRestrictor);
 
     address user = address(0x1);
+    address upgrader = address(0x2);
 
     function setUp() public {
-        restrictor = new TransferRestrictor(address(this));
+        TransferRestrictor restrictorImpl = new TransferRestrictor();
+        restrictor = TransferRestrictor(
+            address(
+                new ERC1967Proxy(
+                    address(restrictorImpl), abi.encodeCall(restrictorImpl.initialize, (address(this), upgrader))
+                )
+            )
+        );
         DShare tokenImplementation = new DShare();
         beacon = new UpgradeableBeacon(address(tokenImplementation), address(this));
         WrappedDShare wrappedTokenImplementation = new WrappedDShare();
@@ -36,7 +44,7 @@ contract DShareFactoryTest is Test {
                     address(factoryImpl),
                     abi.encodeCall(
                         DShareFactory.initialize,
-                        (address(this), address(beacon), address(wrappedBeacon), address(restrictor))
+                        (address(this), upgrader, address(beacon), address(wrappedBeacon), address(restrictor))
                     )
                 )
             )
@@ -50,21 +58,24 @@ contract DShareFactoryTest is Test {
         new ERC1967Proxy(
             address(factoryImpl),
             abi.encodeCall(
-                DShareFactory.initialize, (address(this), address(beacon), address(wrappedBeacon), address(0))
+                DShareFactory.initialize, (address(this), upgrader, address(beacon), address(wrappedBeacon), address(0))
             )
         );
 
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
         new ERC1967Proxy(
             address(factoryImpl),
-            abi.encodeCall(DShareFactory.initialize, (address(this), address(beacon), address(0), address(restrictor)))
+            abi.encodeCall(
+                DShareFactory.initialize, (address(this), upgrader, address(beacon), address(0), address(restrictor))
+            )
         );
 
         vm.expectRevert(DShareFactory.ZeroAddress.selector);
         new ERC1967Proxy(
             address(factoryImpl),
             abi.encodeCall(
-                DShareFactory.initialize, (address(this), address(0), address(wrappedBeacon), address(restrictor))
+                DShareFactory.initialize,
+                (address(this), upgrader, address(0), address(wrappedBeacon), address(restrictor))
             )
         );
 
@@ -74,7 +85,7 @@ contract DShareFactoryTest is Test {
                     address(factoryImpl),
                     abi.encodeCall(
                         DShareFactory.initialize,
-                        (address(this), address(beacon), address(wrappedBeacon), address(restrictor))
+                        (address(this), upgrader, address(beacon), address(wrappedBeacon), address(restrictor))
                     )
                 )
             )
@@ -84,9 +95,13 @@ contract DShareFactoryTest is Test {
         assertEq(newfactory.getTransferRestrictor(), address(restrictor));
 
         // create existing listing
-        newfactory.createDShare(address(this), "Token", "T", "Wrapped Token", "wT");
+        newfactory.createDShare(address(this), upgrader, "Token", "T", "Wrapped Token", "wT");
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, factory.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(user);
         newfactory.initializeV2();
 
@@ -106,14 +121,18 @@ contract DShareFactoryTest is Test {
         string memory wrappedName = string.concat("Wrapped ", name);
         string memory wrappedSymbol = string.concat(symbol, "w");
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, factory.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(user);
-        factory.createDShare(address(this), name, symbol, wrappedName, wrappedSymbol);
+        factory.createDShare(address(this), upgrader, name, symbol, wrappedName, wrappedSymbol);
 
         vm.expectEmit(false, false, false, false);
         emit DShareAdded(address(0), address(0), symbol, name);
         (address newdshare, address newwrappeddshare) =
-            factory.createDShare(address(this), name, symbol, wrappedName, wrappedSymbol);
+            factory.createDShare(address(this), upgrader, name, symbol, wrappedName, wrappedSymbol);
         assertEq(DShare(newdshare).owner(), address(this));
         assertEq(DShare(newdshare).name(), name);
         assertEq(DShare(newdshare).symbol(), symbol);
@@ -149,7 +168,11 @@ contract DShareFactoryTest is Test {
         vm.expectRevert(DShareFactory.Mismatch.selector);
         factory.announceExistingDShare(address(0), wrappedDShare);
 
-        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, user));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, factory.DEFAULT_ADMIN_ROLE()
+            )
+        );
         vm.prank(user);
         factory.announceExistingDShare(dshare, wrappedDShare);
 
