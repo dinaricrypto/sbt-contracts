@@ -168,27 +168,33 @@ contract WrappedDShareTest is Test {
         vm.assume(!NumberUtils.mulDivCheckOverflow(supply, balancePerShare, 1 ether));
 
         vm.startPrank(admin);
+        // user: mint -> deposit -> split -> withdraw
         token.mint(user, supply);
+        // user2: mint -> split -> convert
         token.mint(user2, supply);
         vm.stopPrank();
 
         assertEq(xToken.balanceOf(user), 0);
         assertEq(xToken.balanceOf(user2), 0);
 
+        // user deposit
         vm.startPrank(user);
         token.approve(address(xToken), supply);
         xToken.deposit(supply, user);
         vm.stopPrank();
         assertEq(xToken.balanceOf(user), supply);
 
+        // split
         vm.prank(admin);
         token.setBalancePerShare(balancePerShare);
 
+        // user redeem
         vm.startPrank(user);
         uint256 shares = xToken.balanceOf(user);
         xToken.redeem(shares, user, user);
         vm.stopPrank();
 
+        // conversion in vault should be within 1 share's worth of standard conversion
         uint256 userBalance = token.balanceOf(user);
         if (userBalance > 0) {
             uint256 oneShareInAssets = xToken.convertToAssets(1);
@@ -196,16 +202,19 @@ contract WrappedDShareTest is Test {
         }
     }
 
+    // TODO: fuzz - meaningful assert cases proved diffucult to create
     function testDepositYieldRebaseYieldRedeem() public {
         uint128 amount = 1000;
         uint128 balancePerShare = 42 ether;
 
+        // deposit pre-existing amount
         vm.startPrank(admin);
         token.mint(admin, 1 ether);
         token.approve(address(xToken), 1 ether);
         xToken.deposit(1 ether, admin);
         vm.stopPrank();
 
+        // user deposit
         vm.prank(admin);
         token.mint(user, amount);
         assertEq(xToken.balanceOf(user), 0);
@@ -216,6 +225,7 @@ contract WrappedDShareTest is Test {
         vm.stopPrank();
         assertEq(xToken.balanceOf(user), amount);
 
+        // yield 1%
         uint256 onePercent = token.totalSupply() / 100;
         vm.prank(admin);
         token.mint(address(xToken), onePercent);
@@ -225,6 +235,7 @@ contract WrappedDShareTest is Test {
         console.log("yield1", yield1);
         assertEq(xToken.maxWithdraw(user), amount + (yield1 > 0 ? yield1 - 1 : 0));
 
+        // rebase
         vm.prank(admin);
         token.setBalancePerShare(balancePerShare);
         uint256 rebasedOnePercent = mulDiv18(onePercent, balancePerShare);
@@ -242,16 +253,19 @@ contract WrappedDShareTest is Test {
             assertEq(xToken.maxWithdraw(user), rebasedAmount - 1 + yield1);
         }
 
+        // yield 1%
         uint256 yield2 = rebasedAmount / 100;
         vm.prank(admin);
         token.mint(address(xToken), rebasedOnePercent);
         console.log("max withdraw", xToken.maxWithdraw(user));
 
+        // user redeem
         vm.startPrank(user);
         uint256 shares = xToken.balanceOf(user);
         xToken.redeem(shares, user, user);
         vm.stopPrank();
 
+        // vault should capture rebase and yield
         uint256 userBalance = token.balanceOf(user);
         if (userBalance > 0) {
             console.log("user balance", userBalance);
@@ -285,6 +299,7 @@ contract WrappedDShareTest is Test {
         vm.expectRevert(TransferRestrictor.AccountRestricted.selector);
         xToken.transfer(user, amount);
 
+        // remove restrictor
         vm.prank(admin);
         token.setTransferRestrictor(ITransferRestrictor(address(0)));
         assertEq(xToken.isBlacklisted(user), false);
@@ -293,7 +308,7 @@ contract WrappedDShareTest is Test {
         xToken.transfer(user, (aliceShareAmount / 2));
     }
 
-    // Test small deposit (representing 0.01 NVDA or GOOG.L)
+    // Test small deposit
     function testDepositSmallAmount() public {
         uint256 depositAmount = 1e16; // 0.01 tokens (NVDA or GOOG.L)
 
