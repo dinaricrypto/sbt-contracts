@@ -137,7 +137,7 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
     function convertToShares(uint256 assets) public view virtual override returns (uint256 shares) {
         uint256 assetDecimals = _underlyingDecimals();
         uint256 vaultDecimals = decimals();
-       
+
         uint256 scaledAssets = assets * (10 ** vaultDecimals) / (10 ** assetDecimals);
         uint256 baseShares = super.convertToShares(scaledAssets);
         shares = baseShares;
