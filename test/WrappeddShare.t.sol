@@ -307,4 +307,67 @@ contract WrappedDShareTest is Test {
         vm.prank(alice);
         xToken.transfer(user, (aliceShareAmount / 2));
     }
+
+    // Test small deposit
+    function testDepositSmallAmount(uint256 depositAmount) public {
+        vm.assume(depositAmount < 1e16);
+
+        // Initial state
+        assertEq(xToken.balanceOf(user), 0, "User should start with 0 shares");
+
+        // Mint tokens to user
+        vm.prank(admin);
+        token.mint(user, depositAmount);
+
+        // Approve and deposit
+        vm.startPrank(user);
+        token.approve(address(xToken), depositAmount);
+        uint256 shares = xToken.deposit(depositAmount, user);
+        vm.stopPrank();
+
+        assertEq(xToken.balanceOf(user), shares, "User's share balance should match minted shares");
+        console.log("Shares minted for 0.01 token deposit:", shares);
+
+        // Verify user can withdraw
+        vm.startPrank(user);
+        uint256 assets = xToken.redeem(shares, user, user);
+        vm.stopPrank();
+
+        assertApproxEqAbs(assets, depositAmount, 1, "User should withdraw approximately their deposited amount");
+        assertEq(xToken.balanceOf(user), 0, "User's share balance should be 0 after withdrawal");
+        assertEq(token.balanceOf(user), depositAmount, "User should have their tokens back");
+    }
+
+    function testMintSmallAmount(uint256 amount) public {
+        vm.assume(amount < 1e16);
+        uint256 expectedShares = xToken.previewDeposit(amount);
+
+        // Initial state
+        assertEq(xToken.balanceOf(user), 0, "User should start with 0 shares");
+
+        // Mint tokens to user
+        vm.prank(admin);
+        token.mint(user, amount);
+
+        // Approve and mint
+        vm.startPrank(user);
+        token.approve(address(xToken), amount);
+        uint256 assets = xToken.mint(expectedShares, user);
+        vm.stopPrank();
+
+        // Verify assets deposited and shares minted
+        assertApproxEqAbs(assets, amount, 1, "User should deposit approximately the expected amount");
+        assertEq(xToken.balanceOf(user), expectedShares, "User should receive the expected shares");
+        console.log("Assets deposited for minting shares:", assets);
+        console.log("Shares minted:", expectedShares);
+
+        // Verify user can withdraw
+        vm.startPrank(user);
+        uint256 withdrawnAssets = xToken.redeem(expectedShares, user, user);
+        vm.stopPrank();
+
+        assertApproxEqAbs(withdrawnAssets, amount, 1, "User should withdraw approximately their deposited amount");
+        assertEq(xToken.balanceOf(user), 0, "User's share balance should be 0 after withdrawal");
+        assertEq(token.balanceOf(user), amount, "User should have their tokens back");
+    }
 }

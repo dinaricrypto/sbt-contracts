@@ -132,4 +132,51 @@ contract WrappedDShare is Initializable, ERC4626, OwnableUpgradeable, Reentrancy
         if (address(restrictor) == address(0)) return false;
         return restrictor.isBlacklisted(account);
     }
+
+    // Override to scale shares by decimals
+    function convertToShares(uint256 assets) public view virtual override returns (uint256 shares) {
+        uint256 assetDecimals = _underlyingDecimals();
+        uint256 vaultDecimals = decimals();
+
+        uint256 scaledAssets = assets * (10 ** vaultDecimals) / (10 ** assetDecimals);
+        uint256 baseShares = super.convertToShares(scaledAssets);
+        shares = baseShares;
+    }
+
+    function convertToAssets(uint256 shares) public view virtual override returns (uint256 assets) {
+        uint256 assetDecimals = _underlyingDecimals();
+        uint256 vaultDecimals = decimals();
+        uint256 baseAssets = super.convertToAssets(shares);
+        assets = baseAssets * (10 ** assetDecimals) / (10 ** vaultDecimals);
+    }
+
+    function previewDeposit(uint256 assets) public view virtual override returns (uint256 shares) {
+        shares = convertToShares(assets);
+    }
+
+    function previewMint(uint256 shares) public view virtual override returns (uint256 assets) {
+        uint256 assetDecimals = _underlyingDecimals();
+        uint256 vaultDecimals = decimals();
+        uint256 scaledAssets = super.previewMint(shares);
+        assets = scaledAssets * (10 ** assetDecimals) / (10 ** vaultDecimals);
+    }
+
+    function previewWithdraw(uint256 assets) public view virtual override returns (uint256 shares) {
+        uint256 assetDecimals = _underlyingDecimals();
+        uint256 vaultDecimals = decimals();
+        uint256 scaledAssets = assets * (10 ** vaultDecimals) / (10 ** assetDecimals);
+        shares = super.previewWithdraw(scaledAssets);
+    }
+
+    function previewRedeem(uint256 shares) public view virtual override returns (uint256 assets) {
+        uint256 assetDecimals = _underlyingDecimals();
+        uint256 vaultDecimals = decimals();
+        uint256 baseAssets = super.previewRedeem(shares);
+        assets = baseAssets * (10 ** assetDecimals) / (10 ** vaultDecimals);
+    }
+
+    // Ensure vault shares have the same decimals as the underlying asset
+    function decimals() public view virtual override returns (uint8) {
+        return _underlyingDecimals();
+    }
 }
