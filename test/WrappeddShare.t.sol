@@ -326,25 +326,25 @@ contract WrappedDShareTest is Test {
     }
 
     // Test small mint (equivalent shares for 0.01 NVDA or GOOG.L)
-    function testMintSmallAmount() public {
-        uint256 depositAmount = 1e16; // 0.01 tokens
-        uint256 expectedShares = xToken.previewDeposit(depositAmount); // Should be ~0.1789e18 shares
+    function testMintSmallAmount(uint256 amount) public {
+        vm.assume(amount < 1e16);
+        uint256 expectedShares = xToken.previewDeposit(amount);
 
         // Initial state
         assertEq(xToken.balanceOf(user), 0, "User should start with 0 shares");
 
         // Mint tokens to user
         vm.prank(admin);
-        token.mint(user, depositAmount);
+        token.mint(user, amount);
 
         // Approve and mint
         vm.startPrank(user);
-        token.approve(address(xToken), depositAmount);
+        token.approve(address(xToken), amount);
         uint256 assets = xToken.mint(expectedShares, user);
         vm.stopPrank();
 
         // Verify assets deposited and shares minted
-        assertApproxEqAbs(assets, depositAmount, 1, "User should deposit approximately the expected amount");
+        assertApproxEqAbs(assets, amount, 1, "User should deposit approximately the expected amount");
         assertEq(xToken.balanceOf(user), expectedShares, "User should receive the expected shares");
         console.log("Assets deposited for minting shares:", assets);
         console.log("Shares minted:", expectedShares);
@@ -354,10 +354,8 @@ contract WrappedDShareTest is Test {
         uint256 withdrawnAssets = xToken.redeem(expectedShares, user, user);
         vm.stopPrank();
 
-        assertApproxEqAbs(
-            withdrawnAssets, depositAmount, 1, "User should withdraw approximately their deposited amount"
-        );
+        assertApproxEqAbs(withdrawnAssets, amount, 1, "User should withdraw approximately their deposited amount");
         assertEq(xToken.balanceOf(user), 0, "User's share balance should be 0 after withdrawal");
-        assertEq(token.balanceOf(user), depositAmount, "User should have their tokens back");
+        assertEq(token.balanceOf(user), amount, "User should have their tokens back");
     }
 }
