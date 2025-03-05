@@ -328,4 +328,23 @@ contract WrappedDShareTest is Test {
         vm.prank(alice);
         xToken.transfer(user, (aliceShareAmount / 2));
     }
+
+    function testRescue(uint256 amount) public {
+        vm.assume(amount > 0);
+
+        vm.prank(admin);
+        token.mint(address(xToken), amount);
+        assertEq(token.balanceOf(address(xToken)), amount);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), xToken.DEFAULT_ADMIN_ROLE()
+            )
+        );
+        xToken.rescue(user, amount);
+
+        vm.prank(admin);
+        xToken.rescue(user, amount);
+        assertEq(token.balanceOf(user), amount);
+    }
 }
