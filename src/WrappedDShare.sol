@@ -23,7 +23,7 @@ contract WrappedDShare is ControlledUpgradeable, ERC4626, ReentrancyGuardUpgrade
 
     event NameSet(string name);
     event SymbolSet(string symbol);
-    event Rescued(address indexed account, uint256 amount);
+    event Recovered(address indexed account, uint256 amount);
 
     /// ------------------- State ------------------- ///
 
@@ -102,7 +102,7 @@ contract WrappedDShare is ControlledUpgradeable, ERC4626, ReentrancyGuardUpgrade
      */
     function recover(address account, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
-        emit Rescued(account, amount);
+        emit Recovered(account, amount);
         IERC20(address($._underlyingDShare)).safeTransfer(account, amount);
     }
 

@@ -13,6 +13,7 @@ import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessCon
 contract WrappedDShareTest is Test {
     event NameSet(string name);
     event SymbolSet(string symbol);
+    event Recovered(address indexed account, uint256 amount);
 
     TransferRestrictor public restrictor;
     DShare public token;
@@ -343,6 +344,8 @@ contract WrappedDShareTest is Test {
         );
         xToken.recover(user, amount);
 
+        vm.expectEmit(true, true, true, true);
+        emit Recovered(user, amount);
         vm.prank(admin);
         xToken.recover(user, amount);
         assertEq(token.balanceOf(user), amount);
