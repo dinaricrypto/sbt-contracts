@@ -102,8 +102,8 @@ contract WrappedDShare is ControlledUpgradeable, ERC4626, ReentrancyGuardUpgrade
      */
     function rescue(address account, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
-        IERC20(address($._underlyingDShare)).safeTransfer(account, amount);
         emit Rescued(account, amount);
+        IERC20(address($._underlyingDShare)).safeTransfer(account, amount);
     }
 
     /// ------------------- Getters ------------------- ///
