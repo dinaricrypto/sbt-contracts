@@ -330,7 +330,7 @@ contract WrappedDShareTest is Test {
         xToken.transfer(user, (aliceShareAmount / 2));
     }
 
-    function testRescue(uint256 amount) public {
+    function testRecover(uint256 amount) public {
         vm.assume(amount > 0);
 
         vm.prank(admin);
