@@ -341,10 +341,10 @@ contract WrappedDShareTest is Test {
                 IAccessControl.AccessControlUnauthorizedAccount.selector, address(this), xToken.DEFAULT_ADMIN_ROLE()
             )
         );
-        xToken.rescue(user, amount);
+        xToken.recover(user, amount);
 
         vm.prank(admin);
-        xToken.rescue(user, amount);
+        xToken.recover(user, amount);
         assertEq(token.balanceOf(user), amount);
     }
 }
