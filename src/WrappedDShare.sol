@@ -97,8 +97,8 @@ contract WrappedDShare is ControlledUpgradeable, ERC4626, ReentrancyGuardUpgrade
     /// ------------------- External ------------------- ///
     /**
      * @dev rescue assets from the contract.
-     * @param account The address of the asset to rescue.
-     * @param amount The amount of dShare tokens to wrap.
+     * @param account The address to send the token
+     * @param amount The amount of dShare tokens send
      */
     function rescue(address account, uint256 amount) external onlyRole(DEFAULT_ADMIN_ROLE) {
         WrappedDShareStorage storage $ = _getWrappedDShareStorage();
