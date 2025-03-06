@@ -5,19 +5,8 @@ import {Script} from "forge-std/Script.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {WrappedDShare} from "../src/WrappedDShare.sol";
 import {console2} from "forge-std/console2.sol";
+import {IMulticall3} from "forge-std/interfaces/IMulticall3.sol";
 
-interface IMulticall3 {
-    struct Call3 {
-        address target;
-        bool allowFailure;
-        bytes callData;
-    }
-
-    function aggregate3(Call3[] calldata calls)
-        external
-        payable
-        returns (bool[] memory success, bytes[] memory results);
-}
 
 contract UpgradeWrappedDShareScript is Script {
     UpgradeableBeacon beacon = UpgradeableBeacon(0xad20601C7a3212c7BbF2ACdFEDBAD99d803bC7F5);
@@ -133,47 +122,36 @@ contract UpgradeWrappedDShareScript is Script {
         console2.log("Beacon Owner:", owner);
 
         vm.startBroadcast(owner);
-
         console2.log("Current Beacon Implementation:", beacon.implementation());
 
         // Deploy new implementation with AccessControl
         WrappedDShare newImpl = new WrappedDShare();
         console2.log("New Implementation Deployed At:", address(newImpl));
 
+        // Upgrade beacon
+        beacon.upgradeTo(address(newImpl));
+        console2.log("Beacon Upgraded To:", beacon.implementation());
+
         // Prepare Multicall3 calls
-        IMulticall3.Call3[] memory calls = new IMulticall3.Call3[](wrappedDShareAddresses.length + 1);
+        IMulticall3.Call3[] memory calls = new IMulticall3.Call3[](wrappedDShareAddresses.length);
 
-        // Call 1: Upgrade the beacon
-        calls[0] = IMulticall3.Call3({
-            target: address(beacon),
-            allowFailure: false,
-            callData: abi.encodeWithSelector(UpgradeableBeacon.upgradeTo.selector, address(newImpl))
-        });
-
-        // Calls 2+: Grant DEFAULT_ADMIN_ROLE via initializeV2 for each WrappedDShare
-        address roleRecipient = owner;
+        // Add calls for initializeV2
         for (uint256 i = 0; i < wrappedDShareAddresses.length; i++) {
-            calls[i + 1] = IMulticall3.Call3({
+            calls[i] = IMulticall3.Call3({
                 target: wrappedDShareAddresses[i],
-                allowFailure: true,
-                callData: abi.encodeWithSelector(WrappedDShare.initializeV2.selector, roleRecipient)
+                allowFailure: false,
+                callData: abi.encodeWithSelector(WrappedDShare.initializeV2.selector)
             });
         }
 
         // Execute Multicall3
         console2.log("Executing Multicall3...");
-        (bool[] memory successes, bytes[] memory results) = multicall.aggregate3(calls);
+        IMulticall3.Result[] memory r = multicall.aggregate3(calls);
 
-        // Log results
-        console2.log("Beacon Upgrade Success:", successes[0]);
-        console2.log("Beacon Upgraded To:", beacon.implementation());
-
+        // Sanity check results
         for (uint256 i = 0; i < wrappedDShareAddresses.length; i++) {
-            console2.log("WrappedDShare", i, "at:", wrappedDShareAddresses[i]);
-            console2.log("initializeV2 Success:", successes[i + 1]);
-            if (!successes[i + 1]) {
-                console2.log("Failure Reason:", string(results[i + 1]));
-            }
+            WrappedDShare wc = WrappedDShare(wrappedDShareAddresses[i]);
+            console2.log("Does owner have role?", wc.hasRole(wc.DEFAULT_ADMIN_ROLE(), owner));
         }
 
         vm.stopBroadcast();
