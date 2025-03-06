@@ -120,82 +120,27 @@ contract UpgradeWrappedDShareScript is Script {
     function run() public {
         vm.startBroadcast();
 
-        // Prepare multicall data for totalSupply and totalAsset checks
-        IMulticall3.Call3[] memory calls = new IMulticall3.Call3[](wrappedDShareAddresses.length * 2);
-        uint256 callIndex = 0;
-
-        // First batch: check totalSupply and totalAsset for all contracts
+        // Iterate over each WrappedDShare contract
         for (uint256 i = 0; i < wrappedDShareAddresses.length; i++) {
-            address wrappedDShare = wrappedDShareAddresses[i];
+            WrappedDShare wrappedDShare = WrappedDShare(wrappedDShareAddresses[i]);
 
-            // totalSupply call
-            calls[callIndex] = IMulticall3.Call3({
-                target: wrappedDShare,
-                allowFailure: true,
-                callData: abi.encodeWithSignature("totalSupply()")
-            });
-            callIndex++;
+            // Call view methods directly
+            try wrappedDShare.totalSupply() returns (uint256 totalSupply) {
+                try wrappedDShare.totalAssets() returns (uint256 totalAsset) {
+                    if (totalSupply == 0 && totalAsset > 0) {
+                        console2.log("Found contract to recover:", address(wrappedDShare));
+                        console2.log("Assets to recover:", totalAsset);
 
-            // totalAsset call
-            calls[callIndex] = IMulticall3.Call3({
-                target: wrappedDShare,
-                allowFailure: true,
-                callData: abi.encodeWithSignature("totalAssets()")
-            });
-            callIndex++;
-        }
-
-        // Execute multicall
-        IMulticall3.Result[] memory results = multicall.aggregate3(calls);
-
-        // Process results and prepare recovery calls
-        IMulticall3.Call3[] memory recoveryCalls = new IMulticall3.Call3[](wrappedDShareAddresses.length);
-        uint256 recoveryCallCount = 0;
-
-        for (uint256 i = 0; i < wrappedDShareAddresses.length; i++) {
-            // Get results (2 calls per contract: totalSupply and totalAsset)
-            uint256 totalSupplyIndex = i * 2;
-            uint256 totalAssetIndex = i * 2 + 1;
-
-            if (results[totalSupplyIndex].success && results[totalAssetIndex].success) {
-                uint256 totalSupply = abi.decode(results[totalSupplyIndex].returnData, (uint256));
-                uint256 totalAsset = abi.decode(results[totalAssetIndex].returnData, (uint256));
-
-                if (totalSupply == 0 && totalAsset > 0) {
-                    console2.log("Found contract to recover:", wrappedDShareAddresses[i]);
-                    console2.log("Assets to recover:", totalAsset);
-
-                    recoveryCalls[recoveryCallCount] = IMulticall3.Call3({
-                        target: wrappedDShareAddresses[i],
-                        allowFailure: true,
-                        callData: abi.encodeWithSignature(
-                            "recover(address,uint256)",
-                            recoverTarget, // or specify a different recovery address
-                            totalAsset
-                        )
-                    });
-                    recoveryCallCount++;
+                        
+                        wrappedDShare.recover(recoverTarget, totalAsset);
+                        console2.log("Recovery executed for:", address(wrappedDShare));
+                    }
+                } catch {
+                    console2.log("Failed to fetch totalAssets for:", address(wrappedDShare));
                 }
+            } catch {
+                console2.log("Failed to fetch totalSupply for:", address(wrappedDShare));
             }
-        }
-
-        // Execute recovery calls if any
-        if (recoveryCallCount > 0) {
-            // Create properly sized array for recovery calls
-            IMulticall3.Call3[] memory finalRecoveryCalls = new IMulticall3.Call3[](recoveryCallCount);
-            for (uint256 i = 0; i < recoveryCallCount; i++) {
-                finalRecoveryCalls[i] = recoveryCalls[i];
-            }
-
-            console2.log("Executing", recoveryCallCount, "recovery calls");
-            IMulticall3.Result[] memory recoveryResults = multicall.aggregate3(finalRecoveryCalls);
-
-            // Log recovery results
-            for (uint256 i = 0; i < recoveryResults.length; i++) {
-                console2.log("Recovery", i, "success:", recoveryResults[i].success);
-            }
-        } else {
-            console2.log("No contracts found needing recovery");
         }
 
         vm.stopBroadcast();
