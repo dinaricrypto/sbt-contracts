@@ -10,6 +10,7 @@ import {IMulticall3} from "forge-std/interfaces/IMulticall3.sol";
 contract UpgradeWrappedDShareScript is Script {
     UpgradeableBeacon beacon = UpgradeableBeacon(0xad20601C7a3212c7BbF2ACdFEDBAD99d803bC7F5);
     IMulticall3 multicall = IMulticall3(0xcA11bde05977b3631167028862bE2a173976CA11);
+    address recoverTarget = 0x27a1876A09581E02E583E002E42EC1322abE9655; // change to desired recover target
 
     // Array of existing WrappedDShare addresses
     address[] wrappedDShareAddresses = [
@@ -116,41 +117,85 @@ contract UpgradeWrappedDShareScript is Script {
         0x929e2a99DEAcD604e6D776225D8a0c6f71291Fe9
     ];
 
-    function run() external {
-        address owner = beacon.owner();
-        console2.log("Beacon Owner:", owner);
+    function run() public {
+        vm.startBroadcast();
 
-        vm.startBroadcast(owner);
-        console2.log("Current Beacon Implementation:", beacon.implementation());
+        // Prepare multicall data for totalSupply and totalAsset checks
+        IMulticall3.Call3[] memory calls = new IMulticall3.Call3[](wrappedDShareAddresses.length * 2);
+        uint256 callIndex = 0;
 
-        // Deploy new implementation with AccessControl
-        WrappedDShare newImpl = new WrappedDShare();
-        console2.log("New Implementation Deployed At:", address(newImpl));
-
-        // Upgrade beacon
-        beacon.upgradeTo(address(newImpl));
-        console2.log("Beacon Upgraded To:", beacon.implementation());
-
-        // Prepare Multicall3 calls
-        IMulticall3.Call3[] memory calls = new IMulticall3.Call3[](wrappedDShareAddresses.length);
-
-        // Add calls for initializeV2
+        // First batch: check totalSupply and totalAsset for all contracts
         for (uint256 i = 0; i < wrappedDShareAddresses.length; i++) {
-            calls[i] = IMulticall3.Call3({
-                target: wrappedDShareAddresses[i],
-                allowFailure: false,
-                callData: abi.encodeWithSelector(WrappedDShare.initializeV2.selector)
+            address wrappedDShare = wrappedDShareAddresses[i];
+
+            // totalSupply call
+            calls[callIndex] = IMulticall3.Call3({
+                target: wrappedDShare,
+                allowFailure: true,
+                callData: abi.encodeWithSignature("totalSupply()")
             });
+            callIndex++;
+
+            // totalAsset call
+            calls[callIndex] = IMulticall3.Call3({
+                target: wrappedDShare,
+                allowFailure: true,
+                callData: abi.encodeWithSignature("totalAssets()")
+            });
+            callIndex++;
         }
 
-        // Execute Multicall3
-        console2.log("Executing Multicall3...");
-        IMulticall3.Result[] memory r = multicall.aggregate3(calls);
+        // Execute multicall
+        IMulticall3.Result[] memory results = multicall.aggregate3(calls);
 
-        // Sanity check results
+        // Process results and prepare recovery calls
+        IMulticall3.Call3[] memory recoveryCalls = new IMulticall3.Call3[](wrappedDShareAddresses.length);
+        uint256 recoveryCallCount = 0;
+
         for (uint256 i = 0; i < wrappedDShareAddresses.length; i++) {
-            WrappedDShare wc = WrappedDShare(wrappedDShareAddresses[i]);
-            console2.log("Does owner have role?", wc.hasRole(wc.DEFAULT_ADMIN_ROLE(), owner));
+            // Get results (2 calls per contract: totalSupply and totalAsset)
+            uint256 totalSupplyIndex = i * 2;
+            uint256 totalAssetIndex = i * 2 + 1;
+
+            if (results[totalSupplyIndex].success && results[totalAssetIndex].success) {
+                uint256 totalSupply = abi.decode(results[totalSupplyIndex].returnData, (uint256));
+                uint256 totalAsset = abi.decode(results[totalAssetIndex].returnData, (uint256));
+
+                if (totalSupply == 0 && totalAsset > 0) {
+                    console2.log("Found contract to recover:", wrappedDShareAddresses[i]);
+                    console2.log("Assets to recover:", totalAsset);
+
+                    recoveryCalls[recoveryCallCount] = IMulticall3.Call3({
+                        target: wrappedDShareAddresses[i],
+                        allowFailure: true,
+                        callData: abi.encodeWithSignature(
+                            "recover(address,uint256)",
+                            recoverTarget, // or specify a different recovery address
+                            totalAsset
+                        )
+                    });
+                    recoveryCallCount++;
+                }
+            }
+        }
+
+        // Execute recovery calls if any
+        if (recoveryCallCount > 0) {
+            // Create properly sized array for recovery calls
+            IMulticall3.Call3[] memory finalRecoveryCalls = new IMulticall3.Call3[](recoveryCallCount);
+            for (uint256 i = 0; i < recoveryCallCount; i++) {
+                finalRecoveryCalls[i] = recoveryCalls[i];
+            }
+
+            console2.log("Executing", recoveryCallCount, "recovery calls");
+            IMulticall3.Result[] memory recoveryResults = multicall.aggregate3(finalRecoveryCalls);
+
+            // Log recovery results
+            for (uint256 i = 0; i < recoveryResults.length; i++) {
+                console2.log("Recovery", i, "success:", recoveryResults[i].success);
+            }
+        } else {
+            console2.log("No contracts found needing recovery");
         }
 
         vm.stopBroadcast();
