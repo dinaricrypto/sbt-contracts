@@ -10,7 +10,7 @@ import {IMulticall3} from "forge-std/interfaces/IMulticall3.sol";
 contract UpgradeWrappedDShareScript is Script {
     UpgradeableBeacon beacon = UpgradeableBeacon(0xad20601C7a3212c7BbF2ACdFEDBAD99d803bC7F5);
     IMulticall3 multicall = IMulticall3(0xcA11bde05977b3631167028862bE2a173976CA11);
-    address recoverTarget = 0x27a1876A09581E02E583E002E42EC1322abE9655; // change to desired recover target
+    address recoverTarget = 0x7da7d9F88D957cAA5B56fAaA30272086A07Eea62; // change to desired recover target
 
     // Array of existing WrappedDShare addresses
     address[] wrappedDShareAddresses = [
@@ -118,28 +118,21 @@ contract UpgradeWrappedDShareScript is Script {
     ];
 
     function run() public {
-        vm.startBroadcast();
+        address owner = beacon.owner();
+        console2.log("Beacon Owner:", owner);
 
-        // Iterate over each WrappedDShare contract
+        vm.startBroadcast(owner);
+
         for (uint256 i = 0; i < wrappedDShareAddresses.length; i++) {
-            WrappedDShare wrappedDShare = WrappedDShare(wrappedDShareAddresses[i]);
+            WrappedDShare wc = WrappedDShare(wrappedDShareAddresses[i]);
+            uint256 totalSupply = wc.totalSupply();
+            uint256 totalAsset = wc.totalAssets();
 
-            // Call view methods directly
-            try wrappedDShare.totalSupply() returns (uint256 totalSupply) {
-                try wrappedDShare.totalAssets() returns (uint256 totalAsset) {
-                    if (totalSupply == 0 && totalAsset > 0) {
-                        console2.log("Found contract to recover:", address(wrappedDShare));
-                        console2.log("Assets to recover:", totalAsset);
+            if (totalSupply == 0 && totalAsset > 0) {
+                console2.log("Found contract to recover:", wrappedDShareAddresses[i]);
+                console2.log("Assets to recover:", totalAsset);
 
-                        
-                        wrappedDShare.recover(recoverTarget, totalAsset);
-                        console2.log("Recovery executed for:", address(wrappedDShare));
-                    }
-                } catch {
-                    console2.log("Failed to fetch totalAssets for:", address(wrappedDShare));
-                }
-            } catch {
-                console2.log("Failed to fetch totalSupply for:", address(wrappedDShare));
+                wc.recover(recoverTarget, totalAsset);
             }
         }
 
