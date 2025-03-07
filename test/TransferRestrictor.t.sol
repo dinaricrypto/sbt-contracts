@@ -59,5 +59,20 @@ contract TransferRestrictorTest is Test {
         restrictor.requireNotRestricted(account, address(0));
         restrictor.requireNotRestricted(address(0), account);
         vm.stopPrank();
+
+        address[] memory accounts = generateTestAddresses(100);
+        vm.prank(restrictor_role);
+        restrictor.restrict(accounts);
+        for (uint256 i = 0; i < accounts.length; i++) {
+            assertEq(restrictor.isBlacklisted(accounts[i]), true);
+        }
+    }
+
+    function generateTestAddresses(uint256 count) internal pure returns (address[] memory) {
+        address[] memory addresses = new address[](count);
+        for (uint256 i = 0; i < count; i++) {
+            addresses[i] = address(uint160(i + 100)); // Unique deterministic addresses
+        }
+        return addresses;
     }
 }
