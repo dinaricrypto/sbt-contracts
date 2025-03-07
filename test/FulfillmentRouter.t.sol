@@ -40,8 +40,10 @@ contract FulfillmentRouterTest is Test {
 
     uint256 userPrivateKey;
     uint256 adminPrivateKey;
+    uint256 upgraderPrivateKey;
     address user;
     address admin;
+    address upgrader;
 
     address constant operator = address(3);
     address constant treasury = address(4);
@@ -52,25 +54,35 @@ contract FulfillmentRouterTest is Test {
     function setUp() public {
         userPrivateKey = 0x01;
         adminPrivateKey = 0x02;
+        upgraderPrivateKey = 0x03;
         user = vm.addr(userPrivateKey);
         admin = vm.addr(adminPrivateKey);
+        upgrader = vm.addr(upgraderPrivateKey);
 
         vm.startPrank(admin);
         (DShareFactory tokenFactory,,) = GetMockDShareFactory.getMockDShareFactory(admin);
         token = tokenFactory.deployDShare(admin, "Dinari Token", "dTKN");
         paymentToken = new MockToken("Money", "$");
 
-        vault = new Vault(admin);
+        Vault vaultImpl = new Vault();
+        vault =
+            Vault(address(new ERC1967Proxy(address(vaultImpl), abi.encodeCall(Vault.initialize, (admin, upgrader)))));
         OrderProcessor issuerImpl = new OrderProcessor();
         issuer = OrderProcessor(
             address(
                 new ERC1967Proxy(
                     address(issuerImpl),
-                    abi.encodeCall(OrderProcessor.initialize, (admin, treasury, address(vault), tokenFactory))
+                    abi.encodeCall(OrderProcessor.initialize, (admin, upgrader, treasury, address(vault), tokenFactory))
                 )
             )
         );
-        router = new FulfillmentRouter(admin);
+        // router = new FulfillmentRouter(admin);
+        FulfillmentRouter routerImpl = new FulfillmentRouter();
+        router = FulfillmentRouter(
+            address(
+                new ERC1967Proxy(address(routerImpl), abi.encodeCall(FulfillmentRouter.initialize, (admin, upgrader)))
+            )
+        );
 
         token.grantRole(token.MINTER_ROLE(), admin);
         token.grantRole(token.MINTER_ROLE(), address(issuer));

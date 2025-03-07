@@ -12,10 +12,11 @@ import {IDShareFactory} from "./IDShareFactory.sol";
 import {TransferRestrictor} from "./TransferRestrictor.sol";
 import {DShare} from "./DShare.sol";
 import {WrappedDShare} from "./WrappedDShare.sol";
+import {ControlledUpgradeable} from "./deployment/ControlledUpgradeable.sol";
 
 ///@notice Factory to create new dShares
 ///@author Dinari (https://github.com/dinaricrypto/sbt-contracts/blob/main/src/DShareFactory.sol)
-contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract DShareFactory is IDShareFactory, ControlledUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
 
     /// ------------------------------- Types -----------------------------------
@@ -27,7 +28,6 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
     event NewTransferRestrictorSet(address indexed transferRestrictor);
 
     /// ------------------------------- Storage -----------------------------------
-
     struct DShareFactoryStorage {
         address _dShareBeacon;
         address _wrappedDShareBeacon;
@@ -46,18 +46,30 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
         }
     }
 
+    /// ------------------------------- Version -----------------------------------------
+
+    /// @notice Version of the contract
+    function version() public view override returns (uint8) {
+        return 1;
+    }
+
+    /// @notice Public version of the contract
+    function publicVersion() public view override returns (string memory) {
+        return "1.0.0";
+    }
     /// ------------------------------- Initialization -----------------------------------
 
     function initialize(
         address _owner,
+        address _upgrader,
         address _dShareBeacon,
         address _wrappedDShareBeacon,
         address _transferRestrictor
-    ) external initializer {
+    ) external reinitializer(version()) {
         if (_dShareBeacon == address(0) || _wrappedDShareBeacon == address(0) || _transferRestrictor == address(0)) {
             revert ZeroAddress();
         }
-        __Ownable_init(_owner);
+        __ControlledUpgradeable_init(_owner, _upgrader);
 
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         $._dShareBeacon = _dShareBeacon;
@@ -65,8 +77,12 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
         $._transferRestrictor = _transferRestrictor;
     }
 
+    function reinitialize(address owner, address upgrader) external reinitializer(version()) {
+        __ControlledUpgradeable_init(owner, upgrader);
+    }
+
     /// @dev In-place initialization of dShares storage for existing factory
-    function initializeV2() external onlyOwner reinitializer(2) {
+    function initializeV2() external onlyRole(DEFAULT_ADMIN_ROLE) reinitializer(2) {
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         for (uint256 i = 0; i < $._wrappedDShares.length(); i++) {
             // slither-disable-next-line unused-return,calls-loop
@@ -79,8 +95,6 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
     constructor() {
         _disableInitializers();
     }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /// ------------------------------- Getters -----------------------------------
 
@@ -106,7 +120,7 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
 
     /// @notice Sets a new transfer restrictor for the dShare
     /// @param _transferRestrictor New transfer restrictor
-    function setNewTransferRestrictor(address _transferRestrictor) external onlyOwner {
+    function setNewTransferRestrictor(address _transferRestrictor) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_transferRestrictor == address(0)) revert ZeroAddress();
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         $._transferRestrictor = _transferRestrictor;
@@ -149,11 +163,12 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
     /// @return dShare Address of the new dShare
     function createDShare(
         address owner,
+        address upgrader,
         string memory name,
         string memory symbol,
         string memory wrappedName,
         string memory wrappedSymbol
-    ) external onlyOwner returns (address dShare, address wrappedDShare) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) returns (address dShare, address wrappedDShare) {
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
         dShare = address(
             new BeaconProxy(
@@ -181,7 +196,7 @@ contract DShareFactory is IDShareFactory, Initializable, UUPSUpgradeable, Ownabl
     /// @notice Announces an existing dShare
     /// @param dShare Address of the dShare
     /// @param wrappedDShare Address of the wrapped dShare
-    function announceExistingDShare(address dShare, address wrappedDShare) external onlyOwner {
+    function announceExistingDShare(address dShare, address wrappedDShare) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (WrappedDShare(wrappedDShare).asset() != dShare) revert Mismatch();
 
         DShareFactoryStorage storage $ = _getDShareFactoryStorage();
