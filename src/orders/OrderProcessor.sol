@@ -482,12 +482,12 @@ contract OrderProcessor is
     }
 
     /// @inheritdoc IOrderProcessor
-    function createOrderWithSignatureForWallet(
+    function createOrderWithSignature(
         Order calldata order,
         Signature calldata orderSignature,
         FeeQuote calldata feeQuote,
         bytes calldata feeQuoteSignature,
-        address requester
+        address orderSignatureSigner
     ) external whenOrdersNotPaused onlyOperator returns (uint256 id) {
         // Validate signature deadline
         if (orderSignature.deadline < block.timestamp) revert ExpiredSignature();
@@ -496,15 +496,15 @@ contract OrderProcessor is
         bytes32 messageHash = _hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline));
 
         // Verify signature using SignatureChecker (supports both EOA and ERC-1271)
-        if (!SignatureChecker.isValidSignatureNow(requester, messageHash, orderSignature.signature)) {
+        if (!SignatureChecker.isValidSignatureNow(orderSignatureSigner, messageHash, orderSignature.signature)) {
             revert InvalidSignature();
         }
 
         id = hashOrder(order);
-        _validateFeeQuote(id, requester, feeQuote, feeQuoteSignature);
+        _validateFeeQuote(id, orderSignatureSigner, feeQuote, feeQuoteSignature);
 
         // Create order
-        _createOrder(id, order, requester, order.sell ? 0 : feeQuote.fee);
+        _createOrder(id, order, orderSignatureSigner, order.sell ? 0 : feeQuote.fee);
     }
 
     function _validateFeeQuote(

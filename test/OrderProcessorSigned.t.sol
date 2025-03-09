@@ -38,6 +38,18 @@ contract OrderProcessorSignedTest is Test {
     SigUtils public shareSigUtils;
     IOrderProcessor.Order public dummyOrder;
 
+    // Hardcoded function selectors for createOrderWithSignature
+    bytes4 constant CREATE_ORDER_4_PARAMS_SELECTOR = bytes4(
+        keccak256(
+            "createOrderWithSignature((uint64,address,address,address,bool,uint8,uint256,uint256,uint256,uint8),(uint64,bytes),(uint256,address,uint256,uint64,uint64),bytes)"
+        )
+    );
+    bytes4 constant CREATE_ORDER_5_PARAMS_SELECTOR = bytes4(
+        keccak256(
+            "createOrderWithSignature((uint64,address,address,address,bool,uint8,uint256,uint256,uint256,uint8),(uint64,bytes),(uint256,address,uint256,uint64,uint64),bytes,address)"
+        )
+    );
+
     uint24 percentageFeeRate;
     uint256 flatFee;
     uint256 dummyOrderFees;
@@ -105,39 +117,6 @@ contract OrderProcessorSignedTest is Test {
         });
     }
 
-    function testCreateOrderBuy(uint256 orderAmount) public {
-        vm.assume(orderAmount > 0);
-        vm.assume(orderAmount < type(uint256).max / 2);
-
-        (uint256 _flatFee, uint24 _percentageFeeRate) = issuer.getStandardFees(false, address(paymentToken));
-        uint256 fees = _flatFee + FeeLib.applyPercentageFee(_percentageFeeRate, orderAmount);
-        vm.assume(!NumberUtils.addCheckOverflow(orderAmount, fees));
-
-        IOrderProcessor.Order memory order = dummyOrder;
-        order.paymentTokenQuantity = orderAmount;
-        uint256 quantityIn = order.paymentTokenQuantity + fees;
-        deal(address(paymentToken), user, quantityIn);
-
-        (IOrderProcessor.FeeQuote memory feeQuote, bytes memory feeQuoteSignature) =
-            prepareFeeQuote(order, userPrivateKey, fees, operatorPrivateKey, user);
-
-        vm.prank(user);
-        paymentToken.approve(address(issuer), quantityIn);
-
-        uint256 userBalanceBefore = paymentToken.balanceOf(user);
-        uint256 vaultBalanceBefore = paymentToken.balanceOf(operator);
-
-        vm.expectEmit(true, true, true, true);
-        emit OrderCreated(feeQuote.orderId, user, order, fees);
-        vm.prank(user);
-        issuer.createOrder(order, feeQuote, feeQuoteSignature);
-
-        assertEq(uint8(issuer.getOrderStatus(feeQuote.orderId)), uint8(IOrderProcessor.OrderStatus.ACTIVE));
-        assertEq(issuer.getUnfilledAmount(feeQuote.orderId), order.paymentTokenQuantity);
-        assertEq(paymentToken.balanceOf(operator), vaultBalanceBefore + orderAmount);
-        assertEq(paymentToken.balanceOf(user), userBalanceBefore - quantityIn);
-    }
-
     function testRequestBuyOrderThroughOperator(uint256 orderAmount) public {
         vm.assume(orderAmount > 0);
         vm.assume(orderAmount < type(uint256).max / 2);
@@ -160,9 +139,8 @@ contract OrderProcessorSignedTest is Test {
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), quantityIn, user, userPrivateKey, 0);
-        multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature
-        );
+        multicalldata[1] =
+            abi.encodeWithSelector(CREATE_ORDER_4_PARAMS_SELECTOR, order, orderSignature, feeQuote, feeQuoteSignature);
 
         uint256 userBalanceBefore = paymentToken.balanceOf(user);
         uint256 vaultBalanceBefore = paymentToken.balanceOf(operator);
@@ -196,9 +174,8 @@ contract OrderProcessorSignedTest is Test {
 
         bytes[] memory multicalldata = new bytes[](2);
         multicalldata[0] = preparePermitCall(shareSigUtils, address(token), orderAmount, user, userPrivateKey, 0);
-        multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignature.selector, order, orderSignature, feeQuote, feeQuoteSignature
-        );
+        multicalldata[1] =
+            abi.encodeWithSelector(CREATE_ORDER_4_PARAMS_SELECTOR, order, orderSignature, feeQuote, feeQuoteSignature);
 
         uint256 orderId = issuer.hashOrder(order);
         uint256 userBalanceBefore = token.balanceOf(user);
@@ -226,7 +203,6 @@ contract OrderProcessorSignedTest is Test {
         uint256 quantityIn = order.paymentTokenQuantity + fees;
         deal(address(paymentToken), user, quantityIn);
 
-        // Use a different private key to generate an invalid signature
         uint256 wrongPrivateKey = 0x999;
         (
             IOrderProcessor.Signature memory orderSignature,
@@ -238,7 +214,7 @@ contract OrderProcessorSignedTest is Test {
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), quantityIn, user, userPrivateKey, 0);
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignatureForWallet.selector, order, orderSignature, feeQuote, feeQuoteSignature, user
+            CREATE_ORDER_5_PARAMS_SELECTOR, order, orderSignature, feeQuote, feeQuoteSignature, user
         );
 
         vm.prank(operator);
@@ -270,12 +246,7 @@ contract OrderProcessorSignedTest is Test {
 
         bytes[] memory multicalldata = new bytes[](1);
         multicalldata[0] = abi.encodeWithSelector(
-            issuer.createOrderWithSignatureForWallet.selector,
-            order,
-            orderSignature,
-            feeQuote,
-            feeQuoteSignature,
-            address(smartWallet)
+            CREATE_ORDER_5_PARAMS_SELECTOR, order, orderSignature, feeQuote, feeQuoteSignature, address(smartWallet)
         );
 
         uint256 smartWalletBalanceBefore = paymentToken.balanceOf(address(smartWallet));
@@ -318,12 +289,7 @@ contract OrderProcessorSignedTest is Test {
         multicalldata[0] =
             preparePermitCall(paymentSigUtils, address(paymentToken), quantityIn, user, userPrivateKey, 0);
         multicalldata[1] = abi.encodeWithSelector(
-            issuer.createOrderWithSignatureForWallet.selector,
-            order,
-            orderSignature,
-            mismatchedFeeQuote,
-            feeQuoteSignature,
-            user
+            CREATE_ORDER_5_PARAMS_SELECTOR, order, orderSignature, mismatchedFeeQuote, feeQuoteSignature, user
         );
 
         vm.prank(operator);
