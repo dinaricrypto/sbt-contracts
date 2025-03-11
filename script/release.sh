@@ -14,7 +14,7 @@
 # DEPLOYED_VERSION   - Version of the previous deployment
 
 # CONTRACTS=("TransferRestrictor" "DShareFactory" "DividendDistribution" "DShare" "WrappedDshare" "OrderProcessor" "FulfillmentRouter" "Vault")
-CONTRACTS=()
+CONTRACTS=("TransferRestrictor" "DividendDistribution" "FulfillmentRouter" "Vault" "DShare" "WrappedDShare")
 
 for i in "${CONTRACTS[@]}"; do
   echo "========================"
