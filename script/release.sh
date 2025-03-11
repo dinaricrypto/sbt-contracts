@@ -13,7 +13,7 @@
 # ETHERSCAN_API_KEY  - Etherscan API key
 # DEPLOYED_VERSION   - Version of the previous deployment
 
-# CONTRACTS=("TransferRestrictor" "DShareFactory" "DividendDistribution" "DShare" "WrappedDshare" "OrderProcessor" "FulfillmentRouter" "Vault")
+# CONTRACTS=("TransferRestrictor" "DShareFactory" "DividendDistribution" "DShare" "WrappedDShare" "OrderProcessor" "FulfillmentRouter" "Vault")
 CONTRACTS=()
 
 for i in "${CONTRACTS[@]}"; do
