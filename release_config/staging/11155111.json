@@ -32,7 +32,7 @@
   },
   "DShare": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
-    "__beaconAddress": "0x0000000000000000000000000000000000000000",
+    "__beaconAddress": "0xf141B07Fb838c4a59334715B4464878EB25E9E60",
     "__useBeacon": true
   },
   "WrappedDShare": {
