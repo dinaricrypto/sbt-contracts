@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "deployments": {
     "production": {},
-    "staging": { "11155111": "0xD306999076FfC606d98e2c4DAecd117B8A1989FD" }
+    "staging": {
+      "84532": "0x7E9348ffE0a65a76C72110778c5832282bDce42A",
+      "98864": "0x4F597f4457B24695BC72c42302d4493050ADeE46",
+      "421614": "0x7E9348ffE0a65a76C72110778c5832282bDce42A",
+      "11155111": "0xD306999076FfC606d98e2c4DAecd117B8A1989FD",
+      "168587773": "0x70f484c2F98B0F594E7b107936159C2b3E5dE57a"
+    }
   },
   "abi": [
     {

@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "deployments": {
     "production": {},
-    "staging": { "11155111": "0x68Dd74e23461d99b7312Bfb5baddfd3Fa28404c7" }
+    "staging": {
+      "84532": "0xAaB94e1390519bFF1b41E4CdFBF8A4843e636Ec5",
+      "98864": "0x1B3528fbFfa924173A988a1617245Ed0F927212a",
+      "421614": "0xAaB94e1390519bFF1b41E4CdFBF8A4843e636Ec5",
+      "11155111": "0x68Dd74e23461d99b7312Bfb5baddfd3Fa28404c7",
+      "168587773": "0x661CAe699fa0C3D51E2bfd71F37f97fD2eFC3e89"
+    }
   },
   "abi": [
     { "type": "constructor", "inputs": [], "stateMutability": "nonpayable" },
