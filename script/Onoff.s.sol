@@ -19,7 +19,7 @@ import {Vault} from "../src/orders/Vault.sol";
  *         - VERSION: Version of the deployed contracts
  *         - ENVIRONMENT: Target environment (e.g., production, staging)
  *      2. Required Files:
- *         - releases/{version}/{contract}.json: Deployment addresses
+ *         - releases/{version}/}{contract}.json: Deployment addresses
  *         - release_config/{environment}/{chainId}.json: Configuration data
  * @dev Workflow:
  *      1. Reads contract name, version, and environment from env variables
@@ -115,26 +115,26 @@ contract Onoff is Script {
         string memory contractName
     ) public {
         bytes32 nameHash = keccak256(bytes(contractName));
-        address account = _getAddressFromInitData(configJson, contractName, "account");
+        address operator = _getAddressFromInitData(configJson, contractName, "operator");
         address contractAddress = _getAddressFromRelease(releaseJson, environment, vm.toString(block.chainid));
         if (nameHash == keccak256(bytes("TransferRestrictor"))) {
             TransferRestrictor restrictor = TransferRestrictor(contractAddress);
-            restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), account);
+            restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), operator);
         }
 
         if (nameHash == keccak256(bytes("Vault"))) {
             Vault vault = Vault(contractAddress);
-            vault.grantRole(vault.OPERATOR_ROLE(), account);
+            vault.grantRole(vault.OPERATOR_ROLE(), operator);
         }
 
         if (nameHash == keccak256(bytes("FulfillmentRouter"))) {
             FulfillmentRouter router = FulfillmentRouter(contractAddress);
-            router.grantRole(router.OPERATOR_ROLE(), account);
+            router.grantRole(router.OPERATOR_ROLE(), operator);
         }
 
         if (nameHash == keccak256(bytes("OrderProcessor"))) {
             OrderProcessor processor = OrderProcessor(contractAddress);
-            processor.setOperator(account, true);
+            processor.setOperator(operator, true);
         }
 
         revert(string.concat("Unknown contract name: ", contractName));
