@@ -90,6 +90,7 @@ contract Onoff is Script {
     /**
      * @dev Gets deployed contract address from release JSON
      * @param releaseJson Release data JSON
+     * @param environment Target environment
      * @param chainid Target chain ID
      * @return Deployed contract address
      */
@@ -106,6 +107,7 @@ contract Onoff is Script {
      * @dev Grants appropriate roles to the specified account based on contract type
      * @param configJson Configuration data
      * @param releaseJson Release data
+     * @param environment Target environment
      * @param contractName Name of the contract to configure
      */
     function _grantRole(
@@ -130,6 +132,11 @@ contract Onoff is Script {
         if (nameHash == keccak256(bytes("FulfillmentRouter"))) {
             FulfillmentRouter router = FulfillmentRouter(contractAddress);
             router.grantRole(router.OPERATOR_ROLE(), operator);
+        }
+
+        if (nameHash == keccak256(bytes("DividendDistribution"))) {
+            DividendDistribution distribution = DividendDistribution(contractAddress);
+            distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), operator);
         }
 
         if (nameHash == keccak256(bytes("OrderProcessor"))) {

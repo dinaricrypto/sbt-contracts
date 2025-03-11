@@ -1,7 +1,8 @@
 {
   "TransferRestrictor": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
-    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42"
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42",
+    "operator": ""
   },
   "DShareFactory": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
@@ -24,11 +25,13 @@
   },
   "FulfillmentRouter": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
-    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42"
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42",
+    "operator": ""
   },
   "Vault": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
-    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42"
+    "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42",
+    "operator": ""
   },
   "DShare": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
