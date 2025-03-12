@@ -329,11 +329,10 @@ contract Release is Script {
         address owner,
         string memory currentVersion
     ) internal returns (address) {
-        address implementation = _deployImplementation(contractName);
-
         if (beaconAddress != address(0)) {
             bool shouldUpgrade = _shouldUpgrade(UpgradeableBeacon(beaconAddress).implementation(), currentVersion);
             if (shouldUpgrade) {
+                address implementation = _deployImplementation(contractName);
                 console2.log("Upgrading beacon implementation for %s to version %s", contractName, currentVersion);
                 UpgradeableBeacon(beaconAddress).upgradeTo(implementation);
                 console2.log("Beacon implementation updated for %s", contractName);
@@ -342,6 +341,7 @@ contract Release is Script {
             }
             return beaconAddress;
         } else {
+            address implementation = _deployImplementation(contractName);
             beaconAddress = _deployNewBeacon(implementation, owner);
             console2.log(
                 "Deployed new beacon for %s at %s with version %s", contractName, beaconAddress, currentVersion
