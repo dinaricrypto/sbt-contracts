@@ -330,7 +330,6 @@ contract Release is Script {
         string memory currentVersion
     ) internal returns (address) {
         address implementation = _deployImplementation(contractName);
-        string memory previousVersion;
 
         if (beaconAddress != address(0)) {
             bool shouldUpgrade = _shouldUpgrade(UpgradeableBeacon(beaconAddress).implementation(), currentVersion);
