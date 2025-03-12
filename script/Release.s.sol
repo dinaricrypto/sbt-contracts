@@ -333,30 +333,19 @@ contract Release is Script {
         string memory previousVersion;
 
         if (beaconAddress != address(0)) {
-            _shouldUpgrade(UpgradeableBeacon(beaconAddress).implementation(), currentVersion);
+            bool shouldUpgrade = _shouldUpgrade(UpgradeableBeacon(beaconAddress).implementation(), currentVersion);
 
-            if (
-                keccak256(bytes(previousVersion)) != keccak256(bytes(currentVersion))
-                    || bytes(previousVersion).length == 0
-            ) {
-                console2.log(
-                    "Upgrading beacon implementation for %s from version %s to %s",
-                    contractName,
-                    previousVersion,
-                    currentVersion
-                );
+            if (shouldUpgrade) {
                 UpgradeableBeacon(beaconAddress).upgradeTo(implementation);
                 console2.log("Beacon implementation updated for %s", contractName);
+                return beaconAddress;
             } else {
-                console2.log("No upgrade needed for %s - versions match (%s)", contractName, currentVersion);
+                beaconAddress = _deployNewBeacon(implementation, owner);
+                console2.log(
+                    "Deployed new beacon for %s at %s with version %s", contractName, beaconAddress, currentVersion
+                );
+                return beaconAddress;
             }
-            return beaconAddress;
-        } else {
-            beaconAddress = _deployNewBeacon(implementation, owner);
-            console2.log(
-                "Deployed new beacon for %s at %s with version %s", contractName, beaconAddress, currentVersion
-            );
-            return beaconAddress;
         }
     }
 
