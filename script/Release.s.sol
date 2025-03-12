@@ -333,18 +333,20 @@ contract Release is Script {
 
         if (beaconAddress != address(0)) {
             bool shouldUpgrade = _shouldUpgrade(UpgradeableBeacon(beaconAddress).implementation(), currentVersion);
-
             if (shouldUpgrade) {
+                console2.log("Upgrading beacon implementation for %s to version %s", contractName, currentVersion);
                 UpgradeableBeacon(beaconAddress).upgradeTo(implementation);
                 console2.log("Beacon implementation updated for %s", contractName);
-                return beaconAddress;
             } else {
-                beaconAddress = _deployNewBeacon(implementation, owner);
-                console2.log(
-                    "Deployed new beacon for %s at %s with version %s", contractName, beaconAddress, currentVersion
-                );
-                return beaconAddress;
+                console2.log("No upgrade needed for %s - versions match (%s)", contractName, currentVersion);
             }
+            return beaconAddress;
+        } else {
+            beaconAddress = _deployNewBeacon(implementation, owner);
+            console2.log(
+                "Deployed new beacon for %s at %s with version %s", contractName, beaconAddress, currentVersion
+            );
+            return beaconAddress;
         }
     }
 
