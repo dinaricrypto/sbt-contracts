@@ -32,12 +32,12 @@
   },
   "DShare": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
-    "__beaconAddress": "0x0000000000000000000000000000000000000000",
+    "__beaconAddress": "0x68D8d02D15fCB6289D67208a63157B7d1908d169",
     "__useBeacon": true
   },
   "WrappedDShare": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
-    "__beaconAddress": "0x0000000000000000000000000000000000000000",
+    "__beaconAddress": "0x661CAe699fa0C3D51E2bfd71F37f97fD2eFC3e89",
     "__useBeacon": true
   }
 }
