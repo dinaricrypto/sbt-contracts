@@ -7,18 +7,12 @@ import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC19
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ControlledUpgradeable} from "../src/deployment/ControlledUpgradeable.sol";
 import {JsonUtils} from "./utils/JsonUtils.sol";
-
 import {IDShareFactory} from "../src/IDShareFactory.sol";
 import {console2} from "forge-std/console2.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 
 interface IVersioned {
     function publicVersion() external view returns (string memory);
-}
-
-interface IUpgradeableBeacon {
-    function implementation() external view returns (address);
-    function upgradeTo(address newImplementation) external;
 }
 
 contract Release is Script {
@@ -61,24 +55,22 @@ contract Release is Script {
             string.concat("release_config/", environment, "/", vm.toString(block.chainid), ".json");
         string memory configJson = vm.readFile(configPath);
 
+        // Load deployed version
         try vm.envString("DEPLOYED_VERSION") returns (string memory v) {
             deployedVersion = v;
         } catch {
             deployedVersion = "";
         }
 
-        vm.startBroadcast();
-
+        // Load previous deployment address
         address previousDeploymentAddress =
             _getPreviousDeploymentAddress(configName, deployedVersion, environment, block.chainid);
-
         if (previousDeploymentAddress != address(0)) {
             console2.log("Previous deployment found at %s", previousDeploymentAddress);
         }
 
-        // case for DShare and WrappedDShare
+        // Determine if it's a beacon contract
         bool isBeaconContract;
-
         try JsonUtils.getBoolFromJson(vm, configJson, string.concat(".", contractName, ".", "__useBeacon")) returns (
             bool v
         ) {
@@ -87,27 +79,25 @@ contract Release is Script {
             isBeaconContract = false;
         }
 
+        vm.startBroadcast();
+
         if (isBeaconContract) {
-            console2.log("Updating beacon implementation for %s", contractName);
-            proxyAddress = _manageBeaconDeployment(configJson, contractName);
+            address beaconAddress = _getAddressFromInitData(configJson, contractName, "__beaconAddress");
+            address owner = _getAddressFromInitData(configJson, contractName, "owner");
+            proxyAddress = _manageBeaconDeployment(contractName, beaconAddress, owner, currentVersion);
         } else {
+            // Pre-fetch init data for non-beacon contracts
+            bytes memory initData = _getInitData(configJson, contractName, false);
+            bytes memory upgradeData = _getInitData(configJson, contractName, true);
+
             if (previousDeploymentAddress == address(0)) {
                 console2.log("Deploying contract");
-                proxyAddress = _deployContract(contractName, _getInitData(configJson, contractName, false));
+                proxyAddress = _deployContract(contractName, initData);
             } else {
-                string memory previousVersion;
-                try IVersioned(previousDeploymentAddress).publicVersion() returns (string memory v) {
-                    previousVersion = v;
-                } catch {}
-
-                if (
-                    keccak256(bytes(previousVersion)) != keccak256(bytes(currentVersion))
-                        || bytes(previousVersion).length == 0
-                ) {
+                bool shouldUpgrade = _shouldUpgrade(previousDeploymentAddress, currentVersion);
+                if (shouldUpgrade) {
                     console2.log("Upgrading contract");
-                    proxyAddress = _upgradeContract(
-                        contractName, previousDeploymentAddress, _getInitData(configJson, contractName, true)
-                    );
+                    proxyAddress = _upgradeContract(contractName, previousDeploymentAddress, upgradeData);
                 }
             }
         }
@@ -120,6 +110,18 @@ contract Release is Script {
         }
     }
 
+    // Helper to determine if an upgrade is needed
+    function _shouldUpgrade(address proxyAddress, string memory currentVersion) internal view returns (bool) {
+        string memory previousVersion;
+        try IVersioned(proxyAddress).publicVersion() returns (string memory v) {
+            previousVersion = v;
+        } catch {
+            previousVersion = "";
+        }
+        return
+            keccak256(bytes(previousVersion)) != keccak256(bytes(currentVersion)) || bytes(previousVersion).length == 0;
+    }
+
     // Mapping of PascalCase contract names to their underscore versions
     function _getConfigName(string memory contractName) internal pure returns (string memory) {
         bytes32 inputHash = keccak256(bytes(contractName));
@@ -129,7 +131,7 @@ contract Release is Script {
         if (inputHash == keccak256(bytes("DividendDistribution"))) return "dividend_distribution";
         if (inputHash == keccak256(bytes("DShare"))) return "dshare";
         if (inputHash == keccak256(bytes("WrappedDshare"))) return "wrapped_dshare";
-        if (inputHash == keccak256(bytes("OrderProcessor"))) return "order_processer";
+        if (inputHash == keccak256(bytes("OrderProcessor"))) return "order_processor";
         if (inputHash == keccak256(bytes("FulfillmentRouter"))) return "fulfillment_router";
         if (inputHash == keccak256(bytes("Vault"))) return "vault";
 
@@ -267,7 +269,7 @@ contract Release is Script {
         address upgrader = _getAddressFromInitData(configJson, contractName, "upgrader");
         address owner = _getAddressFromInitData(configJson, contractName, "owner");
         if (isUpgrade) {
-            return abi.encodeWithSignature("reinitialize(address, address)", owner, upgrader);
+            return abi.encodeWithSignature("reinitialize(address,address)", owner, upgrader);
         }
 
         address treasury = _getAddressFromInitData(configJson, contractName, "treasury");
@@ -298,6 +300,7 @@ contract Release is Script {
         internal
         returns (address)
     {
+        console2.log("Upgrading %s", contractName);
         address implementation = _deployImplementation(contractName);
         if (upgradeData.length > 0) {
             ControlledUpgradeable(payable(proxyAddress)).upgradeToAndCall(implementation, upgradeData);
@@ -320,21 +323,30 @@ contract Release is Script {
         return implementation;
     }
 
-    function _manageBeaconDeployment(string memory configJson, string memory contractName)
-        internal
-        returns (address beaconAddress)
-    {
-        beaconAddress = _getAddressFromInitData(configJson, contractName, "__beaconAddress");
-        address owner = _getAddressFromInitData(configJson, contractName, "owner");
-        address implementation = _deployImplementation(contractName);
-
+    function _manageBeaconDeployment(
+        string memory contractName,
+        address beaconAddress,
+        address owner,
+        string memory currentVersion
+    ) internal returns (address) {
         if (beaconAddress != address(0)) {
-            console2.log("Upgrading beacon implementation for %s", contractName);
-            IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
-            console2.log("Beacon implementation updated for %s", contractName);
+            bool shouldUpgrade = _shouldUpgrade(UpgradeableBeacon(beaconAddress).implementation(), currentVersion);
+            if (shouldUpgrade) {
+                address implementation = _deployImplementation(contractName);
+                console2.log("Upgrading beacon implementation for %s to version %s", contractName, currentVersion);
+                UpgradeableBeacon(beaconAddress).upgradeTo(implementation);
+                console2.log("Beacon implementation updated for %s", contractName);
+            } else {
+                console2.log("No upgrade needed for %s - versions match (%s)", contractName, currentVersion);
+            }
+            return beaconAddress;
         } else {
+            address implementation = _deployImplementation(contractName);
             beaconAddress = _deployNewBeacon(implementation, owner);
-            console2.log("Deployed new beacon for %s at %s", contractName, beaconAddress);
+            console2.log(
+                "Deployed new beacon for %s at %s with version %s", contractName, beaconAddress, currentVersion
+            );
+            return beaconAddress;
         }
     }
 
