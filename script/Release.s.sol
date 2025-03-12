@@ -18,6 +18,31 @@ interface IVersioned {
 contract Release is Script {
     using stdJson for string;
 
+    /**
+     * @notice Main deployment script for handling new deployments and upgrades
+     * @dev Prerequisites:
+     *      1. Environment Variables:
+     *         - PRIVATE_KEY: (for signing transactions)
+     *         - RPC_URL: (for connecting to the network)
+     *         - VERSION: Current version being deployed
+     *         - ENVIRONMENT: Target environment (e.g., production, staging)
+     *         - DEPLOYED_VERSION: (Optional) Previous version for upgrades
+     *
+     *      2. Required Files:
+     *         - release_config/{environment}/{chainId}.json: Contract initialization params
+     *
+     * @dev Workflow:
+     *      1. Loads configuration and parameters from environment and JSON files
+     *      2. Checks for previous deployment address
+     *      3. If no previous deployment (address(0)):
+     *         - Deploys new implementation and proxy
+     *      4. If previous deployment exists:
+     *         - Checks version difference
+     *         - Upgrades if version changed or previous version not available
+     *      5. Writes deployment result to artifacts/{environment}/{chainId}.{contractName}.json
+     * @dev Run:
+     *      ./script/release_sh
+     */
     function run() external {
         // Get params
         address proxyAddress;
