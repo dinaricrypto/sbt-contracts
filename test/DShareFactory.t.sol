@@ -95,7 +95,7 @@ contract DShareFactoryTest is Test {
         assertEq(newfactory.getTransferRestrictor(), address(restrictor));
 
         // create existing listing
-        newfactory.createDShare(address(this), upgrader, "Token", "T", "Wrapped Token", "wT");
+        newfactory.createDShare(address(this), "Token", "T", "Wrapped Token", "wT");
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -135,12 +135,12 @@ contract DShareFactoryTest is Test {
             )
         );
         vm.prank(user);
-        factory.createDShare(address(this), upgrader, name, symbol, wrappedName, wrappedSymbol);
+        factory.createDShare(address(this), name, symbol, wrappedName, wrappedSymbol);
 
         vm.expectEmit(false, false, false, false);
         emit DShareAdded(address(0), address(0), symbol, name);
         (address newdshare, address newwrappeddshare) =
-            factory.createDShare(address(this), upgrader, name, symbol, wrappedName, wrappedSymbol);
+            factory.createDShare(address(this), name, symbol, wrappedName, wrappedSymbol);
         assertEq(DShare(newdshare).owner(), address(this));
         assertEq(DShare(newdshare).name(), name);
         assertEq(DShare(newdshare).symbol(), symbol);
