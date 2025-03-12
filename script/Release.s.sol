@@ -106,7 +106,7 @@ contract Release is Script {
         if (inputHash == keccak256(bytes("DividendDistribution"))) return "dividend_distribution";
         if (inputHash == keccak256(bytes("DShare"))) return "dshare";
         if (inputHash == keccak256(bytes("WrappedDshare"))) return "wrapped_dshare";
-        if (inputHash == keccak256(bytes("OrderProcessor"))) return "order_processor"; // Fixed typo
+        if (inputHash == keccak256(bytes("OrderProcessor"))) return "order_processor";
         if (inputHash == keccak256(bytes("FulfillmentRouter"))) return "fulfillment_router";
         if (inputHash == keccak256(bytes("Vault"))) return "vault";
 
