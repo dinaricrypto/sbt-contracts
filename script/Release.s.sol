@@ -16,11 +16,6 @@ interface IVersioned {
     function publicVersion() external view returns (string memory);
 }
 
-interface IUpgradeableBeacon {
-    function implementation() external view returns (address);
-    function upgradeTo(address newImplementation) external;
-}
-
 contract Release is Script {
     using stdJson for string;
 
@@ -327,14 +322,38 @@ contract Release is Script {
         beaconAddress = _getAddressFromInitData(configJson, contractName, "__beaconAddress");
         address owner = _getAddressFromInitData(configJson, contractName, "owner");
         address implementation = _deployImplementation(contractName);
+        string memory currentVersion = vm.envString("VERSION");
+        string memory previousVersion;
 
         if (beaconAddress != address(0)) {
-            console2.log("Upgrading beacon implementation for %s", contractName);
-            IUpgradeableBeacon(beaconAddress).upgradeTo(implementation);
-            console2.log("Beacon implementation updated for %s", contractName);
+            try IVersioned(UpgradeableBeacon(beaconAddress).implementation()).publicVersion() returns (string memory v)
+            {
+                previousVersion = v;
+            } catch {
+                previousVersion = "";
+            }
+
+            // Only upgrade if versions differ or if we couldn't get the previous version
+            if (
+                keccak256(bytes(previousVersion)) != keccak256(bytes(currentVersion))
+                    || bytes(previousVersion).length == 0
+            ) {
+                console2.log(
+                    "Upgrading beacon implementation for %s from version %s to %s",
+                    contractName,
+                    previousVersion,
+                    currentVersion
+                );
+                UpgradeableBeacon(beaconAddress).upgradeTo(implementation);
+                console2.log("Beacon implementation updated for %s", contractName);
+            } else {
+                console2.log("No upgrade needed for %s - versions match (%s)", contractName, currentVersion);
+            }
         } else {
             beaconAddress = _deployNewBeacon(implementation, owner);
-            console2.log("Deployed new beacon for %s at %s", contractName, beaconAddress);
+            console2.log(
+                "Deployed new beacon for %s at %s with version %s", contractName, beaconAddress, currentVersion
+            );
         }
     }
 
