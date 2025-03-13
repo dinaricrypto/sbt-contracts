@@ -20,7 +20,7 @@
     "treasury": "",
     "operator": "",
     "vault": "",
-    "transfer_restrictor": ""
+    "transferRestrictor": ""
   },
   "FulfillmentRouter": {
     "owner": "",

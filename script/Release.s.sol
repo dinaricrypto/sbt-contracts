@@ -275,7 +275,7 @@ contract Release is Script {
         address treasury = _getAddressFromInitData(configJson, contractName, "treasury");
         address operator = _getAddressFromInitData(configJson, contractName, "operator");
         address vault = _getAddressFromInitData(configJson, contractName, "vault");
-        address transfer_restrictor = _getAddressFromInitData(configJson, contractName, "transfer_restrictor");
+        address transferRestrictor = _getAddressFromInitData(configJson, contractName, "transferRestrictor");
 
         return abi.encodeWithSignature(
             "initialize(address,address,address,address,address,address)",
@@ -284,7 +284,7 @@ contract Release is Script {
             treasury,
             operator,
             vault,
-            transfer_restrictor
+            transferRestrictor
         );
     }
 
