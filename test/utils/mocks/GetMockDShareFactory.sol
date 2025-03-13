@@ -45,7 +45,7 @@ library GetMockDShareFactory {
         internal
         returns (DShare)
     {
-        (address dshare,) = factory.createDShare(owner, owner, name, symbol, "", "");
+        (address dshare,) = factory.createDShare(owner, name, symbol, "", "");
         return DShare(dshare);
     }
 }
