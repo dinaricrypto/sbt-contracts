@@ -18,7 +18,7 @@ for i in "${CONTRACTS[@]}"; do
   echo "$i: Assigning roles"
 
   # Base Forge command for the Onoff script
-  FORGE_CMD="CONTRACT_NAME=$i VERSION=$VERSION ENVIRONMENT=$ENVIRONMENT FOUNDRY_DISABLE_NIGHTLY_WARNING=True forge script script/Onoff.s.sol:Onoff -vvv --rpc-url $RPC_URL --private-key $PRIVATE_KEY"
+  FORGE_CMD="CONTRACT_NAME=$i VERSION=$VERSION ENVIRONMENT=$ENVIRONMENT FOUNDRY_DISABLE_NIGHTLY_WARNING=True forge script script/OneOff.s.sol:OneOff -vvv --rpc-url $RPC_URL --private-key $PRIVATE_KEY"
 
   # Execute the command
   eval $FORGE_CMD

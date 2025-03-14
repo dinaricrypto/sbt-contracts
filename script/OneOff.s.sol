@@ -31,7 +31,7 @@ import {Vault} from "../src/orders/Vault.sol";
  *      --private-key $PRIVATE_KEY \
  *      --broadcast
  */
-contract Onoff is Script {
+contract OneOff is Script {
     /**
      * @dev Main entry point for the script execution
      */
@@ -119,29 +119,45 @@ contract Onoff is Script {
         bytes32 nameHash = keccak256(bytes(contractName));
         address operator = _getAddressFromInitData(configJson, contractName, "operator");
         address contractAddress = _getAddressFromRelease(releaseJson, environment, vm.toString(block.chainid));
+
         if (nameHash == keccak256(bytes("TransferRestrictor"))) {
             TransferRestrictor restrictor = TransferRestrictor(contractAddress);
-            restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), operator);
+            if (!restrictor.hasRole(restrictor.RESTRICTOR_ROLE(), operator)) {
+                restrictor.grantRole(restrictor.RESTRICTOR_ROLE(), operator);
+            }
+            return;
         }
 
         if (nameHash == keccak256(bytes("Vault"))) {
             Vault vault = Vault(contractAddress);
-            vault.grantRole(vault.OPERATOR_ROLE(), operator);
+            if (!vault.hasRole(vault.OPERATOR_ROLE(), operator)) {
+                vault.grantRole(vault.OPERATOR_ROLE(), operator);
+            }
+            return;
         }
 
         if (nameHash == keccak256(bytes("FulfillmentRouter"))) {
             FulfillmentRouter router = FulfillmentRouter(contractAddress);
-            router.grantRole(router.OPERATOR_ROLE(), operator);
+            if (!router.hasRole(router.OPERATOR_ROLE(), operator)) {
+                router.grantRole(router.OPERATOR_ROLE(), operator);
+            }
+            return;
         }
 
         if (nameHash == keccak256(bytes("DividendDistribution"))) {
             DividendDistribution distribution = DividendDistribution(contractAddress);
-            distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), operator);
+            if (!distribution.hasRole(distribution.DISTRIBUTOR_ROLE(), operator)) {
+                distribution.grantRole(distribution.DISTRIBUTOR_ROLE(), operator);
+            }
+            return;
         }
 
         if (nameHash == keccak256(bytes("OrderProcessor"))) {
             OrderProcessor processor = OrderProcessor(contractAddress);
-            processor.setOperator(operator, true);
+            if (!processor.isOperator(operator)) {
+                processor.setOperator(operator, true);
+            }
+            return;
         }
 
         revert(string.concat("Unknown contract name: ", contractName));
