@@ -19,11 +19,11 @@
     "prettier:releases": "prettier releases --write --log-level warn"
   },
   "devDependencies": {
+    "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@typechain/ethers-v5": "^11.0.0",
     "@types/lodash": "^4.17.16",
     "@types/node": "^16.11.0",
     "@types/semver": "^7.5.8",
-    "axios": "^1.7.2",
     "dotenv": "^16.0.3",
     "prettier": "^3.0.0",
     "ts-node": "^10.9.1",
@@ -31,12 +31,11 @@
   },
   "dependencies": {
     "ajv-cli": "^5.0.0",
+    "axios": "^1.7.2",
     "commander": "^13.1.0",
     "ethers": "5.7.2",
-    "pre-commit": "^1.2.2",
     "semver": "^7.7.1",
     "web3-types": "^1.10.0",
     "web3-utils": "^4.3.3"
-  },
-  "pre-commit": "prettier"
+  }
 }

@@ -82,16 +82,8 @@ program
     // Generate release file from existing release files
     for (const contractName in contractToDeployment) {
       // Special handling for DShare and WrappedDshare
-      let releaseFilename;
-      if (contractName === "dshare") {
-        releaseFilename = "dshare_beacon.json";
-      } else if (contractName === "wrapped_dshare") {
-        releaseFilename = "wrapped_dshare_beacon.json";
-      } else {
-        releaseFilename = `${contractName}.json`;
-      }
-
-      const releaseFilepath = path.join(
+      const releaseFilename = `${_.snakeCase(contractName.replace("DShare", "Dshare"))}.json`,
+        releaseFilepath = path.join(
           releaseDirectory,
           `v${version}`,
           releaseFilename,

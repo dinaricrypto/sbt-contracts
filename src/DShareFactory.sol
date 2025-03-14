@@ -158,7 +158,6 @@ contract DShareFactory is IDShareFactory, ControlledUpgradeable {
     /// @return dShare Address of the new dShare
     function createDShare(
         address owner,
-        address upgrader,
         string memory name,
         string memory symbol,
         string memory wrappedName,
