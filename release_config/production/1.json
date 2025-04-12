@@ -1,33 +1,42 @@
 {
   "TransferRestrictor": {
-    "owner": "",
-    "upgrader": ""
+    "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "upgrader": "0x6873a19fbbea962728432Bf968C62902c0533530"
   },
   "DShareFactory": {
-    "owner": "",
-    "upgrader": "",
-    "dShareBeacon": "",
-    "wrappedDShareBeacon": "",
+    "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "upgrader": "0x6873a19fbbea962728432Bf968C62902c0533530",
+    "dShareBeacon": "0x4062d9CbF85da2913880A3A5641cF05E85774f27",
+    "wrappedDShareBeacon": "0x5CCB5482dc15aAdd36d6c02C0d44ce0E3e7E6835",
     "transferRestrictor": ""
   },
   "DividendDistribution": {
-    "owner": "",
-    "upgrader": ""
+    "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "upgrader": "0x6873a19fbbea962728432Bf968C62902c0533530"
   },
   "OrderProcessor": {
-    "owner": "",
-    "upgrader": "",
-    "treasury": "",
-
+    "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "upgrader": "0x6873a19fbbea962728432Bf968C62902c0533530",
+    "treasury": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
     "vault": "",
-    "transferRestrictor": ""
+    "dshareFactory": "0x60B5E7eEcb2AEE0382db86491b8cFfA39347c747"
   },
   "FulfillmentRouter": {
-    "owner": "",
-    "upgrader": ""
+    "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "upgrader": "0x6873a19fbbea962728432Bf968C62902c0533530"
   },
   "Vault": {
-    "owner": "",
-    "upgrader": ""
+    "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "upgrader": "0x6873a19fbbea962728432Bf968C62902c0533530"
+  },
+  "DShare": {
+    "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "__beaconAddress": "0x4062d9CbF85da2913880A3A5641cF05E85774f27",
+    "__useBeacon": true
+  },
+  "WrappedDShare": {
+    "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "__beaconAddress": "0x5CCB5482dc15aAdd36d6c02C0d44ce0E3e7E6835",
+    "__useBeacon": true
   }
 }

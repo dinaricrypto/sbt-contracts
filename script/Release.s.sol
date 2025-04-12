@@ -182,14 +182,13 @@ contract Release is Script {
         returns (bytes memory)
     {
         address upgrader = _getAddressFromInitData(configJson, contractName, "upgrader");
+        address owner = _getAddressFromInitData(configJson, contractName, "owner");
         if (isUpgrade) {
-            return abi.encodeWithSignature("reinitialize(address)", upgrader);
+            return abi.encodeWithSignature("reinitialize(address,address)", owner, upgrader);
         }
-
         address dShareBeacon = _getAddressFromInitData(configJson, contractName, "dShareBeacon");
         address wrappedDShareBeacon = _getAddressFromInitData(configJson, contractName, "wrappedDShareBeacon");
         address transferRestrictor = _getAddressFromInitData(configJson, contractName, "transferRestrictor");
-        address owner = _getAddressFromInitData(configJson, contractName, "owner");
 
         return abi.encodeWithSignature(
             "initialize(address,address,address,address,address)",
