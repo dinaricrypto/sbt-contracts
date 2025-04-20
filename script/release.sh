@@ -13,7 +13,8 @@
 # ETHERSCAN_API_KEY  - Etherscan API key
 # DEPLOYED_VERSION   - Version of the previous deployment
 
-CONTRACTS=("TransferRestrictor" "DividendDistribution" "FulfillmentRouter" "Vault" "DShare" "WrappedDShare" "DShareFactory" "OrderProcessor")
+#CONTRACTS=("TransferRestrictor" "DividendDistribution" "FulfillmentRouter" "Vault" "DShare" "WrappedDShare" "DShareFactory" "OrderProcessor")
+CONTRACTS=("TransferRestrictor" "DividendDistribution" "FulfillmentRouter" "Vault" "DShare" "WrappedDShare")
 
 for i in "${CONTRACTS[@]}"; do
   echo "========================"
