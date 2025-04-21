@@ -19,7 +19,7 @@
     "upgrader": "0xB388565bE24cb10a19f56b2fB81480164C080F42",
     "treasury": "0x4181803232280371E02a875F51515BE57B215231",
     "vault": "0x1B3528fbFfa924173A988a1617245Ed0F927212a",
-    "dshareFactory": ""
+    "dshareFactory": "0xC66aAC80b2a07d139F527743151790E0413D063f"
   },
   "FulfillmentRouter": {
     "owner": "0x4181803232280371E02a875F51515BE57B215231",
