@@ -17,7 +17,7 @@
   "OrderProcessor": {
     "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
     "upgrader": "0x6873a19fbbea962728432Bf968C62902c0533530",
-    "treasury": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
+    "treasury": "0xF96b974FE330C29e80121E33ed4071C283257979",
     "vault": "",
     "dshareFactory": ""
   },
