@@ -2,7 +2,10 @@
   "name": "DShare",
   "version": "1.0.0",
   "deployments": {
-    "production": {},
+    "production": {
+      "98866": "0xF4950A31566cDBA1140058178e1AA3eC8afF3228",
+      "98867": "0xF4950A31566cDBA1140058178e1AA3eC8afF3228"
+    },
     "staging": {
       "1": "0x4F597f4457B24695BC72c42302d4493050ADeE46",
       "7887": "0x4F597f4457B24695BC72c42302d4493050ADeE46",

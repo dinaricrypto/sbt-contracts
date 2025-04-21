@@ -2,7 +2,10 @@
   "name": "Vault",
   "version": "1.0.0",
   "deployments": {
-    "production": {},
+    "production": {
+      "98866": "0xfcDA1AE64eaC8b79f931260fFf0334b1a9fd0224",
+      "98867": "0xfcDA1AE64eaC8b79f931260fFf0334b1a9fd0224"
+    },
     "staging": {
       "1": "0x860C9a9BdC343A366a6584427b277c27fBFbDF76",
       "7887": "0x860C9a9BdC343A366a6584427b277c27fBFbDF76",

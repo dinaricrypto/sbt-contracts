@@ -2,7 +2,10 @@
   "name": "FulfillmentRouter",
   "version": "1.0.0",
   "deployments": {
-    "production": {},
+    "production": {
+      "98866": "0x440Eb40220417ED908e64E7B0BfC83d63f7Bfecc",
+      "98867": "0x440Eb40220417ED908e64E7B0BfC83d63f7Bfecc"
+    },
     "staging": {
       "1": "0x7E9348ffE0a65a76C72110778c5832282bDce42A",
       "7887": "0x7E9348ffE0a65a76C72110778c5832282bDce42A",

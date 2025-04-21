@@ -2,7 +2,10 @@
   "name": "DividendDistribution",
   "version": "1.0.0",
   "deployments": {
-    "production": {},
+    "production": {
+      "98866": "0x7c0Ea1631af8842A3b5D18a279Cf4987074B8C6f",
+      "98867": "0x7c0Ea1631af8842A3b5D18a279Cf4987074B8C6f"
+    },
     "staging": {
       "1": "0x7978c49C4861e43692702FD74b12B620eE47601e",
       "7887": "0x7978c49C4861e43692702FD74b12B620eE47601e",

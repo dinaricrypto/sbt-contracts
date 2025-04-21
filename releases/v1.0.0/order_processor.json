@@ -2,7 +2,10 @@
   "name": "OrderProcessor",
   "version": "1.0.0",
   "deployments": {
-    "production": {},
+    "production": {
+      "98866": "0xc1571FEbBb6F8b62eDD0E4694714A382885d6bAB",
+      "98867": "0xc1571FEbBb6F8b62eDD0E4694714A382885d6bAB"
+    },
     "staging": {
       "1": "0x5405C077b4f15132039891545B224cEF90483809",
       "7887": "0x5405C077b4f15132039891545B224cEF90483809",
