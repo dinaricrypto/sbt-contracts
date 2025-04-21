@@ -31,12 +31,12 @@
   },
   "DShare": {
     "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
-    "__beaconAddress": "",
+    "__beaconAddress": "0x0000000000000000000000000000000000000000",
     "__useBeacon": true
   },
   "WrappedDShare": {
     "owner": "0x269e944aD9140fc6e21794e8eA71cE1AfBfe38c8",
-    "__beaconAddress": "",
+    "__beaconAddress": "0x0000000000000000000000000000000000000000",
     "__useBeacon": true
   }
 }

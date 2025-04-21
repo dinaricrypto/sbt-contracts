@@ -2,7 +2,10 @@
   "name": "TransferRestrictor",
   "version": "1.0.0",
   "deployments": {
-    "production": {},
+    "production": {
+      "98866": "0x665b099132d79739462DfDe6874126AFe840F7a3",
+      "98867": "0x665b099132d79739462DfDe6874126AFe840F7a3"
+    },
     "staging": {
       "1": "0x661CAe699fa0C3D51E2bfd71F37f97fD2eFC3e89",
       "7887": "0x661CAe699fa0C3D51E2bfd71F37f97fD2eFC3e89",
