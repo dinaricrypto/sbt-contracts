@@ -10,8 +10,8 @@
       "42161": "0x860C9a9BdC343A366a6584427b277c27fBFbDF76",
       "81457": "0x70f484c2F98B0F594E7b107936159C2b3E5dE57a",
       "84532": "0x860C9a9BdC343A366a6584427b277c27fBFbDF76",
-      "98864": "0xAaB94e1390519bFF1b41E4CdFBF8A4843e636Ec5",
-      "98865": "0x4F597f4457B24695BC72c42302d4493050ADeE46",
+      "98866": "0x4F597f4457B24695BC72c42302d4493050ADeE46",
+      "98867": "0x1B3528fbFfa924173A988a1617245Ed0F927212a",
       "421614": "0x860C9a9BdC343A366a6584427b277c27fBFbDF76",
       "11155111": "0x3c51dF4CaA52630728eC371d432d4Cf6d9F7b625",
       "168587773": "0x9381c0e2EF8F6e8B216819b3eF04E73cdD783D4c"
@@ -22,52 +22,28 @@
       "type": "function",
       "name": "DEFAULT_ADMIN_ROLE",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "OPERATOR_ROLE",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "UPGRADER_ROLE",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "UPGRADE_INTERFACE_VERSION",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "string",
-          "internalType": "string"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "string", "internalType": "string" }],
       "stateMutability": "view"
     },
     {
@@ -81,11 +57,7 @@
       "type": "function",
       "name": "beginDefaultAdminTransfer",
       "inputs": [
-        {
-          "name": "newAdmin",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "newAdmin", "type": "address", "internalType": "address" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -101,11 +73,7 @@
       "type": "function",
       "name": "changeDefaultAdminDelay",
       "inputs": [
-        {
-          "name": "newDelay",
-          "type": "uint48",
-          "internalType": "uint48"
-        }
+        { "name": "newDelay", "type": "uint48", "internalType": "uint48" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -114,74 +82,38 @@
       "type": "function",
       "name": "defaultAdmin",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "defaultAdminDelay",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint48",
-          "internalType": "uint48"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "uint48", "internalType": "uint48" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "defaultAdminDelayIncreaseWait",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint48",
-          "internalType": "uint48"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "uint48", "internalType": "uint48" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "getRoleAdmin",
       "inputs": [
-        {
-          "name": "role",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
+        { "name": "role", "type": "bytes32", "internalType": "bytes32" }
       ],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "grantRole",
       "inputs": [
-        {
-          "name": "role",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "role", "type": "bytes32", "internalType": "bytes32" },
+        { "name": "account", "type": "address", "internalType": "address" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -190,40 +122,18 @@
       "type": "function",
       "name": "hasRole",
       "inputs": [
-        {
-          "name": "role",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "role", "type": "bytes32", "internalType": "bytes32" },
+        { "name": "account", "type": "address", "internalType": "address" }
       ],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bool",
-          "internalType": "bool"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "initialize",
       "inputs": [
-        {
-          "name": "admin",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "upgrader",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "admin", "type": "address", "internalType": "address" },
+        { "name": "upgrader", "type": "address", "internalType": "address" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -232,13 +142,7 @@
       "type": "function",
       "name": "owner",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "address",
-          "internalType": "address"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "address", "internalType": "address" }],
       "stateMutability": "view"
     },
     {
@@ -246,16 +150,8 @@
       "name": "pendingDefaultAdmin",
       "inputs": [],
       "outputs": [
-        {
-          "name": "newAdmin",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "schedule",
-          "type": "uint48",
-          "internalType": "uint48"
-        }
+        { "name": "newAdmin", "type": "address", "internalType": "address" },
+        { "name": "schedule", "type": "uint48", "internalType": "uint48" }
       ],
       "stateMutability": "view"
     },
@@ -264,16 +160,8 @@
       "name": "pendingDefaultAdminDelay",
       "inputs": [],
       "outputs": [
-        {
-          "name": "newDelay",
-          "type": "uint48",
-          "internalType": "uint48"
-        },
-        {
-          "name": "schedule",
-          "type": "uint48",
-          "internalType": "uint48"
-        }
+        { "name": "newDelay", "type": "uint48", "internalType": "uint48" },
+        { "name": "schedule", "type": "uint48", "internalType": "uint48" }
       ],
       "stateMutability": "view"
     },
@@ -281,37 +169,21 @@
       "type": "function",
       "name": "proxiableUUID",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "publicVersion",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "string",
-          "internalType": "string"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "string", "internalType": "string" }],
       "stateMutability": "view"
     },
     {
       "type": "function",
       "name": "reinitialize",
       "inputs": [
-        {
-          "name": "upgrader",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "upgrader", "type": "address", "internalType": "address" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -320,16 +192,8 @@
       "type": "function",
       "name": "renounceRole",
       "inputs": [
-        {
-          "name": "role",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "role", "type": "bytes32", "internalType": "bytes32" },
+        { "name": "account", "type": "address", "internalType": "address" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -343,16 +207,8 @@
           "type": "address",
           "internalType": "contract IERC20"
         },
-        {
-          "name": "to",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "amount",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
+        { "name": "to", "type": "address", "internalType": "address" },
+        { "name": "amount", "type": "uint256", "internalType": "uint256" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -361,16 +217,8 @@
       "type": "function",
       "name": "revokeRole",
       "inputs": [
-        {
-          "name": "role",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        },
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "role", "type": "bytes32", "internalType": "bytes32" },
+        { "name": "account", "type": "address", "internalType": "address" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -386,19 +234,9 @@
       "type": "function",
       "name": "supportsInterface",
       "inputs": [
-        {
-          "name": "interfaceId",
-          "type": "bytes4",
-          "internalType": "bytes4"
-        }
+        { "name": "interfaceId", "type": "bytes4", "internalType": "bytes4" }
       ],
-      "outputs": [
-        {
-          "name": "",
-          "type": "bool",
-          "internalType": "bool"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "bool", "internalType": "bool" }],
       "stateMutability": "view"
     },
     {
@@ -410,11 +248,7 @@
           "type": "address",
           "internalType": "address"
         },
-        {
-          "name": "data",
-          "type": "bytes",
-          "internalType": "bytes"
-        }
+        { "name": "data", "type": "bytes", "internalType": "bytes" }
       ],
       "outputs": [],
       "stateMutability": "payable"
@@ -423,13 +257,7 @@
       "type": "function",
       "name": "version",
       "inputs": [],
-      "outputs": [
-        {
-          "name": "",
-          "type": "uint8",
-          "internalType": "uint8"
-        }
-      ],
+      "outputs": [{ "name": "", "type": "uint8", "internalType": "uint8" }],
       "stateMutability": "view"
     },
     {
@@ -441,16 +269,8 @@
           "type": "address",
           "internalType": "contract IERC20"
         },
-        {
-          "name": "user",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "amount",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
+        { "name": "user", "type": "address", "internalType": "address" },
+        { "name": "amount", "type": "uint256", "internalType": "uint256" }
       ],
       "outputs": [],
       "stateMutability": "nonpayable"
@@ -631,20 +451,12 @@
       ],
       "anonymous": false
     },
-    {
-      "type": "error",
-      "name": "AccessControlBadConfirmation",
-      "inputs": []
-    },
+    { "type": "error", "name": "AccessControlBadConfirmation", "inputs": [] },
     {
       "type": "error",
       "name": "AccessControlEnforcedDefaultAdminDelay",
       "inputs": [
-        {
-          "name": "schedule",
-          "type": "uint48",
-          "internalType": "uint48"
-        }
+        { "name": "schedule", "type": "uint48", "internalType": "uint48" }
       ]
     },
     {
@@ -656,49 +468,29 @@
       "type": "error",
       "name": "AccessControlInvalidDefaultAdmin",
       "inputs": [
-        {
-          "name": "defaultAdmin",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "defaultAdmin", "type": "address", "internalType": "address" }
       ]
     },
     {
       "type": "error",
       "name": "AccessControlUnauthorizedAccount",
       "inputs": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        },
-        {
-          "name": "neededRole",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
+        { "name": "account", "type": "address", "internalType": "address" },
+        { "name": "neededRole", "type": "bytes32", "internalType": "bytes32" }
       ]
     },
     {
       "type": "error",
       "name": "AddressEmptyCode",
       "inputs": [
-        {
-          "name": "target",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "target", "type": "address", "internalType": "address" }
       ]
     },
     {
       "type": "error",
       "name": "AddressInsufficientBalance",
       "inputs": [
-        {
-          "name": "account",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "account", "type": "address", "internalType": "address" }
       ]
     },
     {
@@ -712,67 +504,31 @@
         }
       ]
     },
-    {
-      "type": "error",
-      "name": "ERC1967NonPayable",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "FailedInnerCall",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "InvalidInitialization",
-      "inputs": []
-    },
-    {
-      "type": "error",
-      "name": "NotInitializing",
-      "inputs": []
-    },
+    { "type": "error", "name": "ERC1967NonPayable", "inputs": [] },
+    { "type": "error", "name": "FailedInnerCall", "inputs": [] },
+    { "type": "error", "name": "InvalidInitialization", "inputs": [] },
+    { "type": "error", "name": "NotInitializing", "inputs": [] },
     {
       "type": "error",
       "name": "SafeCastOverflowedUintDowncast",
       "inputs": [
-        {
-          "name": "bits",
-          "type": "uint8",
-          "internalType": "uint8"
-        },
-        {
-          "name": "value",
-          "type": "uint256",
-          "internalType": "uint256"
-        }
+        { "name": "bits", "type": "uint8", "internalType": "uint8" },
+        { "name": "value", "type": "uint256", "internalType": "uint256" }
       ]
     },
     {
       "type": "error",
       "name": "SafeERC20FailedOperation",
       "inputs": [
-        {
-          "name": "token",
-          "type": "address",
-          "internalType": "address"
-        }
+        { "name": "token", "type": "address", "internalType": "address" }
       ]
     },
-    {
-      "type": "error",
-      "name": "UUPSUnauthorizedCallContext",
-      "inputs": []
-    },
+    { "type": "error", "name": "UUPSUnauthorizedCallContext", "inputs": [] },
     {
       "type": "error",
       "name": "UUPSUnsupportedProxiableUUID",
       "inputs": [
-        {
-          "name": "slot",
-          "type": "bytes32",
-          "internalType": "bytes32"
-        }
+        { "name": "slot", "type": "bytes32", "internalType": "bytes32" }
       ]
     }
   ]
