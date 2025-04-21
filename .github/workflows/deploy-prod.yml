@@ -14,7 +14,7 @@ env:
 
 jobs:
   deploy:
-    environment: stage
+    environment: prod
     runs-on: ubuntu-latest
 
     steps:
