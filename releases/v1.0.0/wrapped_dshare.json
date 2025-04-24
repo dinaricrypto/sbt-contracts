@@ -2,7 +2,10 @@
   "name": "WrappedDShare",
   "version": "1.0.0",
   "deployments": {
-    "production": {},
+    "production": {
+      "98866": "0x37d081bF0fCaf8aaf1Df808131187F29bC8Cb29b",
+      "98867": "0x37d081bF0fCaf8aaf1Df808131187F29bC8Cb29b"
+    },
     "staging": {
       "1": "0xAaB94e1390519bFF1b41E4CdFBF8A4843e636Ec5",
       "7887": "0xAaB94e1390519bFF1b41E4CdFBF8A4843e636Ec5",
