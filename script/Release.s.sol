@@ -71,9 +71,7 @@ contract Release is Script {
 
         // Determine if it's a beacon contract
         bool isBeaconContract;
-        try JsonUtils.getBoolFromJson(vm, configJson, string.concat(".", contractName, ".", "__useBeacon")) returns (
-            bool v
-        ) {
+        try vm.parseJsonBool(configJson, string.concat(".", contractName, ".", "__useBeacon")) returns (bool v) {
             isBeaconContract = v;
         } catch {
             isBeaconContract = false;
@@ -144,7 +142,11 @@ contract Release is Script {
         returns (address)
     {
         string memory selector = string.concat(".", contractName, ".", paramName);
-        return JsonUtils.getAddressFromJson(vm, json, selector);
+        try vm.parseJsonAddress(json, selector) returns (address addr) {
+            return addr;
+        } catch {
+            revert(string.concat("Failed to parse address for ", paramName));
+        }
     }
 
     function _getInitData(string memory configJson, string memory contractName, bool isUpgrade)
