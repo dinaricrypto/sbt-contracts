@@ -5,7 +5,6 @@ import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console2} from "forge-std/console2.sol";
 import {VmSafe} from "forge-std/Vm.sol";
-import {JsonUtils} from "./utils/JsonUtils.sol";
 import {Vault} from "../src/orders/Vault.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
@@ -43,18 +42,23 @@ contract RescueERC20 is Script {
         string memory tokenPath = string.concat("script/utils/mainnet_token.json");
         string memory tokenJson = vm.readFile(tokenPath);
         string memory tokenSelector = chainId;
-        address token = JsonUtils.getAddressFromJson(vm, tokenJson, tokenSelector);
+        address token;
+        try vm.parseJsonAddress(tokenJson, tokenSelector) returns (address t) {
+            token = t;
+        } catch {
+            revert("Failed to parse token address from JSON");
+        }
 
         // get new vault address (version 1.0.0)
         string memory newVaultPath = string.concat("releases/v1.0.0/vault.json");
         string memory newVaultJson = vm.readFile(newVaultPath);
         string memory selectorString = string.concat(".deployments.", environment, ".", chainId);
-        address newVaultAddress = JsonUtils.getAddressFromJson(vm, newVaultJson, selectorString);
+        address newVaultAddress = getAddressFromJson(newVaultJson, selectorString);
 
         // get last deployed vault (version 0.3.1)
         string memory oldVaultPath = string.concat("releases/v0.3.1/vault.json");
         string memory oldVaultJson = vm.readFile(oldVaultPath);
-        address oldVaultAddress = JsonUtils.getAddressFromJson(vm, oldVaultJson, selectorString);
+        address oldVaultAddress = getAddressFromJson(oldVaultJson, selectorString);
 
         // get contract instance
         Vault oldVault = Vault(oldVaultAddress);
@@ -69,5 +73,13 @@ contract RescueERC20 is Script {
             console2.log("No tokens to transfer from old vault");
         }
         vm.stopBroadcast();
+    }
+
+    function getAddressFromJson(string memory json, string memory selector) internal pure returns (address) {
+        try vm.parseJsonAddress(json, selector) returns (address addr) {
+            return addr;
+        } catch {
+            revert(string.concat("Failed to parse address from JSON: ", json));
+        }
     }
 }

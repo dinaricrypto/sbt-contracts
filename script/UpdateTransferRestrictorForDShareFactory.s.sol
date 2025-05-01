@@ -5,7 +5,6 @@ import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console2} from "forge-std/console2.sol";
 import {VmSafe} from "forge-std/Vm.sol";
-import {JsonUtils} from "./utils/JsonUtils.sol";
 import {DShareFactory} from "../src/DShareFactory.sol";
 
 contract UpdateTransferRestrictorForDShareFactory is Script {
@@ -47,15 +46,14 @@ contract UpdateTransferRestrictorForDShareFactory is Script {
         string memory dshareFactoryPath = string.concat("releases/v1.0.0/dshare_factory.json");
         string memory dshareFactoryJson = vm.readFile(dshareFactoryPath);
         string memory dshareFactorySelector = string.concat(".deployments.", environment, ".", vm.toString(chainId));
-        address dshareFactoryAddress = JsonUtils.getAddressFromJson(vm, dshareFactoryJson, dshareFactorySelector);
+        address dshareFactoryAddress = getAddressFromJson(dshareFactoryJson, dshareFactorySelector);
 
         // Load new transferRestrictor address
         string memory transferRestrictorPath = string.concat("releases/v1.0.0/transfer_restrictor.json");
         string memory transferRestrictorJson = vm.readFile(transferRestrictorPath);
         string memory transferRestrictorSelector =
             string.concat(".deployments.", environment, ".", vm.toString(chainId));
-        address newTransferRestrictorAddress =
-            JsonUtils.getAddressFromJson(vm, transferRestrictorJson, transferRestrictorSelector);
+        address newTransferRestrictorAddress = getAddressFromJson(transferRestrictorJson, transferRestrictorSelector);
 
         DShareFactory dshareFactory = DShareFactory(dshareFactoryAddress);
         address currentTransferRestrictor = dshareFactory.getTransferRestrictor();
@@ -68,5 +66,13 @@ contract UpdateTransferRestrictorForDShareFactory is Script {
             console2.log("TransferRestrictor is already up to date. No action needed.");
         }
         vm.stopBroadcast();
+    }
+
+    function getAddressFromJson(string memory json, string memory selector) internal pure returns (address) {
+        try vm.parseJsonAddress(json, selector) returns (address addr) {
+            return addr;
+        } catch {
+            revert(string.concat("Failed to parse address from JSON: ", json));
+        }
     }
 }

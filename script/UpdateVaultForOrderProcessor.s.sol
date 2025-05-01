@@ -5,7 +5,6 @@ import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console2} from "forge-std/console2.sol";
 import {VmSafe} from "forge-std/Vm.sol";
-import {JsonUtils} from "./utils/JsonUtils.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 
 contract UpdateVaultForOrderProcessor is Script {
@@ -45,14 +44,14 @@ contract UpdateVaultForOrderProcessor is Script {
         string memory orderProcessorPath = string.concat("releases/v1.0.0/order_processor.json");
         string memory orderProcessorJson = vm.readFile(orderProcessorPath);
         string memory orderProcessorSelector = string.concat(".deployments.", environment, ".", vm.toString(chainId));
-        address orderProcessorAddress = JsonUtils.getAddressFromJson(vm, orderProcessorJson, orderProcessorSelector);
+        address orderProcessorAddress = getAddressFromJson(orderProcessorJson, orderProcessorSelector);
 
         // Load the new Vault addresson
         // Load the release JSON
         string memory vaultPath = string.concat("releases/v1.0.0/vault.json");
         string memory vaultJson = vm.readFile(vaultPath);
         string memory vaultSelector = string.concat(".deployments.", environment, ".", vm.toString(chainId));
-        address vaultAddress = JsonUtils.getAddressFromJson(vm, vaultJson, vaultSelector);
+        address vaultAddress = getAddressFromJson(vaultJson, vaultSelector);
 
         OrderProcessor orderProcessor = OrderProcessor(orderProcessorAddress);
         address currentVault = orderProcessor.vault();
@@ -66,5 +65,13 @@ contract UpdateVaultForOrderProcessor is Script {
         }
 
         vm.stopBroadcast();
+    }
+
+    function getAddressFromJson(string memory json, string memory selector) internal pure returns (address) {
+        try vm.parseJsonAddress(json, selector) returns (address addr) {
+            return addr;
+        } catch {
+            revert(string.concat("Failed to parse address from JSON: ", json));
+        }
     }
 }

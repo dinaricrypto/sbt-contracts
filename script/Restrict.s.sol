@@ -5,7 +5,6 @@ import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console2} from "forge-std/console2.sol";
 import {VmSafe} from "forge-std/Vm.sol";
-import {JsonUtils} from "./utils/JsonUtils.sol";
 import {TransferRestrictor} from "../src/TransferRestrictor.sol";
 
 contract Restrict is Script {
@@ -41,8 +40,7 @@ contract Restrict is Script {
         string memory transferRestrictorPath = string.concat("releases/v1.0.0/transfer_restrictor.json");
         string memory transferRestrictorJson = vm.readFile(transferRestrictorPath);
         string memory transferRestrictorSelector = string.concat(".deployments.", environment, ".", chainId);
-        address transferRestrictorAddress =
-            JsonUtils.getAddressFromJson(vm, transferRestrictorJson, transferRestrictorSelector);
+        address transferRestrictorAddress = getAddressFromJson(transferRestrictorJson, transferRestrictorSelector);
         address accountToRestrict = vm.envAddress("ACCOUNT_TO_RESTRICT");
 
         TransferRestrictor transferRestrictor = TransferRestrictor(transferRestrictorAddress);
@@ -56,5 +54,13 @@ contract Restrict is Script {
         }
         vm.stopBroadcast();
         console2.log("TransferRestrictor address:", transferRestrictorAddress);
+    }
+
+    function getAddressFromJson(string memory json, string memory selector) internal pure returns (address) {
+        try vm.parseJsonAddress(json, selector) returns (address addr) {
+            return addr;
+        } catch {
+            revert(string.concat("Failed to parse address from JSON: ", json));
+        }
     }
 }

@@ -5,7 +5,6 @@ import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console2} from "forge-std/console2.sol";
 import {VmSafe} from "forge-std/Vm.sol";
-import {JsonUtils} from "./utils/JsonUtils.sol";
 import {UpgradeableBeacon} from "openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 contract UpdateDShareAndWrappedDshareImplementation is Script {
@@ -47,10 +46,12 @@ contract UpdateDShareAndWrappedDshareImplementation is Script {
         string memory chainId = vm.toString(block.chainid);
 
         // Get beacon and implementation addresses
-        address dshareBeaconAddress = getDShareBeaconAddress(environment, chainId);
-        address wrappedDshareBeaconAddress = getWrappedDShareBeaconAddress(environment, chainId);
-        address dshareImplementationAddress = getDShareImplementationAddress(chainId);
-        address wrappedDshareImplementationAddress = getWrappedDShareImplementationAddress(chainId);
+        address dshareBeaconAddress =
+            getJsonAddress(string.concat("releases/v0.3.1/dshare_beacon.json"), environment, chainId);
+        address wrappedDshareBeaconAddress =
+            getJsonAddress(string.concat("releases/v0.3.1/wrapped_dshare_beacon.json"), environment, chainId);
+        address dshareImplementationAddress = getImplementationAddress(string.concat(".DShare.", chainId));
+        address wrappedDshareImplementationAddress = getImplementationAddress(string.concat(".WrappedDShare.", chainId));
 
         // Initialize beacon contracts
         UpgradeableBeacon dshareBeacon = UpgradeableBeacon(dshareBeaconAddress);
@@ -78,39 +79,28 @@ contract UpdateDShareAndWrappedDshareImplementation is Script {
         console2.log("DShare and WrappedDShare implementation update completed.");
     }
 
-    // Get DShare beacon address from JSON
-    function getDShareBeaconAddress(string memory environment, string memory chainId) internal view returns (address) {
-        string memory dshareBeaconPath = string.concat("releases/v0.3.1/dshare_beacon.json");
-        string memory dshareBeaconJson = vm.readFile(dshareBeaconPath);
-        string memory dshareBeaconSelector = string.concat(".deployments.", environment, ".", chainId);
-        return JsonUtils.getAddressFromJson(vm, dshareBeaconJson, dshareBeaconSelector);
-    }
-
-    // Get WrappedDShare beacon address from JSON
-    function getWrappedDShareBeaconAddress(string memory environment, string memory chainId)
+    function getJsonAddress(string memory path, string memory environment, string memory chainId)
         internal
         view
         returns (address)
     {
-        string memory wrappedDshareBeaconPath = string.concat("releases/v0.3.1/wrapped_dshare_beacon.json");
-        string memory wrappedDshareBeaconJson = vm.readFile(wrappedDshareBeaconPath);
-        string memory wrappedDshareBeaconSelector = string.concat(".deployments.", environment, ".", chainId);
-        return JsonUtils.getAddressFromJson(vm, wrappedDshareBeaconJson, wrappedDshareBeaconSelector);
+        string memory json = vm.readFile(path);
+        string memory selector = string.concat(".deployments.", environment, ".", chainId);
+        try vm.parseJsonAddress(json, selector) returns (address addr) {
+            return addr;
+        } catch {
+            revert(string.concat("Failed to parse address from JSON: ", json));
+        }
     }
 
     // Get DShare implementation address from JSON
-    function getDShareImplementationAddress(string memory chainId) internal view returns (address) {
-        string memory dshareImplementationPath = string.concat("script/utils/implementation.json");
-        string memory dshareImplementationJson = vm.readFile(dshareImplementationPath);
-        string memory dshareImplementationSelector = string.concat(".DShare.", chainId);
-        return JsonUtils.getAddressFromJson(vm, dshareImplementationJson, dshareImplementationSelector);
-    }
-
-    // Get WrappedDShare implementation address from JSON
-    function getWrappedDShareImplementationAddress(string memory chainId) internal view returns (address) {
-        string memory wrappedDshareImplementationPath = string.concat("script/utils/implementation.json");
-        string memory wrappedDshareImplementationJson = vm.readFile(wrappedDshareImplementationPath);
-        string memory wrappedDshareImplementationSelector = string.concat(".WrappedDshare.", chainId);
-        return JsonUtils.getAddressFromJson(vm, wrappedDshareImplementationJson, wrappedDshareImplementationSelector);
+    function getImplementationAddress(string memory selector) internal view returns (address) {
+        string memory implementationPath = string.concat("script/utils/implementation.json");
+        string memory implementationJson = vm.readFile(implementationPath);
+        try vm.parseJsonAddress(implementationJson, selector) returns (address addr) {
+            return addr;
+        } catch {
+            revert(string.concat("Failed to parse address from JSON: ", implementationJson));
+        }
     }
 }

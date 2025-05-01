@@ -5,7 +5,6 @@ import {Script} from "forge-std/Script.sol";
 import {stdJson} from "forge-std/StdJson.sol";
 import {console2} from "forge-std/console2.sol";
 import {VmSafe} from "forge-std/Vm.sol";
-import {JsonUtils} from "./utils/JsonUtils.sol";
 import {OrderProcessor} from "../src/orders/OrderProcessor.sol";
 
 contract UpdateOperatorForOrderProcessor is Script {
@@ -52,19 +51,13 @@ contract UpdateOperatorForOrderProcessor is Script {
 
         // Construct the selector for the OrderProcessor address
         string memory selectorString = string.concat(".deployments.", environment, ".", chainId);
-        address orderProcessorAddress = JsonUtils.getAddressFromJson(vm, releaseJson, selectorString);
-
-        require(orderProcessorAddress != address(0), "OrderProcessor address not found in release config");
+        address orderProcessorAddress = getAddressFromJson(releaseJson, selectorString);
 
         // Load the new FulfillmentRouter address from release_config under .order_processor.fulfillment_router
         string memory fulfillmentRouterPath = string.concat("releases/v1.0.0/fulfillment_router.json");
         string memory fulfillmentRouterJson = vm.readFile(fulfillmentRouterPath);
         string memory newFulfillmentRouterSelectorString = string.concat(".deployments.", environment, ".", chainId);
-
-        address newFulfillmentRouter =
-            JsonUtils.getAddressFromJson(vm, fulfillmentRouterJson, newFulfillmentRouterSelectorString);
-
-        require(newFulfillmentRouter != address(0), "FulfillmentRouter address not found");
+        address newFulfillmentRouter = getAddressFromJson(fulfillmentRouterJson, newFulfillmentRouterSelectorString);
 
         console2.log("OrderProcessor address: %s", orderProcessorAddress);
         console2.log("New FulfillmentRouter address (from config): %s", newFulfillmentRouter);
@@ -89,6 +82,14 @@ contract UpdateOperatorForOrderProcessor is Script {
             bool updatedOperatorStatus = orderProcessor.isOperator(newFulfillmentRouter);
             require(updatedOperatorStatus, "Operator update verification failed");
             console2.log("Verified: FulfillmentRouter is now operator: %s", updatedOperatorStatus);
+        }
+    }
+
+    function getAddressFromJson(string memory json, string memory selector) internal pure returns (address) {
+        try vm.parseJsonAddress(json, selector) returns (address addr) {
+            return addr;
+        } catch {
+            revert(string.concat("Failed to parse address from JSON: ", json));
         }
     }
 }
