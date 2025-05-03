@@ -3,6 +3,7 @@ pragma solidity 0.8.25;
 
 import {ControlledUpgradeable} from "../deployment/ControlledUpgradeable.sol";
 import {EIP712Upgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/cryptography/EIP712Upgradeable.sol";
+import {SignatureChecker} from "openzeppelin-contracts/contracts/utils/cryptography/SignatureChecker.sol";
 import {MulticallUpgradeable} from "openzeppelin-contracts-upgradeable/contracts/utils/MulticallUpgradeable.sol";
 import {SafeERC20, IERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20Metadata} from "openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol";
@@ -81,6 +82,7 @@ contract OrderProcessor is
     error OrderFillAboveLimitPrice();
     error NotOperator();
     error NotRequester();
+    error InvalidSignature();
 
     /// @dev Emitted when `treasury` is set
     event TreasurySet(address indexed treasury);
@@ -477,6 +479,32 @@ contract OrderProcessor is
 
         // Create order
         _createOrder(id, order, requester, order.sell ? 0 : feeQuote.fee);
+    }
+
+    /// @inheritdoc IOrderProcessor
+    function createOrderWithSignature(
+        Order calldata order,
+        Signature calldata orderSignature,
+        FeeQuote calldata feeQuote,
+        bytes calldata feeQuoteSignature,
+        address orderSignatureSigner
+    ) external whenOrdersNotPaused onlyOperator returns (uint256 id) {
+        // Validate signature deadline
+        if (orderSignature.deadline < block.timestamp) revert ExpiredSignature();
+
+        // Use the original EIP-712 hash structure
+        bytes32 messageHash = _hashTypedDataV4(hashOrderRequest(order, orderSignature.deadline));
+
+        // Verify signature using SignatureChecker (supports both EOA and ERC-1271)
+        if (!SignatureChecker.isValidSignatureNow(orderSignatureSigner, messageHash, orderSignature.signature)) {
+            revert InvalidSignature();
+        }
+
+        id = hashOrder(order);
+        _validateFeeQuote(id, orderSignatureSigner, feeQuote, feeQuoteSignature);
+
+        // Create order
+        _createOrder(id, order, orderSignatureSigner, order.sell ? 0 : feeQuote.fee);
     }
 
     function _validateFeeQuote(

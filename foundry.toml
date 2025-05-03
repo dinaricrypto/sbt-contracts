@@ -4,7 +4,7 @@ out = "out"
 libs = ["node_modules", "lib"]
 solc_version = '0.8.25'
 evm_version = 'cancun'
-optimizer_runs = 800
+optimizer_runs = 680
 gas_price = 200_000_000
 fs_permissions = [{ access = "read-write", path = "./"}]
 
