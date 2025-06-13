@@ -1,6 +1,6 @@
 ### Ticket
 
-Please link any clickup tickets, docs or other relevant context.
+Please link any jira tickets, docs or other relevant context.
 
 ### Description
 
