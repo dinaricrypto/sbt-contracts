@@ -190,6 +190,22 @@ interface IOrderProcessor {
         bytes calldata feeQuoteSignature
     ) external returns (uint256);
 
+    /// @notice Lock tokens and initialize signed order
+    /// @param order Order request to initialize
+    /// @param orderSignature Signature and deadline for order
+    /// @param feeQuote Fee quote for order
+    /// @param feeQuoteSignature Signature for fee quote
+    /// @param orderSignatureSigner Address of order requester (could be smart wallet)
+    /// @return id Order id
+    /// @dev Only callable by operator
+    function createOrderWithSignature(
+        Order calldata order,
+        Signature calldata orderSignature,
+        FeeQuote calldata feeQuote,
+        bytes calldata feeQuoteSignature,
+        address orderSignatureSigner
+    ) external returns (uint256);
+
     /// @notice Request an order
     /// @param order Order request to submit
     /// @param feeQuote Fee quote for order
