@@ -7,10 +7,21 @@ import "solady/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {IAccessControl} from "openzeppelin-contracts/contracts/access/IAccessControl.sol";
 import {ERC1967Proxy} from "openzeppelin-contracts/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import {IDShare} from "../src/IDShare.sol";
+
+/// @notice Mock DShare token for testing mint functionality
+contract MockDShare is MockERC20 {
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) MockERC20(name_, symbol_, decimals_) {}
+
+    function mint(address to, uint256 value) public override {
+        _mint(to, value);
+    }
+}
 
 contract DividendDistributionTest is Test {
     DividendDistribution distribution;
     MockERC20 token;
+    MockDShare dshareToken;
 
     uint256 public userPrivateKey;
     uint256 public user2PrivateKey;
@@ -20,6 +31,7 @@ contract DividendDistributionTest is Test {
     address public user2;
     address public admin;
     address public distributor = address(4);
+    address public withholder = address(5);
 
     struct HashAndDataTuple {
         uint256 originalData;
@@ -32,6 +44,12 @@ contract DividendDistributionTest is Test {
         uint256 indexed distributionId, uint256 totalDistribution, uint256 startDate, uint256 endDate
     );
     event DistributionReclaimed(uint256 indexed distributionId, uint256 totalReclaimed);
+    event DistributionMinted(
+        bytes32 indexed distributionFillId, address indexed recipient, address indexed token, uint256 amount
+    );
+    event WithholdingMinted(
+        bytes32 indexed distributionWithholdingId, address indexed recipient, address indexed token, uint256 amount
+    );
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -43,6 +61,7 @@ contract DividendDistributionTest is Test {
 
         vm.startPrank(admin);
         token = new MockERC20("Money", "$", 6);
+        dshareToken = new MockDShare("DShare", "DS", 18);
         DividendDistribution distributionImpl = new DividendDistribution();
         distribution = DividendDistribution(
             address(
@@ -177,5 +196,127 @@ contract DividendDistributionTest is Test {
 
         assertEq(IERC20(address(token)).balanceOf(address(distribution)), 0);
         assertEq(IERC20(address(token)).balanceOf(distributor), totalDistribution);
+    }
+
+    // ------------------- mintDistribution Tests ------------------- //
+
+    function testMintDistribution() public {
+        bytes32 fillId = keccak256("unique-fill-id-1");
+        uint256 amount = 1000e18;
+
+        vm.expectEmit(true, true, true, true);
+        emit DistributionMinted(fillId, user, address(dshareToken), amount);
+
+        vm.prank(distributor);
+        distribution.mintDistribution(address(dshareToken), amount, user, fillId);
+
+        assertEq(dshareToken.balanceOf(user), amount);
+        assertTrue(distribution.distributionFilled(fillId));
+    }
+
+    function testMintDistributionIdempotency() public {
+        bytes32 fillId = keccak256("unique-fill-id-2");
+        uint256 amount = 1000e18;
+
+        vm.prank(distributor);
+        distribution.mintDistribution(address(dshareToken), amount, user, fillId);
+
+        vm.expectRevert(abi.encodeWithSelector(DividendDistribution.DistributionAlreadyFilled.selector, fillId));
+        vm.prank(distributor);
+        distribution.mintDistribution(address(dshareToken), amount, user, fillId);
+    }
+
+    function testMintDistributionOnlyDistributor() public {
+        bytes32 fillId = keccak256("unique-fill-id-3");
+        uint256 amount = 1000e18;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
+            )
+        );
+        vm.prank(user);
+        distribution.mintDistribution(address(dshareToken), amount, user, fillId);
+    }
+
+    function testMintDistributionZeroChecks() public {
+        bytes32 fillId = keccak256("unique-fill-id-4");
+        uint256 amount = 1000e18;
+
+        // Test zero token address
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.mintDistribution(address(0), amount, user, fillId);
+
+        // Test zero recipient address
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.mintDistribution(address(dshareToken), amount, address(0), fillId);
+
+        // Test zero amount
+        vm.expectRevert(DividendDistribution.ZeroAmount.selector);
+        vm.prank(distributor);
+        distribution.mintDistribution(address(dshareToken), 0, user, fillId);
+    }
+
+    // ------------------- mintWithholding Tests ------------------- //
+
+    function testMintWithholding() public {
+        bytes32 withholdingId = keccak256("unique-withholding-id-1");
+        uint256 amount = 500e18;
+
+        vm.expectEmit(true, true, true, true);
+        emit WithholdingMinted(withholdingId, withholder, address(dshareToken), amount);
+
+        vm.prank(distributor);
+        distribution.mintWithholding(address(dshareToken), amount, withholder, withholdingId);
+
+        assertEq(dshareToken.balanceOf(withholder), amount);
+        assertTrue(distribution.withholdingFilled(withholdingId));
+    }
+
+    function testMintWithholdingIdempotency() public {
+        bytes32 withholdingId = keccak256("unique-withholding-id-2");
+        uint256 amount = 500e18;
+
+        vm.prank(distributor);
+        distribution.mintWithholding(address(dshareToken), amount, withholder, withholdingId);
+
+        vm.expectRevert(abi.encodeWithSelector(DividendDistribution.WithholdingAlreadyFilled.selector, withholdingId));
+        vm.prank(distributor);
+        distribution.mintWithholding(address(dshareToken), amount, withholder, withholdingId);
+    }
+
+    function testMintWithholdingOnlyDistributor() public {
+        bytes32 withholdingId = keccak256("unique-withholding-id-3");
+        uint256 amount = 500e18;
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
+            )
+        );
+        vm.prank(user);
+        distribution.mintWithholding(address(dshareToken), amount, withholder, withholdingId);
+    }
+
+    function testMintWithholdingZeroChecks() public {
+        bytes32 withholdingId = keccak256("unique-withholding-id-4");
+        uint256 amount = 500e18;
+
+        // Test zero token address
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.mintWithholding(address(0), amount, withholder, withholdingId);
+
+        // Test zero recipient address
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.mintWithholding(address(dshareToken), amount, address(0), withholdingId);
+
+        // Test zero amount
+        vm.expectRevert(DividendDistribution.ZeroAmount.selector);
+        vm.prank(distributor);
+        distribution.mintWithholding(address(dshareToken), 0, withholder, withholdingId);
     }
 }

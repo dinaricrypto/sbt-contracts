@@ -33,4 +33,23 @@ interface IDividendDistributor {
      * @dev Can only be called by the distributor after the claim window has passed.
      */
     function reclaimDistribution(uint256 _distributionId) external;
+
+    /**
+     * @notice Mint tokens directly to recipient for dividend distribution
+     * @param token Token address to mint (vUSD or DShare)
+     * @param amount Amount to mint
+     * @param recipient Address receiving tokens
+     * @param distributionFillId Unique UUID for idempotency
+     */
+    function mintDistribution(address token, uint256 amount, address recipient, bytes32 distributionFillId) external;
+
+    /**
+     * @notice Mint tokens to recipient for tax withholding
+     * @param token Token address to mint (vUSD)
+     * @param amount Amount to mint
+     * @param recipient Withholder address
+     * @param distributionWithholdingId Unique UUID for idempotency
+     */
+    function mintWithholding(address token, uint256 amount, address recipient, bytes32 distributionWithholdingId)
+        external;
 }
