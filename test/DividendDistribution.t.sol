@@ -32,6 +32,7 @@ contract DividendDistributionTest is Test {
     address public admin;
     address public distributor = address(4);
     address public withholder = address(5);
+    address public revenueVault = address(6);
 
     struct HashAndDataTuple {
         uint256 originalData;
@@ -44,12 +45,16 @@ contract DividendDistributionTest is Test {
         uint256 indexed distributionId, uint256 totalDistribution, uint256 startDate, uint256 endDate
     );
     event DistributionReclaimed(uint256 indexed distributionId, uint256 totalReclaimed);
-    event DistributionMinted(
-        bytes32 indexed distributionFillId, address indexed recipient, address indexed token, uint256 amount
+    event DividendMinted(
+        bytes32 indexed brokerageDividendId, address indexed target, address indexed token, uint256 amount
     );
-    event WithholdingMinted(
-        bytes32 indexed distributionWithholdingId, address indexed recipient, address indexed token, uint256 amount
+    event DistributionSent(
+        bytes32 indexed distributionId, address indexed recipient, address indexed token, uint256 amount
     );
+    event WithholdingSent(
+        bytes32 indexed withholdingId, address indexed recipient, address indexed token, uint256 amount
+    );
+    event FeeSent(bytes32 indexed feeId, address indexed recipient, address indexed token, uint256 amount);
 
     function setUp() public {
         userPrivateKey = 0x01;
@@ -198,98 +203,52 @@ contract DividendDistributionTest is Test {
         assertEq(IERC20(address(token)).balanceOf(distributor), totalDistribution);
     }
 
-    // ------------------- mintDistribution Tests ------------------- //
+    // ------------------- mintDividend Tests ------------------- //
 
-    function testMintDistribution() public {
-        bytes32 fillId = keccak256("unique-fill-id-1");
+    function testMintDividendToWallet() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-1");
         uint256 amount = 1000e18;
 
         vm.expectEmit(true, true, true, true);
-        emit DistributionMinted(fillId, user, address(dshareToken), amount);
+        emit DividendMinted(brokerageDividendId, user, address(dshareToken), amount);
 
         vm.prank(distributor);
-        distribution.mintDistribution(address(dshareToken), amount, user, fillId);
+        distribution.mintDividend(address(dshareToken), amount, user, brokerageDividendId);
 
         assertEq(dshareToken.balanceOf(user), amount);
-        assertTrue(distribution.distributionFilled(fillId));
+        assertTrue(distribution.dividendMinted(brokerageDividendId));
     }
 
-    function testMintDistributionIdempotency() public {
-        bytes32 fillId = keccak256("unique-fill-id-2");
-        uint256 amount = 1000e18;
-
-        vm.prank(distributor);
-        distribution.mintDistribution(address(dshareToken), amount, user, fillId);
-
-        vm.expectRevert(abi.encodeWithSelector(DividendDistribution.DistributionAlreadyFilled.selector, fillId));
-        vm.prank(distributor);
-        distribution.mintDistribution(address(dshareToken), amount, user, fillId);
-    }
-
-    function testMintDistributionOnlyDistributor() public {
-        bytes32 fillId = keccak256("unique-fill-id-3");
-        uint256 amount = 1000e18;
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
-            )
-        );
-        vm.prank(user);
-        distribution.mintDistribution(address(dshareToken), amount, user, fillId);
-    }
-
-    function testMintDistributionZeroChecks() public {
-        bytes32 fillId = keccak256("unique-fill-id-4");
-        uint256 amount = 1000e18;
-
-        // Test zero token address
-        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
-        vm.prank(distributor);
-        distribution.mintDistribution(address(0), amount, user, fillId);
-
-        // Test zero recipient address
-        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
-        vm.prank(distributor);
-        distribution.mintDistribution(address(dshareToken), amount, address(0), fillId);
-
-        // Test zero amount
-        vm.expectRevert(DividendDistribution.ZeroAmount.selector);
-        vm.prank(distributor);
-        distribution.mintDistribution(address(dshareToken), 0, user, fillId);
-    }
-
-    // ------------------- mintWithholding Tests ------------------- //
-
-    function testMintWithholding() public {
-        bytes32 withholdingId = keccak256("unique-withholding-id-1");
-        uint256 amount = 500e18;
+    function testMintDividendToContract() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-2");
+        uint256 amount = 5000e18;
 
         vm.expectEmit(true, true, true, true);
-        emit WithholdingMinted(withholdingId, withholder, address(dshareToken), amount);
+        emit DividendMinted(brokerageDividendId, address(distribution), address(dshareToken), amount);
 
         vm.prank(distributor);
-        distribution.mintWithholding(address(dshareToken), amount, withholder, withholdingId);
+        distribution.mintDividend(address(dshareToken), amount, address(distribution), brokerageDividendId);
 
-        assertEq(dshareToken.balanceOf(withholder), amount);
-        assertTrue(distribution.withholdingFilled(withholdingId));
+        assertEq(dshareToken.balanceOf(address(distribution)), amount);
     }
 
-    function testMintWithholdingIdempotency() public {
-        bytes32 withholdingId = keccak256("unique-withholding-id-2");
-        uint256 amount = 500e18;
+    function testMintDividendIdempotency() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-3");
+        uint256 amount = 1000e18;
 
         vm.prank(distributor);
-        distribution.mintWithholding(address(dshareToken), amount, withholder, withholdingId);
+        distribution.mintDividend(address(dshareToken), amount, user, brokerageDividendId);
 
-        vm.expectRevert(abi.encodeWithSelector(DividendDistribution.WithholdingAlreadyFilled.selector, withholdingId));
+        vm.expectRevert(
+            abi.encodeWithSelector(DividendDistribution.DividendAlreadyMinted.selector, brokerageDividendId)
+        );
         vm.prank(distributor);
-        distribution.mintWithholding(address(dshareToken), amount, withholder, withholdingId);
+        distribution.mintDividend(address(dshareToken), amount, user, brokerageDividendId);
     }
 
-    function testMintWithholdingOnlyDistributor() public {
-        bytes32 withholdingId = keccak256("unique-withholding-id-3");
-        uint256 amount = 500e18;
+    function testMintDividendOnlyDistributor() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-4");
+        uint256 amount = 1000e18;
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -297,26 +256,267 @@ contract DividendDistributionTest is Test {
             )
         );
         vm.prank(user);
-        distribution.mintWithholding(address(dshareToken), amount, withholder, withholdingId);
+        distribution.mintDividend(address(dshareToken), amount, user, brokerageDividendId);
     }
 
-    function testMintWithholdingZeroChecks() public {
-        bytes32 withholdingId = keccak256("unique-withholding-id-4");
-        uint256 amount = 500e18;
+    function testMintDividendZeroChecks() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-5");
+        uint256 amount = 1000e18;
 
-        // Test zero token address
         vm.expectRevert(DividendDistribution.ZeroAddress.selector);
         vm.prank(distributor);
-        distribution.mintWithholding(address(0), amount, withholder, withholdingId);
+        distribution.mintDividend(address(0), amount, user, brokerageDividendId);
 
-        // Test zero recipient address
         vm.expectRevert(DividendDistribution.ZeroAddress.selector);
         vm.prank(distributor);
-        distribution.mintWithholding(address(dshareToken), amount, address(0), withholdingId);
+        distribution.mintDividend(address(dshareToken), amount, address(0), brokerageDividendId);
 
-        // Test zero amount
         vm.expectRevert(DividendDistribution.ZeroAmount.selector);
         vm.prank(distributor);
-        distribution.mintWithholding(address(dshareToken), 0, withholder, withholdingId);
+        distribution.mintDividend(address(dshareToken), 0, user, brokerageDividendId);
+    }
+
+    // ------------------- sendDistribution Tests ------------------- //
+
+    function testSendDistribution() public {
+        // First mint to contract
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-send-1");
+        uint256 totalAmount = 5000e18;
+        vm.prank(distributor);
+        distribution.mintDividend(address(dshareToken), totalAmount, address(distribution), brokerageDividendId);
+
+        // Send distribution to user
+        bytes32 distributionId = keccak256("distribution-1");
+        uint256 userAmount = 1000e18;
+
+        vm.expectEmit(true, true, true, true);
+        emit DistributionSent(distributionId, user, address(dshareToken), userAmount);
+
+        vm.prank(distributor);
+        distribution.sendDistribution(address(dshareToken), userAmount, user, distributionId);
+
+        assertEq(dshareToken.balanceOf(user), userAmount);
+        assertEq(dshareToken.balanceOf(address(distribution)), totalAmount - userAmount);
+        assertTrue(distribution.distributionSent(distributionId));
+    }
+
+    function testSendDistributionIdempotency() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-send-2");
+        vm.prank(distributor);
+        distribution.mintDividend(address(dshareToken), 5000e18, address(distribution), brokerageDividendId);
+
+        bytes32 distributionId = keccak256("distribution-2");
+        uint256 amount = 1000e18;
+
+        vm.prank(distributor);
+        distribution.sendDistribution(address(dshareToken), amount, user, distributionId);
+
+        vm.expectRevert(abi.encodeWithSelector(DividendDistribution.DistributionAlreadySent.selector, distributionId));
+        vm.prank(distributor);
+        distribution.sendDistribution(address(dshareToken), amount, user, distributionId);
+    }
+
+    function testSendDistributionOnlyDistributor() public {
+        bytes32 distributionId = keccak256("distribution-3");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
+            )
+        );
+        vm.prank(user);
+        distribution.sendDistribution(address(dshareToken), 1000e18, user, distributionId);
+    }
+
+    function testSendDistributionZeroChecks() public {
+        bytes32 distributionId = keccak256("distribution-4");
+        uint256 amount = 1000e18;
+
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.sendDistribution(address(0), amount, user, distributionId);
+
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.sendDistribution(address(dshareToken), amount, address(0), distributionId);
+
+        vm.expectRevert(DividendDistribution.ZeroAmount.selector);
+        vm.prank(distributor);
+        distribution.sendDistribution(address(dshareToken), 0, user, distributionId);
+    }
+
+    // ------------------- sendWithholding Tests ------------------- //
+
+    function testSendWithholding() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-wh-1");
+        uint256 totalAmount = 5000e18;
+        vm.prank(distributor);
+        distribution.mintDividend(address(dshareToken), totalAmount, address(distribution), brokerageDividendId);
+
+        bytes32 withholdingId = keccak256("withholding-1");
+        uint256 withholdingAmount = 200e18;
+
+        vm.expectEmit(true, true, true, true);
+        emit WithholdingSent(withholdingId, withholder, address(dshareToken), withholdingAmount);
+
+        vm.prank(distributor);
+        distribution.sendWithholding(address(dshareToken), withholdingAmount, withholder, withholdingId);
+
+        assertEq(dshareToken.balanceOf(withholder), withholdingAmount);
+        assertTrue(distribution.withholdingSent(withholdingId));
+    }
+
+    function testSendWithholdingIdempotency() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-wh-2");
+        vm.prank(distributor);
+        distribution.mintDividend(address(dshareToken), 5000e18, address(distribution), brokerageDividendId);
+
+        bytes32 withholdingId = keccak256("withholding-2");
+        uint256 amount = 200e18;
+
+        vm.prank(distributor);
+        distribution.sendWithholding(address(dshareToken), amount, withholder, withholdingId);
+
+        vm.expectRevert(abi.encodeWithSelector(DividendDistribution.WithholdingAlreadySent.selector, withholdingId));
+        vm.prank(distributor);
+        distribution.sendWithholding(address(dshareToken), amount, withholder, withholdingId);
+    }
+
+    function testSendWithholdingOnlyDistributor() public {
+        bytes32 withholdingId = keccak256("withholding-3");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
+            )
+        );
+        vm.prank(user);
+        distribution.sendWithholding(address(dshareToken), 200e18, withholder, withholdingId);
+    }
+
+    function testSendWithholdingZeroChecks() public {
+        bytes32 withholdingId = keccak256("withholding-4");
+        uint256 amount = 200e18;
+
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.sendWithholding(address(0), amount, withholder, withholdingId);
+
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.sendWithholding(address(dshareToken), amount, address(0), withholdingId);
+
+        vm.expectRevert(DividendDistribution.ZeroAmount.selector);
+        vm.prank(distributor);
+        distribution.sendWithholding(address(dshareToken), 0, withholder, withholdingId);
+    }
+
+    // ------------------- sendFee Tests ------------------- //
+
+    function testSendFee() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-fee-1");
+        uint256 totalAmount = 5000e18;
+        vm.prank(distributor);
+        distribution.mintDividend(address(dshareToken), totalAmount, address(distribution), brokerageDividendId);
+
+        bytes32 feeId = keccak256("fee-1");
+        uint256 feeAmount = 50e18;
+
+        vm.expectEmit(true, true, true, true);
+        emit FeeSent(feeId, revenueVault, address(dshareToken), feeAmount);
+
+        vm.prank(distributor);
+        distribution.sendFee(address(dshareToken), feeAmount, revenueVault, feeId);
+
+        assertEq(dshareToken.balanceOf(revenueVault), feeAmount);
+        assertTrue(distribution.feeSent(feeId));
+    }
+
+    function testSendFeeIdempotency() public {
+        bytes32 brokerageDividendId = keccak256("brokerage-dividend-fee-2");
+        vm.prank(distributor);
+        distribution.mintDividend(address(dshareToken), 5000e18, address(distribution), brokerageDividendId);
+
+        bytes32 feeId = keccak256("fee-2");
+        uint256 feeAmount = 50e18;
+
+        vm.prank(distributor);
+        distribution.sendFee(address(dshareToken), feeAmount, revenueVault, feeId);
+
+        vm.expectRevert(abi.encodeWithSelector(DividendDistribution.FeeAlreadySent.selector, feeId));
+        vm.prank(distributor);
+        distribution.sendFee(address(dshareToken), feeAmount, revenueVault, feeId);
+    }
+
+    function testSendFeeOnlyDistributor() public {
+        bytes32 feeId = keccak256("fee-3");
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, user, distribution.DISTRIBUTOR_ROLE()
+            )
+        );
+        vm.prank(user);
+        distribution.sendFee(address(dshareToken), 50e18, revenueVault, feeId);
+    }
+
+    function testSendFeeZeroChecks() public {
+        bytes32 feeId = keccak256("fee-4");
+        uint256 feeAmount = 50e18;
+
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.sendFee(address(0), feeAmount, revenueVault, feeId);
+
+        vm.expectRevert(DividendDistribution.ZeroAddress.selector);
+        vm.prank(distributor);
+        distribution.sendFee(address(dshareToken), feeAmount, address(0), feeId);
+
+        vm.expectRevert(DividendDistribution.ZeroAmount.selector);
+        vm.prank(distributor);
+        distribution.sendFee(address(dshareToken), 0, revenueVault, feeId);
+    }
+
+    // ------------------- Full Omnibus Flow Test ------------------- //
+
+    function testFullOmnibusFlow() public {
+        // Step 1: Mint total dividend to contract
+        bytes32 brokerageDividendId = keccak256("omnibus-dividend-1");
+        uint256 totalAmount = 10000e18;
+
+        vm.prank(distributor);
+        distribution.mintDividend(address(dshareToken), totalAmount, address(distribution), brokerageDividendId);
+        assertEq(dshareToken.balanceOf(address(distribution)), totalAmount);
+
+        // Step 2: Send distributions to users
+        bytes32 dist1 = keccak256("dist-user1");
+        bytes32 dist2 = keccak256("dist-user2");
+        uint256 user1Amount = 3000e18;
+        uint256 user2Amount = 4000e18;
+
+        vm.startPrank(distributor);
+        distribution.sendDistribution(address(dshareToken), user1Amount, user, dist1);
+        distribution.sendDistribution(address(dshareToken), user2Amount, user2, dist2);
+
+        // Step 3: Send withholding
+        bytes32 whId = keccak256("wh-user1");
+        uint256 withholdingAmount = 500e18;
+        distribution.sendWithholding(address(dshareToken), withholdingAmount, withholder, whId);
+
+        // Step 4: Send fee
+        bytes32 feeId = keccak256("fee-omnibus");
+        uint256 feeAmount = 100e18;
+        distribution.sendFee(address(dshareToken), feeAmount, revenueVault, feeId);
+        vm.stopPrank();
+
+        // Verify final balances
+        assertEq(dshareToken.balanceOf(user), user1Amount);
+        assertEq(dshareToken.balanceOf(user2), user2Amount);
+        assertEq(dshareToken.balanceOf(withholder), withholdingAmount);
+        assertEq(dshareToken.balanceOf(revenueVault), feeAmount);
+        assertEq(
+            dshareToken.balanceOf(address(distribution)),
+            totalAmount - user1Amount - user2Amount - withholdingAmount - feeAmount
+        );
     }
 }

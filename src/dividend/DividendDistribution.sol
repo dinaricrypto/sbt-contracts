@@ -36,21 +36,29 @@ contract DividendDistribution is ControlledUpgradeable, IDividendDistributor {
 
     event DistributionReclaimed(uint256 indexed distributionId, uint256 totalReclaimed);
 
-    event DistributionMinted(
-        bytes32 indexed distributionFillId, address indexed recipient, address indexed token, uint256 amount
+    event DividendMinted(
+        bytes32 indexed brokerageDividendId, address indexed target, address indexed token, uint256 amount
     );
 
-    event WithholdingMinted(
-        bytes32 indexed distributionWithholdingId, address indexed recipient, address indexed token, uint256 amount
+    event DistributionSent(
+        bytes32 indexed distributionId, address indexed recipient, address indexed token, uint256 amount
     );
+
+    event WithholdingSent(
+        bytes32 indexed withholdingId, address indexed recipient, address indexed token, uint256 amount
+    );
+
+    event FeeSent(bytes32 indexed feeId, address indexed recipient, address indexed token, uint256 amount);
 
     // Custom errors
     error EndTimeBeforeMin(); // Error thrown when endtime is prior to minDistributionTime from now.
     error DistributionRunning(); // Error thrown when trying to reclaim tokens from an distribution that is still running.
     error DistributionEnded(); // Error thrown when trying to claim tokens from an distribution that has ended.
     error NotReclaimable(); // Error thrown when the distribution has already been reclaimed or does not exist.
-    error DistributionAlreadyFilled(bytes32 distributionFillId);
-    error WithholdingAlreadyFilled(bytes32 distributionWithholdingId);
+    error DividendAlreadyMinted(bytes32 brokerageDividendId);
+    error DistributionAlreadySent(bytes32 distributionId);
+    error WithholdingAlreadySent(bytes32 withholdingId);
+    error FeeAlreadySent(bytes32 feeId);
     error ZeroAddress();
     error ZeroAmount();
 
@@ -70,11 +78,17 @@ contract DividendDistribution is ControlledUpgradeable, IDividendDistributor {
     /// @notice The minimum time that must pass between the creation of a distribution and its end time.
     uint64 public minDistributionTime = 1 days;
 
-    /// @notice Tracks processed distribution fill IDs for idempotency
-    mapping(bytes32 => bool) public distributionFilled;
+    /// @notice Tracks processed brokerage dividend IDs for idempotency
+    mapping(bytes32 => bool) public dividendMinted;
+
+    /// @notice Tracks processed distribution IDs for idempotency
+    mapping(bytes32 => bool) public distributionSent;
 
     /// @notice Tracks processed withholding IDs for idempotency
-    mapping(bytes32 => bool) public withholdingFilled;
+    mapping(bytes32 => bool) public withholdingSent;
+
+    /// @notice Tracks processed fee IDs for idempotency
+    mapping(bytes32 => bool) public feeSent;
 
     /// ------------------- Version ------------------- ///
     function version() public view override returns (uint8) {
@@ -156,47 +170,91 @@ contract DividendDistribution is ControlledUpgradeable, IDividendDistributor {
         IERC20(token).safeTransfer(msg.sender, totalReclaimed);
     }
 
-    /// ------------------- Direct Minting ------------------- ///
+    /// ------------------- Dividend Minting ------------------- ///
 
-    /// @notice Mint tokens directly to recipient for dividend distribution
+    /// @notice Mint tokens for a brokerage dividend to a target address
     /// @param token Token address to mint (vUSD or DShare)
     /// @param amount Amount to mint
-    /// @param recipient Address receiving tokens
-    /// @param distributionFillId Unique UUID for idempotency
-    function mintDistribution(address token, uint256 amount, address recipient, bytes32 distributionFillId)
+    /// @param target Address receiving minted tokens (this contract for omnibus, or user wallet for individual brokerage)
+    /// @param brokerageDividendId Unique brokerage dividend ID for idempotency
+    function mintDividend(address token, uint256 amount, address target, bytes32 brokerageDividendId)
         external
         onlyRole(DISTRIBUTOR_ROLE)
     {
-        if (distributionFilled[distributionFillId]) revert DistributionAlreadyFilled(distributionFillId);
+        if (dividendMinted[brokerageDividendId]) revert DividendAlreadyMinted(brokerageDividendId);
         if (token == address(0)) revert ZeroAddress();
-        if (recipient == address(0)) revert ZeroAddress();
+        if (target == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
 
-        distributionFilled[distributionFillId] = true;
+        dividendMinted[brokerageDividendId] = true;
 
-        emit DistributionMinted(distributionFillId, recipient, token, amount);
+        emit DividendMinted(brokerageDividendId, target, token, amount);
 
-        IDShare(token).mint(recipient, amount);
+        IDShare(token).mint(target, amount);
     }
 
-    /// @notice Mint tokens to recipient for tax withholding
-    /// @param token Token address to mint (vUSD)
-    /// @param amount Amount to mint
-    /// @param recipient Withholder address
-    /// @param distributionWithholdingId Unique UUID for idempotency
-    function mintWithholding(address token, uint256 amount, address recipient, bytes32 distributionWithholdingId)
+    /// ------------------- Distribution Sends ------------------- ///
+
+    /// @notice Send distribution tokens to a recipient from contract balance
+    /// @param token Token address (vUSD or DShare)
+    /// @param amount Amount to send
+    /// @param recipient Address receiving tokens
+    /// @param distributionId Unique distribution ID for idempotency
+    function sendDistribution(address token, uint256 amount, address recipient, bytes32 distributionId)
         external
         onlyRole(DISTRIBUTOR_ROLE)
     {
-        if (withholdingFilled[distributionWithholdingId]) revert WithholdingAlreadyFilled(distributionWithholdingId);
+        if (distributionSent[distributionId]) revert DistributionAlreadySent(distributionId);
         if (token == address(0)) revert ZeroAddress();
         if (recipient == address(0)) revert ZeroAddress();
         if (amount == 0) revert ZeroAmount();
 
-        withholdingFilled[distributionWithholdingId] = true;
+        distributionSent[distributionId] = true;
 
-        emit WithholdingMinted(distributionWithholdingId, recipient, token, amount);
+        emit DistributionSent(distributionId, recipient, token, amount);
 
-        IDShare(token).mint(recipient, amount);
+        IERC20(token).safeTransfer(recipient, amount);
+    }
+
+    /// @notice Send withholding tokens to a recipient from contract balance
+    /// @param token Token address (vUSD)
+    /// @param amount Amount to send
+    /// @param recipient Withholder address
+    /// @param withholdingId Unique withholding ID for idempotency
+    function sendWithholding(address token, uint256 amount, address recipient, bytes32 withholdingId)
+        external
+        onlyRole(DISTRIBUTOR_ROLE)
+    {
+        if (withholdingSent[withholdingId]) revert WithholdingAlreadySent(withholdingId);
+        if (token == address(0)) revert ZeroAddress();
+        if (recipient == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+
+        withholdingSent[withholdingId] = true;
+
+        emit WithholdingSent(withholdingId, recipient, token, amount);
+
+        IERC20(token).safeTransfer(recipient, amount);
+    }
+
+    /// @notice Send fee tokens to a revenue vault from contract balance
+    /// @param token Token address (vUSD)
+    /// @param amount Fee amount to send
+    /// @param recipient Revenue vault address
+    /// @param feeId Unique fee ID for idempotency
+    function sendFee(address token, uint256 amount, address recipient, bytes32 feeId)
+        external
+        onlyRole(DISTRIBUTOR_ROLE)
+    {
+        if (feeSent[feeId]) revert FeeAlreadySent(feeId);
+        if (token == address(0)) revert ZeroAddress();
+        if (recipient == address(0)) revert ZeroAddress();
+        if (amount == 0) revert ZeroAmount();
+
+        feeSent[feeId] = true;
+
+        emit FeeSent(feeId, recipient, token, amount);
+
+        IERC20(token).safeTransfer(recipient, amount);
     }
 }

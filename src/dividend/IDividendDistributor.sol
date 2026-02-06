@@ -35,21 +35,38 @@ interface IDividendDistributor {
     function reclaimDistribution(uint256 _distributionId) external;
 
     /**
-     * @notice Mint tokens directly to recipient for dividend distribution
+     * @notice Mint tokens for a brokerage dividend to a target address
      * @param token Token address to mint (vUSD or DShare)
      * @param amount Amount to mint
-     * @param recipient Address receiving tokens
-     * @param distributionFillId Unique UUID for idempotency
+     * @param target Address receiving minted tokens (contract for omnibus, or user wallet for individual brokerage)
+     * @param brokerageDividendId Unique brokerage dividend ID for idempotency
      */
-    function mintDistribution(address token, uint256 amount, address recipient, bytes32 distributionFillId) external;
+    function mintDividend(address token, uint256 amount, address target, bytes32 brokerageDividendId) external;
 
     /**
-     * @notice Mint tokens to recipient for tax withholding
-     * @param token Token address to mint (vUSD)
-     * @param amount Amount to mint
-     * @param recipient Withholder address
-     * @param distributionWithholdingId Unique UUID for idempotency
+     * @notice Send distribution tokens to a recipient from contract balance
+     * @param token Token address (vUSD or DShare)
+     * @param amount Amount to send
+     * @param recipient Address receiving tokens
+     * @param distributionId Unique distribution ID for idempotency
      */
-    function mintWithholding(address token, uint256 amount, address recipient, bytes32 distributionWithholdingId)
-        external;
+    function sendDistribution(address token, uint256 amount, address recipient, bytes32 distributionId) external;
+
+    /**
+     * @notice Send withholding tokens to a recipient from contract balance
+     * @param token Token address (vUSD)
+     * @param amount Amount to send
+     * @param recipient Withholder address
+     * @param withholdingId Unique withholding ID for idempotency
+     */
+    function sendWithholding(address token, uint256 amount, address recipient, bytes32 withholdingId) external;
+
+    /**
+     * @notice Send fee tokens to a revenue vault from contract balance
+     * @param token Token address (vUSD)
+     * @param amount Fee amount to send
+     * @param recipient Revenue vault address
+     * @param feeId Unique fee ID for idempotency
+     */
+    function sendFee(address token, uint256 amount, address recipient, bytes32 feeId) external;
 }
